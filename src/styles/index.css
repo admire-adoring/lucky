@@ -1,0 +1,519 @@
+/* ============================================================
+   Lucky-Y · 全局样式与设计令牌（玻璃拟态 / Glassmorphism）
+   ------------------------------------------------------------
+   令牌来源：ui-design/v1.0 三个原型文件的 :root
+   映射方式：原型 CSS 变量 → Tailwind v4 @theme
+     --life / --work / --learn  → bg-life / text-life / bg-life-bg …
+     --ink-*                    → text-ink-500 / border-ink-200 …
+     --r-lg / --sh-lg           → rounded-lg / shadow-lg
+   因此原型里的语义色在组件里可直接写成 bg-life/10 text-life 这类工具类。
+
+   ------------------------------------------------------------
+   玻璃拟态的三条前提（缺一条就会退化成"半透明灰块"）
+   1. 底下必须有可折射的环境色 —— 见 body::before 的极光底衬。
+      没有它，backdrop-filter 无物可糊，玻璃只会显得发灰。
+   2. 表面令牌必须是「半透明白」而不是实色 —— 见 --color-surface 一族。
+      全站的 bg-surface / bg-ink-50 因此自动变成材质，不必逐处改 class。
+   3. 边缘要有一道 1px 上沿高光 —— 见 @utility glass 里的 ::after。
+      高光与 box-shadow 分离，是为了把 box-shadow 完整让给 shadow-* 工具类。
+   ============================================================ */
+@import 'tailwindcss';
+
+@theme {
+  /* ---------- 字体 ---------- */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  /* ---------- 品牌 / 交互色 ---------- */
+  --color-brand-50: rgba(99, 102, 241, 0.12);
+  --color-brand-100: rgba(99, 102, 241, 0.2);
+  --color-brand-400: #6366f1;
+  --color-brand-500: #4f46e5;
+  --color-brand-600: #4338ca;
+  --color-brand-700: #3730a3;
+
+  /* ---------- 三域语义色（全局唯一的“归属”信号）
+     ⚠️ 三支 -bg 已从实色改为同级明度的半透明染色：胶囊压在玻璃上时，
+     实色块会像"贴上去的贴纸"，半透明染色才是"同一片玻璃上的色"。
+     ⚠️ -strong 是"文字级"色阶，专供小字号徽标使用：把 -bg 改成 13% 半透明后，
+     徽标底色不再自带浅底，11.5px 的 #0f9d76 压在上面只有 2.8:1。
+     色条 / 进度条填充 / 圆点仍用原色阶（它们不承载文字）。 ---------- */
+  --color-life: #0f9d76;
+  --color-life-strong: #0a6b52;
+  --color-life-bg: rgba(15, 157, 118, 0.13);
+  --color-life-line: #bfe8da;
+  --color-work: #2f6fed;
+  --color-work-strong: #1d4fb8;
+  --color-work-bg: rgba(47, 111, 237, 0.13);
+  --color-work-line: #c5d9fb;
+  --color-learn: #7c3aed;
+  --color-learn-strong: #5b21b6;
+  --color-learn-bg: rgba(124, 58, 237, 0.13);
+  --color-learn-line: #dccdfb;
+
+  /* ---------- 中性灰阶（冷调）
+     ⚠️ 相比原型整体下调约 8%～12%。理由：文字改压在「半透明白 + 极光」而不是纯白上，
+     合成后的底衬亮度低于 #fff；若沿用原灰阶，ink-400 / ink-500 这些小字号的对比度
+     会跌破原型水平。下调后各级相对层级不变，各级在玻璃上的实测比值与原型持平或更好。
+     实测（见交付说明）：ink-500 在页面底衬上 4.7:1（原型在纯白上 4.83:1）。 ---------- */
+  --color-ink-50: rgba(17, 20, 28, 0.045);
+  --color-ink-100: rgba(17, 20, 28, 0.075);
+  --color-ink-200: #d3d7de;
+  --color-ink-300: #9ba4b2;
+  --color-ink-400: #74808f;
+  --color-ink-500: #5b6370;
+  --color-ink-600: #454c58;
+  --color-ink-700: #343a46;
+  --color-ink-800: #1b1e26;
+  --color-ink-900: #101218;
+
+  /* ---------- 表面与描边（玻璃拟态：表面是材质，不是实色）
+     三档材质自下而上：沉槽 → 常规玻璃 → 抬升玻璃
+     ⚠️ 外壳（侧栏 / 顶栏）用 surface 而不是 surface-raised：
+     raised 的 α.84 会把背后极光几乎全部盖掉（实测侧栏底衬 250,249,252 ≈ 纯白，像一块白板）。
+     代价是侧栏 ink-400 装饰层从 3.7 降到 3.4 —— 与原型在纯白上的 3.50 同档，可接受。 ---------- */
+  --color-surface: rgba(255, 255, 255, 0.7);
+  --color-surface-raised: rgba(255, 255, 255, 0.84);
+  --color-surface-sunken: rgba(255, 255, 255, 0.42);
+  --color-canvas: rgba(255, 255, 255, 0.38);
+  --color-line: rgba(17, 20, 28, 0.085);
+  --color-line-strong: rgba(17, 20, 28, 0.155);
+
+  /* ---------- 玻璃专用 ---------- */
+  --color-glass-hi: rgba(255, 255, 255, 0.8); /* 上沿高光 */
+  --color-glass-lo: rgba(17, 20, 28, 0.055); /* 下沿暗线 */
+
+  /* ---------- 语义色（-bg 同样改为半透明染色） ---------- */
+  --color-danger: #d82323;
+  --color-danger-bg: rgba(220, 38, 38, 0.11);
+  --color-danger-strong: #b91c1c;
+  --color-danger-line: rgba(220, 38, 38, 0.26);
+  --color-success: #0f9d76;
+  --color-success-bg: rgba(15, 157, 118, 0.13);
+  --color-success-strong: #0b7a5c;
+  --color-warning: #c2740a;
+  --color-warning-bg: rgba(194, 116, 10, 0.13);
+  --color-warning-line: rgba(194, 116, 10, 0.28);
+  --color-online: #22c55e;
+
+  /* ---------- 优先级标记 ---------- */
+  --color-prio-high: #e5484d;
+  --color-prio-mid: #e0a020;
+
+  /* ---------- 圆角（玻璃拟态偏好更饱满的圆角：半径越大，材质越像"一片"） ---------- */
+  --radius-xs: 7px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-2xl: 30px;
+
+  /* ---------- 阴影：玻璃的重心在上沿高光，投影只负责"离地高度" ---------- */
+  --shadow-xs: 0 1px 2px rgba(17, 20, 28, 0.04);
+  --shadow-sm: 0 2px 6px rgba(17, 20, 28, 0.05), 0 1px 2px rgba(17, 20, 28, 0.03);
+  --shadow-md: 0 8px 20px rgba(17, 20, 28, 0.07), 0 2px 5px rgba(17, 20, 28, 0.035);
+  --shadow-lg: 0 18px 40px rgba(17, 20, 28, 0.1), 0 4px 10px rgba(17, 20, 28, 0.04);
+  --shadow-xl: 0 32px 64px rgba(17, 20, 28, 0.14);
+
+  /* ---------- 字号（原型使用的非标准刻度，1:1 映射） ---------- */
+  --text-9-5: 9.5px;
+  --text-10: 10px;
+  --text-10-5: 10.5px;
+  --text-11: 11px;
+  --text-11-5: 11.5px;
+  --text-12: 12px;
+  --text-12-5: 12.5px;
+  --text-13: 13px;
+  --text-13-5: 13.5px;
+  --text-14: 14px;
+  --text-14-5: 14.5px;
+  --text-15: 15px;
+  --text-15-5: 15.5px;
+  --text-16: 16px;
+  --text-19: 19px;
+  --text-21: 21px;
+  --text-24: 24px;
+  --text-26: 26px;
+  --text-29: 29px;
+  --text-30: 30px;
+
+  /* ---------- 动效 ---------- */
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  --animate-fade-up: fadeUp10 0.34s cubic-bezier(0, 0, 0.2, 1) both;
+  --animate-fade-up-sm: fadeUp8 0.3s cubic-bezier(0, 0, 0.2, 1) both;
+  --animate-fade-up-lg: fadeUp14 0.58s cubic-bezier(0, 0, 0.2, 1) both;
+  --animate-spin-fast: spinnerRotate 0.65s linear infinite;
+  --animate-dot-pulse: dotPulse 2.4s infinite;
+  --animate-badge-pulse: badgePulse 2s infinite;
+}
+
+/* ============================================================
+   Keyframes（原型三份文件里出现过的全部动效 + 极光漂移）
+   ============================================================ */
+@keyframes fadeUp10 {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fadeUp8 {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fadeUp14 {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes spinnerRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes dotPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+@keyframes badgePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+/* 极光缓慢漂移：让玻璃背后的色块轻微位移，玻璃才有"活"的折射感 */
+@keyframes auroraDrift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2.2%, 1.6%, 0) scale(1.06);
+  }
+}
+
+/* ============================================================
+   玻璃材质（Tailwind v4 @utility）
+   ------------------------------------------------------------
+   为什么用 @utility 而不是 @layer components：
+   工具类层支持 hover: / max-[860px]: 这类变体，材质需要按状态换档
+   （例如 hover:glass-lift），放 components 层就调不动。
+   为什么高光走 ::after 而不是 box-shadow：
+   Tailwind 的 shadow-* 工具类写的是同一个 box-shadow 属性，两者会互相覆盖，
+   且"谁生效"取决于产出顺序、不取决于 class 书写顺序。把上沿高光隔离进 ::after，
+   box-shadow 就完整留给了 shadow-md / shadow-lg 这些工具类。
+   ============================================================ */
+@utility glass {
+  position: relative;
+  backdrop-filter: blur(18px) saturate(175%);
+  -webkit-backdrop-filter: blur(18px) saturate(175%);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+      inset 0 1px 0 var(--color-glass-hi),
+      inset 0 -1px 0 var(--color-glass-lo);
+  }
+}
+
+/* 顶栏 / 侧栏 / 浮层：面积大、遮挡内容多，需要更厚的模糊把背后彻底糊开 */
+@utility glass-bar {
+  position: relative;
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+      inset 0 1px 0 var(--color-glass-hi),
+      inset 0 -1px 0 var(--color-glass-lo);
+  }
+}
+
+/* 卡片 / 面板：与内容同层，模糊适度即可，过厚会让文字底衬发脏 */
+@utility glass-panel {
+  position: relative;
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+      inset 0 1px 0 var(--color-glass-hi),
+      inset 0 -1px 0 var(--color-glass-lo);
+  }
+}
+
+/* 小控件（胶囊、图标按钮、分段项）：面积小，模糊调轻，否则描边外会泛光晕 */
+@utility glass-soft {
+  position: relative;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 1px 0 var(--color-glass-hi);
+  }
+}
+
+/* 悬浮抬升：只补投影，不碰高光 */
+@utility glass-lift {
+  box-shadow: 0 18px 40px rgba(17, 20, 28, 0.11), 0 4px 10px rgba(17, 20, 28, 0.04);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--color-ink-900);
+    /* 底衬基色：比纯白略冷，给上层的白玻璃留出"被提亮"的空间 */
+    background-color: #e9edf6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ---------- 极光底衬 ----------
+     玻璃的"料"全部来自这一层。固定定位、不参与布局、不接收事件；
+     它画在 body 背景之上、#root 之下（见下方 #root 的 z-index），
+     于是所有带 backdrop-filter 的玻璃都会把这层色糊进自身内部。
+
+     ⚠️ 几何是这套方案里最容易做错的一处，踩过两次：
+     ① 最初写成 inset:-12% + 四角 radial，色斑中心被推出视口，只剩尾部衰减落在画面里 ——
+        实测页面底衬几乎纯灰白，玻璃彻底没有"折射物"。
+     ② 改成 inset:0 + 四角后，角点 radial 的**垂直半径不够**（52% 从 y=14% 起算），
+        侧栏 900px 高的中段落到色斑之外 —— 实测侧栏中心 245,248,250 ≈ 中性灰，
+        看着仍是一块白板。角点色斑天生只能照顾"角"，照顾不了"整列"。
+
+     现在的口径：
+       ① 左侧色带改用**线性渐变**（96deg，全高）：侧栏是整列，能覆盖整列的只有线性色带。
+          峰值 52% → **21% 处归零**，而不是 30%。
+          为什么是 21%：侧栏右边缘在 17.2%，内容列从 18.9% 开始 ——
+          第一次写成 30%，色带尾巴扫进内容列，把 13.5px 正文（page-sub）从 4.66 压到 4.40。
+          收窄到 21% 之后，侧栏内部仍自带横向色彩梯度（左浓右淡），内容列的底衬却回到干净状态。
+       ② 侧栏底部再叠一个青绿 radial，让纵向也有色相变化（上靛蓝 → 下青绿）——
+          两个轴都有梯度，"玻璃背后有色"才看得出来。
+       ③ 右上紫 / 右下天蓝 / 下中粉仍用角点 radial：它们服务的是"页面四角"。
+       ④ 中央一层 6% 极淡紫，避免大面积空白发死。 */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(
+        96deg,
+        rgba(99, 102, 241, 0.52) 0%,
+        rgba(99, 102, 241, 0.3) 13%,
+        rgba(99, 102, 241, 0) 21%
+      ),
+      radial-gradient(18% 40% at 7% 104%, rgba(15, 157, 118, 0.36) 0%, rgba(15, 157, 118, 0) 74%),
+      radial-gradient(26% 30% at 100% 2%, rgba(124, 58, 237, 0.36) 0%, rgba(124, 58, 237, 0) 72%),
+      radial-gradient(26% 32% at 100% 100%, rgba(14, 165, 233, 0.34) 0%, rgba(14, 165, 233, 0) 72%),
+      radial-gradient(30% 34% at 54% 102%, rgba(236, 72, 153, 0.16) 0%, rgba(236, 72, 153, 0) 76%),
+      radial-gradient(72% 62% at 50% 42%, rgba(99, 102, 241, 0.06) 0%, rgba(99, 102, 241, 0) 72%);
+    animation: auroraDrift 26s ease-in-out infinite alternate;
+  }
+
+  /* 玻璃的"霜感"：细颗粒噪点。压在极光之上、内容之下，
+     被玻璃模糊后成为均匀的磨砂膜，避免大面积渐变糊出塑料感。 */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.3;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  }
+
+  /* 应用内容整体抬到极光/噪点之上。
+     只加 position + z-index 不会形成 backdrop root（filter / opacity<1 / mask 才会），
+     所以 #root 内部的玻璃仍能采到 body::before 的极光 —— 这是整套方案成立的关键。 */
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  svg {
+    display: block;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* 统一滚动条（原型三页一致） */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-200);
+    border-radius: 99px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-300);
+    background-clip: content-box;
+    border: 3px solid transparent;
+  }
+}
+
+/* ============================================================
+   Components —— 仅保留“工具类表达不了”的装饰性样式
+   ============================================================ */
+@layer components {
+  /* 图标默认尺寸（原型 .icon{width:18px;height:18px;flex:none}）。
+     放在 components 层而不是工具类里，调用处传 h-[13.5px] 这类工具类才能稳定覆盖，
+     否则同属性的两个工具类谁生效取决于 Tailwind 的产出顺序。 */
+  .icon {
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+
+  /* 登录页左侧品牌面板：深色玻璃。
+     底色仍是接近不透明的深色（白字要够对比，实测面板底衬 29~44 亮度，
+     比原型的 #0b0d13 略亮，是靠保持 0.92 的不透明度换回来的），
+     但保留 backdrop-filter + 一点透光，让背后极光渗进来，避免变成一块死黑实心板。 */
+  .brand-panel {
+    background:
+      radial-gradient(120% 85% at 8% 4%, rgba(99, 102, 241, 0.5) 0%, rgba(99, 102, 241, 0) 58%),
+      radial-gradient(85% 70% at 92% 16%, rgba(124, 58, 237, 0.42) 0%, rgba(124, 58, 237, 0) 55%),
+      radial-gradient(110% 90% at 72% 104%, rgba(14, 165, 233, 0.26) 0%, rgba(14, 165, 233, 0) 62%),
+      rgba(9, 11, 16, 0.92);
+    backdrop-filter: blur(30px) saturate(150%);
+    -webkit-backdrop-filter: blur(30px) saturate(150%);
+  }
+
+  .brand-panel__grid::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(120% 100% at 20% 0%, #000 25%, transparent 78%);
+    mask-image: radial-gradient(120% 100% at 20% 0%, #000 25%, transparent 78%);
+    pointer-events: none;
+  }
+}
+
+/* ============================================================
+   降级：不支持 backdrop-filter 时把玻璃退回不透明表面。
+   否则「半透明 + 无模糊」比原设计更难读（文字压在半透明块上发灰）。
+   放在所有 @layer 之外 —— 未分层的规则优先级高于任何 @layer，
+   因此这里的 background-color 能压过 bg-surface / bg-ink-50 这些工具类。
+   ============================================================ */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-bar,
+  .glass-panel,
+  .glass-soft {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  body::after {
+    display: none;
+  }
+}
+
+/* ============================================================
+   降低动效偏好（原型用 * 全局降级，这里保持一致）
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  body::before {
+    animation: none !important;
+  }
+}
