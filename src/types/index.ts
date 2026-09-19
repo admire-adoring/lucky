@@ -60,6 +60,20 @@ export type IconName =
   | 'i-github'
   | 'i-mail'
   | 'i-eye'
+  // 自绘窗口控制（原生标题栏已关闭，见 src-tauri/tauri.conf.json 的 decorations）
+  // Windows / Linux 字形
+  | 'i-win-min'
+  | 'i-win-max'
+  | 'i-win-restore'
+  | 'i-win-close'
+  // macOS 圆点内部的字形（笔画更粗，见 IconSprite 注释）
+  | 'i-mac-close'
+  | 'i-mac-min'
+  | 'i-mac-full'
+  // 账户菜单
+  | 'i-user'
+  | 'i-settings'
+  | 'i-logout'
 
 /**
  * 项目 —— 统一执行层的唯一模型，用 scope 隔离归属。

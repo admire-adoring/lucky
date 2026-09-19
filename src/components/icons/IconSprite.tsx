@@ -175,6 +175,54 @@ export function IconSprite() {
         <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
         <circle cx="12" cy="12" r="3" />
       </symbol>
+
+      {/* ---------- 自绘窗口控制 ----------
+          系统标题栏已由 tauri.conf.json 的 decorations:false 关闭，这里的三套图标
+          分别对齐三个平台的原生字形，而不是统一成一套"我们的"图形：
+            macOS   → 12px 圆点内的细字形（按钮本身是圆点，见 WindowControls）
+            Windows → 极细的线段/方格/叉（Windows 11 caption 的字形就是 1px 细线）
+            Linux   → 复用 Windows 那三个字形，只是按钮本身做成圆形
+          ⚠️ 笔画宽度要按"最终渲染尺寸"倒推：sprite 的 viewBox 是 24，
+          渲染到 10px 时 strokeWidth:2 只剩 0.83px（正好接近 Windows 的 1px）；
+          而 macOS 圆点里的字形只有 7px，必须给到 4 才相当于 1.17px。 */}
+      <symbol id="i-win-min" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M5 12h14" />
+      </symbol>
+      <symbol id="i-win-max" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+        <rect x="5.5" y="5.5" width="13" height="13" />
+      </symbol>
+      <symbol id="i-win-restore" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+        <path d="M9 4h9a2 2 0 0 1 2 2v9" />
+        <rect x="4" y="9" width="11" height="11" rx="1.5" />
+      </symbol>
+      <symbol id="i-win-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M6 6l12 12" />
+        <path d="M18 6L6 18" />
+      </symbol>
+      {/* macOS 三种字形（只出现在圆点内部的 hover 态）：笔画加粗到 4 */}
+      <symbol id="i-mac-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round">
+        <path d="M7 7l10 10" />
+        <path d="M17 7L7 17" />
+      </symbol>
+      <symbol id="i-mac-min" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round">
+        <path d="M6 12h12" />
+      </symbol>
+      {/* 账户菜单（顶栏胶囊与侧栏底部共用同一套） */}
+      <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4.5 20.5c0-3.6 3.3-6 7.5-6s7.5 2.4 7.5 6" />
+        <circle cx="12" cy="8" r="3.6" />
+      </symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3.1" />
+        <path d="M19.9 14.4a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.56 1.03Z" />
+      </symbol>
+      {/* 退出登录：门框 + 向外的箭头。箭头朝右（"走出去"），不做成朝左的回退箭头 ——
+          回退箭头读作"返回上一页"，与"结束会话"是两件事。 */}
+      <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14.5 4.5H6.5A2 2 0 0 0 4.5 6.5v11a2 2 0 0 0 2 2h8" />
+        <path d="M16 8l4 4-4 4" />
+        <path d="M20 12H10" />
+      </symbol>
     </svg>
   )
 }

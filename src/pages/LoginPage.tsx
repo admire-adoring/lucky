@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { DEMO_ACCOUNT } from '../api/projects'
 import { BrandMark } from '../components/ui/BrandMark'
 import { Icon } from '../components/icons/Icon'
+import { WindowControls } from '../components/layout/WindowControls'
 import { useDocumentTitle } from '../hooks/use-document-title'
+import { DRAG_REGION, PLATFORM } from '../lib/desktop-window'
 import { cn } from '../lib/cn'
 import { useAuthStore } from '../stores/auth-store'
 import { toast } from '../stores/toast-store'
@@ -27,6 +29,9 @@ const DOMAINS = [
 
 export function LoginPage() {
   useDocumentTitle('登录 · Lucky-Y')
+
+  // 窗口控制的位置按平台分侧：macOS 圆点靠左，Windows / Linux 靠右
+  const isMac = PLATFORM === 'macos'
 
   const navigate = useNavigate()
   const signIn = useAuthStore((state) => state.signIn)
@@ -53,9 +58,31 @@ export function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen grid-cols-[minmax(0,1.06fr)_minmax(0,1fr)] max-[1080px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] max-[880px]:grid-cols-1">
-      {/* ==================== 左：品牌面板 ==================== */}
-      <aside className="brand-panel brand-panel__grid relative flex flex-col justify-between overflow-hidden px-12 pb-[92px] pt-12 text-white max-[1080px]:p-8 max-[880px]:hidden">
+    <div className="relative grid h-full grid-cols-[minmax(0,1.06fr)_minmax(0,1fr)] overflow-y-auto max-[1080px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] max-[880px]:grid-cols-1">
+      {/* ==================== 桌面端：登录页没有顶栏，窗口控制与拖拽区要单独铺 ====================
+          原生标题栏已关（tauri.conf.json 的 decorations:false），而本页不渲染 AppShell/Topbar，
+          所以这里是"关不掉、也推不动"的唯一漏洞位置。
+          做法：一条透明的顶部覆盖层承载拖拽 + 窗口控制，位置按平台对齐 ——
+          macOS 圆点靠左（原生在窗口左上角），Windows / Linux 靠右并贴齐窗口边。
+          它只占 60px 高，右侧的表单卡从 y≈100 才开始，左侧品牌面板在该带内没有可交互元素，
+          因此不会挡住任何点击。 */}
+      <div
+        {...DRAG_REGION}
+        className={cn(
+          'absolute inset-x-0 top-0 z-30 flex h-[60px] items-center',
+          isMac ? 'justify-start pl-4' : 'justify-end pr-0',
+        )}
+      >
+        <WindowControls />
+      </div>
+
+      {/* ==================== 左：品牌面板 ====================
+          整块也是拖拽区：登录页的左半幅没有可交互元素（六域标签是纯装饰的 div），
+          所以用户可以像拖启动画面一样直接拖这里。 */}
+      <aside
+        {...DRAG_REGION}
+        className="brand-panel brand-panel__grid shell-frame-left relative flex flex-col justify-between overflow-hidden px-12 pb-[92px] pt-12 text-white max-[1080px]:p-8 max-[880px]:hidden"
+      >
         <div className="relative z-[1] flex items-center gap-3">
           <BrandMark className="h-[38px] w-[38px] rounded-[11px]" />
           <div>
@@ -106,7 +133,7 @@ export function LoginPage() {
       {/* ==================== 右：登录表单 ====================
           玻璃拟态下这里不再铺一块白色实底 —— 让极光从表单背后透过来，
           表单本身装在一片大玻璃里，与左侧深色玻璃面板形成一深一浅的对位。 */}
-      <main className="relative flex items-center justify-center px-8 py-12 max-[880px]:items-start max-[880px]:px-5 max-[880px]:py-8">
+      <main className="shell-frame-right shell-frame-left-sm relative flex items-center justify-center px-8 py-12 max-[880px]:items-start max-[880px]:px-5 max-[880px]:py-8">
         <div className="glass-panel w-full max-w-[452px] rounded-2xl border border-line bg-surface p-8 shadow-xl max-[880px]:rounded-xl max-[880px]:p-6">
           <div className="w-full">
           {/* 移动端才显示的紧凑品牌头 */}
@@ -158,7 +185,7 @@ export function LoginPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="glass-soft h-[46px] w-full rounded-md border border-line-strong bg-ink-50 pl-10 pr-3.5 text-14-5 text-ink-900 outline-none transition-all duration-150 ease-out placeholder:text-ink-400 hover:bg-surface-sunken focus:border-brand-500 focus:bg-surface focus:shadow-[0_0_0_3.5px_rgba(79,70,229,.13)]"
+                  className="glass-soft h-[46px] w-full rounded-md border border-line-strong bg-ink-50 pl-10 pr-3.5 text-14-5 text-ink-900 outline-none transition-all duration-150 ease-out placeholder:text-ink-500 hover:bg-surface-sunken focus:border-brand-500 focus:bg-surface focus:shadow-[0_0_0_3.5px_rgba(79,70,229,.13)]"
                 />
               </div>
             </div>
@@ -189,7 +216,7 @@ export function LoginPage() {
                   placeholder="输入密码"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="glass-soft h-[46px] w-full rounded-md border border-line-strong bg-ink-50 pl-10 pr-[46px] text-14-5 text-ink-900 outline-none transition-all duration-150 ease-out placeholder:text-ink-400 hover:bg-surface-sunken focus:border-brand-500 focus:bg-surface focus:shadow-[0_0_0_3.5px_rgba(79,70,229,.13)]"
+                  className="glass-soft h-[46px] w-full rounded-md border border-line-strong bg-ink-50 pl-10 pr-[46px] text-14-5 text-ink-900 outline-none transition-all duration-150 ease-out placeholder:text-ink-500 hover:bg-surface-sunken focus:border-brand-500 focus:bg-surface focus:shadow-[0_0_0_3.5px_rgba(79,70,229,.13)]"
                 />
                 <button
                   type="button"

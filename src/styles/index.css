@@ -10,7 +10,7 @@
 
    ------------------------------------------------------------
    玻璃拟态的三条前提（缺一条就会退化成"半透明灰块"）
-   1. 底下必须有可折射的环境色 —— 见 body::before 的极光底衬。
+   1. 底下必须有可折射的环境色 —— 见 index.html 的 .ambient 极光底衬。
       没有它，backdrop-filter 无物可糊，玻璃只会显得发灰。
    2. 表面令牌必须是「半透明白」而不是实色 —— 见 --color-surface 一族。
       全站的 bg-surface / bg-ink-50 因此自动变成材质，不必逐处改 class。
@@ -148,6 +148,41 @@
   --animate-spin-fast: spinnerRotate 0.65s linear infinite;
   --animate-dot-pulse: dotPulse 2.4s infinite;
   --animate-badge-pulse: badgePulse 2s infinite;
+
+  /* ============================================================
+     窗口圆角
+     ------------------------------------------------------------
+     decorations:false 之后 macOS 的边框窗口是**直角**的（原生圆角是
+     NSWindow 的 .titled 样式带来的），要恢复就必须走"透明窗口 + 自绘圆角"。
+
+     ⚠️ 取值 24px = **跟随内容层级，不对齐系统原生**（用户 2026-09-19 明确指定）。
+     原生 macOS 是 10px、Linux/Adwaita 是 12px —— 都比它里面的卡片（`--radius-xl` 24px、
+     大面板 30px）更小，于是"外面的壳比里面的东西还硬"。现在把外壳拉到与主面板同档，
+     代价是**它不再像一扇原生 macOS 窗口**（比系统窗口明显更圆）。
+     这是一次口径选择：**平台保真 < 内容一致性**。
+
+     Windows 仍留 0，与上面这条不冲突 —— 那不是"审美选了 0"，而是**画圆角的人不同**：
+     config.schema.json 里写明 `shadow:true` 会让无边框窗口在 Windows 11 上自带圆角，
+     再由 DWM 按窗口区域裁剪。我们自己再画一层只会被 DWM 裁掉、并与系统圆角错位。
+     「谁来画」属于宿主能力，可以按平台分；「画多圆」属设计属性，只该有一套数。
+     ============================================================ */
+  --window-radius: 24px;
+}
+
+/* ⚠️ 下面的覆写**刻意不带 `[data-shell='desktop']` 限定** —— 曾经带过，代价很具体：
+   浏览器宿主（`pnpm dev` 与 `dist` 预览）下 --window-radius 恒为 0，窗口四角是硬直角。
+   而"登录后进入的工作台"是全幅铺满的（侧栏 + 顶栏顶到四边），直角最扎眼；
+   登录页因为主体是一张 30px 圆角的表单卡，看着反而"有圆角" —— 于是就成了
+   "登录页有圆角、登录后没有"。根子在于把两件不同性质的事绑在了一起：
+
+     · **圆角是设计属性** → 任何宿主都该有，一套数；
+     · **透明是宿主能力** → 只有桌面壳能真透明（浏览器标签页没有"窗口透明"这回事），
+       所以只有透明那一组规则才该带 data-shell 限定。
+
+   把限定去掉之后，圆角在任何宿主都是同一套令牌，不再随宿主静默归零。 */
+html[data-platform='windows'] {
+  /* 唯一保留的平台覆写，理由见上：Win11 的圆角由 DWM 画 */
+  --window-radius: 0px;
 }
 
 /* ============================================================
@@ -324,73 +359,130 @@
     font-size: 15px;
     line-height: 1.7;
     color: var(--color-ink-900);
-    /* 底衬基色：比纯白略冷，给上层的白玻璃留出"被提亮"的空间 */
-    background-color: #e9edf6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* ---------- 极光底衬 ----------
-     玻璃的"料"全部来自这一层。固定定位、不参与布局、不接收事件；
-     它画在 body 背景之上、#root 之下（见下方 #root 的 z-index），
-     于是所有带 backdrop-filter 的玻璃都会把这层色糊进自身内部。
+  /* ---------- 环境光层 ----------
+     ⚠️ 结构：外层 .ambient 只负责"形状"，内层 .ambient__aurora 只负责"漂"。
+     两个职责必须分开，原因见 index.html 里的注释 —— 合并在一起时，
+     漂移的 transform 会把带圆角的那一层挪出视口，极光顺着窗口四角漏出去。
 
-     ⚠️ 几何是这套方案里最容易做错的一处，踩过两次：
-     ① 最初写成 inset:-12% + 四角 radial，色斑中心被推出视口，只剩尾部衰减落在画面里 ——
-        实测页面底衬几乎纯灰白，玻璃彻底没有"折射物"。
-     ② 改成 inset:0 + 四角后，角点 radial 的**垂直半径不够**（52% 从 y=14% 起算），
-        侧栏 900px 高的中段落到色斑之外 —— 实测侧栏中心 245,248,250 ≈ 中性灰，
-        看着仍是一块白板。角点色斑天生只能照顾"角"，照顾不了"整列"。
-
-     现在的口径：
-       ① 左侧色带改用**线性渐变**（96deg，全高）：侧栏是整列，能覆盖整列的只有线性色带。
-          峰值 52% → **21% 处归零**，而不是 30%。
-          为什么是 21%：侧栏右边缘在 17.2%，内容列从 18.9% 开始 ——
-          第一次写成 30%，色带尾巴扫进内容列，把 13.5px 正文（page-sub）从 4.66 压到 4.40。
-          收窄到 21% 之后，侧栏内部仍自带横向色彩梯度（左浓右淡），内容列的底衬却回到干净状态。
-       ② 侧栏底部再叠一个青绿 radial，让纵向也有色相变化（上靛蓝 → 下青绿）——
-          两个轴都有梯度，"玻璃背后有色"才看得出来。
-       ③ 右上紫 / 右下天蓝 / 下中粉仍用角点 radial：它们服务的是"页面四角"。
-       ④ 中央一层 6% 极淡紫，避免大面积空白发死。 */
-  body::before {
-    content: '';
+     几何（内层）刻意错开：强色压在两侧与上下边缘（侧栏之外、内容区四周），
+     中央内容带留得更淡 —— 玻璃依然有色可折射，正文底衬却不会太花。 */
+  .ambient {
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
+    /* 底衬基色（原来是 body 的 background-color）。
+       桌面壳里窗口是透明的，基色若留在 body 上，圆角外露出的那部分就是
+       **不透明的方角** —— 基色必须和圆角待在同一个图层里。 */
+    background-color: #e9edf6;
+    border-radius: var(--window-radius);
+    /* 关键的一行：把会漂的内层裁在圆角之内。
+       没有它，内层漂到极值时就会盖到圆角外面去。 */
+    overflow: hidden;
+  }
+
+  .ambient__aurora {
+    position: absolute;
+    /* 比外层大一圈，给漂移留余量（漂移量见 auroraDrift：最多平移 2.2% + 放大 6%）。
+       这一圈永远在视口之外、被外层裁掉，所以不会改变任何可见几何。 */
+    inset: -10%;
+    /* ⚠️ 这两行是几何得以保持的关键，不能省：
+       background-size 把渐变图像固定成"一屏大小"，background-position: 50% 50%
+       再把它在放大的元素里居中 —— 两者合起来让渐变**与视口像素对齐**，
+       而不是按 120% 的元素尺寸重算百分比。
+       少了它们，@6% 的色斑会变成 -2.8%、@21% 的色带归零点变成 15.2%，
+       左侧色带就会扫进内容列，13.5px 正文会掉到 4.4:1。
+       background-repeat 保持默认 repeat：铺在余量里，反正看不见。 */
+    background-size: 100vw 100vh;
+    background-position: 50% 50%;
     background-image:
+      /* 顶栏紫纱：只作用于顶部 7.2%（≈65px，即顶栏高度），全宽均匀 */
+      linear-gradient(180deg, rgba(124, 58, 237, 0.36) 0%, rgba(124, 58, 237, 0) 7.2%),
+      /* 顶栏左端靛蓝：y 半径 10%（≈90px），压在顶栏高度内，与侧栏顶部同色 */
+      radial-gradient(30% 10% at 6% 0%, rgba(99, 102, 241, 0.46) 0%, rgba(99, 102, 241, 0) 76%),
+      /* 左侧全高色带：侧栏的"料" */
       linear-gradient(
         96deg,
         rgba(99, 102, 241, 0.52) 0%,
         rgba(99, 102, 241, 0.3) 13%,
         rgba(99, 102, 241, 0) 21%
       ),
+      /* 右上紫：同时负责顶栏右端 */
+      radial-gradient(40% 24% at 101% -2%, rgba(124, 58, 237, 0.34) 0%, rgba(124, 58, 237, 0) 74%),
+      /* 侧栏底部青绿 */
       radial-gradient(18% 40% at 7% 104%, rgba(15, 157, 118, 0.36) 0%, rgba(15, 157, 118, 0) 74%),
-      radial-gradient(26% 30% at 100% 2%, rgba(124, 58, 237, 0.36) 0%, rgba(124, 58, 237, 0) 72%),
       radial-gradient(26% 32% at 100% 100%, rgba(14, 165, 233, 0.34) 0%, rgba(14, 165, 233, 0) 72%),
       radial-gradient(30% 34% at 54% 102%, rgba(236, 72, 153, 0.16) 0%, rgba(236, 72, 153, 0) 76%),
       radial-gradient(72% 62% at 50% 42%, rgba(99, 102, 241, 0.06) 0%, rgba(99, 102, 241, 0) 72%);
     animation: auroraDrift 26s ease-in-out infinite alternate;
   }
 
+  /* ⚠️ 上面这套几何是反复实测调出来的，改动前先读这三条（每条都对应一次翻车）：
+     ① 最初写成 `inset:-12%` + 四角 radial → 色斑中心被推出视口，只剩尾部衰减落在画面里，
+        实测页面底衬几乎纯灰白，玻璃彻底没有"折射物"。
+     ② 改成 `inset:0` + 四角后，角点 radial 的**垂直半径不够**（52% 从 y=14% 起算），
+        侧栏 900px 高的中段落到色斑之外 —— 实测侧栏中心 245,248,250 ≈ 中性灰，仍是一块白板。
+        角点色斑天生只能照顾"角"，照顾不了"整列"，所以左侧改成了全高线性色带。
+     ③ 色带的横向射程必须按列宽定：侧栏右边缘在 17.2%、内容列从 18.9% 开始，
+        所以色带要在 **21% 归零**。第一版写到 30%，尾巴扫进内容列，
+        把 13.5px 正文（page-sub）从 4.66 压到 4.40。
+        ——这也是上面 background-size / background-position 两行不能省的原因：
+        少了它们，百分比会按 120% 的元素尺寸重算，@21% 会变成 15.2%，正文立刻掉档。
+     顶栏那条横带另外单给三层（全宽紫纱 + 左端靛蓝 + 右上紫），
+     因为侧栏色带 21% 就归零、而顶栏从 17.2% 才开始，中间 600~1100px 本来一点色都没有。
+     紫纱的 α 从 0.14 起试过：α.70 的玻璃会把底衬稀释到 30%，0.14 只做出 6 个通道差，
+     顶栏仍是白横条（实测 244,245,250，比侧栏还亮）；要到 0.36 才落到同一亮度档。
+     这一带可以放心给足 —— 它只作用于顶部 65px，里面只有搜索框和 ⌘K 徽标，没有正文。 */
+
   /* 玻璃的"霜感"：细颗粒噪点。压在极光之上、内容之下，
-     被玻璃模糊后成为均匀的磨砂膜，避免大面积渐变糊出塑料感。 */
-  body::after {
-    content: '';
-    position: fixed;
+     被玻璃模糊后成为均匀的磨砂膜，避免大面积渐变糊出塑料感。
+     不参与漂移 —— 它只是质感，跟着动反而会显脏。 */
+  .ambient__noise {
+    position: absolute;
     inset: 0;
-    z-index: 0;
-    pointer-events: none;
     opacity: 0.3;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
   }
 
-  /* 应用内容整体抬到极光/噪点之上。
+  /* 应用内容整体抬到环境光之上。
      只加 position + z-index 不会形成 backdrop root（filter / opacity<1 / mask 才会），
-     所以 #root 内部的玻璃仍能采到 body::before 的极光 —— 这是整套方案成立的关键。 */
+     所以 #root 内部的玻璃仍能采到 .ambient__aurora 的极光 —— 这是整套方案成立的关键。 */
   #root {
     position: relative;
     z-index: 1;
+  }
+
+  /* 圆角裁剪必须单独一条规则 —— `overflow:hidden` 会把 #root 变成"定高且不滚动"的盒子：
+     一旦某个页面靠内容撑高、由 body 滚动，被裁之后超出部分就**永远够不到**了。
+     配套动作：登录页已改成自己内部 `h-full overflow-y-auto`，不再依赖 body 滚动。
+     实测（1440×720 最小窗口）两页的 #root 裁掉内容均为 0。
+
+     这一条**不再带 data-shell 限定**：裁剪能力两个宿主都有，只有"窗口透明"才是桌面壳独有。
+     带上限定的后果见上面 --window-radius 处的注释。 */
+  #root {
+    border-radius: var(--window-radius);
+    overflow: hidden;
+  }
+
+  /* 只有在桌面壳里才透明：浏览器标签页里没有"窗口透明"这回事，
+     硬把它透明掉，四角会变成真·空洞（连底衬都没有），反而看不出问题。 */
+  html[data-shell='desktop'],
+  html[data-shell='desktop'] body {
+    background-color: transparent;
+  }
+
+  /* 浏览器宿主的"桌面"底衬。
+     为什么需要：圆角要看得见，圆角**外面**必须有东西。桌面壳里窗外是 macOS 桌面，
+     天然有对比；浏览器里不做这一层，圆角外就只是浏览器默认白，与浅色玻璃几乎同色 ——
+     圆角在观感上等于不存在，这正是"看着还是方的"最可能的来源。
+     它只画在 html（也就是画布）上，圆角以内的一切都不受影响，
+     因此不会改变任何文字的对比度。 */
+  html[data-shell='browser'] {
+    background: linear-gradient(140deg, #5f6980 0%, #6e6a88 52%, #7b7566 100%);
   }
 
   a {
@@ -447,6 +539,58 @@
    Components —— 仅保留“工具类表达不了”的装饰性样式
    ============================================================ */
 @layer components {
+  /* ---------- 外壳圆角 ----------
+     外壳的每一块（侧栏、顶栏）**自己**声明圆角，而不是靠 #root 那一次裁剪"借"来。
+
+     为什么要多此一举：外壳是整片铺满视口的矩形，整块外壳的圆角目前只有一个来源
+     —— #root 的 border-radius + overflow:hidden。这是"借来的"圆角：
+     任何一层引入新的裁剪上下文或合成层，它就可能失效；而侧栏与顶栏恰恰都带
+     backdrop-filter（glass-bar），玻璃在部分引擎里会被提升为独立合成层。
+     让每一块自己带圆角，圆角就不再依赖外层是否裁得动。
+
+     取值与窗口圆角**同源**（都用 --window-radius）：半径档位一变，外壳跟着变，
+     不会出现"窗口 10px、外壳还是旧的"这种两套数。
+
+     ⚠️ 没有在同一个元素上叠加 rounded-* 工具类，所以不存在
+     "同属性工具类谁生效取决于产出顺序"的问题。 */
+  .shell-frame-left {
+    /* 侧栏：左上 + 左下。
+       窄断点下侧栏是 fixed 抽屉：开着时它的左上/左下就是窗口的左上/左下，
+       关着时整块被 translate 移出画面 —— 两种状态都成立，所以不必加媒体查询。 */
+    border-top-left-radius: var(--window-radius);
+    border-bottom-left-radius: var(--window-radius);
+  }
+
+  .shell-frame-top-right {
+    /* 顶栏右端（Win / Linux 的窗口控制贴在这里，直角会露白） */
+    border-top-right-radius: var(--window-radius);
+  }
+
+  /* 登录页右栏（表单侧）：右上 + 右下。
+     ≤880px 品牌栏隐藏后整页收成单栏，那时右上 / 右下仍是它的，左上 / 左下也归它。 */
+  .shell-frame-right {
+    border-top-right-radius: var(--window-radius);
+    border-bottom-right-radius: var(--window-radius);
+  }
+
+  /* 顶栏左端：只有 ≤860px 才归它 —— 那时侧栏收成抽屉、不占位，窗口左上角就是顶栏的左上角。
+     ≥861px 时左上角属于侧栏（.shell-frame-left），顶栏这里必须是直角，
+     否则两块之间的交界会露出一道缺角。 */
+  @media (max-width: 860px) {
+    .shell-frame-top-left {
+      border-top-left-radius: var(--window-radius);
+    }
+  }
+
+  /* 登录页表单栏在窄断点下补左端两角：品牌栏 max-[880px]:hidden，
+     隐藏之后窗口左半边的圆角就没有承担者了，会露出直角。 */
+  @media (max-width: 880px) {
+    .shell-frame-left-sm {
+      border-top-left-radius: var(--window-radius);
+      border-bottom-left-radius: var(--window-radius);
+    }
+  }
+
   /* 图标默认尺寸（原型 .icon{width:18px;height:18px;flex:none}）。
      放在 components 层而不是工具类里，调用处传 h-[13.5px] 这类工具类才能稳定覆盖，
      否则同属性的两个工具类谁生效取决于 Tailwind 的产出顺序。 */
@@ -498,7 +642,8 @@
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
-  body::after {
+  /* 没有模糊可采时，噪点只会让大片平坦色域变脏，直接关掉 */
+  .ambient__noise {
     display: none;
   }
 }
@@ -513,7 +658,7 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-  body::before {
+  .ambient__aurora {
     animation: none !important;
   }
 }

@@ -42,7 +42,7 @@ export function SearchField({ value, onChange }: SearchFieldProps) {
         onChange={onChange ? handleChange : undefined}
         placeholder="搜索项目、任务、标签…"
         aria-label="搜索"
-        className="glass-soft h-9 w-full rounded-md border border-transparent bg-ink-50 pl-[35px] pr-[62px] text-13-5 text-ink-900 outline-none transition-all duration-150 ease-out placeholder:text-ink-400 focus:border-brand-500 focus:bg-surface focus:shadow-[0_0_0_3.5px_rgba(79,70,229,.12)] max-[860px]:pr-3"
+        className="glass-soft h-9 w-full rounded-md border border-transparent bg-ink-50 pl-[35px] pr-[62px] text-13-5 text-ink-900 outline-none transition-all duration-150 ease-out placeholder:text-ink-500 focus:border-brand-500 focus:bg-surface focus:shadow-[0_0_0_3.5px_rgba(79,70,229,.12)] max-[860px]:pr-3"
       />
       <kbd className="glass-soft absolute right-[9px] rounded-[5px] border border-line bg-surface-raised px-1.5 py-0.5 font-mono text-10-5 leading-[1.5] text-ink-400 max-[860px]:hidden">
         ⌘K

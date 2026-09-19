@@ -5,6 +5,7 @@ import { useDocumentTitle } from '../hooks/use-document-title'
 import { useProjectDetail } from '../hooks/use-projects'
 import { toast } from '../stores/toast-store'
 import type { DetailTab } from '../types'
+import { AccountMenu } from '../components/layout/AccountMenu'
 import { AppShell, useScrollArea } from '../components/layout/AppShell'
 import { SearchField } from '../components/layout/SearchField'
 import { Topbar } from '../components/layout/Topbar'
@@ -46,6 +47,8 @@ export function ProjectDetailPage() {
           <Button variant="primary" icon="i-plus" onClick={() => toast('原型演示：新建任务面板未包含')}>
             新建任务
           </Button>
+          {/* 账户入口始终在最右端 —— 详情页与列表页共用同一条顶栏，两处位置必须一致 */}
+          <AccountMenu />
         </>
       }
     />

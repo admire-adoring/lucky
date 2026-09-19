@@ -7,6 +7,19 @@
     <title>Lucky-Y · Personal OS</title>
   </head>
   <body>
+    <!-- 环境光层：极光底衬 + 霜感噪点，玻璃的"料"全部来自这里。
+         为什么是真实 DOM 而不是 body::before ——
+         这一层要同时干两件事：① 承担窗口圆角（border-radius + 底衬基色）；
+         ② 缓慢漂移（transform）。放在同一个元素上必然互相破坏：
+         transform 会把带圆角的那一层整体挪出视口，它的圆角跑到画面之外，
+         极光就顺着窗口四角的楔形区漏了出去（实测漂移相位下四角从桌面底衬色
+         变成 135,115,240 的靛蓝）。伪元素无法嵌套、裁不住自己，所以拆成两层：
+         外层 .ambient 不动、只负责形状并 overflow:hidden，内层随便漂。
+         必须放在 #root 之外且 z-index 更低，玻璃才能采到它。 -->
+    <div class="ambient" aria-hidden="true">
+      <div class="ambient__aurora"></div>
+      <div class="ambient__noise"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

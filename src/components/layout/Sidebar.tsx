@@ -1,11 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '../../lib/cn'
+import { DRAG_REGION, PLATFORM } from '../../lib/desktop-window'
+import { AccountMenu } from './AccountMenu'
+import { WindowControls } from './WindowControls'
 import { NAV_GROUPS } from '../../data/meta'
 import { useProjects } from '../../hooks/use-projects'
 import { useUiStore } from '../../stores/ui-store'
 import { toast } from '../../stores/toast-store'
 import { BrandMark } from '../ui/BrandMark'
-import { Avatar } from '../ui/Avatar'
 import { Icon } from '../icons/Icon'
 
 const NAV_ITEM_BASE =
@@ -26,6 +28,7 @@ export function Sidebar() {
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const closeSidebar = useUiStore((state) => state.closeSidebar)
   const { data: projects } = useProjects()
+  const isMac = PLATFORM === 'macos'
 
   // 「项目」在列表页与详情页都保持高亮；
   // 但数量角标只在列表页出现 —— 原型 project-detail.html 的「项目」项没有 nav__count
@@ -40,6 +43,8 @@ export function Sidebar() {
         // 侧栏就退化成一块白板。薄一档之后背后那条全高色带才透得上来
         // （实测侧栏中心 236,236,250，B 通道比 R 高 14，是一层看得见的靛蓝）。
         'glass-bar z-30 flex w-[248px] shrink-0 flex-col border-r border-line bg-surface max-[1024px]:w-[236px]',
+        // 窗口左上 / 左下两个角由它承担（自己声明，不靠外层裁剪"借"来）
+        'shell-frame-left',
         // 顶部镜面反光：玻璃拟态里用来交代"这片材质有厚度"，纯装饰
         'bg-[linear-gradient(180deg,rgba(255,255,255,.2)_0%,rgba(255,255,255,0)_32%)]',
         'max-[860px]:fixed max-[860px]:inset-y-0 max-[860px]:left-0 max-[860px]:h-full max-[860px]:shadow-xl',
@@ -47,8 +52,22 @@ export function Sidebar() {
         sidebarOpen ? 'max-[860px]:translate-x-0' : 'max-[860px]:-translate-x-full',
       )}
     >
-      {/* 品牌 */}
-      <div className="flex h-[60px] shrink-0 items-center gap-2.5 border-b border-line px-5">
+      {/* 品牌 —— 同时也是桌面端的第二条拖拽热区。
+          原生标题栏关掉后，用户会本能地试着从"最上方的空白"拖窗口；
+          侧栏这一行横跨整列，是顶栏拖拽区之外最自然的落点。
+          属性用 `deep` 档写在容器上即可覆盖 logo 与两行文字（子元素不必逐个铺）。
+
+          macOS 的窗口圆点放在这里，而不是顶栏右端：窗口的左上角就是这里，
+          原生那三个圆点也在左上角 —— "替代品要长得像原物"要求位置也一致。
+          为此这一行在 macOS 上收窄左内边距、并把间距放大到 gap-3。 */}
+      <div
+        {...DRAG_REGION}
+        className={cn(
+          'flex h-[60px] shrink-0 items-center border-b border-line',
+          isMac ? 'gap-3 pl-4 pr-5' : 'gap-2.5 px-5',
+        )}
+      >
+        {isMac ? <WindowControls /> : null}
         <BrandMark className="h-7 w-7" />
         <div>
           <b className="text-15-5 font-bold tracking-[-0.01em]">Lucky-Y</b>
@@ -111,21 +130,9 @@ export function Sidebar() {
           Git 已同步 · 3 分钟前
         </div>
 
-        <button
-          type="button"
-          className="flex w-full items-center gap-2.5 rounded-md p-2 text-left transition-colors duration-150 hover:bg-ink-50"
-          onClick={() => toast('原型演示：账户菜单未包含')}
-        >
-          <Avatar name="LY" />
-          <span className="min-w-0 flex-1">
-            <b className="block text-13 font-semibold leading-[1.35]">刘 阳</b>
-            {/* 邮箱用的是 ink-500 而非 ink-400：它是这条侧栏里唯一"承载信息"的小字，
-                侧栏玻璃放薄到 α.70 之后 ink-400 只有 3.4:1，提到 ink-500 回到 4.6:1。
-                上面那些 ink-400 的分组标签是纯装饰层，保持不动以维持层级。 */}
-            <span className="block truncate text-11-5 leading-[1.35] text-ink-500">me@lucky-y.app</span>
-          </span>
-          <Icon name="i-chevron" className="h-[15px] w-[15px] shrink-0 text-ink-300" />
-        </button>
+        {/* 账户入口。菜单由 AccountMenu 统一实现（含退出登录）——
+            这里不再自己写按钮与 toast：退出登录只能有一份实现。 */}
+        <AccountMenu variant="sidebar" />
       </div>
     </aside>
   )

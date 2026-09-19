@@ -15,7 +15,12 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# macos-private-api：tauri.conf.json 里开了 `app.macOSPrivateApi`（透明窗口要用它）
+# 就必须在这里同时启用这个 feature，否则 tauri-build 会在编译期直接报
+# "The `tauri` dependency features ... does not match the allowlist defined under tauri.conf.json"。
+# 不写成 target.'cfg(target_os="macos")'.dependencies 是因为配置项是无条件的，
+# 构建期校验按"当前目标"比对，分平台写会让非 macOS 目标的 config 与 feature 对不上。
+tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

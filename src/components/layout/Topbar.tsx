@@ -1,27 +1,62 @@
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
+import { DRAG_REGION, PLATFORM } from '../../lib/desktop-window'
 import { useUiStore } from '../../stores/ui-store'
 import { IconButton } from '../ui/IconButton'
+import { WindowControls } from './WindowControls'
 
-/** 顶栏：hamburger（≤860px）+ 搜索 + 右侧操作区。
- *  玻璃拟态：内容会从它下面滚过，所以用最大的 blur 档（glass-bar）——
- *  挡住滚动内容靠的是 blur，厚度只是配角。厚度档与侧栏保持一致（都是 bg-surface），
- *  否则两块相邻的"外壳玻璃"会在交界处出现一道可辨的深浅差。 */
+/**
+ * 顶栏 = 应用的操作栏 + 桌面窗口的标题栏。
+ *
+ * 原生标题栏关掉之后（`tauri.conf.json` 的 `decorations: false`），
+ * 这条 60px 的横带同时承担两件事：应用自己的操作区（搜索 / 通知 / 账户）与窗口控制。
+ * 这也意味着它**必须有真拖拽区**，否则窗口在桌面端根本推不动。
+ *
+ * 拖拽区只需要一处：`DRAG_REGION` 用的是 `deep` 档（认整棵子树），
+ * 写在 <header> 上即可 —— 空白、文字、图标都能拖，
+ * 而搜索框与按钮因为是"可点元素"，Tauri 会主动阻断，不必逐个排除。
+ * 双击标题栏的缩放行为也由 Tauri 内置脚本接管，这里不重复实现。
+ *
+ * 窗口控制按平台分两侧放：
+ *  - macOS 圆点在**侧栏品牌行**（窗口左上角才是原生位置），这里只补窄断点下的一份 ——
+ *    ≤860px 时侧栏被收成抽屉、整组会跟着移出画面，不补就是"窗口关不掉"。
+ *  - Windows / Linux 在右上角，且**贴齐窗口右边**（原生 caption 区就是顶到边的），
+ *    所以非 macOS 时这条横带不收右内边距。
+ *
+ * 玻璃拟态：内容会从它下面滚过，所以用最大的 blur 档（glass-bar）——
+ * 挡住滚动内容靠的是 blur，厚度只是配角。厚度档与侧栏保持一致（都是 bg-surface），
+ * 否则两块相邻的"外壳玻璃"会在交界处出现一道可辨的深浅差。
+ */
 export function Topbar({ search, actions }: { search?: ReactNode; actions: ReactNode }) {
   const openSidebar = useUiStore((state) => state.openSidebar)
+  const isMac = PLATFORM === 'macos'
 
   return (
     <header
+      {...DRAG_REGION}
       className={cn(
-        'glass-bar z-20 flex h-[60px] shrink-0 items-center gap-4 border-b border-line px-6 max-[1024px]:px-4',
+        'glass-bar z-20 flex h-[60px] shrink-0 items-center gap-4 border-b border-line pl-6 max-[1024px]:pl-4',
+        // Windows / Linux：右内边距归零，让关闭键贴到窗口边（原生 caption 区如此）
+        isMac ? 'pr-6 max-[1024px]:pr-4' : 'pr-0',
         'bg-surface',
-        'bg-[linear-gradient(180deg,rgba(255,255,255,.24)_0%,rgba(255,255,255,0)_100%)]',
+        // 顶栏只有 60px 高，同样是"全高"的白色渐变：.24 的不透明度会把整条顶栏提亮，
+        // 让它比侧栏和内容都白一档（实测下来就是"白横条紧贴有色竖柱"的观感）。
+        // 只留一点点上沿提亮，材质厚度交给 glass-bar 的 ::after 高光去交代。
+        'bg-[linear-gradient(180deg,rgba(255,255,255,.1)_0%,rgba(255,255,255,0)_100%)]',
+        // 窗口右上角归它。左上角只在 ≤860px 归它 —— 那时侧栏收成抽屉不占位，
+        // 窗口左上角才是顶栏的左上角；≥861px 时那半个角属于侧栏，这里必须保持直角，
+        // 否则两块的交界会露出一道缺角。
+        'shell-frame-top-right shell-frame-top-left',
       )}
     >
+      {/* macOS 窄断点的兜底：侧栏成抽屉后，圆点必须在顶栏重新出现一次。
+          放在最前，位置仍在窗口左上角，与原生一致。 */}
+      {isMac ? <WindowControls className="hidden max-[860px]:flex" /> : null}
       <IconButton icon="i-hamburger" label="打开导航" variant="outline" onClick={openSidebar} />
       {search}
-      <div className="flex-1" />
+      <div className="flex-1 self-stretch" />
       {actions}
+      {isMac ? null : <WindowControls />}
     </header>
   )
 }

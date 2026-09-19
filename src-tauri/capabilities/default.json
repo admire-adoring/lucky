@@ -1,6 +1,20 @@
 {
   "identifier": "default",
-  "description": "Lucky-Y 主窗口的默认能力集：只开放 core 的默认命令，业务命令按需在 tauri.conf.json 与这里逐条授权。",
+  "description": "Lucky-Y 主窗口的默认能力集：core 默认命令 + 自绘标题栏所需的窗口控制命令（decorations 关闭后，最小化/最大化/全屏/关闭只能走这几个命令）。其余业务命令按需逐条授权。",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-close",
+
+    "core:window:allow-is-fullscreen",
+    "core:window:allow-set-fullscreen",
+
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+
+    "core:window:allow-is-focused"
+  ]
 }

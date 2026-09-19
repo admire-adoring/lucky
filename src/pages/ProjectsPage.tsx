@@ -7,6 +7,7 @@ import { useDocumentTitle } from '../hooks/use-document-title'
 import { useProjects } from '../hooks/use-projects'
 import { useUiStore } from '../stores/ui-store'
 import { toast } from '../stores/toast-store'
+import { AccountMenu } from '../components/layout/AccountMenu'
 import { AppShell } from '../components/layout/AppShell'
 import { SearchField } from '../components/layout/SearchField'
 import { Topbar } from '../components/layout/Topbar'
@@ -15,7 +16,6 @@ import { ProjectKanban } from '../components/projects/ProjectKanban'
 import { ProjectStatsPanel } from '../components/projects/ProjectStatsPanel'
 import { ProjectTable } from '../components/projects/ProjectTable'
 import { ProjectToolbar } from '../components/projects/ProjectToolbar'
-import { Avatar } from '../components/ui/Avatar'
 import { Button } from '../components/ui/Button'
 import { EmptyState, LoadingBlock } from '../components/ui/EmptyState'
 import { IconButton } from '../components/ui/IconButton'
@@ -69,15 +69,8 @@ export function ProjectsPage() {
                 onClick={() => toast('原型演示：通知中心未包含')}
               />
               <div className="h-[22px] w-px shrink-0 bg-line" />
-              <button
-                type="button"
-                aria-label="账户菜单"
-                onClick={() => toast('原型演示：账户菜单未包含')}
-                className="glass-soft inline-flex items-center gap-1.5 rounded-full border border-line bg-surface py-[3px] pl-[3px] pr-2 transition-all duration-150 ease-out hover:bg-surface-raised"
-              >
-                <Avatar name="LY" size="sm" />
-                <Icon name="i-chevron" className="h-[13px] w-[13px] text-ink-400" />
-              </button>
+              {/* 账户入口（含退出登录）。与侧栏底部共用同一个组件 */}
+              <AccountMenu />
             </>
           }
         />
