@@ -27,7 +27,17 @@ import { WindowControls } from './WindowControls'
  * 挡住滚动内容靠的是 blur，厚度只是配角。厚度档与侧栏保持一致（都是 bg-surface），
  * 否则两块相邻的"外壳玻璃"会在交界处出现一道可辨的深浅差。
  */
-export function Topbar({ search, actions }: { search?: ReactNode; actions: ReactNode }) {
+export function Topbar({
+  leading,
+  search,
+  actions,
+}: {
+  /** 顶栏最左的内容。不传时是默认的「打开导航」按钮（有侧栏的页面用）；
+   *  工作台没有侧栏，改传品牌 + 面包屑 —— 复用同一条顶栏，不另起一套。 */
+  leading?: ReactNode
+  search?: ReactNode
+  actions: ReactNode
+}) {
   const openSidebar = useUiStore((state) => state.openSidebar)
   const isMac = PLATFORM === 'macos'
 
@@ -50,9 +60,11 @@ export function Topbar({ search, actions }: { search?: ReactNode; actions: React
       )}
     >
       {/* macOS 窄断点的兜底：侧栏成抽屉后，圆点必须在顶栏重新出现一次。
-          放在最前，位置仍在窗口左上角，与原生一致。 */}
-      {isMac ? <WindowControls className="hidden max-[860px]:flex" /> : null}
-      <IconButton icon="i-hamburger" label="打开导航" variant="outline" onClick={openSidebar} />
+          放在最前，位置仍在窗口左上角，与原生一致。
+          ⚠️ 传了 `leading` 就不再兜底 —— 那时窗口控制由调用方自己摆在 leading 里
+          （工作台没有侧栏，圆点在任何宽度下都归顶栏），这里再补一份就是两个。 */}
+      {isMac && !leading ? <WindowControls className="hidden max-[860px]:flex" /> : null}
+      {leading ?? <IconButton icon="i-hamburger" label="打开导航" variant="outline" onClick={openSidebar} />}
       {search}
       <div className="flex-1 self-stretch" />
       {actions}

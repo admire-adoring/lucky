@@ -1,0 +1,1211 @@
+/* ============================================================================
+   Lucky-Y · Prism 玻璃令牌层
+   ----------------------------------------------------------------------------
+   事实源就是本文件。它实现 design/DESIGN_TOKENS.md（《Prism 设计令牌规范》）：
+   规范里的每个数值、每条判据都落在这里，规范与本文件冲突时**以本文件为准并回来修规范**。
+
+   两份样式块的分工（workbench.html 里）：
+     lucky-y-tw     布局与几何工具类（由 src/styles/index.css 经 build-css.mjs 编译）
+     lucky-y-prism  ← 本文件。材质 / 颜色 / 边界 / 阴影 / 主题 / 九组模块色系
+     lucky-y-tw-hero 原型专属的空间编排（径向菜单），见 gen-modules.mjs 的 HERO_CSS
+
+   ----------------------------------------------------------------------------
+   三层结构（规范 §1）—— 组件只读第二层，第三层是一次选型
+
+     ① 刻度（原语）  --g-pa-1..5 / --g-oc-1..7        只被槽位引用，组件不直接读
+     ② 槽位（语义）  --g-panel-a / --g-oc-field …     组件只读这一层
+     ③ 档位（应用）  .g1 ~ .g4                        一次绑定「不透明度 + 模糊 + 饱和度 + 投影」
+
+   为什么要有刻度这一层：想把"卡片整体调透一点"只改一个刻度，不必翻二十个组件。
+   组件里写 rgb(... / .5) 这样的裸值 = 设计漏了槽位（规范 §3 纪律 4）。
+
+   ⚠️ 规范里最贵的两条，落在这里会看不出对错，所以写在最前面：
+   ① 「面板」与「遮挡」是两组不透明度，不可混用。面板 α 决定"玻璃板有多实"
+      （越高内容区越洁净 / 越低玻璃感越强，没有最优值、只有选点）；
+      遮挡 α 决定"压底衬"（由文字对比度反解、有明确下界）。
+      混用会让"面板想更透"与"输入框要更实"互相绑架。
+   ② 面板色必须**中性**（色度 ≈ 0），"可见"靠明度差。
+      .g 的底色是 rgb(var(--g-panel-rgb) / var(--g-panel-a))，
+      所以面板色的色度就是内容区色度的下限 —— 带色的面板色会把内容承载区一起染色。
+
+   ⚠️ 层叠：材质与可辨边界一律**不放进 @layer**（未分层的规则优先级最高）。
+   理由：规范 §4 把面板 α、可辨边界、填充色列为**硬约束**（动了必须重算），
+   而不分层是唯一能保证"顺手写的工具类改不掉它"的位置。
+   纯装饰（雾面、域色薄染这类）放在 @layer components，保留被覆盖的余地。
+   ========================================================================= */
+
+/* ============================================================================
+   0 · 刻度（原语）—— 只被槽位引用
+   ----------------------------------------------------------------------------
+   刻度值本身分主题（见 §1），这里只声明"这套刻度存在"，
+   于是槽位层与档位层可以脱离主题写死一次。
+   ========================================================================= */
+:root {
+  /* 面板不透明度刻度：α 越高，面板越趋近面板色
+     ⚠️ 这两支与 `--g-noise-op` / `--m-tint` 一起，被 **§2b 的玻璃档位**按主题重新选点。
+     这里保留的是"standard 档"的取值 —— 它既是刻度声明（本规范要求这两支存在），
+     也是"没有 data-glass 属性、也没有亮色属性"时的兜底。要改玻璃感，
+     **去 §2b 改档位，不要在这里改单个值**（改这里只会改到兜底那一档，看不出效果）。 */
+  --g-pa-1: 0.1; /* 仅装饰 / 图标（不承载文字） */
+  --g-pa-2: 0.48; /* 大字号（≥24px，仅需 3:1） */
+  --g-pa-3: 0.52; /* 浮层面板：菜单 / 气泡 / 分段控件 */
+  --g-pa-4: 0.72; /* 正文承载：卡片 / 表格（α_min 判据的下界在此档） */
+  --g-pa-5: 0.92; /* 近实底：破坏性确认 / 数据表 */
+
+  /* 遮挡不透明度刻度：遮挡承载的是「文字与底色」关系，**亮暗共用**，不随主题变 */
+  --g-oc-1: 0.26; /* 护底弱端（渐变收尾，不再承载文字） */
+  --g-oc-2: 0.38; /* 表头（其上是 11.5px 元信息） */
+  --g-oc-3: 0.46; /* 护底强端（页头顶部，裸页头文字所在处） */
+  --g-oc-4: 0.62; /* 进度条槽（需与填充形成可辨差） */
+  --g-oc-5: 0.72; /* 凹槽：开关轨道 */
+  --g-oc-6: 0.78; /* 输入框（其内文字须 ≥4.5:1，故最实） */
+  --g-oc-7: 0.85; /* badge 外环（需与背后底色断开） */
+
+  /* L2 模糊层：面积越大越厚 —— 小控件糊 12px 会失去形状 */
+  --g-blur-1: 12px;
+  --g-blur-2: 20px;
+  --g-blur-3: 28px;
+  --g-blur-4: 44px;
+  /* 饱和度补偿 blur 抹掉的色度。⚠️ 不要超过 150% —— 超过会放大背景色（透光率 >100%） */
+  --g-sat-1: 128%;
+  --g-sat-2: 134%;
+  --g-sat-3: 140%;
+  --g-sat-4: 146%;
+
+  /* §2.8 间距 / 圆角 / 字阶 / 动效 —— 动效：安静优先，只此一条缓动曲线 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  --r-xs: 8px;
+  --r-sm: 10px;
+  --r-ctl: 12px;
+  --r-panel: 16px;
+  --r-card: 20px;
+  /* ⚠️ 规范给的是 --r-window:18px，本原型**刻意不用**它。
+     判据（用户 2026-09-19 明确指定，与规范无关地成立）：
+     「画多圆」属设计属性、只该有一套数；18px 会让**外壳比它里面的卡片还硬**，
+     而窗口圆角存在的意义正是"比内容更外一层"。故取 24px（= 上一版 --radius-xl）。
+     这是一次**口径选择：平台保真 < 内容一致性**。要改回规范的 18px 就改这一行。 */
+  --r-window: 24px;
+
+  --t-meta: 11.5px;
+  --t-xs: 12px;
+  --t-sm: 12.5px;
+  --t-base: 13.5px;
+  --t-lg: 15px;
+  --t-xl: 19px;
+  --t-2xl: 24px;
+  --t-3xl: 29px;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 140ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+}
+
+/* ============================================================================
+   1 · 主题
+   ----------------------------------------------------------------------------
+   ⚠️ `:root` 是**暗色默认**（照规范 §2.1），`html[data-theme="light"]` 是亮色覆盖。
+   本原型默认落在亮色（<html data-theme="light">），所以开箱即亮、摘掉属性即暗 ——
+   两条都保留了，切换是纯属性操作，不重算任何东西。
+
+   亮色取值普遍更低，因为亮色底衬本身亮、深色文字对比天然充足，面板可以更透。
+   ========================================================================= */
+:root {
+  /* 两种色（不可合并）：遮盖色负责"压底衬"、面板色负责"让玻璃板被看见" */
+  --g-scrim-rgb: 9 11 22; /* 遮盖色 —— 配 --g-oc-* 使用 */
+  /* ⚠️ 面板色：暗色方向对（比底衬亮 = "浮起"），所以不改方向，只**跟着底衬挪一档**。
+     规范 §5 耦合清单：`--m-a*`（背景浓度）一动，**面板分离度必然要重算**。
+     实测：底衬彩度从 4.4 提到 10.2 的同时底衬亮度也从 0.028 抬到 0.033，
+     而面板没动 → ΔL 从 0.0624 掉到 0.0436（"清晰"跌成"可辨"）。
+     所以这里从 `70 72 84` 提到 `82 85 98`（约 +0.5 档），把 ΔL 拉回 0.048。
+     规范警告的"再提亮会吃掉文字余量"这次不成立 —— 暗色浅字余量很足（fg 7.9:1），
+     先量再改，别照抄那条结论。 */
+  --g-panel-rgb: 82 85 98;
+  --g-shell-a: 0.66; /* 外壳条横跨视口，需比 pa-3 更稳 */
+  --g-fallback-bg: rgba(10, 12, 22, 0.96);
+
+  /* L3 高光层与磨砂 */
+  --g-tint-a: 0.1; /* 贴顶高光带峰值（顶部约 20% 内衰减到底） */
+  --g-tint-b: 0.025; /* 整体霜：几乎不可见，只为消除"纯色板"感 */
+  --g-frost: 0.11;
+  --g-frost-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.11'/%3E%3C/svg%3E");
+
+  /* L4 边界与投影 */
+  --g-edge: rgba(255, 255, 255, 0.065); /* 装饰边界基线（很淡，甚至看不见也行） */
+  /* 「玻璃的口沿」：上沿那条 1px 亮线。**不是第四种机制** —— 它就是 border 的上边，
+     只是把颜色单独提出来（规范 §2.3 禁令 3 禁的是"在贴顶高光 + ::before + border 之外
+     再加一条 inset 0 1px 0"，那是白边的来源；这里没有第四条，只有一条边换了颜色）。
+     为什么必须有：面板越透，它和底衬越难分；**一条明亮的收边才是"这是一块玻璃"最省笔墨的信号**。 */
+  --g-edge-lip: rgba(255, 255, 255, 0.14);
+  --g-edge-hi-top: rgba(255, 255, 255, 0.09); /* 仅 .shell 顶部使用 */
+  --g-edge-hi-bot: rgba(255, 255, 255, 0.03);
+  --g-refr-a: 0.07; /* 边缘折射渐变的两端（160deg） */
+  --g-refr-b: 0.015;
+  --g-refr-b-rgb: 255 255 255;
+  /* 投影：大偏移 + 负扩散。暗色用纯黑 —— 亮色纯黑会显脏，见下一块 */
+  --g-sh-0: 0 2px 6px -2px rgba(0, 0, 0, 0.34);
+  --g-sh-1: 0 10px 24px -8px rgba(0, 0, 0, 0.44);
+  --g-sh-2: 0 18px 40px -14px rgba(0, 0, 0, 0.5);
+  --g-sh-3: 0 32px 64px -24px rgba(0, 0, 0, 0.58);
+
+  /* 可辨边界（无障碍，与装饰边界**分开**）：控件边是功能，必须看得见 —— ≥3:1 */
+  --g-ctl-line: rgba(214, 222, 246, 0.56);
+  --g-ctl-line-2: rgba(224, 231, 250, 0.68);
+
+  /* §2.5 主题色板 */
+  --fg: #f7f9fc;
+  --fg-2: #d2d8e7;
+  --fg-3: #c9d0e1;
+  --fg-mute: #aab3c6;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-2: rgba(255, 255, 255, 0.2);
+  --ink-50: rgba(255, 255, 255, 0.045);
+  --ink-100: rgba(255, 255, 255, 0.075);
+  --ring: rgba(165, 184, 255, 0.85);
+
+  /* §2.6 语义色 —— 品牌只用于「可交互 + 标识」，语义只用于「状态」，两者不混用 */
+  --ok: #6ee7b7;
+  --warn: #fbbf24;
+  --bad: #ffc0ca;
+  --info: #93c5fd;
+
+  /* 环境底衬基色（色团铺在它上面，见 §7） */
+  --g-base: #0a0c16;
+  /* 「整片色调」那层线性罩色的强度：用**当前模块的强调色**（--s）稀释后铺满全屏。
+     规范 §2.7 的背景结构里第 4 层写的是「linear-gradient(135deg, …底色…)」—— 底色未指定，
+     是留白的旋钮（§4）。这里就用强调色：色团那三支是**淡彩**，单靠它们铺不出"整片色调"，
+     而"每个菜单域一种颜色"要的正是整片能看出是哪一域。暗色给得更足（暗底更吃色）。 */
+  --m-tint: 0.24;
+  /* ---- 色块的**颜色**与**浓度**（两个独立旋钮，见 §7 的两条判据） ----
+     --m-mix  ：色块颜色里**色团**的占比（其余给本模块强调色）。色团是淡彩、强调色是饱和的；
+                纯色团在"色团本身就是淡彩"的那几套（如微光夜语的 #EED0F2）会淡得看不见边界，
+                而纯强调色又会把页内的色相变化抹平。混比就是这两者的取舍点。
+     --m-heat ：色块的**整体浓度**（乘在逐套反解出来的弥散 α 上）。
+                ⚠️ 它与 --m-mix 不能互相替代：mix 决定"色块是什么色"，heat 决定"色块有多浓"。
+                色相不对时调 heat 只会得到"更浓的错色"。 */
+  --m-mix: 75%;
+  --m-heat: 0.75;
+  /* 环境**颗粒**的强度。⚠️ 它是"看得见玻璃"的物理前提，不是装饰：
+     `blur` 只降方差、不改均值 —— 底衬没有可辨认的结构时，模糊"无从感知"（规范 §2.2/§7③）。
+     颗粒 = 均匀铺满全屏的高频结构，于是**面板内外的清晰度差**变成肉眼可见的东西。
+     实测：卡片内高频 1.5 / 卡片外 10~37（结构衰减 ~90%）。 */
+  --g-noise-op: 0.2;
+
+  color-scheme: dark;
+}
+
+html[data-theme='light'] {
+  /* ⚠️ 亮色的面板 α 从 `.50 / .64` 降到 `.36 / .44`。这是"看得出玻璃"最关键的一处 ——
+     玻璃的可读性 = **透过它还能看见多少背景**，而不是它自己有多亮。
+     规范给 `.64` 的出发点是"面板够实、内容区够洁净"，但那条判据（α_min）的本意是
+     **保证正文对比度**，而它随面板色变：
+       正文 ≥4.5:1 ⇒ 面板合成亮度 ≥ 4.5×(深字亮度+0.05) − 0.05 ≈ 0.202
+       实测本原型的面板合成亮度 0.78 —— **余量是判据下界的 3.9 倍**。
+     所以这里可以把 α 降到"刚好还满足判据"的一侧，把余量换回玻璃感；
+     真正限制下界的是**面板分离度 ΔL**（α 越小、面板越贴近底衬），实测 .44 时 ΔL≈0.095，仍在"清晰"。
+     ⚠️ 反过来，暗色**不能**跟着降：暗色面板与底衬都在暗端，α 一降面板就沉回底衬（见暗色块的注释）。 */
+
+  --g-scrim-rgb: 255 255 255;
+  /* ⚠️ 面板色：规范给的是 `211 213 219`（中灰），这里改成**近白**。这是本次最重的一处偏离，
+     理由不是审美，而是**那条规则的前提在本项目不成立**：
+
+       规范的原话是「面板「可见」靠明度差」，并注明「亮色取值更低，因为亮色底衬本身亮」。
+       也就是说：规范假设**底衬是近白的** —— 那时面板只能"更暗"才被看见。
+       而本原型的底衬是**模块色团铺出来的彩色场**（规范 §2.7 自己的背景结构），
+       面板不需要"变暗"就已经与底衬分得开：它靠"更白"被看见，而且比"更暗"更对 ——
+       亮底衬上"更白"读作"一块被光照亮的玻璃"，"更暗"读作"一块灰板"。
+
+       ⚠️ 反过来说：规范那条「面板色偏亮 → 提高 α 会让面板更亮 → 暗色浅字对比下降」的警告
+       **只对暗色成立**（浅字压在更亮的底衬上）。亮色是深字，面板变亮只会**提高**对比。
+       所以这支值不能跨主题照抄。暗色那支（`70 72 84`，比底衬亮）方向本来就对，不动。
+
+       判据（三条都要重测，见规范 §5 耦合清单）：文字对比 · 内容区色度 · 面板分离度 ΔL。 */
+  --g-panel-rgb: 240 243 248;
+  --g-shell-a: 0.48;
+  --g-fallback-bg: rgba(255, 255, 255, 0.96);
+
+  --g-tint-a: 0.07;
+  --g-tint-b: 0.03;
+  --g-frost: 0.16;
+  --g-frost-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.16'/%3E%3C/svg%3E");
+
+  --g-edge: rgba(255, 255, 255, 0.04);
+  --g-edge-lip: rgba(255, 255, 255, 0.62);
+  --g-edge-hi-top: rgba(255, 255, 255, 0.2);
+  --g-edge-hi-bot: rgba(255, 255, 255, 0.18);
+  --g-refr-a: 0.1;
+  --g-refr-b: 0.17;
+  --g-refr-b-rgb: 120 112 96;
+  /* 亮色的投影带蓝调 —— 亮色纯黑投影会显脏 */
+  --g-sh-0: 0 2px 6px -2px rgba(46, 56, 102, 0.14);
+  --g-sh-1: 0 10px 24px -8px rgba(46, 56, 102, 0.2);
+  --g-sh-2: 0 18px 40px -14px rgba(46, 56, 102, 0.26);
+  --g-sh-3: 0 32px 64px -24px rgba(46, 56, 102, 0.32);
+
+  /* ⚠️ 浅色主题的可辨边界必须用**实色** —— 半透明描边在亮底衬上会被稀释
+     （有效 α 只有标称的 ~0.7），3:1 守不住 */
+  --g-ctl-line: #4a443a;
+  --g-ctl-line-2: #332f28;
+
+  --fg: #0e1224;
+  --fg-2: #3c4463;
+  --fg-3: #4a5370;
+  --fg-mute: #5f6785;
+  --line: rgba(40, 45, 70, 0.12);
+  --line-2: rgba(40, 45, 70, 0.2);
+  --ink-50: rgba(17, 20, 28, 0.045);
+  --ink-100: rgba(17, 20, 28, 0.075);
+  --ring: rgba(63, 66, 214, 0.75);
+
+  --ok: #04543d;
+  --warn: #7a4a02;
+  --bad: #96102f;
+  --info: #1d4fb8;
+
+  --g-base: #e9edf6;
+  /* --m-tint / --g-noise-op / --g-pa-3 / --g-pa-4 四支由 §2b 的玻璃档位按主题逐档给出 */
+
+  color-scheme: light;
+}
+
+/* ============================================================================
+   2 · 槽位（语义）—— 组件只读这一层
+   ========================================================================= */
+:root {
+  --g-panel-a: var(--g-pa-3); /* 由 .g1~.g4 逐档覆盖；单写 .g3 会得到一个没有材质的空盒子 */
+  --g-oc-scrim-hi: var(--g-oc-3);
+  --g-oc-scrim-lo: var(--g-oc-1);
+  --g-oc-thead: var(--g-oc-2);
+  --g-oc-meter: var(--g-oc-4);
+  --g-oc-groove: var(--g-oc-5);
+  --g-oc-field: var(--g-oc-6);
+  --g-oc-ring: var(--g-oc-7);
+
+  /* 档位默认（未挂钩任何档位类时的兜底），见 §4 */
+  --g-blur: var(--g-blur-2);
+  --g-sat: var(--g-sat-2);
+  --g-shadow: var(--g-sh-1);
+}
+
+/* ============================================================================
+   3 · 模块色系（9 组）
+   ----------------------------------------------------------------------------
+   四层角色，各司其职，**不可互换**（规范 §2.7）：
+
+     色团 --a-<模块>-1/2/3（hex，设计原值逐字保留）  跨模块引用：九个入口各显其色
+     弥散 --m-lt-1/2/3、--m-dk-1/2/3（RGB 三元组）    当前模块的整片背景色调
+     强调 --s-<模块>（RGB 三元组）                    图表主色、进度条、薄染
+     填充 --brand-a/b                                  按钮、激活项 —— 承白字，故反解
+     文字 --brand-ink                                  链接、tick、focus 边框，亮暗各一支
+
+   ⚠️ 六支派生色**全部由脚本反解**（design/prism-derive-colors.mjs），不手估：
+     --brand-a/b   保色相、保彩度，只解 L 让 WCAG 相对亮度 = 0.180 / 0.170。
+                   这两个数不是审美：白字 ≥4.5:1 给出固定上界 Y ≤ 0.1833，
+                   暗色面板提亮后下界 Y ≥ 0.169 —— 可行窗口只有 0.0143 宽。
+     --brand-ink   按与**实测底衬**的对比度反解（玻璃上的对比度无法从令牌推算）。
+     --m-a1..3 / --m-b1..3   弥散 α：色团色度差十倍，统一 α 会造成 2.2 倍浓度差，故逐套独立定。
+
+   ⚠️ 选择器同时覆盖 `data-series` 与 `data-module` 两个属性空间 —— 这是"九入口各显其色"
+   的全部机制：`data-series` 写在 <html> 上（当前模块 → 整页氛围），
+   `data-module` 写在环上每一枚瓦片上（每个入口 → 它自己的色）。
+   同一张色表服务两处，没有第二份事实源。
+   ========================================================================= */
+/* @derived:modules:start */
+/* ---- 色表：与主题无关的原值（强调色 / 色团 / 暗色色团）---- */
+:root {
+  /* 微光夜语 */
+  --s-dashboard: 78 135 235;
+  --a-dashboard-1: #EED0F2;
+  --a-dashboard-2: #9EBAEB;
+  --a-dashboard-3: #96DFF5;
+  --m-dk-1-dashboard: 44 25 46;
+  --m-dk-2-dashboard: 15 41 86;
+  --m-dk-3-dashboard: 12 88 112;
+  --m-lt-1-dashboard: 238 208 242;
+  --m-lt-2-dashboard: 158 186 235;
+  --m-lt-3-dashboard: 150 223 245;
+  --brand-a-dashboard: #3b73d5;
+  --brand-b-dashboard: #3870d2;
+  /* 薄荷蜜语 */
+  --s-tasks: 250 59 138;
+  --a-tasks-1: #DEFAF3;
+  --a-tasks-2: #B8F6E7;
+  --a-tasks-3: #F9A7C9;
+  --m-dk-1-tasks: 27 44 40;
+  --m-dk-2-tasks: 22 79 65;
+  --m-dk-3-tasks: 105 19 54;
+  --m-lt-1-tasks: 222 250 243;
+  --m-lt-2-tasks: 184 246 231;
+  --m-lt-3-tasks: 249 167 201;
+  --brand-a-tasks: #e11876;
+  --brand-b-tasks: #dd1073;
+  /* 霜薄甜语 */
+  --s-calendar: 203 83 251;
+  --a-calendar-1: #FCF4E7;
+  --a-calendar-2: #C8F2F7;
+  --a-calendar-3: #F0CFFD;
+  --m-dk-1-calendar: 42 37 29;
+  --m-dk-2-calendar: 29 68 72;
+  --m-dk-3-calendar: 72 38 86;
+  --m-lt-1-calendar: 252 244 231;
+  --m-lt-2-calendar: 200 242 247;
+  --m-lt-3-calendar: 240 207 253;
+  --brand-a-calendar: #b438e2;
+  --brand-b-calendar: #b034df;
+  /* 霜薄甜语·紫 */
+  --s-life: 4 163 36;
+  --a-life-1: #F2E8F4;
+  --a-life-2: #CDFAD6;
+  --a-life-3: #EAB9F8;
+  --m-dk-1-life: 40 30 41;
+  --m-dk-2-life: 30 71 38;
+  --m-dk-3-life: 80 29 95;
+  --m-lt-1-life: 242 232 244;
+  --m-lt-2-life: 205 250 214;
+  --m-lt-3-life: 234 185 248;
+  --brand-a-life: #01891c;
+  --brand-b-life: #01851b;
+  /* 星云微光 */
+  --s-work: 248 6 230;
+  --a-work-1: #F6E9F1;
+  --a-work-2: #F77FEE;
+  --a-work-3: #AFA8F1;
+  --m-dk-1-work: 41 30 37;
+  --m-dk-2-work: 98 3 91;
+  --m-dk-3-work: 31 23 100;
+  --m-lt-1-work: 246 233 241;
+  --m-lt-2-work: 247 127 238;
+  --m-lt-3-work: 175 168 241;
+  --brand-a-work: #d400c5;
+  --brand-b-work: #cf00c0;
+  /* 绿色糖果 */
+  --s-learning: 78 158 4;
+  --a-learning-1: #DEFAF3;
+  --a-learning-2: #B8F67E;
+  --a-learning-3: #F9A7C9;
+  --m-dk-1-learning: 27 44 40;
+  --m-dk-2-learning: 49 98 3;
+  --m-dk-3-learning: 105 19 54;
+  --m-lt-1-learning: 222 250 243;
+  --m-lt-2-learning: 184 246 126;
+  --m-lt-3-learning: 249 167 201;
+  --brand-a-learning: #408501;
+  --brand-b-learning: #3f8201;
+  /* 浅紫蓝 */
+  --s-projects: 63 150 168;
+  --a-projects-1: #E8F2F4;
+  --a-projects-2: #9DBCFB;
+  --a-projects-3: #F7B3D6;
+  --m-dk-1-projects: 30 40 41;
+  --m-dk-2-projects: 7 36 94;
+  --m-dk-3-projects: 97 26 63;
+  --m-lt-1-projects: 232 242 244;
+  --m-lt-2-projects: 157 188 251;
+  --m-lt-3-projects: 247 179 214;
+  --brand-a-projects: #258092;
+  --brand-b-projects: #207d8f;
+  /* 柔雾蜜桃 */
+  --s-knowledge: 250 75 73;
+  --a-knowledge-1: #F2F1F6;
+  --a-knowledge-2: #FBB8B6;
+  --a-knowledge-3: #FC9291;
+  --m-dk-1-knowledge: 32 30 41;
+  --m-dk-2-knowledge: 82 21 19;
+  --m-dk-3-knowledge: 118 7 6;
+  --m-lt-1-knowledge: 242 241 246;
+  --m-lt-2-knowledge: 251 184 182;
+  --m-lt-3-knowledge: 252 146 145;
+  --brand-a-knowledge: #e02e33;
+  --brand-b-knowledge: #dc292f;
+  /* 星云幻境 */
+  --s-settings: 26 155 124;
+  --a-settings-1: #DDF6F0;
+  --a-settings-2: #AAFCF2;
+  --a-settings-3: #D06EF6;
+  --m-dk-1-settings: 28 43 40;
+  --m-dk-2-settings: 13 88 79;
+  --m-dk-3-settings: 87 4 120;
+  --m-lt-1-settings: 221 246 240;
+  --m-lt-2-settings: 170 252 242;
+  --m-lt-3-settings: 208 110 246;
+  --brand-a-settings: #00866a;
+  --brand-b-settings: #018267;
+}
+
+/* ---- 弥散 α（可调旋钮）：按色团彩度归一，逐套独立 ---- */
+/* 色团彩度中位数：亮 0.0767 / 暗 0.0777；α = 0.8 × 本色团彩度 / 中位数（夹到 0.12~0.92） */
+:root {
+  --m-a1-dashboard: 0.9055; --m-a2-dashboard: 0.92; --m-a3-dashboard: 0.92;  /* 亮 微光夜语 */
+  --m-b1-dashboard: 0.7493; --m-b2-dashboard: 0.92; --m-b3-dashboard: 0.92;
+  --m-a1-tasks: 0.3188; --m-a2-tasks: 0.6845; --m-a3-tasks: 0.92;  /* 亮 薄荷蜜语 */
+  --m-b1-tasks: 0.2452; --m-b2-tasks: 0.651; --m-b3-tasks: 0.92;
+  --m-a1-calendar: 0.2004; --m-a2-calendar: 0.4564; --m-a3-calendar: 0.7421;  /* 亮 霜薄甜语 */
+  --m-b1-calendar: 0.1657; --m-b2-calendar: 0.457; --m-b3-calendar: 0.92;
+  --m-a1-life: 0.2; --m-a2-life: 0.6969; --m-a3-life: 0.92;  /* 亮 霜薄甜语·紫 */
+  --m-b1-life: 0.2576; --m-b2-life: 0.7502; --m-b3-life: 0.92;
+  --m-a1-work: 0.1828; --m-a2-work: 0.92; --m-a3-work: 0.92;  /* 亮 星云微光 */
+  --m-b1-work: 0.2164; --m-b2-work: 0.92; --m-b3-work: 0.92;
+  --m-a1-learning: 0.3188; --m-a2-learning: 0.92; --m-a3-learning: 0.92;  /* 亮 绿色糖果 */
+  --m-b1-learning: 0.2452; --m-b2-learning: 0.92; --m-b3-learning: 0.92;
+  --m-a1-projects: 0.12; --m-a2-projects: 0.92; --m-a3-projects: 0.92;  /* 亮 浅紫蓝 */
+  --m-b1-projects: 0.1449; --m-b2-projects: 0.92; --m-b3-projects: 0.92;
+  --m-a1-knowledge: 0.12; --m-a2-knowledge: 0.8156; --m-a3-knowledge: 0.92;  /* 亮 柔雾蜜桃 */
+  --m-b1-knowledge: 0.2154; --m-b2-knowledge: 0.92; --m-b3-knowledge: 0.92;
+  --m-a1-settings: 0.285; --m-a2-settings: 0.8448; --m-a3-settings: 0.92;  /* 亮 星云幻境 */
+  --m-b1-settings: 0.2161; --m-b2-settings: 0.7181; --m-b3-settings: 0.92;
+}
+
+/* ---- 文字 / 边界：按实测底衬反解（亮暗各一支）---- */
+/* 暗色（:root 默认） · 底衬亮度 Y=0.045 */
+:root {
+  --brand-ink-dashboard: #89b4ff;
+  --brand-line-dashboard: #4f88ec;
+  --brand-ink-tasks: #fb95b4;
+  --brand-line-tasks: #fa3b8a;
+  --brand-ink-calendar: #dc9afb;
+  --brand-line-calendar: #ca52fa;
+  --brand-ink-life: #4acc52;
+  --brand-line-life: #00a022;
+  --brand-ink-work: #f98eea;
+  --brand-line-work: #f700e5;
+  --brand-ink-learning: #76c845;
+  --brand-line-learning: #4c9c00;
+  --brand-ink-projects: #6bc0d2;
+  --brand-line-projects: #3e95a7;
+  --brand-ink-knowledge: #fc9990;
+  --brand-line-knowledge: #f94a48;
+  --brand-ink-settings: #55c7a6;
+  --brand-line-settings: #1b9c7d;
+}
+
+/* 亮色 · 底衬亮度 Y=0.73 */
+html[data-theme='light'] {
+  --brand-ink-dashboard: #1d53b2;
+  --brand-line-dashboard: #3f77da;
+  --brand-ink-tasks: #ae0058;
+  --brand-line-tasks: #e6217a;
+  --brand-ink-calendar: #9100bd;
+  --brand-line-calendar: #b83ee7;
+  --brand-ink-life: #026713;
+  --brand-line-life: #018e1d;
+  --brand-ink-work: #a10095;
+  --brand-line-work: #db00cb;
+  --brand-ink-learning: #2f6401;
+  --brand-line-learning: #438a00;
+  --brand-ink-projects: #006171;
+  --brand-line-projects: #2a8596;
+  --brand-ink-knowledge: #b40018;
+  --brand-line-knowledge: #e53437;
+  --brand-ink-settings: #02644f;
+  --brand-line-settings: #008a6d;
+}
+
+/* ---- 语义色的填充与边界（--ok/warn/bad/info 本身是硬约束，在 §1 手写）---- */
+/* 暗色（:root 默认） */
+:root {
+  --ok-bg: rgb(110 231 183 / 0.13);
+  --ok-line: #009d71;
+  --warn-bg: rgb(251 191 36 / 0.13);
+  --warn-line: #b08300;
+  --bad-bg: rgb(255 192 202 / 0.13);
+  --bad-line: #b47a84;
+  --info-bg: rgb(147 197 253 / 0.13);
+  --info-line: #5d8dc2;
+}
+
+/* 亮色 */
+html[data-theme='light'] {
+  --ok-bg: rgb(4 84 61 / 0.13);
+  --ok-line: #43866d;
+  --warn-bg: rgb(122 74 2 / 0.13);
+  --warn-line: #a26f34;
+  --bad-bg: rgb(150 16 47 / 0.13);
+  --bad-line: #cf4d5c;
+  --info-bg: rgb(29 79 184 / 0.13);
+  --info-line: #4075e2;
+}
+
+/* ---- 选择器：两个属性空间共用一个套件 ---- */
+[data-series="dashboard"], [data-module="dashboard"], [data-series="home"], [data-module="home"] {
+  --s: var(--s-dashboard);
+  --brand-a: var(--brand-a-dashboard);
+  --brand-b: var(--brand-b-dashboard);
+  --brand-ink: var(--brand-ink-dashboard);
+  --brand-line: var(--brand-line-dashboard);
+  --m-lt-1: var(--m-lt-1-dashboard); --m-lt-2: var(--m-lt-2-dashboard); --m-lt-3: var(--m-lt-3-dashboard);
+  --m-dk-1: var(--m-dk-1-dashboard); --m-dk-2: var(--m-dk-2-dashboard); --m-dk-3: var(--m-dk-3-dashboard);
+  --m-a1: var(--m-a1-dashboard); --m-a2: var(--m-a2-dashboard); --m-a3: var(--m-a3-dashboard);
+  --m-b1: var(--m-b1-dashboard); --m-b2: var(--m-b2-dashboard); --m-b3: var(--m-b3-dashboard);
+}
+[data-series="tasks"], [data-module="tasks"] {
+  --s: var(--s-tasks);
+  --brand-a: var(--brand-a-tasks);
+  --brand-b: var(--brand-b-tasks);
+  --brand-ink: var(--brand-ink-tasks);
+  --brand-line: var(--brand-line-tasks);
+  --m-lt-1: var(--m-lt-1-tasks); --m-lt-2: var(--m-lt-2-tasks); --m-lt-3: var(--m-lt-3-tasks);
+  --m-dk-1: var(--m-dk-1-tasks); --m-dk-2: var(--m-dk-2-tasks); --m-dk-3: var(--m-dk-3-tasks);
+  --m-a1: var(--m-a1-tasks); --m-a2: var(--m-a2-tasks); --m-a3: var(--m-a3-tasks);
+  --m-b1: var(--m-b1-tasks); --m-b2: var(--m-b2-tasks); --m-b3: var(--m-b3-tasks);
+}
+[data-series="calendar"], [data-module="calendar"], [data-series="schedule"], [data-module="schedule"] {
+  --s: var(--s-calendar);
+  --brand-a: var(--brand-a-calendar);
+  --brand-b: var(--brand-b-calendar);
+  --brand-ink: var(--brand-ink-calendar);
+  --brand-line: var(--brand-line-calendar);
+  --m-lt-1: var(--m-lt-1-calendar); --m-lt-2: var(--m-lt-2-calendar); --m-lt-3: var(--m-lt-3-calendar);
+  --m-dk-1: var(--m-dk-1-calendar); --m-dk-2: var(--m-dk-2-calendar); --m-dk-3: var(--m-dk-3-calendar);
+  --m-a1: var(--m-a1-calendar); --m-a2: var(--m-a2-calendar); --m-a3: var(--m-a3-calendar);
+  --m-b1: var(--m-b1-calendar); --m-b2: var(--m-b2-calendar); --m-b3: var(--m-b3-calendar);
+}
+[data-series="life"], [data-module="life"] {
+  --s: var(--s-life);
+  --brand-a: var(--brand-a-life);
+  --brand-b: var(--brand-b-life);
+  --brand-ink: var(--brand-ink-life);
+  --brand-line: var(--brand-line-life);
+  --m-lt-1: var(--m-lt-1-life); --m-lt-2: var(--m-lt-2-life); --m-lt-3: var(--m-lt-3-life);
+  --m-dk-1: var(--m-dk-1-life); --m-dk-2: var(--m-dk-2-life); --m-dk-3: var(--m-dk-3-life);
+  --m-a1: var(--m-a1-life); --m-a2: var(--m-a2-life); --m-a3: var(--m-a3-life);
+  --m-b1: var(--m-b1-life); --m-b2: var(--m-b2-life); --m-b3: var(--m-b3-life);
+}
+[data-series="work"], [data-module="work"] {
+  --s: var(--s-work);
+  --brand-a: var(--brand-a-work);
+  --brand-b: var(--brand-b-work);
+  --brand-ink: var(--brand-ink-work);
+  --brand-line: var(--brand-line-work);
+  --m-lt-1: var(--m-lt-1-work); --m-lt-2: var(--m-lt-2-work); --m-lt-3: var(--m-lt-3-work);
+  --m-dk-1: var(--m-dk-1-work); --m-dk-2: var(--m-dk-2-work); --m-dk-3: var(--m-dk-3-work);
+  --m-a1: var(--m-a1-work); --m-a2: var(--m-a2-work); --m-a3: var(--m-a3-work);
+  --m-b1: var(--m-b1-work); --m-b2: var(--m-b2-work); --m-b3: var(--m-b3-work);
+}
+[data-series="learning"], [data-module="learning"], [data-series="learn"], [data-module="learn"] {
+  --s: var(--s-learning);
+  --brand-a: var(--brand-a-learning);
+  --brand-b: var(--brand-b-learning);
+  --brand-ink: var(--brand-ink-learning);
+  --brand-line: var(--brand-line-learning);
+  --m-lt-1: var(--m-lt-1-learning); --m-lt-2: var(--m-lt-2-learning); --m-lt-3: var(--m-lt-3-learning);
+  --m-dk-1: var(--m-dk-1-learning); --m-dk-2: var(--m-dk-2-learning); --m-dk-3: var(--m-dk-3-learning);
+  --m-a1: var(--m-a1-learning); --m-a2: var(--m-a2-learning); --m-a3: var(--m-a3-learning);
+  --m-b1: var(--m-b1-learning); --m-b2: var(--m-b2-learning); --m-b3: var(--m-b3-learning);
+}
+[data-series="projects"], [data-module="projects"], [data-series="project"], [data-module="project"] {
+  --s: var(--s-projects);
+  --brand-a: var(--brand-a-projects);
+  --brand-b: var(--brand-b-projects);
+  --brand-ink: var(--brand-ink-projects);
+  --brand-line: var(--brand-line-projects);
+  --m-lt-1: var(--m-lt-1-projects); --m-lt-2: var(--m-lt-2-projects); --m-lt-3: var(--m-lt-3-projects);
+  --m-dk-1: var(--m-dk-1-projects); --m-dk-2: var(--m-dk-2-projects); --m-dk-3: var(--m-dk-3-projects);
+  --m-a1: var(--m-a1-projects); --m-a2: var(--m-a2-projects); --m-a3: var(--m-a3-projects);
+  --m-b1: var(--m-b1-projects); --m-b2: var(--m-b2-projects); --m-b3: var(--m-b3-projects);
+}
+[data-series="knowledge"], [data-module="knowledge"] {
+  --s: var(--s-knowledge);
+  --brand-a: var(--brand-a-knowledge);
+  --brand-b: var(--brand-b-knowledge);
+  --brand-ink: var(--brand-ink-knowledge);
+  --brand-line: var(--brand-line-knowledge);
+  --m-lt-1: var(--m-lt-1-knowledge); --m-lt-2: var(--m-lt-2-knowledge); --m-lt-3: var(--m-lt-3-knowledge);
+  --m-dk-1: var(--m-dk-1-knowledge); --m-dk-2: var(--m-dk-2-knowledge); --m-dk-3: var(--m-dk-3-knowledge);
+  --m-a1: var(--m-a1-knowledge); --m-a2: var(--m-a2-knowledge); --m-a3: var(--m-a3-knowledge);
+  --m-b1: var(--m-b1-knowledge); --m-b2: var(--m-b2-knowledge); --m-b3: var(--m-b3-knowledge);
+}
+[data-series="settings"], [data-module="settings"] {
+  --s: var(--s-settings);
+  --brand-a: var(--brand-a-settings);
+  --brand-b: var(--brand-b-settings);
+  --brand-ink: var(--brand-ink-settings);
+  --brand-line: var(--brand-line-settings);
+  --m-lt-1: var(--m-lt-1-settings); --m-lt-2: var(--m-lt-2-settings); --m-lt-3: var(--m-lt-3-settings);
+  --m-dk-1: var(--m-dk-1-settings); --m-dk-2: var(--m-dk-2-settings); --m-dk-3: var(--m-dk-3-settings);
+  --m-a1: var(--m-a1-settings); --m-a2: var(--m-a2-settings); --m-a3: var(--m-a3-settings);
+  --m-b1: var(--m-b1-settings); --m-b2: var(--m-b2-settings); --m-b3: var(--m-b3-settings);
+}
+/* @derived:modules:end */
+
+/* ============================================================================
+   2b · 玻璃档位（观感预设）
+   ----------------------------------------------------------------------------
+   为什么做成"档位"而不是一组固定的数：
+   玻璃感 = **透过率 × 背后结构** 的乘积，而它和"内容底衬有多干净"是**反向**的
+   （越透 → 越像玻璃，但正文底衬越花）。所以它没有唯一的好值，只有选点。
+   把选点做成三档，这件事就从"改令牌 + 重测对比度"变成"选一个名字"，
+   而**三档都已经过门禁**（分离度 ΔL / 文字对比 / 结构衰减），选哪个都不会坏。
+
+     安静 quiet     面板最实、颗粒最弱 —— 内容洁净优先（接近规范的默认）
+     标准 standard  折中
+     通透 strong    最像玻璃（**默认**）—— 背景最足、透光最多、口沿最亮
+
+   用法：`<html data-glass="strong">`（写在 <html> 上，与 data-theme 并列）。
+   ⚠️ 每一档都要**两套主题各写一份**：亮暗的面板极性不同，同一个 α 不可能两边都对
+   （暗色降 α 会让面板沉回底衬，所以暗色那一列的 α 明显更高）。 */
+:root,
+:root[data-glass='strong'] {
+  --g-pa-3: 0.42;
+  --g-pa-4: 0.76;
+  --g-noise-op: 0.32;
+  /* ⚠️ 暗色的 --m-tint 上限不是"想让背景多浓"决定的，而是 **ΔL 决定的**：
+     底衬在暗色里每浓一分，亮度就往上抬一分，面板分离度就掉一分。
+     实测 tint .30 时 ΔL = 0.0403（"清晰"跌成"可辨"），降到 .22 → 0.0490。
+     同一件事在亮色里是反的（面板比底衬亮，底衬越浓 ΔL 越大），
+     所以两列的 tint **不是同一个数按比例缩放**，是各自解出来的。 */
+  --m-tint: 0.22;
+}
+html[data-theme='light'],
+html[data-theme='light'][data-glass='strong'] {
+  --g-pa-3: 0.30;
+  --g-pa-4: 0.36;
+  --g-noise-op: 0.24;
+  --m-tint: 0.58;
+}
+:root[data-glass='standard'] {
+  --g-pa-3: 0.50;
+  --g-pa-4: 0.80;
+  --g-noise-op: 0.20;
+  --m-tint: 0.20;
+}
+html[data-theme='light'][data-glass='standard'] {
+  --g-pa-3: 0.36;
+  --g-pa-4: 0.46;
+  --g-noise-op: 0.16;
+  --m-tint: 0.42;
+}
+:root[data-glass='quiet'] {
+  --g-pa-3: 0.58;
+  --g-pa-4: 0.86;
+  --g-noise-op: 0.09;
+  --m-tint: 0.18;
+}
+html[data-theme='light'][data-glass='quiet'] {
+  --g-pa-3: 0.46;
+  --g-pa-4: 0.56;
+  --g-noise-op: 0.09;
+  --m-tint: 0.28;
+}
+
+/* ============================================================================
+   4 · 档位与材质
+   ----------------------------------------------------------------------------
+   `.g` 是材质本体（写 background 与 backdrop-filter），`g1..g4` 只写槽位变量 ——
+   **两者必须同时出现**：只写 `g3` 会得到一个没有材质的空盒子。
+
+   ⚠️ 材质合成的顺序（少一层都看得出来，而少哪一层都不会报错）：
+     ① 面板底色（中性面板色 × 面板 α）—— 决定"有多实"（档位 A/B/C 的第一支旋钮）
+     ② 整体霜 → 贴顶高光带 → **磨砂颗粒**（三支 background-image，颗粒必须在最上）
+     ③ `backdrop-filter: blur() saturate()` —— "底下有什么被糊开了"
+     ④ `border` 上沿那道亮线 —— "这是一块玻璃的口沿"
+     ⑤ `box-shadow` —— 离地高度
+   玻璃感是 ①③④ 三件事的乘积：面板越透 × 底下越有结构 × 口沿越明确 = 越像玻璃。
+   ========================================================================= */
+.g {
+  position: relative;
+  /* 面板底色：中性面板色 × 面板 α。底下必须有可折射的环境色（见 §7），否则无从糊起 */
+  background-color: rgb(var(--g-panel-rgb) / var(--g-panel-a));
+  /* 图层自下而上：整体霜 → 贴顶高光带 → 磨砂颗粒。
+     ⚠️ 磨砂必须叠在材质自身（最上层），放到环境层会被卡片自己的 blur 整个抹平。 */
+  background-image:
+    linear-gradient(180deg, transparent 0%, rgb(255 255 255 / var(--g-tint-b)) 100%),
+    linear-gradient(180deg, rgb(255 255 255 / var(--g-tint-a)) 0%, transparent 20%),
+    var(--g-frost-img);
+  background-size:
+    100% 100%,
+    100% 100%,
+    140px 140px;
+  background-repeat: no-repeat, no-repeat, repeat;
+  /* ⚠️ 元素自身的背景不得延伸到 border 之下 —— 否则等于用自己的暗底稀释自己的描边（规范 §3 纪律 3） */
+  background-clip: padding-box;
+  box-shadow: var(--g-shadow);
+  backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+  -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+}
+
+/* 装饰边界基线。⚠️ **外壳除外** —— 外壳的边界不是"一圈装饰"，而是"它下面的那条分隔线"：
+     顶栏要 `border-b`、常驻栏要 `border-l`，而 .g 用的是 border **简写**，会把它整圈铺满
+     （未分层压过工具类，所以 `border-b` 会被吃掉）。所以外壳只继承材质、不继承边界，
+     边界交给它的 `border-b border-line` / `border-l border-line` 自己去画。 */
+.g:not(.shell) {
+  border: 1px solid var(--g-edge);
+  /* 上沿那条亮线：只改 border 的**上边颜色**，因此仍然只有三条机制（贴顶高光 + 折射 + border） */
+  border-top-color: var(--g-edge-lip);
+}
+
+/* 边缘折射：**只给大面积面板**。1px 控件上的折射会变成"双线"
+   （功能边界 + 装饰折射相邻），所以控件档一律用实色描边。
+
+   ⚠️ 停点必须**贴着边**。第一版把两支色铺到对角线的 42% 处，
+   于是"边缘折射"变成了"整张卡片的斜向罩色" —— 亮色那支是暖灰（120 112 96 @ .17），
+   结果每张卡都泛一层**米黄**，远远看去像纸板。观感问题排查到最后就是这两个数字：
+   名字叫"边缘"，停点却在中间。
+   ⚠️ 暖色那支**只留几个百分点**：它的作用是在边缘做一道冷暖分界（真实折射的色边），
+   不是给整块上色。亮色主题里把它铺开会立刻显脏。 */
+.g--refr::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    160deg,
+    rgb(255 255 255 / var(--g-refr-a)) 0%,
+    rgb(var(--g-refr-b-rgb) / var(--g-refr-b)) 9%,
+    transparent 30%
+  );
+}
+
+/* 外壳条（顶栏 / 侧栏 / 常驻栏）：整片铺满视口，需要自己的上下沿来光。
+   ⚠️ 上沿来光走 ::after，**不写进 box-shadow** —— 两者是同一个属性，
+   "谁生效"取决于产出顺序而不是书写顺序（同属性工具类不按 class 顺序裁决）。 */
+.shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 var(--g-edge-hi-top),
+    inset 0 -1px 0 var(--g-edge-hi-bot);
+}
+
+/* 档位：一次绑定「不透明度 + 模糊 + 饱和度 + 投影」 */
+.g1 {
+  --g-panel-a: var(--g-pa-1);
+  --g-blur: var(--g-blur-1);
+  --g-sat: var(--g-sat-1);
+  --g-shadow: var(--g-sh-0);
+}
+.g2 {
+  --g-panel-a: var(--g-pa-3);
+  --g-blur: var(--g-blur-2);
+  --g-sat: var(--g-sat-2);
+  --g-shadow: var(--g-sh-1);
+}
+.g3 {
+  --g-panel-a: var(--g-pa-4);
+  --g-blur: var(--g-blur-3);
+  --g-sat: var(--g-sat-3);
+  --g-shadow: var(--g-sh-2);
+}
+.g4 {
+  --g-panel-a: var(--g-shell-a);
+  --g-blur: var(--g-blur-4);
+  --g-sat: var(--g-sat-4);
+  --g-shadow: var(--g-sh-3);
+}
+
+/* 卡片 / 浮层 / 外壳的语义别名，只负责"几何 + 材质"两件事 */
+.card {
+  border-radius: var(--r-card);
+}
+.panel {
+  border-radius: var(--r-panel);
+}
+.menu {
+  border-radius: var(--r-panel);
+}
+.ctl {
+  border-radius: var(--r-ctl);
+}
+
+/* ============================================================================
+   5 · 组件
+   ========================================================================= */
+
+/* ---- 承载文字的凹槽 / 护底 / 表头 ----
+   遮挡色（--g-scrim-rgb）配遮挡 α，负责"压底衬"；与面板色**不可合并**：
+   凹槽表示"凹"、本就该与底衬同色系，面板表示"浮"。共用颜色可以，共用 α 不行。 */
+.scrim-hi {
+  background: rgb(var(--g-scrim-rgb) / var(--g-oc-scrim-hi));
+}
+.scrim-lo {
+  background: rgb(var(--g-scrim-rgb) / var(--g-oc-scrim-lo));
+}
+.thead {
+  background: rgb(var(--g-scrim-rgb) / var(--g-oc-thead));
+}
+.track {
+  background: rgb(var(--g-scrim-rgb) / var(--g-oc-meter));
+}
+.groove {
+  background: rgb(var(--g-scrim-rgb) / var(--g-oc-groove));
+}
+
+/* ---- 输入框 ----
+   最实的一档（其内文字须 ≥4.5:1），边界另配 --g-ctl-line（功能边界，≥3:1）。
+   ⚠️ 输入框用"面"，边界与面**分开授权**：面可以透，边必须看得见。 */
+.input {
+  background: rgb(var(--g-scrim-rgb) / var(--g-oc-field));
+  background-clip: padding-box;
+  border: 1px solid var(--g-ctl-line);
+  color: var(--fg);
+}
+.input::placeholder {
+  color: var(--fg-mute);
+}
+.input:hover {
+  border-color: var(--g-ctl-line-2);
+}
+.input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  border-color: var(--g-ctl-line-2);
+}
+
+/* 可辨边界（与装饰边界分开）。.g 的边是装饰、可以看不见；
+   控件的边是功能、必须看得见 —— 所以单独给一个类，不要复用 --g-edge。 */
+.edge-ctl {
+  border-color: var(--g-ctl-line);
+}
+.edge-ctl:hover {
+  border-color: var(--g-ctl-line-2);
+}
+
+/* ---- 固定填充（承白字）----
+   白字可行的填充亮度窗口极窄：上界固定 0.1833、下界随底衬变。
+   ⚠️ 渐变两端都必须落进窗口，否则渐变中段会出现不可辨区段 —— 所以这里用**单色**
+   而不是渐变，把"两端都在窗口内"变成一个不需要守的性质。 */
+.fill-a {
+  background: var(--brand-a);
+  color: #fff;
+}
+.fill-b {
+  background: var(--brand-b);
+  color: #fff;
+}
+
+/* ---- 九入口各显其色 ----
+   薄染 + 域色发丝 + 域色文字。三个都用本元素自己的 --s / --brand-ink
+   （由 §3 的 [data-module=…] 提供），所以同一套类名在九个入口上自动出九种色。
+   ⚠️ 承载文字的色一律取 --brand-ink 而不是强调色本身：强调色是"装饰档"，
+   压在它自己的薄染底上对比度不足（这正是 §2.7 要单独反解一支文字色的原因）。
+   ⚠️ 这一组**不放进 @layer**：它们的元素同时挂着 `.g`（未分层），
+   若放在 components 层就会输给 `.g` 的 background-color / border-color —— 那样
+   "每个入口一种颜色"会被材质的中性面板色整个盖掉，而且看不出是"层"的问题。
+   ⚠️ 入口瓦片写成 `.g.mod-tile`（两个类，特异性 0,2,0）：`.g` 是 0,1,0，
+   靠"两个类"赢，而不是靠源码顺序 —— 顺序一旦被 build 重排就会静默失效。 */
+.mod-tint {
+  background-color: rgb(var(--s) / 0.11);
+  color: var(--brand-ink);
+}
+.mod-ink {
+  color: var(--brand-ink);
+}
+.mod-hair {
+  border-color: rgb(var(--s) / 0.34);
+}
+.mod-dot {
+  background-color: rgb(var(--s));
+}
+.mod-wash {
+  background-color: rgb(var(--s) / 0.16);
+}
+/* 入口瓦片的常态：中性的玻璃 + 自己的色（未选中也认得出是哪个模块）。
+   这就是"每个菜单域一种颜色"的落点 —— 色由本元素的 [data-module] 给出。 */
+.g.mod-tile {
+  color: var(--brand-ink);
+  background-color: rgb(var(--s) / 0.1);
+  border-color: rgb(var(--s) / 0.28);
+}
+.g.mod-tile:hover {
+  background-color: rgb(var(--s) / 0.2);
+  border-color: rgb(var(--s) / 0.52);
+}
+/* 选中态：本模块的**填充色**实底 + 白字。
+   ⚠️ 它是 `.g.mod-tile` + 属性选择器（0,3,0），与 hover 同特异性 —— 靠源码顺序赢。
+   hover 之所以不能再赢，是因为这里排在它后面；顺序就是这条规则的全部保障，
+   所以**不要把它挪到 .g.mod-tile:hover 前面**。
+   ⚠️ 用 --brand-a 而不是 --s：白字在强调色上只有 2~3:1（life 主色阶上仅 3.49:1），
+   而 --brand-a 的反解目标就是"白字 ≥4.5:1"。 */
+.g.mod-tile[data-current='true'] {
+  background-color: var(--brand-a);
+  border-color: var(--brand-a);
+  color: #fff;
+}
+
+/* ---- 徽标（badge）----
+   外环用的是 --g-oc-ring（.85）：它的判据不是"压底衬够不够"，而是
+   **与背后的底色断开** —— 徽标压在玻璃上、玻璃又压在环境色上，只有够实才切得出边界。 */
+.badge {
+  background: rgb(var(--g-scrim-rgb) / var(--g-oc-ring));
+  background-clip: padding-box;
+  border: 1px solid var(--g-ctl-line);
+  color: var(--fg-2);
+}
+
+/* ---- 主题切换 ----
+   ⚠️ 图标按主题切换**不用脚本**：两个字形都渲染，由 CSS 决定显示哪一个。
+   用脚本切 innerHTML 的话，首帧一定有一个字形的空窗（脚本在解析后才跑），
+   而"主题按钮闪一下"正是最容易被当成"页面坏了"的那类现象。
+   ⚠️ 选择器用 `:root:not([data-theme='light'])` 而不是 `[data-theme='dark']`：
+   暗色是**缺省**（`<html>` 上摘掉属性就是暗色），写死 dark 会在"没有属性"时失效 ——
+   而失效表现出来只是"图标反了"，不会报错。 */
+.theme-toggle .i-sun {
+  display: none;
+}
+:root:not([data-theme='light']) .theme-toggle .i-moon {
+  display: none;
+}
+:root:not([data-theme='light']) .theme-toggle .i-sun {
+  display: block;
+}
+
+/* ---- 抬升：hover 时把投影换高一档 ----
+   ⚠️ 只换 --g-shadow（而不是直接写 box-shadow）：档位是"一次选型"，
+   抬升只是同一套选型里的位移，写死一条投影就等于在材质之外又开了第二份阴影。 */
+.g-lift {
+  transition:
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.g-lift:hover {
+  --g-shadow: var(--g-sh-2);
+}
+
+/* ============================================================================
+   6 · 兼容别名：把旧工具类的**取值**接到 Prism 令牌上
+   ----------------------------------------------------------------------------
+   口径（这条是本次迁移的边界，写清楚免得下次误以为漏改）：
+     · 材质 / 档位 —— 按规范改用 `.g` + `.g1~.g4`。规范 §1/§3 明文要求两者同时出现，
+       且档位是"一次选型"（α + 模糊 + 饱和度 + 投影绑在一起），工具类表达不了。
+     · 颜色 —— 令牌层整体换成 Prism（下面这一块），类名沿用。
+       规范约束的是**令牌与角色**（哪个色干什么、哪些是硬约束），并没有约束类名；
+       于是这里保留 `text-ink-*` 这类名字，但**取值全部来自 Prism**，
+       仍然是"组件里不写裸值、只引用令牌"。
+   ⚠️ 写在这里 = 唯一一处 allowlist。将来要让类名也照规范写，
+   删掉这一块、把标记里的类名逐处换掉即可，不会有第二处要改。
+
+   ⚠️ 文字四级：规范 §2.5 只定义 --fg / --fg-2 / --fg-3 / --fg-mute **四级**，
+   而旧工具类有六级（ink-400..ink-900）。这里做的是**合并**而不是映射错位：
+     ink-900/800 → --fg      正文
+     ink-700/600 → --fg-2    二级
+     ink-500     → --fg-3    三级
+     ink-400     → --fg-mute 占位符 / 元信息
+   ⚠️ 三级文字**必须同移**（规范 §2.5 的警告）：面板色一变、底衬亮度就变，
+   不同移会造成层次倒挂（--fg-3 亮过 --fg-2）。这里四支都挂在 --fg 一族上，
+   主题一换同时动，结构上不可能倒挂。
+   ========================================================================= */
+html {
+  --color-ink-900: var(--fg);
+  --color-ink-800: var(--fg);
+  --color-ink-700: var(--fg-2);
+  --color-ink-600: var(--fg-2);
+  --color-ink-500: var(--fg-3);
+  --color-ink-400: var(--fg-mute);
+  --color-ink-300: color-mix(in srgb, var(--fg) 34%, transparent);
+  --color-ink-200: color-mix(in srgb, var(--fg) 22%, transparent);
+  --color-ink-100: var(--ink-100);
+  --color-ink-50: var(--ink-50);
+
+  /* ⚠️ --color-line 接的是 --line（分隔线），**不是** --g-edge（装饰边界基线）。
+     旧的 --color-line 一个名字管了两件事：卡片的边 + 表格/列表的分隔线。
+     Prism 把它们分开了（§2.4 的 --g-edge 与 §2.5 的 --line）。
+     卡片走 --g-edge（.g 自己给，见 §4，亮色下几乎看不见 —— 规范要的正是"靠明度差分离"）；
+     分隔线走 --line（亮色下 rgba(40,45,70,.12)，看得见）。
+     接错一个的后果很具体：亮色主题里所有发丝分隔线**整片消失**，
+     而它们消失得"很干净"，第一眼看不出少了东西。 */
+  --color-line: var(--line);
+  --color-line-strong: var(--line-2);
+  --color-glass-hi: rgb(255 255 255 / 0.5);
+  --color-glass-lo: rgb(0 0 0 / 0.08);
+
+  /* 品牌：--color-brand-50/100 是"薄染档"、400 是装饰档、500/600/700 是文字档 */
+  --color-brand-50: rgb(var(--s) / 0.12);
+  --color-brand-100: rgb(var(--s) / 0.2);
+  --color-brand-400: rgb(var(--s));
+  --color-brand-500: var(--brand-a);
+  --color-brand-600: var(--brand-ink);
+  --color-brand-700: var(--brand-ink);
+
+  /* 语义：danger/success/warning 是旧的**状态**名，一一接到 Prism 的 bad/ok/warn */
+  --color-danger: var(--bad);
+  --color-danger-bg: var(--bad-bg);
+  --color-danger-strong: var(--bad);
+  --color-danger-line: var(--bad-line);
+  --color-success: var(--ok);
+  --color-success-bg: var(--ok-bg);
+  --color-success-strong: var(--ok);
+  --color-success-line: var(--ok-line);
+  --color-warning: var(--warn);
+  --color-warning-bg: var(--warn-bg);
+  --color-warning-strong: var(--warn);
+  --color-warning-line: var(--warn-line);
+  --color-online: var(--ok);
+  --color-prio-high: var(--bad);
+  --color-prio-mid: var(--warn);
+
+  /* 三域色：旧的三域（life/work/learn）在 Prism 里就是模块色系的三组 ——
+     旧名接到新色上，于是"域色"不再是一套额外的东西，而是模块色系的一个视图。 */
+  --color-life: rgb(var(--s-life));
+  --color-life-strong: var(--brand-ink-life);
+  --color-life-bg: rgb(var(--s-life) / 0.13);
+  --color-life-line: var(--brand-line-life);
+  --color-work: rgb(var(--s-work));
+  --color-work-strong: var(--brand-ink-work);
+  --color-work-bg: rgb(var(--s-work) / 0.13);
+  --color-work-line: var(--brand-line-work);
+  --color-learn: rgb(var(--s-learning));
+  --color-learn-strong: var(--brand-ink-learning);
+  --color-learn-bg: rgb(var(--s-learning) / 0.13);
+  --color-learn-line: var(--brand-line-learning);
+
+  /* 圆角：几何是"可调旋钮"（规范 §4），但既然迁移就取规范那套数 */
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-ctl);
+  --radius-lg: var(--r-panel);
+  --radius-xl: var(--r-card);
+  --radius-2xl: var(--r-card);
+
+  /* ⚠️ 窗口圆角刻意不取规范的 --r-window:18px，理由见 §0 该处注释（用户明确指定 24px）。
+     这里显式回落，防止 index.css 的 24px 被将来的改动覆盖掉而没人发现。 */
+  --window-radius: var(--r-window);
+}
+
+/* ============================================================================
+   7 · 环境底衬：整片背景由**当前模块的色团**铺出来
+   ----------------------------------------------------------------------------
+   规范 §2.7「背景结构」的三条规则，每条都在这里对应一行：
+     ① 「是色还是斑」由**扩散半径**决定，不由 α 决定 —— 半径必须大于视口（130%~148%），
+        色彩铺满全屏、梯度极缓，才是"整片色调"。半径小于视口会形成可辨认的块（= 圆斑）。
+        α 只决定"有多浓"，两者不能互相替代。
+     ② 色团中心**贴在视口边缘**（甚至略在视口外）。放进视口中央会让内容承载区
+        直接吃到色彩（实测表内色度 11 → 18）。
+     ③ 弥散 α 逐套独立（--m-a1..3 / --m-b1..3 由脚本按色团色度反解）。
+
+   ⚠️ 这里**只覆盖 background-image**，几何仍用 src/styles/index.css 里那一套：
+     inset:-10%（给漂移留余量）+ background-size:100vw 100vh + position:50% 50%。
+     那两行让渐变与视口像素对齐、而不是按 120% 的元素尺寸重算百分比 —— 少了它们
+     @86% 会变成 @72%，色团会扫进内容列。复用它 = 不会重新踩那个坑。
+   ⚠️ 底衬基色（--g-base）留在 .ambient 上，因为它和窗口圆角必须待在同一图层里
+     （桌面壳里窗口是透明的，基色留在 body 上会露出不透明的方角）。
+   ========================================================================= */
+.ambient {
+  background-color: var(--g-base);
+}
+/* 环境颗粒。
+   ⚠️ 这里踩过一个"两层衰减"的坑：颗粒的透明度写在**两个地方** ——
+   SVG 里 rect 的 `opacity` 与这一层的 `opacity`，两者相乘。
+   上一版复用 `.g` 内部那支磨砂图（烘焙 opacity=.16）再乘 0.26 → 净 0.04，
+   于是底衬**几乎没有高频结构**，卡片内外一样"干净"，模糊就无从感知 —— 这正是"看不出玻璃感"
+   最物理的那条原因。现在给环境单独一支**满强度**的图，强度只由 `--g-noise-op` 一个数决定。 */
+.ambient__noise {
+  opacity: var(--g-noise-op);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* 极光层：**8 个小而饱和的色块**，逐层对着参照版的结构（位置/半径/停点都沿用）。
+   ----------------------------------------------------------------------------
+   为什么半径必须收回来 —— 这是"看不出玻璃感"最直接的那条原因：
+     改版前一版用了 3 层 `radial-gradient(148% 124% …)`。半径大于视口时，色块
+     **只表现为"渐变的偏移"**，画面上找不到任何可辨认的**色块边缘**；
+     而玻璃要显示给用户看的，恰恰是色块边缘。于是"透过玻璃"和"什么都没透过"
+     在观感上无法区分 —— 面板再透也没用。
+   判据（实测）：参照版的色块半径 18%~40%、颜色**饱和**（α 0.16~0.52）；
+     改版前 128%~148%、颜色**淡**。格间标准差 R 17.4/G 17.0 → 11.7/9.7（B 反升）。
+   ⚠️ 色相仍按模块走（"每个菜单域一种颜色"）：色块 = 色团 × 本模块强调色的混色，
+      所以九套色相互不相同，且都在同一族的饱和区间里。
+   ⚠️ 这里**只覆盖 background-image**，几何仍用 src/styles/index.css 里那一套：
+     inset:-10%（给漂移留余量）+ background-size:100vw 100vh + position:50% 50%。
+     那两行让渐变与视口像素对齐、而不是按 120% 的元素尺寸重算百分比 —— 少了它们
+     @86% 会变成 @72%，色团会扫进内容列。复用它 = 不会重新踩那个坑。
+   ⚠️ 底衬基色（--g-base）留在 .ambient 上，因为它和窗口圆角必须待在同一图层里
+     （桌面壳里窗口是透明的，基色留在 body 上会露出不透明的方角）。
+   ========================================================================= */
+.ambient__aurora {
+  background-image:
+    /* ① 顶边薄辉：本模块强调色，7.2% 内收干净 —— "顶边有一道光" */
+    linear-gradient(180deg, rgb(var(--s) / calc(var(--m-tint) * 0.60)) 0%, rgb(var(--s) / 0) 7.2%),
+    /* ② 左上角：色团1 */
+    radial-gradient(30% 11% at 6% 0%,
+      color-mix(in srgb, rgb(var(--m-lt-1) / calc(var(--m-a1) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-a1) * var(--m-heat)))) 0%,
+      transparent 76%),
+    /* ③ 左缘窄带：强调色（"左边是这一域"的最强信号） */
+    linear-gradient(96deg,
+      rgb(var(--s) / calc(var(--m-tint) * 0.95)) 0%,
+      rgb(var(--s) / calc(var(--m-tint) * 0.50)) 13%,
+      rgb(var(--s) / 0) 21%),
+    /* ④ 右上角：色团2 */
+    radial-gradient(40% 25% at 101% -2%,
+      color-mix(in srgb, rgb(var(--m-lt-2) / calc(var(--m-a2) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-a2) * var(--m-heat)))) 0%,
+      transparent 74%),
+    /* ⑤ 左下角：色团3 */
+    radial-gradient(19% 41% at 7% 104%,
+      color-mix(in srgb, rgb(var(--m-lt-3) / calc(var(--m-a3) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-a3) * var(--m-heat)))) 0%,
+      transparent 74%),
+    /* ⑥ 右下角：色团2（与④同色，形成对角呼应） */
+    radial-gradient(27% 33% at 100% 100%,
+      color-mix(in srgb, rgb(var(--m-lt-2) / calc(var(--m-a2) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-a2) * var(--m-heat)))) 0%,
+      transparent 72%),
+    /* ⑦ 底中：色团1 —— 卡片行正下方，玻璃能吃到"边界从卡片底下穿过" */
+    radial-gradient(31% 35% at 54% 102%,
+      color-mix(in srgb, rgb(var(--m-lt-1) / calc(var(--m-a1) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-a1) * var(--m-heat)))) 0%,
+      transparent 76%),
+    /* ⑧ 中央色雾：把上面几个色块连成一片，避免"只有四个角有点" */
+    radial-gradient(72% 62% at 50% 42%, rgb(var(--s) / calc(var(--m-tint) * 0.26)) 0%, transparent 72%);
+}
+/* 暗色换用暗色色团（同一套结构、只换色团与 α 来源）—— 这就是"一套结构、两套色团" */
+:root:not([data-theme='light']) .ambient__aurora {
+  background-image:
+    linear-gradient(180deg, rgb(var(--s) / calc(var(--m-tint) * 0.60)) 0%, rgb(var(--s) / 0) 7.2%),
+    radial-gradient(30% 11% at 6% 0%,
+      color-mix(in srgb, rgb(var(--m-dk-1) / calc(var(--m-b1) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-b1) * var(--m-heat)))) 0%,
+      transparent 76%),
+    linear-gradient(96deg,
+      rgb(var(--s) / calc(var(--m-tint) * 0.95)) 0%,
+      rgb(var(--s) / calc(var(--m-tint) * 0.50)) 13%,
+      rgb(var(--s) / 0) 21%),
+    radial-gradient(40% 25% at 101% -2%,
+      color-mix(in srgb, rgb(var(--m-dk-2) / calc(var(--m-b2) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-b2) * var(--m-heat)))) 0%,
+      transparent 74%),
+    radial-gradient(19% 41% at 7% 104%,
+      color-mix(in srgb, rgb(var(--m-dk-3) / calc(var(--m-b3) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-b3) * var(--m-heat)))) 0%,
+      transparent 74%),
+    radial-gradient(27% 33% at 100% 100%,
+      color-mix(in srgb, rgb(var(--m-dk-2) / calc(var(--m-b2) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-b2) * var(--m-heat)))) 0%,
+      transparent 72%),
+    radial-gradient(31% 35% at 54% 102%,
+      color-mix(in srgb, rgb(var(--m-dk-1) / calc(var(--m-b1) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-b1) * var(--m-heat)))) 0%,
+      transparent 76%),
+    radial-gradient(72% 62% at 50% 42%, rgb(var(--s) / calc(var(--m-tint) * 0.26)) 0%, transparent 72%);
+}
+
+/* ============================================================================
+   8 · 降级
+   ----------------------------------------------------------------------------
+   不支持 backdrop-filter 时把玻璃退回**实底**：否则"半透明 + 无模糊"
+   比原设计更难读（文字压在半透明块上发灰，比纯实底还糟）。
+   放在所有 @layer 之外 —— 未分层规则优先级最高，因此能压过 .g 自己的材质。
+   ========================================================================= */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .g {
+    background-color: var(--g-fallback-bg);
+    background-image: none;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  /* 没有模糊可采时，噪点只会让大片平坦色域变脏，直接关掉 */
+  .ambient__noise {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   9 · 降级：降低动效偏好
+   ----------------------------------------------------------------------------
+   ⚠️ 全局那条 prefers-reduced-motion 只压 duration —— 对 **infinite** 动画
+   那等于以 100kHz 空转，比不动更糟（持续重绘）。所以持续动画要显式停掉。
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .ambient__aurora {
+    animation: none !important;
+  }
+}

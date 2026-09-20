@@ -1,7 +1,17 @@
 import { useId } from 'react'
 import { cn } from '../../lib/cn'
 
-/** 品牌标记（原型三个页面共用同一枚 32×32 渐变徽标） */
+/**
+ * 品牌标记（原型三个页面共用同一枚 32×32 渐变徽标）。
+ *
+ * ⚠️ **尺寸由调用方给**：这里只有 `shrink-0`，没有 `h-*` / `w-*`。
+ *    不传尺寸时，SVG 在一个 flex 容器里会撑满可用空间 ——
+ *    实测过 1392×1392（整块 Hero 被一个巨大的渐变圆盖住），而且**不报错**。
+ *    刻意**不**在这里补一个默认尺寸：`cn()` 只做字符串拼接、不做冲突消解，
+ *    默认值与调用方传的值会同时出现在 class 上，谁赢取决于 CSS 里的产出顺序 ——
+ *    那是个比"忘传尺寸"更难查的问题。所有调用点都显式给尺寸：
+ *      `className="h-7 w-7"` / `"h-[38px] w-[38px] rounded-[11px]"` …
+ */
 export function BrandMark({ className }: { className?: string }) {
   const gradientId = `brand-${useId().replace(/[^a-zA-Z0-9]/g, '')}`
 

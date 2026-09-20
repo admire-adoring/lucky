@@ -1,0 +1,2691 @@
+<!doctype html>
+<html lang="zh-CN" data-platform="macos" data-shell="browser">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>工作台 · Lucky-Y</title>
+
+    <!--
+      ============================================================================
+      Lucky-Y · 工作台（登录后落地首页）高保真原型
+      ----------------------------------------------------------------------------
+      这不是一个新的设计系统，而是把 src/styles/index.css 的令牌原样搬进单文件 HTML。
+      玻璃材质的三个前提（环境光 / 半透明表面 / 上沿高光）全部照抄 index.html + index.css，
+      类名与 src/**/*.tsx 逐条对应 —— 因此本文件同时是一份「可照抄回 React 的版式说明」。
+
+      与 ui-design/v1.0/*.html 的关系：
+        那一套是**历史原型**（扁平材质 + 旧令牌，DESIGN_SYSTEM.md §0 已声明「不再改」）；
+        本文件的取值一律对齐**当前**事实源 src/styles/index.css（玻璃拟态 + 下调后的灰阶），
+        所以两者本来就该长得不一样。
+
+      构建方式（改完类名必须重跑，否则样式是旧的）：
+        node design/build-css.mjs
+        产物内联在下方 id 为 lucky-y-tw 的样式块里，无任何外部依赖，双击即可打开。
+
+      数据来源：全部由 src/data/projects.ts 的 8 个项目真实算出（见文末「派生口径」注释）。
+      ============================================================================
+    -->
+
+    <style id="lucky-y-tw">
+      /* ==========================================================================
+         由 design/build-css.mjs 生成 —— 请勿手改。
+         入口：src/styles/index.css（设计令牌唯一事实源）
+         候选：488 个类名 · 产出：41.8 KB
+         改完 workbench.html 的类名后重跑：node design/build-css.mjs
+         ========================================================================== */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer properties;
+@layer theme, base, components, utilities;
+@layer theme {
+  :root, :host {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    --color-black: #000;
+    --color-white: #fff;
+    --spacing: 0.25rem;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --tracking-normal: 0em;
+    --radius-xs: 7px;
+    --radius-sm: 10px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --default-transition-duration: 150ms;
+    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-font-family: var(--font-sans);
+    --default-mono-font-family: var(--font-mono);
+    --color-brand-500: #4f46e5;
+    --color-brand-600: #4338ca;
+    --color-life: #0f9d76;
+    --color-life-strong: #0a6b52;
+    --color-life-bg: rgba(15, 157, 118, 0.13);
+    --color-work: #2f6fed;
+    --color-work-strong: #1d4fb8;
+    --color-work-bg: rgba(47, 111, 237, 0.13);
+    --color-learn: #7c3aed;
+    --color-learn-strong: #5b21b6;
+    --color-learn-bg: rgba(124, 58, 237, 0.13);
+    --color-ink-50: rgba(17, 20, 28, 0.045);
+    --color-ink-100: rgba(17, 20, 28, 0.075);
+    --color-ink-200: #d3d7de;
+    --color-ink-300: #9ba4b2;
+    --color-ink-400: #74808f;
+    --color-ink-500: #5b6370;
+    --color-ink-600: #454c58;
+    --color-ink-700: #343a46;
+    --color-ink-800: #1b1e26;
+    --color-ink-900: #101218;
+    --color-surface: rgba(255, 255, 255, 0.7);
+    --color-surface-raised: rgba(255, 255, 255, 0.84);
+    --color-surface-sunken: rgba(255, 255, 255, 0.42);
+    --color-line: rgba(17, 20, 28, 0.085);
+    --color-line-strong: rgba(17, 20, 28, 0.155);
+    --color-glass-hi: rgba(255, 255, 255, 0.8);
+    --color-glass-lo: rgba(17, 20, 28, 0.055);
+    --color-danger: #d82323;
+    --color-danger-bg: rgba(220, 38, 38, 0.11);
+    --color-danger-strong: #b91c1c;
+    --color-danger-line: rgba(220, 38, 38, 0.26);
+    --color-success: #0f9d76;
+    --color-success-bg: rgba(15, 157, 118, 0.13);
+    --color-success-strong: #0b7a5c;
+    --color-online: #22c55e;
+    --text-10: 10px;
+    --text-10-5: 10.5px;
+    --text-11: 11px;
+    --text-11-5: 11.5px;
+    --text-12: 12px;
+    --text-12-5: 12.5px;
+    --text-13: 13px;
+    --text-13-5: 13.5px;
+    --text-14: 14px;
+    --text-15-5: 15.5px;
+    --text-24: 24px;
+    --text-29: 29px;
+    --animate-dot-pulse: dotPulse 2.4s infinite;
+    --window-radius: 24px;
+  }
+}
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+  }
+  html, :host {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    font-family: var(--default-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
+    font-feature-settings: var(--default-font-feature-settings, normal);
+    font-variation-settings: var(--default-font-variation-settings, normal);
+    -webkit-tap-highlight-color: transparent;
+  }
+  hr {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
+  }
+  abbr:where([title]) {
+    -webkit-text-decoration: underline dotted;
+    text-decoration: underline dotted;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  a {
+    color: inherit;
+    -webkit-text-decoration: inherit;
+    text-decoration: inherit;
+  }
+  b, strong {
+    font-weight: bolder;
+  }
+  code, kbd, samp, pre {
+    font-family: var(--default-mono-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+    font-feature-settings: var(--default-mono-font-feature-settings, normal);
+    font-variation-settings: var(--default-mono-font-variation-settings, normal);
+    font-size: 1em;
+  }
+  small {
+    font-size: 80%;
+  }
+  sub, sup {
+    font-size: 75%;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+  }
+  sub {
+    bottom: -0.25em;
+  }
+  sup {
+    top: -0.5em;
+  }
+  table {
+    text-indent: 0;
+    border-color: inherit;
+    border-collapse: collapse;
+  }
+  :-moz-focusring:where(:not(iframe)) {
+    outline: auto;
+  }
+  progress {
+    vertical-align: baseline;
+  }
+  summary {
+    display: list-item;
+  }
+  ol, ul, menu {
+    list-style: none;
+  }
+  img, svg, video, canvas, audio, iframe, embed, object {
+    display: block;
+    vertical-align: middle;
+  }
+  img, video {
+    max-width: 100%;
+    height: auto;
+  }
+  button, input, select, optgroup, textarea, ::file-selector-button {
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    border-radius: 0;
+    background-color: transparent;
+    opacity: 1;
+  }
+  :where(select:is([multiple], [size])) optgroup {
+    font-weight: bolder;
+  }
+  :where(select:is([multiple], [size])) optgroup option {
+    padding-inline-start: 20px;
+  }
+  ::file-selector-button {
+    margin-inline-end: 4px;
+  }
+  ::placeholder {
+    opacity: 1;
+  }
+  @supports (not (-webkit-appearance: -apple-pay-button))  or (contain-intrinsic-size: 1px) {
+    ::placeholder {
+      color: currentcolor;
+      @supports (color: color-mix(in lab, red, red)) {
+        color: color-mix(in oklab, currentcolor 50%, transparent);
+      }
+    }
+  }
+  textarea {
+    resize: vertical;
+  }
+  ::-webkit-search-decoration {
+    -webkit-appearance: none;
+  }
+  ::-webkit-date-and-time-value {
+    min-height: 1lh;
+    text-align: inherit;
+  }
+  ::-webkit-datetime-edit {
+    display: inline-flex;
+  }
+  ::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+  }
+  ::-webkit-datetime-edit, ::-webkit-datetime-edit-year-field, ::-webkit-datetime-edit-month-field, ::-webkit-datetime-edit-day-field, ::-webkit-datetime-edit-hour-field, ::-webkit-datetime-edit-minute-field, ::-webkit-datetime-edit-second-field, ::-webkit-datetime-edit-millisecond-field, ::-webkit-datetime-edit-meridiem-field {
+    padding-block: 0;
+  }
+  ::-webkit-calendar-picker-indicator {
+    line-height: 1;
+  }
+  :-moz-ui-invalid {
+    box-shadow: none;
+  }
+  button, input:where([type="button"], [type="reset"], [type="submit"]), ::file-selector-button {
+    appearance: button;
+  }
+  ::-webkit-inner-spin-button, ::-webkit-outer-spin-button {
+    height: auto;
+  }
+  [hidden]:where(:not([hidden="until-found"])) {
+    display: none !important;
+  }
+}
+@layer utilities {
+  .glass-bar {
+    position: relative;
+    backdrop-filter: blur(28px) saturate(190%);
+    -webkit-backdrop-filter: blur(28px) saturate(190%);
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      box-shadow: inset 0 1px 0 var(--color-glass-hi), inset 0 -1px 0 var(--color-glass-lo);
+    }
+  }
+  .glass-panel {
+    position: relative;
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      box-shadow: inset 0 1px 0 var(--color-glass-hi), inset 0 -1px 0 var(--color-glass-lo);
+    }
+  }
+  .glass-soft {
+    position: relative;
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      box-shadow: inset 0 1px 0 var(--color-glass-hi);
+    }
+  }
+  .pointer-events-none {
+    pointer-events: none;
+  }
+  .absolute {
+    position: absolute;
+  }
+  .relative {
+    position: relative;
+  }
+  .-top-10 {
+    top: calc(var(--spacing) * -10);
+  }
+  .top-1\.5 {
+    top: calc(var(--spacing) * 1.5);
+  }
+  .top-1\/2 {
+    top: calc(1 / 2 * 100%);
+  }
+  .-right-8 {
+    right: calc(var(--spacing) * -8);
+  }
+  .right-1\.5 {
+    right: calc(var(--spacing) * 1.5);
+  }
+  .right-\[9px\] {
+    right: 9px;
+  }
+  .left-\[-11px\] {
+    left: -11px;
+  }
+  .left-\[11px\] {
+    left: 11px;
+  }
+  .z-20 {
+    z-index: 20;
+  }
+  .z-30 {
+    z-index: 30;
+  }
+  .col-span-4 {
+    grid-column: span 4 / span 4;
+  }
+  .col-span-5 {
+    grid-column: span 5 / span 5;
+  }
+  .col-span-7 {
+    grid-column: span 7 / span 7;
+  }
+  .col-span-8 {
+    grid-column: span 8 / span 8;
+  }
+  .mt-0\.5 {
+    margin-top: calc(var(--spacing) * 0.5);
+  }
+  .mt-1 {
+    margin-top: var(--spacing);
+  }
+  .mt-1\.5 {
+    margin-top: calc(var(--spacing) * 1.5);
+  }
+  .mt-2\.5 {
+    margin-top: calc(var(--spacing) * 2.5);
+  }
+  .mt-\[6px\] {
+    margin-top: 6px;
+  }
+  .mt-\[7px\] {
+    margin-top: 7px;
+  }
+  .mt-\[11px\] {
+    margin-top: 11px;
+  }
+  .mt-auto {
+    margin-top: auto;
+  }
+  .mt-px {
+    margin-top: 1px;
+  }
+  .mb-0\.5 {
+    margin-bottom: calc(var(--spacing) * 0.5);
+  }
+  .mb-2 {
+    margin-bottom: calc(var(--spacing) * 2);
+  }
+  .mb-3 {
+    margin-bottom: calc(var(--spacing) * 3);
+  }
+  .mb-4 {
+    margin-bottom: calc(var(--spacing) * 4);
+  }
+  .mb-6 {
+    margin-bottom: calc(var(--spacing) * 6);
+  }
+  .ml-auto {
+    margin-left: auto;
+  }
+  .block {
+    display: block;
+  }
+  .flex {
+    display: flex;
+  }
+  .grid {
+    display: grid;
+  }
+  .hidden {
+    display: none;
+  }
+  .inline-flex {
+    display: inline-flex;
+  }
+  .h-1\.5 {
+    height: calc(var(--spacing) * 1.5);
+  }
+  .h-3 {
+    height: calc(var(--spacing) * 3);
+  }
+  .h-4 {
+    height: calc(var(--spacing) * 4);
+  }
+  .h-5 {
+    height: calc(var(--spacing) * 5);
+  }
+  .h-7 {
+    height: calc(var(--spacing) * 7);
+  }
+  .h-8 {
+    height: calc(var(--spacing) * 8);
+  }
+  .h-9 {
+    height: calc(var(--spacing) * 9);
+  }
+  .h-28 {
+    height: calc(var(--spacing) * 28);
+  }
+  .h-\[3px\] {
+    height: 3px;
+  }
+  .h-\[5\.5px\] {
+    height: 5.5px;
+  }
+  .h-\[5px\] {
+    height: 5px;
+  }
+  .h-\[7px\] {
+    height: 7px;
+  }
+  .h-\[11px\] {
+    height: 11px;
+  }
+  .h-\[12\.5px\] {
+    height: 12.5px;
+  }
+  .h-\[13px\] {
+    height: 13px;
+  }
+  .h-\[15px\] {
+    height: 15px;
+  }
+  .h-\[17\.5px\] {
+    height: 17.5px;
+  }
+  .h-\[17px\] {
+    height: 17px;
+  }
+  .h-\[18px\] {
+    height: 18px;
+  }
+  .h-\[20px\] {
+    height: 20px;
+  }
+  .h-\[22px\] {
+    height: 22px;
+  }
+  .h-\[26px\] {
+    height: 26px;
+  }
+  .h-\[34px\] {
+    height: 34px;
+  }
+  .h-\[60px\] {
+    height: 60px;
+  }
+  .h-full {
+    height: 100%;
+  }
+  .h-screen {
+    height: 100vh;
+  }
+  .w-0 {
+    width: 0px;
+  }
+  .w-1\.5 {
+    width: calc(var(--spacing) * 1.5);
+  }
+  .w-1\/2 {
+    width: calc(1 / 2 * 100%);
+  }
+  .w-3 {
+    width: calc(var(--spacing) * 3);
+  }
+  .w-4 {
+    width: calc(var(--spacing) * 4);
+  }
+  .w-5 {
+    width: calc(var(--spacing) * 5);
+  }
+  .w-7 {
+    width: calc(var(--spacing) * 7);
+  }
+  .w-8 {
+    width: calc(var(--spacing) * 8);
+  }
+  .w-9 {
+    width: calc(var(--spacing) * 9);
+  }
+  .w-28 {
+    width: calc(var(--spacing) * 28);
+  }
+  .w-\[3px\] {
+    width: 3px;
+  }
+  .w-\[5\.5px\] {
+    width: 5.5px;
+  }
+  .w-\[7px\] {
+    width: 7px;
+  }
+  .w-\[11px\] {
+    width: 11px;
+  }
+  .w-\[12\.5px\] {
+    width: 12.5px;
+  }
+  .w-\[13px\] {
+    width: 13px;
+  }
+  .w-\[15px\] {
+    width: 15px;
+  }
+  .w-\[17\.5px\] {
+    width: 17.5px;
+  }
+  .w-\[17px\] {
+    width: 17px;
+  }
+  .w-\[26px\] {
+    width: 26px;
+  }
+  .w-\[34px\] {
+    width: 34px;
+  }
+  .w-\[42\%\] {
+    width: 42%;
+  }
+  .w-\[60\%\] {
+    width: 60%;
+  }
+  .w-\[61\%\] {
+    width: 61%;
+  }
+  .w-\[68\%\] {
+    width: 68%;
+  }
+  .w-\[70\%\] {
+    width: 70%;
+  }
+  .w-\[72\%\] {
+    width: 72%;
+  }
+  .w-\[80\%\] {
+    width: 80%;
+  }
+  .w-\[132px\] {
+    width: 132px;
+  }
+  .w-\[248px\] {
+    width: 248px;
+  }
+  .w-full {
+    width: 100%;
+  }
+  .w-px {
+    width: 1px;
+  }
+  .max-w-\[400px\] {
+    max-width: 400px;
+  }
+  .max-w-\[600px\] {
+    max-width: 600px;
+  }
+  .min-w-0 {
+    min-width: 0px;
+  }
+  .min-w-\[34px\] {
+    min-width: 34px;
+  }
+  .min-w-\[260px\] {
+    min-width: 260px;
+  }
+  .flex-1 {
+    flex: 1;
+  }
+  .shrink-0 {
+    flex-shrink: 0;
+  }
+  .-translate-y-1\/2 {
+    --tw-translate-y: calc(calc(1 / 2 * 100%) * -1);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+  .transform {
+    transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
+  }
+  .animate-dot-pulse {
+    animation: var(--animate-dot-pulse);
+  }
+  .grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .grid-cols-12 {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .flex-col {
+    flex-direction: column;
+  }
+  .flex-wrap {
+    flex-wrap: wrap;
+  }
+  .items-baseline {
+    align-items: baseline;
+  }
+  .items-center {
+    align-items: center;
+  }
+  .items-start {
+    align-items: flex-start;
+  }
+  .justify-center {
+    justify-content: center;
+  }
+  .gap-0\.5 {
+    gap: calc(var(--spacing) * 0.5);
+  }
+  .gap-1\.5 {
+    gap: calc(var(--spacing) * 1.5);
+  }
+  .gap-2 {
+    gap: calc(var(--spacing) * 2);
+  }
+  .gap-2\.5 {
+    gap: calc(var(--spacing) * 2.5);
+  }
+  .gap-3 {
+    gap: calc(var(--spacing) * 3);
+  }
+  .gap-3\.5 {
+    gap: calc(var(--spacing) * 3.5);
+  }
+  .gap-4 {
+    gap: calc(var(--spacing) * 4);
+  }
+  .gap-6 {
+    gap: calc(var(--spacing) * 6);
+  }
+  .gap-\[3px\] {
+    gap: 3px;
+  }
+  .gap-\[5px\] {
+    gap: 5px;
+  }
+  .gap-\[7px\] {
+    gap: 7px;
+  }
+  .gap-\[11px\] {
+    gap: 11px;
+  }
+  .gap-x-3 {
+    column-gap: calc(var(--spacing) * 3);
+  }
+  .gap-y-1 {
+    row-gap: var(--spacing);
+  }
+  .self-stretch {
+    align-self: stretch;
+  }
+  .truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .overflow-hidden {
+    overflow: hidden;
+  }
+  .overflow-x-hidden {
+    overflow-x: hidden;
+  }
+  .overflow-y-auto {
+    overflow-y: auto;
+  }
+  .rounded-\[5px\] {
+    border-radius: 5px;
+  }
+  .rounded-\[7px\] {
+    border-radius: 7px;
+  }
+  .rounded-\[9px\] {
+    border-radius: 9px;
+  }
+  .rounded-full {
+    border-radius: calc(infinity * 1px);
+  }
+  .rounded-lg {
+    border-radius: var(--radius-lg);
+  }
+  .rounded-md {
+    border-radius: var(--radius-md);
+  }
+  .rounded-sm {
+    border-radius: var(--radius-sm);
+  }
+  .rounded-xl {
+    border-radius: var(--radius-xl);
+  }
+  .rounded-xs {
+    border-radius: var(--radius-xs);
+  }
+  .rounded-r-\[3px\] {
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+  }
+  .border {
+    border-style: var(--tw-border-style);
+    border-width: 1px;
+  }
+  .border-\[\.5px\] {
+    border-style: var(--tw-border-style);
+    border-width: .5px;
+  }
+  .border-\[1\.5px\] {
+    border-style: var(--tw-border-style);
+    border-width: 1.5px;
+  }
+  .border-t {
+    border-top-style: var(--tw-border-style);
+    border-top-width: 1px;
+  }
+  .border-r {
+    border-right-style: var(--tw-border-style);
+    border-right-width: 1px;
+  }
+  .border-b {
+    border-bottom-style: var(--tw-border-style);
+    border-bottom-width: 1px;
+  }
+  .border-black\/\[\.12\] {
+    border-color: color-mix(in srgb, #000 12%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-black) 12%, transparent);
+    }
+  }
+  .border-brand-500 {
+    border-color: var(--color-brand-500);
+  }
+  .border-danger-line {
+    border-color: var(--color-danger-line);
+  }
+  .border-line {
+    border-color: var(--color-line);
+  }
+  .border-line-strong {
+    border-color: var(--color-line-strong);
+  }
+  .border-transparent {
+    border-color: transparent;
+  }
+  .border-white\/90 {
+    border-color: color-mix(in srgb, #fff 90%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-white) 90%, transparent);
+    }
+  }
+  .bg-\[\#28c840\] {
+    background-color: #28c840;
+  }
+  .bg-\[\#febc2e\] {
+    background-color: #febc2e;
+  }
+  .bg-\[\#ff5f57\] {
+    background-color: #ff5f57;
+  }
+  .bg-brand-500 {
+    background-color: var(--color-brand-500);
+  }
+  .bg-current {
+    background-color: currentcolor;
+  }
+  .bg-danger {
+    background-color: var(--color-danger);
+  }
+  .bg-danger-bg {
+    background-color: var(--color-danger-bg);
+  }
+  .bg-ink-50 {
+    background-color: var(--color-ink-50);
+  }
+  .bg-ink-100 {
+    background-color: var(--color-ink-100);
+  }
+  .bg-ink-300 {
+    background-color: var(--color-ink-300);
+  }
+  .bg-ink-400 {
+    background-color: var(--color-ink-400);
+  }
+  .bg-learn {
+    background-color: var(--color-learn);
+  }
+  .bg-learn-bg {
+    background-color: var(--color-learn-bg);
+  }
+  .bg-life {
+    background-color: var(--color-life);
+  }
+  .bg-life-bg {
+    background-color: var(--color-life-bg);
+  }
+  .bg-line {
+    background-color: var(--color-line);
+  }
+  .bg-online {
+    background-color: var(--color-online);
+  }
+  .bg-success {
+    background-color: var(--color-success);
+  }
+  .bg-success-bg {
+    background-color: var(--color-success-bg);
+  }
+  .bg-surface {
+    background-color: var(--color-surface);
+  }
+  .bg-surface-raised {
+    background-color: var(--color-surface-raised);
+  }
+  .bg-surface-sunken {
+    background-color: var(--color-surface-sunken);
+  }
+  .bg-transparent {
+    background-color: transparent;
+  }
+  .bg-work {
+    background-color: var(--color-work);
+  }
+  .bg-work-bg {
+    background-color: var(--color-work-bg);
+  }
+  .bg-\[linear-gradient\(90deg\,\#6f9dff\,\#2f6fed\)\] {
+    background-image: linear-gradient(90deg,#6f9dff,#2f6fed);
+  }
+  .bg-\[linear-gradient\(90deg\,\#34d3a6\,\#0f9d76\)\] {
+    background-image: linear-gradient(90deg,#34d3a6,#0f9d76);
+  }
+  .bg-\[linear-gradient\(90deg\,\#6366f1\,\#4f46e5\)\] {
+    background-image: linear-gradient(90deg,#6366f1,#4f46e5);
+  }
+  .bg-\[linear-gradient\(90deg\,\#a78bfa\,\#7c3aed\)\] {
+    background-image: linear-gradient(90deg,#a78bfa,#7c3aed);
+  }
+  .bg-\[linear-gradient\(135deg\,rgba\(79\,70\,229\,\.96\)_0\%\,rgba\(109\,40\,217\,\.94\)_100\%\)\] {
+    background-image: linear-gradient(135deg,rgba(79,70,229,.96) 0%,rgba(109,40,217,.94) 100%);
+  }
+  .bg-\[linear-gradient\(180deg\,rgba\(32\,36\,48\,\.95\)_0\%\,rgba\(12\,14\,20\,\.97\)_100\%\)\] {
+    background-image: linear-gradient(180deg,rgba(32,36,48,.95) 0%,rgba(12,14,20,.97) 100%);
+  }
+  .bg-\[linear-gradient\(180deg\,rgba\(255\,255\,255\,\.1\)_0\%\,rgba\(255\,255\,255\,0\)_100\%\)\] {
+    background-image: linear-gradient(180deg,rgba(255,255,255,.1) 0%,rgba(255,255,255,0) 100%);
+  }
+  .bg-\[linear-gradient\(180deg\,rgba\(255\,255\,255\,\.2\)_0\%\,rgba\(255\,255\,255\,0\)_32\%\)\] {
+    background-image: linear-gradient(180deg,rgba(255,255,255,.2) 0%,rgba(255,255,255,0) 32%);
+  }
+  .bg-\[radial-gradient\(circle\,rgba\(99\,102\,241\,\.24\)_0\%\,rgba\(99\,102\,241\,0\)_70\%\)\] {
+    background-image: radial-gradient(circle,rgba(99,102,241,.24) 0%,rgba(99,102,241,0) 70%);
+  }
+  .bg-\[radial-gradient\(circle\,rgba\(194\,116\,10\,\.22\)_0\%\,rgba\(194\,116\,10\,0\)_70\%\)\] {
+    background-image: radial-gradient(circle,rgba(194,116,10,.22) 0%,rgba(194,116,10,0) 70%);
+  }
+  .bg-\[radial-gradient\(circle\,rgba\(216\,35\,35\,\.18\)_0\%\,rgba\(216\,35\,35\,0\)_70\%\)\] {
+    background-image: radial-gradient(circle,rgba(216,35,35,.18) 0%,rgba(216,35,35,0) 70%);
+  }
+  .p-2 {
+    padding: calc(var(--spacing) * 2);
+  }
+  .p-2\.5 {
+    padding: calc(var(--spacing) * 2.5);
+  }
+  .p-3 {
+    padding: calc(var(--spacing) * 3);
+  }
+  .p-5 {
+    padding: calc(var(--spacing) * 5);
+  }
+  .px-1\.5 {
+    padding-inline: calc(var(--spacing) * 1.5);
+  }
+  .px-2 {
+    padding-inline: calc(var(--spacing) * 2);
+  }
+  .px-3 {
+    padding-inline: calc(var(--spacing) * 3);
+  }
+  .px-3\.5 {
+    padding-inline: calc(var(--spacing) * 3.5);
+  }
+  .px-5 {
+    padding-inline: calc(var(--spacing) * 5);
+  }
+  .px-6 {
+    padding-inline: calc(var(--spacing) * 6);
+  }
+  .px-\[9px\] {
+    padding-inline: 9px;
+  }
+  .px-\[11px\] {
+    padding-inline: 11px;
+  }
+  .py-0\.5 {
+    padding-block: calc(var(--spacing) * 0.5);
+  }
+  .py-3 {
+    padding-block: calc(var(--spacing) * 3);
+  }
+  .py-3\.5 {
+    padding-block: calc(var(--spacing) * 3.5);
+  }
+  .py-4 {
+    padding-block: calc(var(--spacing) * 4);
+  }
+  .py-\[2px\] {
+    padding-block: 2px;
+  }
+  .py-\[3px\] {
+    padding-block: 3px;
+  }
+  .py-\[9px\] {
+    padding-block: 9px;
+  }
+  .py-px {
+    padding-block: 1px;
+  }
+  .pt-3 {
+    padding-top: calc(var(--spacing) * 3);
+  }
+  .pt-4 {
+    padding-top: calc(var(--spacing) * 4);
+  }
+  .pt-6 {
+    padding-top: calc(var(--spacing) * 6);
+  }
+  .pt-\[22px\] {
+    padding-top: 22px;
+  }
+  .pr-2 {
+    padding-right: calc(var(--spacing) * 2);
+  }
+  .pr-5 {
+    padding-right: calc(var(--spacing) * 5);
+  }
+  .pr-6 {
+    padding-right: calc(var(--spacing) * 6);
+  }
+  .pr-\[62px\] {
+    padding-right: 62px;
+  }
+  .pb-1\.5 {
+    padding-bottom: calc(var(--spacing) * 1.5);
+  }
+  .pb-2 {
+    padding-bottom: calc(var(--spacing) * 2);
+  }
+  .pb-16 {
+    padding-bottom: calc(var(--spacing) * 16);
+  }
+  .pl-4 {
+    padding-left: calc(var(--spacing) * 4);
+  }
+  .pl-6 {
+    padding-left: calc(var(--spacing) * 6);
+  }
+  .pl-\[3px\] {
+    padding-left: 3px;
+  }
+  .pl-\[35px\] {
+    padding-left: 35px;
+  }
+  .text-left {
+    text-align: left;
+  }
+  .text-right {
+    text-align: right;
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+  .text-10 {
+    font-size: var(--text-10);
+  }
+  .text-10-5 {
+    font-size: var(--text-10-5);
+  }
+  .text-11 {
+    font-size: var(--text-11);
+  }
+  .text-11-5 {
+    font-size: var(--text-11-5);
+  }
+  .text-12 {
+    font-size: var(--text-12);
+  }
+  .text-12-5 {
+    font-size: var(--text-12-5);
+  }
+  .text-13 {
+    font-size: var(--text-13);
+  }
+  .text-13-5 {
+    font-size: var(--text-13-5);
+  }
+  .text-14 {
+    font-size: var(--text-14);
+  }
+  .text-15-5 {
+    font-size: var(--text-15-5);
+  }
+  .text-24 {
+    font-size: var(--text-24);
+  }
+  .text-29 {
+    font-size: var(--text-29);
+  }
+  .leading-\[1\.1\] {
+    --tw-leading: 1.1;
+    line-height: 1.1;
+  }
+  .leading-\[1\.5\] {
+    --tw-leading: 1.5;
+    line-height: 1.5;
+  }
+  .leading-\[1\.6\] {
+    --tw-leading: 1.6;
+    line-height: 1.6;
+  }
+  .leading-\[1\.7\] {
+    --tw-leading: 1.7;
+    line-height: 1.7;
+  }
+  .leading-\[1\.35\] {
+    --tw-leading: 1.35;
+    line-height: 1.35;
+  }
+  .leading-none {
+    --tw-leading: 1;
+    line-height: 1;
+  }
+  .font-bold {
+    --tw-font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-bold);
+  }
+  .font-medium {
+    --tw-font-weight: var(--font-weight-medium);
+    font-weight: var(--font-weight-medium);
+  }
+  .font-semibold {
+    --tw-font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-semibold);
+  }
+  .tracking-\[-0\.01em\] {
+    --tw-tracking: -0.01em;
+    letter-spacing: -0.01em;
+  }
+  .tracking-\[-0\.02em\] {
+    --tw-tracking: -0.02em;
+    letter-spacing: -0.02em;
+  }
+  .tracking-\[\.01em\] {
+    --tw-tracking: .01em;
+    letter-spacing: .01em;
+  }
+  .tracking-\[\.1em\] {
+    --tw-tracking: .1em;
+    letter-spacing: .1em;
+  }
+  .tracking-\[\.02em\] {
+    --tw-tracking: .02em;
+    letter-spacing: .02em;
+  }
+  .tracking-\[\.13em\] {
+    --tw-tracking: .13em;
+    letter-spacing: .13em;
+  }
+  .tracking-normal {
+    --tw-tracking: var(--tracking-normal);
+    letter-spacing: var(--tracking-normal);
+  }
+  .whitespace-nowrap {
+    white-space: nowrap;
+  }
+  .text-black\/\[\.55\] {
+    color: color-mix(in srgb, #000 55.00000000000001%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      color: color-mix(in oklab, var(--color-black) 55.00000000000001%, transparent);
+    }
+  }
+  .text-brand-600 {
+    color: var(--color-brand-600);
+  }
+  .text-danger {
+    color: var(--color-danger);
+  }
+  .text-danger-strong {
+    color: var(--color-danger-strong);
+  }
+  .text-ink-300 {
+    color: var(--color-ink-300);
+  }
+  .text-ink-400 {
+    color: var(--color-ink-400);
+  }
+  .text-ink-500 {
+    color: var(--color-ink-500);
+  }
+  .text-ink-600 {
+    color: var(--color-ink-600);
+  }
+  .text-ink-700 {
+    color: var(--color-ink-700);
+  }
+  .text-ink-800 {
+    color: var(--color-ink-800);
+  }
+  .text-ink-900 {
+    color: var(--color-ink-900);
+  }
+  .text-learn-strong {
+    color: var(--color-learn-strong);
+  }
+  .text-life-strong {
+    color: var(--color-life-strong);
+  }
+  .text-success {
+    color: var(--color-success);
+  }
+  .text-success-strong {
+    color: var(--color-success-strong);
+  }
+  .text-white {
+    color: var(--color-white);
+  }
+  .text-work-strong {
+    color: var(--color-work-strong);
+  }
+  .uppercase {
+    text-transform: uppercase;
+  }
+  .tabular-nums {
+    --tw-numeric-spacing: tabular-nums;
+    font-variant-numeric: var(--tw-ordinal,) var(--tw-slashed-zero,) var(--tw-numeric-figure,) var(--tw-numeric-spacing,) var(--tw-numeric-fraction,);
+  }
+  .line-through {
+    text-decoration-line: line-through;
+  }
+  .opacity-0 {
+    opacity: 0%;
+  }
+  .shadow-\[0_0_0_3px_rgba\(34\,197\,94\,\.16\)\] {
+    --tw-shadow: 0 0 0 3px var(--tw-shadow-color, rgba(34,197,94,.16));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .shadow-\[0_6px_18px_rgba\(16\,18\,24\,\.22\)\,inset_0_1px_0_rgba\(255\,255\,255\,\.18\)\] {
+    --tw-shadow: 0 6px 18px var(--tw-shadow-color, rgba(16,18,24,.22)), inset 0 1px 0 var(--tw-shadow-color, rgba(255,255,255,.18));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .shadow-\[0_10px_24px_rgba\(79\,70\,229\,\.26\)\] {
+    --tw-shadow: 0 10px 24px var(--tw-shadow-color, rgba(79,70,229,.26));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .shadow-sm {
+    --tw-shadow: 0 2px 6px var(--tw-shadow-color, rgba(17, 20, 28, 0.05)), 0 1px 2px var(--tw-shadow-color, rgba(17, 20, 28, 0.03));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .shadow-xs {
+    --tw-shadow: 0 1px 2px var(--tw-shadow-color, rgba(17, 20, 28, 0.04));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .transition-all {
+    transition-property: all;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
+  }
+  .transition-colors {
+    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
+  }
+  .transition-opacity {
+    transition-property: opacity;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
+  }
+  .transition-transform {
+    transition-property: transform, translate, scale, rotate;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
+  }
+  .duration-100 {
+    --tw-duration: 100ms;
+    transition-duration: 100ms;
+  }
+  .duration-150 {
+    --tw-duration: 150ms;
+    transition-duration: 150ms;
+  }
+  .duration-\[220ms\] {
+    --tw-duration: 220ms;
+    transition-duration: 220ms;
+  }
+  .ease-out {
+    --tw-ease: var(--ease-out);
+    transition-timing-function: var(--ease-out);
+  }
+  .outline-none {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  @media (hover: hover) {
+    .group-hover\:translate-x-0\.5:is(:where(.group):hover *) {
+      --tw-translate-x: calc(var(--spacing) * 0.5);
+      translate: var(--tw-translate-x) var(--tw-translate-y);
+    }
+    .group-hover\/mac\:opacity-100:is(:where(.group\/mac):hover *) {
+      opacity: 100%;
+    }
+  }
+  .placeholder\:text-ink-500::placeholder {
+    color: var(--color-ink-500);
+  }
+  .last\:border-b-0:last-child {
+    border-bottom-style: var(--tw-border-style);
+    border-bottom-width: 0px;
+  }
+  @media (hover: hover) {
+    .hover\:-translate-y-0\.5:hover {
+      --tw-translate-y: calc(var(--spacing) * -0.5);
+      translate: var(--tw-translate-x) var(--tw-translate-y);
+    }
+    .hover\:-translate-y-px:hover {
+      --tw-translate-y: -1px;
+      translate: var(--tw-translate-x) var(--tw-translate-y);
+    }
+    .hover\:border-line-strong:hover {
+      border-color: var(--color-line-strong);
+    }
+    .hover\:bg-ink-50:hover {
+      background-color: var(--color-ink-50);
+    }
+    .hover\:bg-surface-raised:hover {
+      background-color: var(--color-surface-raised);
+    }
+    .hover\:bg-\[linear-gradient\(180deg\,rgba\(44\,49\,64\,\.96\)_0\%\,rgba\(16\,18\,24\,\.98\)_100\%\)\]:hover {
+      background-image: linear-gradient(180deg,rgba(44,49,64,.96) 0%,rgba(16,18,24,.98) 100%);
+    }
+    .hover\:text-ink-900:hover {
+      color: var(--color-ink-900);
+    }
+    .hover\:shadow-\[0_14px_30px_rgba\(16\,18\,24\,\.3\)\,inset_0_1px_0_rgba\(255\,255\,255\,\.22\)\]:hover {
+      --tw-shadow: 0 14px 30px var(--tw-shadow-color, rgba(16,18,24,.3)), inset 0 1px 0 var(--tw-shadow-color, rgba(255,255,255,.22));
+      box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+    }
+    .hover\:shadow-md:hover {
+      --tw-shadow: 0 8px 20px var(--tw-shadow-color, rgba(17, 20, 28, 0.07)), 0 2px 5px var(--tw-shadow-color, rgba(17, 20, 28, 0.035));
+      box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+    }
+    .hover\:shadow-sm:hover {
+      --tw-shadow: 0 2px 6px var(--tw-shadow-color, rgba(17, 20, 28, 0.05)), 0 1px 2px var(--tw-shadow-color, rgba(17, 20, 28, 0.03));
+      box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+    }
+  }
+  .focus\:border-brand-500:focus {
+    border-color: var(--color-brand-500);
+  }
+  .focus\:bg-surface:focus {
+    background-color: var(--color-surface);
+  }
+  .focus\:shadow-\[0_0_0_3\.5px_rgba\(79\,70\,229\,\.12\)\]:focus {
+    --tw-shadow: 0 0 0 3.5px var(--tw-shadow-color, rgba(79,70,229,.12));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .active\:scale-\[\.98\]:active {
+    scale: .98;
+  }
+  @media (width < 1240px) {
+    .max-\[1240px\]\:col-span-full {
+      grid-column: 1 / -1;
+    }
+    .max-\[1240px\]\:grid-cols-1 {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+    .max-\[1240px\]\:grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (width < 1024px) {
+    .max-\[1024px\]\:w-\[236px\] {
+      width: 236px;
+    }
+    .max-\[1024px\]\:px-4 {
+      padding-inline: calc(var(--spacing) * 4);
+    }
+    .max-\[1024px\]\:pt-5 {
+      padding-top: calc(var(--spacing) * 5);
+    }
+    .max-\[1024px\]\:pr-4 {
+      padding-right: calc(var(--spacing) * 4);
+    }
+    .max-\[1024px\]\:pb-12 {
+      padding-bottom: calc(var(--spacing) * 12);
+    }
+    .max-\[1024px\]\:pl-4 {
+      padding-left: calc(var(--spacing) * 4);
+    }
+  }
+  @media (width < 860px) {
+    .max-\[860px\]\:fixed {
+      position: fixed;
+    }
+    .max-\[860px\]\:inset-y-0 {
+      inset-block: 0px;
+    }
+    .max-\[860px\]\:left-0 {
+      left: 0px;
+    }
+    .max-\[860px\]\:hidden {
+      display: none;
+    }
+    .max-\[860px\]\:inline-flex {
+      display: inline-flex;
+    }
+    .max-\[860px\]\:h-full {
+      height: 100%;
+    }
+    .max-\[860px\]\:-translate-x-full {
+      --tw-translate-x: -100%;
+      translate: var(--tw-translate-x) var(--tw-translate-y);
+    }
+    .max-\[860px\]\:pr-3 {
+      padding-right: calc(var(--spacing) * 3);
+    }
+    .max-\[860px\]\:shadow-xl {
+      --tw-shadow: 0 32px 64px var(--tw-shadow-color, rgba(17, 20, 28, 0.14));
+      box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+    }
+  }
+  @media (width < 600px) {
+    .max-\[600px\]\:hidden {
+      display: none;
+    }
+    .max-\[600px\]\:w-full {
+      width: 100%;
+    }
+    .max-\[600px\]\:grid-cols-1 {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+    .max-\[600px\]\:pt-0 {
+      padding-top: 0px;
+    }
+  }
+  @media (width >= 64rem) {
+    .lg\:block {
+      display: block;
+    }
+    .lg\:inline {
+      display: inline;
+    }
+  }
+}
+html[data-platform='windows'] {
+  --window-radius: 0px;
+}
+@keyframes fadeUp10 {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fadeUp8 {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fadeUp14 {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes spinnerRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes dotPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+@keyframes badgePulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes auroraDrift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2.2%, 1.6%, 0) scale(1.06);
+  }
+}
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--color-ink-900);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .ambient {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-color: #e9edf6;
+    border-radius: var(--window-radius);
+    overflow: hidden;
+  }
+  .ambient__aurora {
+    position: absolute;
+    inset: -10%;
+    background-size: 100vw 100vh;
+    background-position: 50% 50%;
+    background-image: linear-gradient(180deg, rgba(124, 58, 237, 0.36) 0%, rgba(124, 58, 237, 0) 7.2%),  radial-gradient(30% 10% at 6% 0%, rgba(99, 102, 241, 0.46) 0%, rgba(99, 102, 241, 0) 76%),  linear-gradient( 96deg, rgba(99, 102, 241, 0.52) 0%, rgba(99, 102, 241, 0.3) 13%, rgba(99, 102, 241, 0) 21% ),  radial-gradient(40% 24% at 101% -2%, rgba(124, 58, 237, 0.34) 0%, rgba(124, 58, 237, 0) 74%),  radial-gradient(18% 40% at 7% 104%, rgba(15, 157, 118, 0.36) 0%, rgba(15, 157, 118, 0) 74%), radial-gradient(26% 32% at 100% 100%, rgba(14, 165, 233, 0.34) 0%, rgba(14, 165, 233, 0) 72%), radial-gradient(30% 34% at 54% 102%, rgba(236, 72, 153, 0.16) 0%, rgba(236, 72, 153, 0) 76%), radial-gradient(72% 62% at 50% 42%, rgba(99, 102, 241, 0.06) 0%, rgba(99, 102, 241, 0) 72%);
+    animation: auroraDrift 26s ease-in-out infinite alternate;
+  }
+  .ambient__noise {
+    position: absolute;
+    inset: 0;
+    opacity: 0.3;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  }
+  #root {
+    position: relative;
+    z-index: 1;
+    border-radius: var(--window-radius);
+    overflow: hidden;
+  }
+  html[data-shell='desktop'], html[data-shell='desktop'] body {
+    background-color: transparent;
+  }
+  html[data-shell='browser'] {
+    background: linear-gradient(140deg, #5f6980 0%, #6e6a88 52%, #7b7566 100%);
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+  h1, h2, h3, h4 {
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  svg {
+    display: block;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-200);
+    border-radius: 99px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-300);
+    background-clip: content-box;
+    border: 3px solid transparent;
+  }
+}
+@layer components {
+  .shell-frame-left {
+    border-top-left-radius: var(--window-radius);
+    border-bottom-left-radius: var(--window-radius);
+  }
+  .shell-frame-top-right {
+    border-top-right-radius: var(--window-radius);
+  }
+  .shell-frame-right {
+    border-top-right-radius: var(--window-radius);
+    border-bottom-right-radius: var(--window-radius);
+  }
+  @media (max-width: 860px) {
+    .shell-frame-top-left {
+      border-top-left-radius: var(--window-radius);
+    }
+  }
+  @media (max-width: 880px) {
+    .shell-frame-left-sm {
+      border-top-left-radius: var(--window-radius);
+      border-bottom-left-radius: var(--window-radius);
+    }
+  }
+  .icon {
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+  .brand-panel {
+    background: radial-gradient(120% 85% at 8% 4%, rgba(99, 102, 241, 0.5) 0%, rgba(99, 102, 241, 0) 58%), radial-gradient(85% 70% at 92% 16%, rgba(124, 58, 237, 0.42) 0%, rgba(124, 58, 237, 0) 55%), radial-gradient(110% 90% at 72% 104%, rgba(14, 165, 233, 0.26) 0%, rgba(14, 165, 233, 0) 62%), rgba(9, 11, 16, 0.92);
+    backdrop-filter: blur(30px) saturate(150%);
+    -webkit-backdrop-filter: blur(30px) saturate(150%);
+  }
+  .brand-panel__grid::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(120% 100% at 20% 0%, #000 25%, transparent 78%);
+    mask-image: radial-gradient(120% 100% at 20% 0%, #000 25%, transparent 78%);
+    pointer-events: none;
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass, .glass-bar, .glass-panel, .glass-soft {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .ambient__noise {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  .ambient__aurora {
+    animation: none !important;
+  }
+}
+@property --tw-translate-x {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}
+@property --tw-translate-y {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}
+@property --tw-translate-z {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}
+@property --tw-rotate-x {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-rotate-y {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-rotate-z {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-skew-x {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-skew-y {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-border-style {
+  syntax: "*";
+  inherits: false;
+  initial-value: solid;
+}
+@property --tw-leading {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-font-weight {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-tracking {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ordinal {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-slashed-zero {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-numeric-figure {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-numeric-spacing {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-numeric-fraction {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-shadow-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-shadow-alpha {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+@property --tw-inset-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-inset-shadow-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-inset-shadow-alpha {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+@property --tw-ring-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ring-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-inset-ring-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-inset-ring-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-ring-inset {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ring-offset-width {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --tw-ring-offset-color {
+  syntax: "*";
+  inherits: false;
+  initial-value: #fff;
+}
+@property --tw-ring-offset-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-duration {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ease {
+  syntax: "*";
+  inherits: false;
+}
+@layer properties {
+  @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
+    *, ::before, ::after, ::backdrop {
+      --tw-translate-x: 0;
+      --tw-translate-y: 0;
+      --tw-translate-z: 0;
+      --tw-rotate-x: initial;
+      --tw-rotate-y: initial;
+      --tw-rotate-z: initial;
+      --tw-skew-x: initial;
+      --tw-skew-y: initial;
+      --tw-border-style: solid;
+      --tw-leading: initial;
+      --tw-font-weight: initial;
+      --tw-tracking: initial;
+      --tw-ordinal: initial;
+      --tw-slashed-zero: initial;
+      --tw-numeric-figure: initial;
+      --tw-numeric-spacing: initial;
+      --tw-numeric-fraction: initial;
+      --tw-shadow: 0 0 #0000;
+      --tw-shadow-color: initial;
+      --tw-shadow-alpha: 100%;
+      --tw-inset-shadow: 0 0 #0000;
+      --tw-inset-shadow-color: initial;
+      --tw-inset-shadow-alpha: 100%;
+      --tw-ring-color: initial;
+      --tw-ring-shadow: 0 0 #0000;
+      --tw-inset-ring-color: initial;
+      --tw-inset-ring-shadow: 0 0 #0000;
+      --tw-ring-inset: initial;
+      --tw-ring-offset-width: 0px;
+      --tw-ring-offset-color: #fff;
+      --tw-ring-offset-shadow: 0 0 #0000;
+      --tw-duration: initial;
+      --tw-ease: initial;
+    }
+  }
+}
+
+    </style>
+  </head>
+
+  <body>
+    <!-- 环境光层：外层只负责形状（基色 + 窗口圆角 + overflow:hidden），内层只负责漂。
+         两层不能合并 —— 漂移的 transform 会把带圆角的那层挪出视口，色顺着四角漏出去。 -->
+    <div class="ambient" aria-hidden="true">
+      <div class="ambient__aurora"></div>
+      <div class="ambient__noise"></div>
+    </div>
+
+    <!-- 图标精灵：与 src/components/icons/IconSprite.tsx 逐条对应 -->
+    <svg style="display: none" aria-hidden="true">
+      <symbol id="i-life" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.4 5.9a5 5 0 0 0-7.1 0L12 7.2l-1.3-1.3a5 5 0 1 0-7.1 7.1l8.4 8.4 8.4-8.4a5 5 0 0 0 0-7.1Z" />
+      </symbol>
+      <symbol id="i-work" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="7" width="20" height="14" rx="2" />
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      </symbol>
+      <symbol id="i-learn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 7v14" />
+        <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3H3Z" />
+      </symbol>
+      <symbol id="i-project" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m12 2 9 5-9 5-9-5 9-5Z" />
+        <path d="m3 12 9 5 9-5" />
+        <path d="m3 17 9 5 9-5" />
+      </symbol>
+      <symbol id="i-knowledge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <ellipse cx="12" cy="5.5" rx="9" ry="3.5" />
+        <path d="M3 5.5v13c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5v-13" />
+        <path d="M3 12c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5" />
+      </symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V8a1.7 1.7 0 0 0 1.5 1H22a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+      </symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" />
+        <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+        <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" />
+        <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" />
+      </symbol>
+      <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
+      </symbol>
+      <symbol id="i-kanban" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="5" height="14" rx="1.5" />
+        <rect x="10" y="3" width="5" height="18" rx="1.5" />
+        <rect x="17" y="3" width="5" height="10" rx="1.5" />
+      </symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M8 3v4M16 3v4M3 10h18" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5 13 5 5L20 7" />
+      </symbol>
+      <symbol id="i-check-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5 13 5 5L20 7" />
+      </symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="m8 12.5 2.8 2.8L16 10" />
+      </symbol>
+      <symbol id="i-more" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="5" cy="12" r="1.8" />
+        <circle cx="12" cy="12" r="1.8" />
+        <circle cx="19" cy="12" r="1.8" />
+      </symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m6 9 6 6 6-6" />
+      </symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14" />
+        <path d="m13 6 6 6-6 6" />
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="M12 7v5.3l3.3 2" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+        <path d="M12 9v4M12 17h.01" />
+      </symbol>
+      <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.9" />
+        <path d="M16 3.1a4 4 0 0 1 0 7.8" />
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v12" />
+        <path d="m7 11 5 5 5-5" />
+        <path d="M4 20h16" />
+      </symbol>
+      <symbol id="i-hamburger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </symbol>
+      <symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m3 17 5.5-5.5 4 4L21 7" />
+        <path d="M15 7h6v6" />
+      </symbol>
+      <symbol id="i-layer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+        <path d="m3 13 9 5 9-5" />
+      </symbol>
+      <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="m10 8.5 6 3.5-6 3.5v-7Z" />
+      </symbol>
+      <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+        <path d="M14 3v5h5" />
+      </symbol>
+      <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+        <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+      </symbol>
+      <symbol id="i-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1Z" />
+        <path d="M4 22v-7" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </symbol>
+      <symbol id="i-git" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="18" r="3" />
+        <circle cx="6" cy="6" r="3" />
+        <path d="M6 21V9a9 9 0 0 0 9 9" />
+      </symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+        <path d="m3 13 9 5 9-5" />
+      </symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6" />
+        <path d="M18.4 2.6a2 2 0 0 1 2.8 2.8L12 14.6l-3.5.7.7-3.5Z" />
+      </symbol>
+      <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="5" r="3" />
+        <circle cx="6" cy="12" r="3" />
+        <circle cx="18" cy="19" r="3" />
+        <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
+      </symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+      </symbol>
+      <!-- 账户菜单 -->
+      <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 20.5c0-3.6 3.3-6 7.5-6s7.5 2.4 7.5 6" />
+        <circle cx="12" cy="8" r="3.6" />
+      </symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14.5 4.5H6.5A2 2 0 0 0 4.5 6.5v11a2 2 0 0 0 2 2h8" />
+        <path d="M16 8l4 4-4 4" />
+        <path d="M20 12H10" />
+      </symbol>
+      <!-- 自绘窗口控制 —— macOS 三件套。
+           ⚠️ 这里补上了 src/components/icons/IconSprite.tsx 缺失的 i-mac-full：
+           那边 WindowControls 引用了它、精灵里却没有定义，绿点 hover 浮不出字形。
+           （本地补一个，同时把这条差异报给用户，不改 src。） -->
+      <symbol id="i-mac-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round">
+        <path d="M7 7l10 10" />
+        <path d="M17 7L7 17" />
+      </symbol>
+      <symbol id="i-mac-min" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round">
+        <path d="M6 12h12" />
+      </symbol>
+      <symbol id="i-mac-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 9V5h4" />
+        <path d="M19 15v4h-4" />
+      </symbol>
+    </svg>
+
+    <div id="root">
+      <div class="flex h-screen overflow-hidden">
+        <!-- ==================== 侧栏 ==================== -->
+        <!-- 玻璃取常规档（bg-surface α.70）而不是 raised：α.84 会把背后极光盖光，退化成白板 -->
+        <aside
+          class="glass-bar shell-frame-left z-30 flex w-[248px] shrink-0 flex-col border-r border-line bg-surface bg-[linear-gradient(180deg,rgba(255,255,255,.2)_0%,rgba(255,255,255,0)_32%)] max-[1024px]:w-[236px] max-[860px]:fixed max-[860px]:inset-y-0 max-[860px]:left-0 max-[860px]:h-full max-[860px]:-translate-x-full max-[860px]:shadow-xl"
+        >
+          <!-- 品牌行：同时是窗口左上角的拖拽热区 -->
+          <div class="flex h-[60px] shrink-0 items-center gap-3 border-b border-line pl-4 pr-5">
+            <div class="group/mac flex shrink-0 items-center" role="group" aria-label="窗口控制">
+              <button type="button" aria-label="关闭窗口" class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
+                <span class="flex h-3 w-3 items-center justify-center rounded-full border-[.5px] border-black/[.12] bg-[#ff5f57] transition-colors duration-150">
+                  <svg class="icon h-[7px] w-[7px] text-black/[.55] opacity-0 transition-opacity duration-100 group-hover/mac:opacity-100"><use href="#i-mac-close" /></svg>
+                </span>
+              </button>
+              <button type="button" aria-label="最小化窗口" class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
+                <span class="flex h-3 w-3 items-center justify-center rounded-full border-[.5px] border-black/[.12] bg-[#febc2e] transition-colors duration-150">
+                  <svg class="icon h-[7px] w-[7px] text-black/[.55] opacity-0 transition-opacity duration-100 group-hover/mac:opacity-100"><use href="#i-mac-min" /></svg>
+                </span>
+              </button>
+              <button type="button" aria-label="进入全屏" class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
+                <span class="flex h-3 w-3 items-center justify-center rounded-full border-[.5px] border-black/[.12] bg-[#28c840] transition-colors duration-150">
+                  <svg class="icon h-[7px] w-[7px] text-black/[.55] opacity-0 transition-opacity duration-100 group-hover/mac:opacity-100"><use href="#i-mac-full" /></svg>
+                </span>
+              </button>
+            </div>
+
+            <svg viewBox="0 0 32 32" class="h-7 w-7 shrink-0" aria-hidden="true">
+              <defs>
+                <linearGradient id="brandmark" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#6366f1" />
+                  <stop offset="1" stop-color="#7c3aed" />
+                </linearGradient>
+              </defs>
+              <rect width="32" height="32" rx="9" fill="url(#brandmark)" />
+              <path d="M16 7.5A8.5 8.5 0 0 1 23.36 20.25" stroke="#fff" stroke-width="2.2" stroke-linecap="round" />
+              <path d="M23.36 20.25A8.5 8.5 0 0 1 8.64 20.25" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".6" />
+              <path d="M8.64 20.25A8.5 8.5 0 0 1 16 7.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".32" />
+              <circle cx="16" cy="16" r="2.3" fill="#fff" />
+            </svg>
+
+            <div>
+              <b class="text-15-5 font-bold tracking-[-0.01em]">Lucky-Y</b>
+              <small class="mt-px block text-10 font-semibold uppercase leading-none tracking-[.13em] text-ink-400">Personal OS</small>
+            </div>
+          </div>
+
+          <!-- 导航 -->
+          <nav class="flex-1 overflow-y-auto px-3 pb-2 pt-4">
+            <!-- 「工作台」不归任何业务域：它是应用的家，因此单独置顶、不挂分组标签。
+                 活跃态沿用侧栏唯一那套配方（品牌渐变 600/700 级 + 白字 + 外发光，
+                 取 600 级是因为 400 级最亮处白字只有 4.17:1）。 -->
+            <a
+              href="#"
+              aria-current="page"
+              class="relative mb-0.5 flex w-full items-center gap-[11px] rounded-sm bg-[linear-gradient(135deg,rgba(79,70,229,.96)_0%,rgba(109,40,217,.94)_100%)] px-3 py-[9px] text-14 font-semibold text-white shadow-[0_10px_24px_rgba(79,70,229,.26)] transition-colors duration-150 ease-out"
+            >
+              <span class="absolute left-[-11px] top-1/2 h-[18px] w-[3px] -translate-y-1/2 rounded-r-[3px] bg-brand-500"></span>
+              <svg class="icon h-[17.5px] w-[17.5px] text-white"><use href="#i-grid" /></svg>
+              工作台
+            </a>
+
+            <!-- 业务域 -->
+            <div>
+              <div class="px-3 pb-1.5 pt-3 text-11 font-bold uppercase tracking-[.1em] text-ink-400">业务域</div>
+              <a href="#" class="relative mb-0.5 flex w-full items-center gap-[11px] rounded-sm px-3 py-[9px] text-14 font-medium text-ink-600 transition-colors duration-150 ease-out hover:bg-ink-50 hover:text-ink-900">
+                <svg class="icon h-[17.5px] w-[17.5px] text-ink-400"><use href="#i-life" /></svg>
+                生活
+              </a>
+              <a href="#" class="relative mb-0.5 flex w-full items-center gap-[11px] rounded-sm px-3 py-[9px] text-14 font-medium text-ink-600 transition-colors duration-150 ease-out hover:bg-ink-50 hover:text-ink-900">
+                <svg class="icon h-[17.5px] w-[17.5px] text-ink-400"><use href="#i-work" /></svg>
+                工作
+              </a>
+              <a href="#" class="relative mb-0.5 flex w-full items-center gap-[11px] rounded-sm px-3 py-[9px] text-14 font-medium text-ink-600 transition-colors duration-150 ease-out hover:bg-ink-50 hover:text-ink-900">
+                <svg class="icon h-[17.5px] w-[17.5px] text-ink-400"><use href="#i-learn" /></svg>
+                学习
+              </a>
+            </div>
+
+            <!-- 统一层 -->
+            <div>
+              <div class="px-3 pb-1.5 pt-3 text-11 font-bold uppercase tracking-[.1em] text-ink-400">统一层</div>
+              <a href="#" class="relative mb-0.5 flex w-full items-center gap-[11px] rounded-sm px-3 py-[9px] text-14 font-medium text-ink-600 transition-colors duration-150 ease-out hover:bg-ink-50 hover:text-ink-900">
+                <svg class="icon h-[17.5px] w-[17.5px] text-ink-400"><use href="#i-project" /></svg>
+                项目
+                <span class="ml-auto text-11-5 font-semibold tabular-nums text-ink-400">8</span>
+              </a>
+              <a href="#" class="relative mb-0.5 flex w-full items-center gap-[11px] rounded-sm px-3 py-[9px] text-14 font-medium text-ink-600 transition-colors duration-150 ease-out hover:bg-ink-50 hover:text-ink-900">
+                <svg class="icon h-[17.5px] w-[17.5px] text-ink-400"><use href="#i-knowledge" /></svg>
+                知识库
+              </a>
+            </div>
+
+            <!-- 系统 -->
+            <div>
+              <div class="px-3 pb-1.5 pt-3 text-11 font-bold uppercase tracking-[.1em] text-ink-400">系统</div>
+              <a href="#" class="relative mb-0.5 flex w-full items-center gap-[11px] rounded-sm px-3 py-[9px] text-14 font-medium text-ink-600 transition-colors duration-150 ease-out hover:bg-ink-50 hover:text-ink-900">
+                <svg class="icon h-[17.5px] w-[17.5px] text-ink-400"><use href="#i-settings" /></svg>
+                设置
+              </a>
+            </div>
+          </nav>
+
+          <!-- 底部：同步状态 + 账户行 -->
+          <div class="shrink-0 border-t border-line p-3">
+            <div class="glass-soft mb-3 flex items-center gap-2 rounded-sm border border-line bg-surface-sunken px-[11px] py-[9px] text-11-5 font-medium text-ink-500">
+              <i class="h-1.5 w-1.5 shrink-0 animate-dot-pulse rounded-full bg-online shadow-[0_0_0_3px_rgba(34,197,94,.16)]"></i>
+              Git 已同步 · 3 分钟前
+            </div>
+
+            <button type="button" class="flex w-full items-center gap-2.5 rounded-md p-2 text-left transition-colors duration-150 hover:bg-ink-50">
+              <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] text-12-5 font-bold tracking-[.02em] text-white" style="background: linear-gradient(135deg, hsl(265, 72%, 64%), hsl(235, 68%, 52%))">LY</span>
+              <span class="min-w-0 flex-1">
+                <b class="block text-13 font-semibold leading-[1.35]">刘 阳</b>
+                <span class="block truncate text-11-5 leading-[1.35] text-ink-500">me@lucky-y.app</span>
+              </span>
+              <svg class="icon h-[15px] w-[15px] shrink-0 text-ink-300"><use href="#i-chevron" /></svg>
+            </button>
+          </div>
+        </aside>
+
+        <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <!-- ==================== 顶栏 ==================== -->
+          <header
+            class="glass-bar shell-frame-top-right shell-frame-top-left z-20 flex h-[60px] shrink-0 items-center gap-4 border-b border-line bg-surface bg-[linear-gradient(180deg,rgba(255,255,255,.1)_0%,rgba(255,255,255,0)_100%)] pl-6 pr-6 max-[1024px]:pl-4 max-[1024px]:pr-4"
+          >
+            <!-- ≤860px 侧栏成抽屉时的兜底汉堡（macOS 圆点同样会在顶栏补一份） -->
+            <button
+              type="button"
+              aria-label="打开导航"
+              class="glass-soft hidden h-[34px] w-[34px] shrink-0 items-center justify-center rounded-sm border border-line bg-surface text-ink-600 transition-all duration-150 ease-out hover:bg-surface-raised hover:text-ink-900 max-[860px]:inline-flex"
+            >
+              <svg class="icon h-[17.5px] w-[17.5px]"><use href="#i-hamburger" /></svg>
+            </button>
+
+            <label class="relative flex max-w-[400px] flex-1 items-center">
+              <svg class="icon pointer-events-none absolute left-[11px] h-4 w-4 text-ink-400"><use href="#i-search" /></svg>
+              <input
+                type="search"
+                placeholder="搜索项目、任务、标签…"
+                aria-label="搜索"
+                class="glass-soft h-9 w-full rounded-md border border-transparent bg-ink-50 pl-[35px] pr-[62px] text-13-5 text-ink-900 outline-none transition-all duration-150 ease-out placeholder:text-ink-500 focus:border-brand-500 focus:bg-surface focus:shadow-[0_0_0_3.5px_rgba(79,70,229,.12)] max-[860px]:pr-3"
+              />
+              <kbd class="glass-soft absolute right-[9px] rounded-[5px] border border-line bg-surface-raised px-1.5 py-0.5 font-mono text-10-5 leading-[1.5] text-ink-400 max-[860px]:hidden">⌘K</kbd>
+            </label>
+
+            <div class="flex-1 self-stretch"></div>
+
+            <button
+              type="button"
+              aria-label="通知"
+              class="relative inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-sm border border-transparent bg-transparent text-ink-500 transition-all duration-150 ease-out hover:bg-ink-50 hover:text-ink-900"
+            >
+              <svg class="icon h-[17.5px] w-[17.5px]"><use href="#i-bell" /></svg>
+              <span class="absolute right-1.5 top-1.5 h-[7px] w-[7px] rounded-full border-[1.5px] border-white/90 bg-danger"></span>
+            </button>
+
+            <div class="h-[22px] w-px shrink-0 bg-line"></div>
+
+            <!-- 账户胶囊（弹层方向：顶栏贴顶部 → 只能向下弹） -->
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-label="账户菜单"
+              class="glass-soft inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface py-[3px] pl-[3px] pr-2 transition-all duration-150 ease-out hover:bg-surface-raised"
+            >
+              <span class="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] text-10-5 font-bold tracking-[.02em] text-white" style="background: linear-gradient(135deg, hsl(265, 72%, 64%), hsl(235, 68%, 52%))">LY</span>
+              <svg class="icon h-[13px] w-[13px] shrink-0 text-ink-400"><use href="#i-chevron" /></svg>
+            </button>
+          </header>
+
+          <!-- ==================== 内容区 ==================== -->
+          <div class="flex-1 overflow-y-auto overflow-x-hidden px-6 pb-16 pt-6 max-[1024px]:px-4 max-[1024px]:pb-12 max-[1024px]:pt-5">
+            <!-- ---------- 页头 ---------- -->
+            <div class="mb-6 flex flex-wrap items-start gap-6">
+              <div class="min-w-[260px] flex-1">
+                <div class="mb-2 flex items-center gap-[7px] text-12-5 text-ink-400">
+                  <span>个人操作系统</span>
+                  <svg class="icon h-[13px] w-[13px]"><use href="#i-arrow-right" /></svg>
+                  <b class="font-semibold text-ink-600">工作台</b>
+                </div>
+                <h1 class="text-24 leading-[1.35]">工作台</h1>
+                <p class="mt-1.5 max-w-[600px] text-13-5 text-ink-500">
+                  三域一屏。今天要推进的事、正在跑的项目、以及需要立刻处理的风险都在这一页；
+                  归属看颜色，状态看标签，两者不互换。
+                </p>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2 pt-[22px] max-[600px]:w-full max-[600px]:pt-0">
+                <span class="glass-soft inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-13 font-medium text-ink-600">
+                  <svg class="icon h-[15px] w-[15px] text-ink-400"><use href="#i-calendar" /></svg>
+                  9月19日 · 周六
+                </span>
+                <button
+                  type="button"
+                  class="glass-soft inline-flex h-9 items-center justify-center gap-[7px] rounded-md border border-line-strong bg-surface px-3.5 text-13-5 font-semibold whitespace-nowrap text-ink-700 shadow-xs transition-all duration-150 ease-out hover:-translate-y-px hover:bg-surface-raised hover:text-ink-900 hover:shadow-sm active:scale-[.98]"
+                >
+                  <svg class="icon h-4 w-4"><use href="#i-download" /></svg>
+                  导出
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-9 items-center justify-center gap-[7px] rounded-md border border-transparent bg-[linear-gradient(180deg,rgba(32,36,48,.95)_0%,rgba(12,14,20,.97)_100%)] px-3.5 text-13-5 font-semibold whitespace-nowrap text-white shadow-[0_6px_18px_rgba(16,18,24,.22),inset_0_1px_0_rgba(255,255,255,.18)] transition-all duration-150 ease-out hover:-translate-y-px hover:bg-[linear-gradient(180deg,rgba(44,49,64,.96)_0%,rgba(16,18,24,.98)_100%)] hover:shadow-[0_14px_30px_rgba(16,18,24,.3),inset_0_1px_0_rgba(255,255,255,.22)] active:scale-[.98]"
+                >
+                  <svg class="icon h-4 w-4"><use href="#i-plus" /></svg>
+                  新建项目
+                </button>
+              </div>
+            </div>
+
+            <!-- ---------- 区块 A：今日焦点 + 三域概览 ---------- -->
+            <section class="mb-6 grid grid-cols-12 gap-4 max-[1240px]:grid-cols-1">
+              <!-- 今日焦点 -->
+              <div class="glass-panel col-span-8 flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-sm max-[1240px]:col-span-full">
+                <div class="flex items-center gap-2 border-b border-line px-5 py-4">
+                  <svg class="icon h-4 w-4 text-ink-400"><use href="#i-flag" /></svg>
+                  <h3 class="text-14 font-bold">今日焦点</h3>
+                  <span class="flex-1"></span>
+                  <span class="text-12 font-medium text-ink-400">2 / 4 已完成</span>
+                </div>
+
+                <div class="flex flex-1 flex-col p-5">
+                  <p class="mb-4 text-13-5 leading-[1.7] text-ink-500">
+                    <b class="font-semibold text-ink-800">下午好，刘 阳。</b>
+                    今天还有 2 件事需要推进；其中「瓦工进场验收」卡在建材到货上，
+                    会直接影响 老房翻新改造 的交付日期。
+                  </p>
+
+                  <ul class="flex flex-col gap-0.5">
+                    <!-- 已完成 -->
+                    <li class="flex items-center gap-3 rounded-md px-2 py-[9px] transition-colors duration-150 hover:bg-ink-50">
+                      <span class="flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] border-brand-500 bg-brand-500">
+                        <svg class="icon h-[11px] w-[11px] text-white"><use href="#i-check-xs" /></svg>
+                      </span>
+                      <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-work"></i>
+                      <span class="min-w-0 flex-1 truncate text-13-5 font-medium text-ink-400 line-through">提交鉴权灰度发布预案</span>
+                      <span class="hidden shrink-0 text-11-5 font-medium text-ink-400 max-[600px]:hidden lg:inline">Q4 客户交付系统重构</span>
+                      <span class="shrink-0 text-11-5 font-medium tabular-nums text-ink-400">今天 10:00</span>
+                    </li>
+
+                    <li class="flex items-center gap-3 rounded-md px-2 py-[9px] transition-colors duration-150 hover:bg-ink-50">
+                      <span class="flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] border-brand-500 bg-brand-500">
+                        <svg class="icon h-[11px] w-[11px] text-white"><use href="#i-check-xs" /></svg>
+                      </span>
+                      <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-work"></i>
+                      <span class="min-w-0 flex-1 truncate text-13-5 font-medium text-ink-400 line-through">完成鉴权模块评审</span>
+                      <span class="hidden shrink-0 text-11-5 font-medium text-ink-400 max-[600px]:hidden lg:inline">Q4 客户交付系统重构</span>
+                      <span class="shrink-0 text-11-5 font-medium tabular-nums text-ink-400">今天 11:30</span>
+                    </li>
+
+                    <!-- 未完成 + 阻塞：归属用域色圆点，状态用 danger 语义标签（两者不互换） -->
+                    <li class="flex items-center gap-3 rounded-md px-2 py-[9px] transition-colors duration-150 hover:bg-ink-50">
+                      <span class="h-[17px] w-[17px] shrink-0 rounded-[5px] border-[1.5px] border-line-strong bg-surface"></span>
+                      <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-life"></i>
+                      <span class="min-w-0 flex-1 truncate text-13-5 font-medium text-ink-800">瓦工进场验收</span>
+                      <span class="inline-flex h-[20px] shrink-0 items-center rounded-full bg-danger-bg px-2 text-11-5 font-semibold text-danger-strong">阻塞</span>
+                      <span class="hidden shrink-0 text-11-5 font-medium text-ink-400 max-[600px]:hidden lg:inline">老房翻新改造</span>
+                      <span class="shrink-0 text-11-5 font-semibold tabular-nums text-danger-strong">今天</span>
+                    </li>
+
+                    <li class="flex items-center gap-3 rounded-md px-2 py-[9px] transition-colors duration-150 hover:bg-ink-50">
+                      <span class="h-[17px] w-[17px] shrink-0 rounded-[5px] border-[1.5px] border-line-strong bg-surface"></span>
+                      <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-learn"></i>
+                      <span class="min-w-0 flex-1 truncate text-13-5 font-medium text-ink-800">输出 Executor 源码笔记</span>
+                      <span class="hidden shrink-0 text-11-5 font-medium text-ink-400 max-[600px]:hidden lg:inline">Rust 异步编程精读</span>
+                      <span class="shrink-0 text-11-5 font-medium tabular-nums text-ink-500">今天 20:00</span>
+                    </li>
+                  </ul>
+
+                  <div class="mt-auto flex items-center gap-3 border-t border-line pt-4">
+                    <span class="shrink-0 text-12 font-semibold text-ink-500">今日完成</span>
+                    <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+                      <span class="block h-full w-1/2 rounded-full bg-[linear-gradient(90deg,#6366f1,#4f46e5)]"></span>
+                    </div>
+                    <span class="min-w-[34px] text-right text-12 font-bold tabular-nums text-ink-600">2/4</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 三域概览 -->
+              <div class="glass-panel col-span-4 flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-sm max-[1240px]:col-span-full">
+                <div class="flex items-center gap-2 border-b border-line px-5 py-4">
+                  <svg class="icon h-4 w-4 text-ink-400"><use href="#i-layer" /></svg>
+                  <h3 class="text-14 font-bold">三域概览</h3>
+                  <span class="flex-1"></span>
+                  <span class="text-12 font-medium text-ink-400">共 8 个项目</span>
+                </div>
+
+                <div class="flex flex-1 flex-col p-2.5">
+                  <!-- 生活：3 个项目，平均进度 (68+42+100)/3 = 70% -->
+                  <a href="#" class="block rounded-lg px-3 py-3 transition-colors duration-150 hover:bg-ink-50">
+                    <div class="flex items-center gap-2.5">
+                      <span class="inline-flex h-[22px] shrink-0 items-center gap-[5px] rounded-full bg-life-bg px-[9px] text-11-5 font-bold tracking-[.01em] whitespace-nowrap text-life-strong">
+                        <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-current"></i>生活
+                      </span>
+                      <span class="flex-1"></span>
+                      <span class="shrink-0 text-12 font-medium tabular-nums text-ink-500">3 个项目</span>
+                      <svg class="icon h-[13px] w-[13px] shrink-0 text-ink-300"><use href="#i-arrow-right" /></svg>
+                    </div>
+                    <div class="mt-2.5 flex items-center gap-2.5">
+                      <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+                        <span class="block h-full w-[70%] rounded-full bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]"></span>
+                      </div>
+                      <span class="min-w-[34px] text-right text-12 font-bold tabular-nums text-ink-600">70%</span>
+                    </div>
+                  </a>
+
+                  <!-- 工作：2 个项目，平均进度 (72+12)/2 = 42% -->
+                  <a href="#" class="block rounded-lg px-3 py-3 transition-colors duration-150 hover:bg-ink-50">
+                    <div class="flex items-center gap-2.5">
+                      <span class="inline-flex h-[22px] shrink-0 items-center gap-[5px] rounded-full bg-work-bg px-[9px] text-11-5 font-bold tracking-[.01em] whitespace-nowrap text-work-strong">
+                        <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-current"></i>工作
+                      </span>
+                      <span class="flex-1"></span>
+                      <span class="shrink-0 text-12 font-medium tabular-nums text-ink-500">2 个项目</span>
+                      <svg class="icon h-[13px] w-[13px] shrink-0 text-ink-300"><use href="#i-arrow-right" /></svg>
+                    </div>
+                    <div class="mt-2.5 flex items-center gap-2.5">
+                      <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+                        <span class="block h-full w-[42%] rounded-full bg-[linear-gradient(90deg,#6f9dff,#2f6fed)]"></span>
+                      </div>
+                      <span class="min-w-[34px] text-right text-12 font-bold tabular-nums text-ink-600">42%</span>
+                    </div>
+                  </a>
+
+                  <!-- 学习：3 个项目，平均进度 (80+0+100)/3 = 60% -->
+                  <a href="#" class="block rounded-lg px-3 py-3 transition-colors duration-150 hover:bg-ink-50">
+                    <div class="flex items-center gap-2.5">
+                      <span class="inline-flex h-[22px] shrink-0 items-center gap-[5px] rounded-full bg-learn-bg px-[9px] text-11-5 font-bold tracking-[.01em] whitespace-nowrap text-learn-strong">
+                        <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-current"></i>学习
+                      </span>
+                      <span class="flex-1"></span>
+                      <span class="shrink-0 text-12 font-medium tabular-nums text-ink-500">3 个项目</span>
+                      <svg class="icon h-[13px] w-[13px] shrink-0 text-ink-300"><use href="#i-arrow-right" /></svg>
+                    </div>
+                    <div class="mt-2.5 flex items-center gap-2.5">
+                      <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+                        <span class="block h-full w-[60%] rounded-full bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]"></span>
+                      </div>
+                      <span class="min-w-[34px] text-right text-12 font-bold tabular-nums text-ink-600">60%</span>
+                    </div>
+                  </a>
+
+                  <div class="mt-auto flex items-center gap-2 border-t border-line px-3 py-3 text-11-5 font-medium text-ink-400">
+                    <svg class="icon h-[13px] w-[13px] shrink-0"><use href="#i-trend" /></svg>
+                    全域平均进度 59% · 较上周 +6%
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ---------- 区块 B：全局指标 ---------- -->
+            <section class="mb-6 grid grid-cols-4 gap-4 max-[1240px]:grid-cols-2 max-[600px]:grid-cols-1" aria-label="全局指标">
+              <!-- 待办任务：剩余 64 条（8 个项目共 164 条，已完成 100 条） -->
+              <div class="glass-panel relative overflow-hidden rounded-xl border border-line bg-surface p-5 shadow-sm transition-all duration-[220ms] ease-out hover:-translate-y-0.5 hover:border-line-strong hover:bg-surface-raised hover:shadow-md">
+                <span aria-hidden="true" class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(99,102,241,.24)_0%,rgba(99,102,241,0)_70%)]"></span>
+                <div class="relative flex items-center gap-[7px] text-12-5 font-semibold text-ink-500">
+                  <svg class="icon h-[15px] w-[15px] text-ink-400"><use href="#i-list" /></svg>
+                  待办任务
+                </div>
+                <div class="relative mt-2.5 flex items-baseline gap-[7px] text-29 font-bold leading-[1.1] tracking-[-0.02em] tabular-nums">
+                  64<small class="text-13 font-semibold tracking-normal text-ink-400">条</small>
+                </div>
+                <div class="relative mt-[11px] h-[5px] overflow-hidden rounded-full bg-ink-100">
+                  <span class="block h-full w-[61%] rounded-full bg-[linear-gradient(90deg,#6366f1,#4f46e5)]"></span>
+                </div>
+                <div class="relative mt-[7px] flex items-center gap-1.5 text-12 text-ink-400">已完成 100 / 164</div>
+              </div>
+
+              <!-- 14 天内到期：p1(13) / p2(12) / p5(10) 三项 -->
+              <div class="glass-panel relative overflow-hidden rounded-xl border border-line bg-surface p-5 shadow-sm transition-all duration-[220ms] ease-out hover:-translate-y-0.5 hover:border-line-strong hover:bg-surface-raised hover:shadow-md">
+                <span aria-hidden="true" class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(194,116,10,.22)_0%,rgba(194,116,10,0)_70%)]"></span>
+                <div class="relative flex items-center gap-[7px] text-12-5 font-semibold text-ink-500">
+                  <svg class="icon h-[15px] w-[15px] text-ink-400"><use href="#i-clock" /></svg>
+                  14 天内到期
+                </div>
+                <div class="relative mt-2.5 flex items-baseline gap-[7px] text-29 font-bold leading-[1.1] tracking-[-0.02em] tabular-nums">
+                  3<small class="text-13 font-semibold tracking-normal text-ink-400">项</small>
+                </div>
+                <div class="relative mt-[11px] flex flex-wrap gap-[5px]">
+                  <span class="inline-flex items-center rounded-xs border border-line bg-surface-sunken px-2 py-[2px] text-11-5 font-medium text-ink-500">#9月28日</span>
+                  <span class="inline-flex items-center rounded-xs border border-line bg-surface-sunken px-2 py-[2px] text-11-5 font-medium text-ink-500">#学习</span>
+                </div>
+                <div class="relative mt-[7px] flex items-center gap-1.5 text-12 text-ink-400">最近截止 Rust 异步编程精读</div>
+              </div>
+
+              <!-- 风险阻塞：p2 一项 -->
+              <div class="glass-panel relative overflow-hidden rounded-xl border border-line bg-surface p-5 shadow-sm transition-all duration-[220ms] ease-out hover:-translate-y-0.5 hover:border-line-strong hover:bg-surface-raised hover:shadow-md">
+                <span aria-hidden="true" class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(216,35,35,.18)_0%,rgba(216,35,35,0)_70%)]"></span>
+                <div class="relative flex items-center gap-[7px] text-12-5 font-semibold text-ink-500">
+                  <svg class="icon h-[15px] w-[15px] text-ink-400"><use href="#i-alert" /></svg>
+                  风险阻塞
+                </div>
+                <div class="relative mt-2.5 flex items-baseline gap-[7px] text-29 font-bold leading-[1.1] tracking-[-0.02em] tabular-nums">
+                  1<small class="text-13 font-semibold tracking-normal text-ink-400">项</small>
+                </div>
+                <div class="relative mt-[11px] flex flex-wrap gap-[5px]">
+                  <span class="inline-flex items-center rounded-xs bg-danger-bg px-2 py-[2px] text-11-5 font-bold text-danger-strong">需今日决策</span>
+                </div>
+                <div class="relative mt-[7px] flex items-center gap-1.5 text-12 text-ink-400">老房翻新改造 · 延期 5 天</div>
+              </div>
+
+              <!-- 平均进度：8 个项目均值 59% -->
+              <div class="glass-panel relative overflow-hidden rounded-xl border border-line bg-surface p-5 shadow-sm transition-all duration-[220ms] ease-out hover:-translate-y-0.5 hover:border-line-strong hover:bg-surface-raised hover:shadow-md">
+                <span aria-hidden="true" class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(99,102,241,.24)_0%,rgba(99,102,241,0)_70%)]"></span>
+                <div class="relative flex items-center gap-[7px] text-12-5 font-semibold text-ink-500">
+                  <svg class="icon h-[15px] w-[15px] text-ink-400"><use href="#i-trend" /></svg>
+                  平均进度
+                </div>
+                <div class="relative mt-2.5 flex items-baseline gap-[7px] text-29 font-bold leading-[1.1] tracking-[-0.02em] tabular-nums">
+                  59<small class="text-13 font-semibold tracking-normal text-ink-400">%</small>
+                </div>
+                <div class="relative mt-[11px] flex flex-wrap gap-[5px]">
+                  <!-- ⚠️ 承载文字的小徽标必须用 -strong 色阶：主色阶压在 13% 同色底上只有 2.8:1。
+                       这里与 src/components/projects/ProjectStatsPanel.tsx 的 Delta 不一致，
+                       那边写的是 text-success / text-danger（未达 4.5:1），属源码侧待修，见交付说明。 -->
+                  <span class="inline-flex items-center gap-[3px] rounded-full bg-success-bg px-1.5 py-px text-11-5 font-bold text-success-strong">
+                    <svg class="icon h-[11px] w-[11px]"><use href="#i-trend" /></svg>
+                    6%
+                  </span>
+                  <span class="text-11-5 font-medium text-ink-400">较上周</span>
+                </div>
+                <div class="relative mt-[7px] flex items-center gap-1.5 text-12 text-ink-400">8 个项目全域均值</div>
+              </div>
+            </section>
+
+            <!-- ---------- 区块 C：风险提示（有风险才出现） ---------- -->
+            <section class="glass-panel mb-6 flex flex-wrap items-center gap-4 rounded-xl border border-danger-line bg-danger-bg px-5 py-4" aria-label="风险提示">
+              <span class="glass-soft flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-danger-line bg-surface text-danger-strong">
+                <svg class="icon h-[17.5px] w-[17.5px]"><use href="#i-alert" /></svg>
+              </span>
+              <div class="min-w-[260px] flex-1">
+                <b class="block text-13-5 font-bold text-danger-strong">老房翻新改造 · 工期已延期 5 天</b>
+                <span class="mt-0.5 block text-12-5 leading-[1.6] text-ink-600">
+                  主卫瓷砖到货延迟，瓦工无法进场。建议启用备用供应商或顺延交付日期。
+                </span>
+              </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  class="glass-soft inline-flex h-8 items-center justify-center gap-[7px] rounded-md border border-danger-line bg-surface px-3 text-13 font-semibold whitespace-nowrap text-danger-strong shadow-xs transition-all duration-150 ease-out hover:-translate-y-px hover:bg-surface-raised hover:shadow-sm active:scale-[.98]"
+                >
+                  启用备用供应商
+                </button>
+                <button
+                  type="button"
+                  class="glass-soft inline-flex h-8 items-center justify-center gap-[7px] rounded-md border border-line-strong bg-surface px-3 text-13 font-semibold whitespace-nowrap text-ink-700 shadow-xs transition-all duration-150 ease-out hover:-translate-y-px hover:bg-surface-raised hover:text-ink-900 hover:shadow-sm active:scale-[.98]"
+                >
+                  查看项目
+                  <svg class="icon h-[13px] w-[13px]"><use href="#i-arrow-right" /></svg>
+                </button>
+              </div>
+            </section>
+
+            <!-- ---------- 区块 D：进行中项目 + 最近活动 ---------- -->
+            <section class="grid grid-cols-12 gap-4 max-[1240px]:grid-cols-1">
+              <!-- 进行中项目：按「风险优先 + 截止日最近」排序 -->
+              <div class="glass-panel col-span-7 flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-sm max-[1240px]:col-span-full">
+                <div class="flex items-center gap-2 border-b border-line px-5 py-4">
+                  <svg class="icon h-4 w-4 text-ink-400"><use href="#i-play" /></svg>
+                  <h3 class="text-14 font-bold">进行中项目</h3>
+                  <span class="flex-1"></span>
+                  <span class="text-12 font-medium text-ink-400">6 项未完成</span>
+                </div>
+
+                <div class="flex flex-1 flex-col">
+                  <!-- 老房翻新改造：life / risk / 42% / 9月30日 / 9-24 -->
+                  <a href="#" class="group flex items-center gap-3.5 border-b border-line px-5 py-3.5 transition-colors duration-150 last:border-b-0 hover:bg-ink-50">
+                    <span class="h-[34px] w-[3px] shrink-0 rounded-full bg-life"></span>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2">
+                        <b class="truncate text-13-5 font-semibold text-ink-800">老房翻新改造</b>
+                        <span class="inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-transparent bg-danger-bg px-[9px] text-11-5 font-semibold whitespace-nowrap text-danger-strong">
+                          <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-danger"></i>风险阻塞
+                        </span>
+                      </div>
+                      <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-11-5 font-medium text-ink-400">
+                        <span class="inline-flex items-center gap-[5px] text-danger-strong"><svg class="icon h-[12.5px] w-[12.5px]"><use href="#i-calendar" /></svg>9月30日</span>
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-check" /></svg>9/24 任务</span>
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-flag" /></svg>瓦工进场</span>
+                      </div>
+                    </div>
+                    <div class="hidden w-[132px] shrink-0 max-[600px]:hidden lg:block">
+                      <div class="flex items-center gap-2.5">
+                        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+                          <span class="block h-full w-[42%] rounded-full bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]"></span>
+                        </div>
+                        <span class="min-w-[34px] text-right text-12 font-bold tabular-nums text-ink-600">42%</span>
+                      </div>
+                    </div>
+                    <svg class="icon h-[13px] w-[13px] shrink-0 text-ink-300 transition-transform duration-150 group-hover:translate-x-0.5"><use href="#i-arrow-right" /></svg>
+                  </a>
+
+                  <!-- Rust 异步编程精读：learn / active / 80% / 9月28日 / 16-20 -->
+                  <a href="#" class="group flex items-center gap-3.5 border-b border-line px-5 py-3.5 transition-colors duration-150 last:border-b-0 hover:bg-ink-50">
+                    <span class="h-[34px] w-[3px] shrink-0 rounded-full bg-learn"></span>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2">
+                        <b class="truncate text-13-5 font-semibold text-ink-800">Rust 异步编程精读</b>
+                        <span class="inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-transparent bg-success-bg px-[9px] text-11-5 font-semibold whitespace-nowrap text-success-strong">
+                          <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-success"></i>进行中
+                        </span>
+                      </div>
+                      <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-11-5 font-medium text-ink-400">
+                        <span class="inline-flex items-center gap-[5px] text-danger-strong"><svg class="icon h-[12.5px] w-[12.5px]"><use href="#i-calendar" /></svg>9月28日</span>
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-check" /></svg>16/20 任务</span>
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-flag" /></svg>mini-runtime 跑通</span>
+                      </div>
+                    </div>
+                    <div class="hidden w-[132px] shrink-0 max-[600px]:hidden lg:block">
+                      <div class="flex items-center gap-2.5">
+                        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+                          <span class="block h-full w-[80%] rounded-full bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]"></span>
+                        </div>
+                        <span class="min-w-[34px] text-right text-12 font-bold tabular-nums text-ink-600">80%</span>
+                      </div>
+                    </div>
+                    <svg class="icon h-[13px] w-[13px] shrink-0 text-ink-300 transition-transform duration-150 group-hover:translate-x-0.5"><use href="#i-arrow-right" /></svg>
+                  </a>
+
+                  <!-- 马尔代夫家庭旅行：life / active / 68% / 10月01日 / 13-19 -->
+                  <a href="#" class="group flex items-center gap-3.5 border-b border-line px-5 py-3.5 transition-colors duration-150 last:border-b-0 hover:bg-ink-50">
+                    <span class="h-[34px] w-[3px] shrink-0 rounded-full bg-life"></span>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2">
+                        <b class="truncate text-13-5 font-semibold text-ink-800">马尔代夫家庭旅行</b>
+                        <span class="inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-transparent bg-success-bg px-[9px] text-11-5 font-semibold whitespace-nowrap text-success-strong">
+                          <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-success"></i>进行中
+                        </span>
+                      </div>
+                      <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-11-5 font-medium text-ink-400">
+                        <span class="inline-flex items-center gap-[5px] text-danger-strong"><svg class="icon h-[12.5px] w-[12.5px]"><use href="#i-calendar" /></svg>10月01日</span>
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-check" /></svg>13/19 任务</span>
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-flag" /></svg>行程终版确认</span>
+                      </div>
+                    </div>
+                    <div class="hidden w-[132px] shrink-0 max-[600px]:hidden lg:block">
+                      <div class="flex items-center gap-2.5">
+                        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+                          <span class="block h-full w-[68%] rounded-full bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]"></span>
+                        </div>
+                        <span class="min-w-[34px] text-right text-12 font-bold tabular-nums text-ink-600">68%</span>
+                      </div>
+                    </div>
+                    <svg class="icon h-[13px] w-[13px] shrink-0 text-ink-300 transition-transform duration-150 group-hover:translate-x-0.5"><use href="#i-arrow-right" /></svg>
+                  </a>
+
+                  <!-- Q4 客户交付系统重构：work / active / 72% / 11月15日 / 26-36 -->
+                  <a href="#" class="group flex items-center gap-3.5 border-b border-line px-5 py-3.5 transition-colors duration-150 last:border-b-0 hover:bg-ink-50">
+                    <span class="h-[34px] w-[3px] shrink-0 rounded-full bg-work"></span>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2">
+                        <b class="truncate text-13-5 font-semibold text-ink-800">Q4 客户交付系统重构</b>
+                        <span class="inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-transparent bg-success-bg px-[9px] text-11-5 font-semibold whitespace-nowrap text-success-strong">
+                          <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-success"></i>进行中
+                        </span>
+                      </div>
+                      <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-11-5 font-medium text-ink-400">
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-calendar" /></svg>11月15日</span>
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-check" /></svg>26/36 任务</span>
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-flag" /></svg>灰度发布</span>
+                      </div>
+                    </div>
+                    <div class="hidden w-[132px] shrink-0 max-[600px]:hidden lg:block">
+                      <div class="flex items-center gap-2.5">
+                        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+                          <span class="block h-full w-[72%] rounded-full bg-[linear-gradient(90deg,#6f9dff,#2f6fed)]"></span>
+                        </div>
+                        <span class="min-w-[34px] text-right text-12 font-bold tabular-nums text-ink-600">72%</span>
+                      </div>
+                    </div>
+                    <svg class="icon h-[13px] w-[13px] shrink-0 text-ink-300 transition-transform duration-150 group-hover:translate-x-0.5"><use href="#i-arrow-right" /></svg>
+                  </a>
+
+                  <!-- 数据可视化课程实践：learn / planning / 0% / 11月20日 / 0-14 -->
+                  <a href="#" class="group flex items-center gap-3.5 border-b border-line px-5 py-3.5 transition-colors duration-150 last:border-b-0 hover:bg-ink-50">
+                    <span class="h-[34px] w-[3px] shrink-0 rounded-full bg-learn"></span>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2">
+                        <b class="truncate text-13-5 font-semibold text-ink-800">数据可视化课程实践</b>
+                        <span class="inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-transparent bg-ink-100 px-[9px] text-11-5 font-semibold whitespace-nowrap text-ink-600">
+                          <i class="h-[5.5px] w-[5.5px] shrink-0 rounded-full bg-ink-400"></i>待启动
+                        </span>
+                      </div>
+                      <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-11-5 font-medium text-ink-400">
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-calendar" /></svg>11月20日</span>
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-check" /></svg>0/14 任务</span>
+                        <span class="inline-flex items-center gap-[5px]"><svg class="icon h-[12.5px] w-[12.5px] text-ink-400"><use href="#i-flag" /></svg>作业 1-4 完成</span>
+                      </div>
+                    </div>
+                    <div class="hidden w-[132px] shrink-0 max-[600px]:hidden lg:block">
+                      <div class="flex items-center gap-2.5">
+                        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+                          <span class="block h-full w-0 rounded-full bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]"></span>
+                        </div>
+                        <span class="min-w-[34px] text-right text-12 font-bold tabular-nums text-ink-600">0%</span>
+                      </div>
+                    </div>
+                    <svg class="icon h-[13px] w-[13px] shrink-0 text-ink-300 transition-transform duration-150 group-hover:translate-x-0.5"><use href="#i-arrow-right" /></svg>
+                  </a>
+                </div>
+
+                <a href="#" class="flex items-center justify-center gap-1.5 border-t border-line px-5 py-3 text-12-5 font-semibold text-brand-600 transition-colors duration-150 hover:bg-ink-50">
+                  查看全部 8 个项目
+                  <svg class="icon h-[13px] w-[13px]"><use href="#i-arrow-right" /></svg>
+                </a>
+              </div>
+
+              <!-- 最近活动 -->
+              <div class="glass-panel col-span-5 flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-sm max-[1240px]:col-span-full">
+                <div class="flex items-center gap-2 border-b border-line px-5 py-4">
+                  <svg class="icon h-4 w-4 text-ink-400"><use href="#i-clock" /></svg>
+                  <h3 class="text-14 font-bold">最近活动</h3>
+                  <span class="flex-1"></span>
+                  <span class="text-12 font-medium text-ink-400">今天</span>
+                </div>
+
+                <ul class="flex flex-1 flex-col">
+                  <li class="flex gap-3 border-b border-line px-5 py-3 last:border-b-0">
+                    <span class="flex w-[15px] shrink-0 justify-center"><i class="mt-[6px] h-[7px] w-[7px] rounded-full bg-work"></i></span>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-12-5 leading-[1.6] text-ink-700"><b class="font-semibold text-ink-800">LY</b> 提交了架构方案 v3</p>
+                      <div class="mt-0.5 flex flex-wrap items-center gap-2 text-11 font-medium text-ink-400">
+                        <span class="truncate">Q4 客户交付系统重构</span>
+                        <span class="h-[3px] w-[3px] shrink-0 rounded-full bg-ink-300"></span>
+                        <span class="shrink-0 tabular-nums">12 分钟前</span>
+                      </div>
+                    </div>
+                  </li>
+
+                  <li class="flex gap-3 border-b border-line px-5 py-3 last:border-b-0">
+                    <span class="flex w-[15px] shrink-0 justify-center"><i class="mt-[6px] h-[7px] w-[7px] rounded-full bg-life"></i></span>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-12-5 leading-[1.6] text-ink-700"><b class="font-semibold text-ink-800">LY</b> 完成了「预订接送机」</p>
+                      <div class="mt-0.5 flex flex-wrap items-center gap-2 text-11 font-medium text-ink-400">
+                        <span class="truncate">马尔代夫家庭旅行</span>
+                        <span class="h-[3px] w-[3px] shrink-0 rounded-full bg-ink-300"></span>
+                        <span class="shrink-0 tabular-nums">2 小时前</span>
+                      </div>
+                    </div>
+                  </li>
+
+                  <li class="flex gap-3 border-b border-line px-5 py-3 last:border-b-0">
+                    <span class="flex w-[15px] shrink-0 justify-center"><i class="mt-[6px] h-[7px] w-[7px] rounded-full bg-learn"></i></span>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-12-5 leading-[1.6] text-ink-700"><b class="font-semibold text-ink-800">LY</b> 把 3 条笔记升级为永久笔记</p>
+                      <div class="mt-0.5 flex flex-wrap items-center gap-2 text-11 font-medium text-ink-400">
+                        <span class="truncate">Rust 异步编程精读</span>
+                        <span class="h-[3px] w-[3px] shrink-0 rounded-full bg-ink-300"></span>
+                        <span class="shrink-0 tabular-nums">昨天 18:40</span>
+                      </div>
+                    </div>
+                  </li>
+
+                  <!-- 系统事件：状态用语义色，不占三域色 -->
+                  <li class="flex gap-3 border-b border-line px-5 py-3 last:border-b-0">
+                    <span class="flex w-[15px] shrink-0 justify-center"><i class="mt-[6px] h-[7px] w-[7px] rounded-full bg-danger"></i></span>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-12-5 leading-[1.6] text-ink-700"><b class="font-semibold text-danger-strong">检测到工期延期 5 天</b></p>
+                      <div class="mt-0.5 flex flex-wrap items-center gap-2 text-11 font-medium text-ink-400">
+                        <span class="truncate">老房翻新改造</span>
+                        <span class="h-[3px] w-[3px] shrink-0 rounded-full bg-ink-300"></span>
+                        <span class="shrink-0 tabular-nums">3 天前</span>
+                      </div>
+                    </div>
+                  </li>
+
+                  <li class="flex gap-3 border-b border-line px-5 py-3 last:border-b-0">
+                    <span class="flex w-[15px] shrink-0 justify-center"><i class="mt-[6px] h-[7px] w-[7px] rounded-full bg-work"></i></span>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-12-5 leading-[1.6] text-ink-700"><b class="font-semibold text-ink-800">LY</b> 关闭了 3 条 P1 缺陷</p>
+                      <div class="mt-0.5 flex flex-wrap items-center gap-2 text-11 font-medium text-ink-400">
+                        <span class="truncate">Q4 客户交付系统重构</span>
+                        <span class="h-[3px] w-[3px] shrink-0 rounded-full bg-ink-300"></span>
+                        <span class="shrink-0 tabular-nums">上周五 16:20</span>
+                      </div>
+                    </div>
+                  </li>
+                </ul>
+
+                <a href="#" class="mt-auto flex items-center justify-center gap-1.5 border-t border-line px-5 py-3 text-12-5 font-semibold text-brand-600 transition-colors duration-150 hover:bg-ink-50">
+                  查看全部动态
+                  <svg class="icon h-[13px] w-[13px]"><use href="#i-arrow-right" /></svg>
+                </a>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!--
+      ============================================================================
+      派生口径（全部来自 src/data/projects.ts 的 8 个项目，没有凭空数字）
+      ----------------------------------------------------------------------------
+      规模     项目 8 · 生活 3 / 工作 2 / 学习 3
+      状态     进行中 3 · 风险阻塞 1 · 待启动 2 · 已完成 2
+      任务     总量 164 · 已完成 100 · 待办 64（余量 61% 完成率）
+      进度     全域均值 59%（(68+42+72+12+80+0+100+100)/8）
+               域均值 生活 70%（p1 68 / p2 42 / p8 100）
+                      工作 42%（p3 72 / p4 12）
+                      学习 60%（p5 80 / p6 0 / p7 100）
+      到期     daysLeft ≤ 14 且未完成 → p5 10 天、p2 12 天、p1 13 天，共 3 项
+      排序     进行中项目按「风险优先 → 截止日最近」：p2 → p5 → p1 → p3 → p6
+
+      已知与 src 的两处不一致（本原型按 DESIGN_SYSTEM.md 的判据走，源码侧待修）：
+        1. IconSprite.tsx 缺 i-mac-full 定义，而 WindowControls.tsx 引用了它
+           → macOS 绿点 hover 时第三个字形不出现。本文件已补齐该 symbol。
+        2. ProjectStatsPanel.tsx 的 Delta 用 text-success / text-danger 承载 11.5px 文字，
+           违反 §2.3 ③「承载文字的彩色表面必须用 -strong 色阶」（success 仅 2.8:1）。
+           本文件的对应徽标改用了 text-success-strong / text-danger-strong。
+      ============================================================================
+    -->
+  </body>
+</html>

@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { PLATFORM, isDesktopShell } from './lib/desktop-window'
+import { bootstrapTheme } from './lib/theme'
 import './styles/index.css'
 
 /**
@@ -17,9 +18,13 @@ import './styles/index.css'
  *  - `data-shell`：desktop（Tauri）/ browser（vite dev 与 dist 预览）
  *    只有 desktop 才把页面做成透明 + 自绘圆角；浏览器里保持不透明方角，
  *    否则预览与审计截图的四角会是空洞，反而看不出真问题。
+ *
+ * 主题（`data-theme` / `data-glass`）走同一个入口、同一个理由：首帧必须就位。
+ * 区别是它**允许**被 React 事后改（顶栏有切换按钮），见 stores/theme-store.ts。
  */
 document.documentElement.dataset.platform = PLATFORM
 document.documentElement.dataset.shell = isDesktopShell() ? 'desktop' : 'browser'
+bootstrapTheme()
 
 const container = document.getElementById('root')
 

@@ -207,6 +207,26 @@ export function IconSprite() {
       <symbol id="i-mac-min" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round">
         <path d="M6 12h12" />
       </symbol>
+      {/* ⚠️ 补记：`i-mac-full` 一直在 `IconName` 里、也被 WindowControls 引用，
+          但雪碧图里**从来没有这个 symbol** —— 于是 macOS 全屏圆点 hover 时字形是空的，
+          而空字形不报错，看着就像"这个圆点本来就没有字形"。 */}
+      <symbol id="i-mac-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 19 19 5" />
+        <path d="M12 5h7v7" />
+      </symbol>
+      {/* 工作台专用：主题切换（日/月）与助手头像（星芒）。
+          日/月是**线稿**（stroke），因为要跟顶栏其它图标同一套笔触；
+          星芒是**实心**（fill），它要做助手头像的底纹，线稿在 16px 下会糊。 */}
+      <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="4.1" />
+        <path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.4 5.4l1.5 1.5M17.1 17.1l1.5 1.5M18.6 5.4l-1.5 1.5M6.9 17.1l-1.5 1.5" />
+      </symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.2 14.6A8.6 8.6 0 1 1 9.4 3.8a6.9 6.9 0 0 0 10.8 10.8Z" />
+      </symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 3.6c.7 3.7 2.7 5.7 6.4 6.4-3.7.7-5.7 2.7-6.4 6.4-.7-3.7-2.7-5.7-6.4-6.4 3.7-.7 5.7-2.7 6.4-6.4Z" />
+      </symbol>
       {/* 账户菜单（顶栏胶囊与侧栏底部共用同一套） */}
       <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4.5 20.5c0-3.6 3.3-6 7.5-6s7.5 2.4 7.5 6" />

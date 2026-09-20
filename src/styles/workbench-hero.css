@@ -1,0 +1,818 @@
+/* ============================================================================
+   工作台 Hero：径向菜单 + 助手栏（原型专属的空间编排）
+   ----------------------------------------------------------------------------
+   来源：design/workbench.html 的 <style id="lucky-y-tw-hero">，**逐行搬过来**。
+   为什么不是"重写成 Tailwind 工具类"：
+     这 797 行里有大量**算出来的几何**（九枚瓦片的 40° 栅格、标签半径 rl=130 必须
+     比瓦片半径 r=92 更外一圈、表盘直径 82、花瓣路径、八芒星罗盘），
+     它们彼此牵制、改一个就要重新量。用工具类重写等于把这些约束打散到 JSX 里，
+     而且会丢掉 @property 注册（`--accent` / `--na` / `--arc`）——
+     没有它们，切换模块时环的色调与指针是"啪"地跳变而不是渐变过去。
+
+   与原型的**唯一差异**：`.rail-round--tile` 的底色从旧的
+   `--color-surface-raised`（旧玻璃令牌，rgba(255,255,255,.84)）改成 Prism 的面板槽位
+   `rgb(var(--g-panel-rgb) / var(--g-panel-a))`，否则助手栏里那一枚圆钮会带着
+   另一套材质体系进来（亮暗两个主题下都不对）。
+
+   ⚠️ 依赖：Prism 的令牌（--s / --m-lt-* / --m-a* / --brand-a）与 prism.css §6 的
+      颜色别名（--color-ink-* / --color-brand-*）。两者在 index.css 里都排在它前面。
+   ⚠️ 这里注册 @property 是**必须**的：未注册的自定义属性不可插值。
+   ========================================================================= */
+
+      /* 把强调色注册成 <color>：只有注册过的自定义属性才**可插值**，
+         于是切换模块时整个环的色调是渐变过去的，而不是"啪"地换一套色。
+         initial-value 只是给语法解析一个兜底 —— 实际值永远由 .radial 上的
+         var(--color-*) 决定，**这里不承担责任**（写死色值就会变成第二份事实源）。
+         浏览器不支持 @property 时退化成突变，其余效果照常。 */
+      @property --accent {
+        syntax: '<color>';
+        inherits: true;
+        initial-value: #6366f1;
+      }
+      @property --accent-deep {
+        syntax: '<color>';
+        inherits: true;
+        initial-value: #4f46e5;
+      }
+      /* 进度弧的角度。也要注册成 <angle> 才能插值 ——
+         否则切模块时那条弧是"啪"地跳变，而不是扫过去。
+         它是**长度**在变（不是旋转），所以脚本直接赋目标值即可，不需要像指针那样累加。 */
+      @property --arc {
+        syntax: '<angle>';
+        inherits: false;
+        initial-value: 0deg;
+      }
+      /* 指针的角度，同样必须注册成 <angle>。
+         原来它只是个普通自定义属性，靠 .hub-compass__star 上的
+         "transition: transform" 来平滑 —— 那只够一个消费者用。
+         现在它还要驱动 CTA 那圈**锥形渐变光边的 from 角**，而渐变里的自定义属性
+         **不可插值**（没注册就是"啪"地跳）：针是滑的、光是跳的，一眼就露馅。
+         所以把过渡移到 --na 自己身上（见下面 [data-accent] 的 transition），
+         一处过渡、两处消费（针的 transform 与光边的 from）。 */
+      @property --na {
+        syntax: '<angle>';
+        inherits: true;
+        initial-value: 0deg;
+      }
+
+      /* Hero 的径向菜单 —— 原型专属的空间编排。
+         半径、角度、表盘尺寸都是算出来的一次性空间关系，没有可抽象的令牌，
+         所以刻意不放进 src/styles/index.css（那里是事实源）；落地时随组件搬进 src。
+
+         几何：九个模块全部在环上（40° 一格铺满 360°），中心是表盘 + 指针。
+         四个数彼此牵制，改任何一个都要重新量（见 gen-modules.mjs 的 RING 常量）：
+           --r     瓦片半径
+           --rl    标签半径（必须比瓦片更外一圈，否则 40° 间隔下标签撞邻座瓦片）
+           --dial  表盘直径
+           --nameY 中心名字的纵向偏移（上界＝表盘半径，下界＝最靠下那两枚瓦片的上沿） */
+      /* 强调色：默认品牌紫，三个业务域换成各自的域色 ——
+         色是**氛围**而不是信息，所以它可以在整圈上复用而不构成"重复表达"。
+
+         ⚠️ 变量定义在 **[data-accent] 这一层（也就是 Hero 的 section）**，不是 .radial 上。
+         两个原因：① 同色还要给 Hero 的底色带用（.hero-band），它不在环里面；
+         ② 变量定义点越靠上，能消费它的元素越多，而"同一条色链"只有一份。
+         所以 data-accent 属性由脚本写在 **section** 上，环只是继承它 ——
+         环上**不能再**挂 data-accent：那会让 [data-accent] 的默认规则在环上生效，
+         把继承来的域色覆盖回品牌紫（联动就断了）。
+
+         三个选择器都按属性匹配（不是 .radial[data-accent]），也是同一个理由。 */
+      /* ⚠️ 这里现在**没有 per-模块 的规则**（原来有 life / work / learn 三条）——
+         九个模块各有一组色，逐个写就是九条规则、且加一个模块要记得加一条。
+         改成读 Prism 的模块槽位：「--s」（强调）与 「--brand-a」（填充，承白字）由
+         src/styles/prism.css §3 的 [data-series] / [data-module] 提供，**一张色表**。
+         于是这条链上仍然只有一份事实源，而且第 10 个模块出现时这里一个字都不用改。
+
+         ⚠️ 「--accent-deep」 接的是 「--brand-a」 而**不是** 「--s」：这一支是给"实底 + 白字"
+         用的（环上被选中的那枚瓦片），必须落在白字可行的那个窄窗口里（Y=0.180）。
+         强调色 「--s」 是设计原值，压白字只有 2~3:1，只能当装饰与会标。 */
+      [data-accent] {
+        /* ⚠️ 必须写成 rgb(var(--s)) 而不是 var(--s)：Prism 的模块色槽是 **RGB 三元组**
+           （78 135 235），因为色团公式要的是「rgb(var(--m-lt-1) / var(--m-a1))」这种
+           "三元组 + 斜杠 α"的写法。三元组本身**不是**一个 <color>。
+           而这里 --accent 注册成了 <color>（@property 的 syntax），赋一个非法值不会报错、
+           也不会继承 —— 它会静默落回 @property 的 initial-value，
+           于是**九个模块的 Hero 全变成同一个靛蓝**，而页面看起来"很正常"。
+           实测就是这么发现的：18 张不同模块的截图，PNG 体积只差 0.02%。 */
+        --accent: rgb(var(--s));
+        --accent-deep: var(--brand-a);
+        /* 色调过渡（需 @property 注册才生效）—— 声明在这一层，
+           于是环、光晕、Hero 底色带**一起**渐变过去。
+           --na 也在这里：它从"指针自己"上升到 Hero 这一层，一次性解决两处消费
+           （针的 transform + CTA 光边的 from 角），而且**只有一个过渡源**。 */
+        transition:
+          --accent 0.55s ease,
+          --accent-deep 0.55s ease,
+          --na 0.52s cubic-bezier(0, 0, 0.2, 1);
+      }
+
+      /* Hero 顶部那道光环带：颜色也跟着强调色走 ——
+         切换模块时"整块 Hero 换色"是这套系统里最容易被感知的一处变化，
+         而它只花了一个 var()。 */
+      .hero-band {
+        background:
+          linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--accent) 20%, transparent) 0%,
+            color-mix(in srgb, var(--accent) 8%, transparent) 46%,
+            transparent 100%
+          ),
+          radial-gradient(
+            70% 130% at 92% -6%,
+            color-mix(in srgb, var(--accent) 26%, transparent) 0%,
+            transparent 66%
+          );
+      }
+
+      /* ===== 门：表盘 + 中心名 = 进入当前模块主页面的入口 =====
+         位置就是中心。这里原来放的是表盘下方一枚实底胶囊（写着"进入工作主菜单"）——
+         用户的原话是「按钮太直白了」：那枚胶囊把动作**喊**了出来，还替用户配了句说明书。
+         改成"仪表本身就是门"之后，同一个元素承担两个语义 ——
+         中心一直在说"我在哪"，现在它同时说"从这儿进去"。
+
+         判据：**同一个元素可以承担两个语义，前提是它们是同一条链上相邻的两步**
+         （选模块 → 进模块，中间没有别的事）。把第二步拆成独立控件，多出来的不是信息，是噪音。
+
+         ⚠️ 几何一处都不能动：按钮的盒子**就是**原来表盘那 82px（--dial），
+         .hub-dial 改成 inset:0 填满它、.hub-name 仍以"盒子中心"为原点偏移 ——
+         两者的中心与环心重合，所以搬进按钮之后绝对位置完全不变（实测 Δ=0）。 */
+      .hub-door {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: var(--dial);
+        height: var(--dial);
+        transform: translate(-50%, -50%);
+        border-radius: 999px;
+        /* 按钮的默认样式全部抹掉：padding / border / line-height 任何一项留着都会把表盘顶偏 */
+        appearance: none;
+        border: 0;
+        padding: 0;
+        margin: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      .hub-door:disabled {
+        cursor: default;
+      }
+      /* 门上的涟漪要裁在圆里，所以另开一层**只负责裁**的容器：
+         不能直接给按钮加 overflow:hidden —— 那会把它外面那圈冲击波一起裁掉。 */
+      .hub-door__clip {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      /* 涟漪用白：表盘本身是一块浅色玻璃（radial 的 accent 只染到 30%），
+         域色的涟漪压在上面读不出来，白反而像"门里透出一道光"。 */
+      .hub-door__ripple {
+        position: absolute;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.55);
+        pointer-events: none;
+      }
+      /* 冲击波：点击时创建、播完自己 remove。挂在按钮上（不在裁切层里），
+         于是它从表盘边缘往外走 —— 而且**压在环的瓦片底下**（瓦片在 DOM 里更靠后），
+         只在瓦片的缝隙里露出来，像一圈从门里推出去的声呐。 */
+      .hub-door__wave {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        border: 1.5px solid color-mix(in srgb, var(--accent) 70%, transparent);
+        pointer-events: none;
+      }
+      /* 指针方向的光边：**只在 hover / 键盘聚焦时亮**，且最亮那一点的角度 = 指针角度（--na）。
+         平时不画 —— 表盘的边界一直是"只有光、没有线"（外边界交给花瓣花环），
+         这圈线只在"门被点亮"的那一刻出现，于是它天然是"可以进去"的信号，而不是装饰。
+         ⚠️ **颜色必须取域色，不能取白**：表盘本身是一块浅色玻璃（accent 只染到 30%），
+         白线压在上面**等于没画**（实测：把背景换成红色才看见那圈线，白的时候完全看不出）。
+         最亮那一点取 --accent-deep（不透明、够深，压得住浅底），其余按角度淡出。
+         ⚠️ 能用 --na 驱动的前提是它注册成了 <angle>（见文件头的 @property --na）：
+         没注册的自定义属性**不可插值**，锥形渐变的 from 会直接跳过去（针滑、光跳）。 */
+      .hub-dial::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        padding: 1.5px;
+        background: conic-gradient(
+          from var(--na, 0deg),
+          var(--accent-deep) 0deg,
+          color-mix(in srgb, var(--accent) 34%, transparent) 70deg,
+          color-mix(in srgb, var(--accent) 12%, transparent) 180deg,
+          color-mix(in srgb, var(--accent) 64%, transparent) 292deg,
+          var(--accent-deep) 360deg
+        );
+        -webkit-mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        mask-composite: exclude;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.22s ease;
+      }
+      .hub-door:hover:not(:disabled) .hub-dial::before,
+      .hub-door:focus-visible .hub-dial::before {
+        opacity: 1;
+      }
+      /* hover 的另一处呼应：表盘的光晕整体加强一档。
+         结构必须与 .hub-dial 的常态 box-shadow **同形**（同样的四项、同样的顺序），
+         否则过渡会在"两套不相干的阴影"之间插值，看起来像抖了一下。 */
+      .hub-door:hover:not(:disabled) .hub-dial {
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.72),
+          inset 0 0 30px color-mix(in srgb, var(--accent) 44%, transparent),
+          0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent),
+          0 0 46px color-mix(in srgb, var(--accent) 62%, transparent);
+      }
+      /* 中心名右侧那枚**常驻**的小箭头 —— 它是"这里可以进去"唯一的常驻线索，
+         所以不做成 hover 才出现（否则静态截图里整屏没有任何"能进去"的提示）。
+         左右各一份等宽留白（pad 与箭头同宽 12px）把名字顶回正中间，
+         于是"加箭头"不会移动原来的对位。 */
+      .hub-name {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .hub-name__pad {
+        width: 12px;
+        height: 1px;
+        flex: none;
+      }
+      .hub-name__go {
+        color: var(--color-ink-400);
+        flex: none;
+        transition: color 0.2s ease, translate 0.2s ease;
+      }
+      .hub-door:hover:not(:disabled) .hub-name__go,
+      .hub-door:focus-visible .hub-name__go {
+        color: var(--accent-deep);
+        translate: 2px 0;
+      }
+      /* self 态（工作台 = 本页）：箭头与它的留白一起去掉 ——
+         **"没有箭头"本身就是"这里没有出口"的信号**，不需要再写一句"已在工作台"。
+         按钮保留占位（Hero 高度不变），只是不可点、也没有任何 hover 呼应。 */
+      .hub-door:disabled .hub-name__pad,
+      .hub-door:disabled .hub-name__go {
+        display: none;
+      }
+
+      /* ⚠️ 类名**不能叫 ring** —— Tailwind v4 有内置的 ring 工具类（给元素描一圈
+         currentcolor 的 box-shadow 环）。扫描器一看到 HTML 里有 class="ring" 就会生成
+         .ring { --tw-ring-shadow: ...; box-shadow: ... } —— 于是整个环容器被描上
+         一圈 1px 的深色边，看起来就像"Hero 被加了个黑框"。
+         它走 box-shadow 而不是 border，**查 border/outline 的探针根本发现不了**。
+         判据：**自定义类名不要与任何 Tailwind 工具类同名**（ring / shadow / blur / flex…）——
+         同名的后果是"谁生效取决于产出顺序"，正是设计系统 §1.3 那类问题。 */
+      .radial {
+        --r: 92px;
+        --rl: 130px;
+        --dial: 82px;
+        --nameY: 45px;
+        position: relative;
+        width: 100%;
+        /* 预留环的高度：外圈标签半径 + 半个行高 */
+        height: calc(2 * (var(--rl) + 14px));
+      }
+
+      /* ---- 装饰层（四件，都在瓦片之前，所以光从瓦片底下穿过）---- */
+
+      /* 1) 光晕：直径正好 2·rl，罩住整个环。
+            中心那一大团**偏白**（让玻璃球像是浮在一枚亮盘上），外圈才是强调色的淡光。
+            它是"整个 Hero 随模块变色"的主要承载 —— 切换时最先被注意到的那处变化。 */
+      .hub-aura {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: calc(2 * var(--rl));
+        height: calc(2 * var(--rl));
+        transform: translate(-50%, -50%);
+        border-radius: 999px;
+        pointer-events: none;
+        background: radial-gradient(
+          circle at 50% 50%,
+          rgba(255, 255, 255, 0.66) 0%,
+          color-mix(in srgb, var(--accent) 17%, transparent) 32%,
+          color-mix(in srgb, var(--accent) 7%, transparent) 60%,
+          transparent 82%
+        );
+        animation: aura-in 0.9s ease-out backwards;
+      }
+      @keyframes aura-in {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.7);
+        }
+      }
+
+      /* 2) 环绕盘绕线：**已撤掉**（用户：「会不会显得太花哨了」）——
+         详细原因与恢复参数见 gen-modules.mjs 里那段同名注释。
+         一句话：位置是对的，但它在 1:1 下读不出"交错"，只剩噪音。 */
+
+            /* 3) 扫描光束：**已撤掉**（用户 2026-09-19：「撤掉指针射线，已经有对应高亮和进度条了」）
+         它曾是一根从中心射向选中项的扇形光，与八芒星共用 --na、一起转。
+         撤它的理由不是不好看，而是**它表达的信息已经有两处更强的载体**：
+         "选中项是谁" = 瓦片的强调色实底 + 脉冲环（高亮）；"第几格" = 外沿进度弧。
+         同一件事被三处表达时，最弱的那个就是噪音 —— 而它恰好还是最占地的一个
+         （一条从中心贯穿到标签圈的 40px 宽色带）。
+
+         ⚠️ **撤掉元件，判据不撤**，两条留给以后的装饰：
+         ① **装饰的"可见区"要先算再配色**。当年它根部被中心盘盖、中段被选中的瓦片盖，
+            真正看得见的只有 41~71（约 29px）与 114~130（约 16px）两小截 ——
+            渐变必须把最亮的一段配在可见区，否则会写成"通体同亮、可见的两截都灰扑扑"。
+         ② **边缘柔化用 mask，不要 filter: blur**：渲染顺序是 filter → clip-path，
+            blur 出来的柔边会被 clip 重新切成硬边；mask 排在最后，柔边才留得住。
+            （不加柔化时，一条等宽的矩形读起来是"一块方形色毯"而不是一束光。） */
+
+      /* 4) 涟漪：切换时从中心扩散一圈（动画由脚本用 WAAPI 播放，不是 CSS 常驻）。 */
+      .hub-ripple {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: var(--dial);
+        height: var(--dial);
+        margin-left: calc(var(--dial) / -2);
+        margin-top: calc(var(--dial) / -2);
+        border-radius: 999px;
+        border: 1.5px solid var(--accent);
+        opacity: 0;
+        pointer-events: none;
+      }
+      .radial__item {
+        --tile-scale: 1;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 44px;
+        height: 44px;
+        /* 圆形：几何需要（支撑半径恒定），不是审美偏好 —— 见 gen-modules.mjs 的 RING 注释 */
+        border-radius: 999px;
+        /* 同一条 transform 函数链、只改值 —— 状态之间才能插值。
+           rotate(a) translateX(r) rotate(-a) 是"沿 a 方向推到半径 r、同时把自身转正"的标准写法：
+           先转 -a 消掉朝向，平移完再转回来，于是瓦片始终正立。 */
+        transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--r)) rotate(calc(-1 * var(--a))) scale(var(--tile-scale));
+        transition:
+          transform 0.4s cubic-bezier(0, 0, 0.2, 1),
+          opacity 0.3s,
+          background-color 0.2s,
+          color 0.2s,
+          box-shadow 0.2s;
+        /* 入场：从中心"展开"。按 --i 错峰，每个瓦片晚 40ms。
+           prefers-reduced-motion 时全局那条 @media 会把 animation-duration 压到 0.01ms，
+           自动降级为直接到位 —— 不需要额外的媒体查询。 */
+        animation: ring-in 0.5s cubic-bezier(0, 0, 0.2, 1) backwards;
+        animation-delay: calc(var(--i) * 40ms);
+      }
+      @keyframes ring-in {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -50%) rotate(var(--a)) translateX(0px) rotate(calc(-1 * var(--a))) scale(0.6);
+        }
+      }
+      /* hover：**只留放大**。边界色与文字色交给 prism.css 的 「.g.mod-tile:hover」 ——
+         那条是"两个类 + 伪类"（特异性 0,3,0），比这里的 0,2,0 高，
+         写在这里等于写了一条永远不生效的规则（"写了但不生效"最难查，所以宁可删掉）。 */
+      .radial__item:hover {
+        --tile-scale: 1.12;
+      }
+      .radial__item:hover .radial__label {
+        color: var(--color-ink-600);
+      }
+      /* 被选中的那一项**留在环上**，用**本模块的填充色**实底标记。
+         它承担"我是谁"，中心的指针承担"我在哪" —— 两者分工，不重复。
+
+         ⚠️ 实底与文字色都**不在这里**，而在 prism.css 的 「.g.mod-tile[data-current='true']」
+         （特异性 0,3,0）。原因是 hover 抬升也在那一层、也是 0,3,0 ——
+         两边都是 0,3,0 时才靠源码顺序裁决，而这里（lucky-y-tw-hero）排在 prism 之后、
+         看起来"应该赢"，但下一个往 prism 里加规则的人不会知道这条隐式前提。
+         所以留一个明确的特异性台阶，而不是留一个顺序约定。
+
+         这里只负责**发光**与光标：发光用 --accent（要亮），而实底用 --brand-a（要够深，
+         才压得住白字）—— 两者方向相反，所以不可能共用一支色。 */
+      .radial__item[data-current='true'] {
+        --tile-scale: 1.12;
+        cursor: default;
+        box-shadow:
+          0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent),
+          0 10px 26px color-mix(in srgb, var(--accent) 42%, transparent),
+          0 0 42px color-mix(in srgb, var(--accent) 34%, transparent);
+      }
+      /* 脉冲环：从瓦片边缘扩散出去的一圈光，2.6s 一次。
+         它是"当前在哪"的持续信号 —— 前面几版都只有静态标记，切换之后要再找一遍。 */
+      .radial__item[data-current='true']::after {
+        content: '';
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        border: 1.5px solid var(--accent);
+        animation: sel-pulse 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+      }
+      @keyframes sel-pulse {
+        0% {
+          transform: scale(1);
+          opacity: 0.75;
+        }
+        70%,
+        100% {
+          transform: scale(1.55);
+          opacity: 0;
+        }
+      }
+      /* 图标发光：选中时白图标自发光，悬停时按当前强调色发光。
+         只加在叶子 svg 上（不是瓦片），所以不会给瓦片建新的合成层。 */
+      .radial__item[data-current='true'] svg {
+        filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.9));
+      }
+      .radial__item:hover svg {
+        filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent) 75%, transparent));
+      }
+      .radial__label {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        white-space: nowrap;
+        transform: translate(-50%, -50%) translate(var(--lx, 0), var(--ly, 0));
+        transition:
+          opacity 0.3s,
+          color 0.2s;
+      }
+      /* 选中项的标签**刻意不加重**：环上九个标签统一当"图例"，中心的 hub-name 单独当"状态"。
+         加粗会让同一个词在一屏出现两次并且互相争视线（实测截图里就是这样）。
+         "我是谁"由三处给：品牌色实底 + 指针 + 中心名，够多了。 */
+      /* ---- 中心：光环 + 花瓣 + 罗盘星 ----
+         指针只给**方向**，不复制环上那枚图标 —— 复制就是把"同一信息出现两次"请回来。
+
+         **不做实心。** 试过两版：浅色玻璃球（读不出重心）、深色实心核（用户：太丑）——
+         一块实心饼压在环中间，无论什么颜色都太重：它把"中心"变成了一个**物体**，
+         而这里需要的其实是**一束光**。所以现在只留三样：
+           ① 一圈 accent 描边环（给形状，border + 内外发光）
+           ② 一层极淡的 accent 汇聚光（径向渐变的芯，18% → 0）
+           ③ SVG 层里的花瓣花环与八芒星（给花纹与方向）
+         形状由"环"给、存在感由"光"给 —— 不需要填充。 */
+      .hub-dial {
+        /* ⚠️ 位置属性全部搬到了外面的 .hub-door（门 = 表盘大小的按钮盒）：
+           这里只负责"填满它"。两者中心重合，所以绝对位置与搬动前完全一致。 */
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: radial-gradient(
+          circle at 50% 50%,
+          color-mix(in srgb, var(--accent) 30%, transparent) 0%,
+          color-mix(in srgb, var(--accent) 10%, transparent) 44%,
+          transparent 76%
+        );
+        /* 外边界**不画实线**，交给 SVG 层那圈花瓣花环（罗盘的外环本来就是一圈纹样）。
+           发光仍然要够足 —— 去掉实心之后，"存在感"全靠光：
+           第一版只给了 55% / 26px，在浅紫底上几乎看不见环，视觉重心整个跑到了
+           上面那块选中瓦片（实心圆）上，比"太沉"还糟。 */
+        backdrop-filter: blur(8px) saturate(1.3);
+        -webkit-backdrop-filter: blur(8px) saturate(1.3);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.55),
+          inset 0 0 26px color-mix(in srgb, var(--accent) 30%, transparent),
+          0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent),
+          0 0 34px color-mix(in srgb, var(--accent) 42%, transparent);
+        /* 门的 hover 会把这一串换成"加强一档"的同形阴影（见 .hub-door:hover .hub-dial）——
+           过渡挂在这里，否则 hover 时是"啪"地跳一档。 */
+        transition: box-shadow 0.24s ease;
+      }
+      /* ---- 刻度层：**已删**（用户 2026-09-19：「去掉花瓣和指针中间的竖线」）----
+         曾经有两层：次刻度（10° 一格）与主刻度（40° 一格、与环上 9 个模块一一对齐）。
+         次刻度先删 —— 罗盘的外缘本身就是"一圈花瓣花纹"，再叠一层细密刻度就是两层细线糊在一起；
+         主刻度随后也删 —— 它夹在星形主尖（19.7px）与花瓣根部（27.5px）之间那 7.8px 的空隙里
+         （自己只占 4.5px），且在 12 点方向与指针**共线**，视觉上读成"指针拖出一条尾巴伸到花瓣上"。
+
+         ⚠️ 删它有信息代价：「指针压在哪条主刻度上 = 第几个模块」这条读数没有了。
+         现在"第 i / 共 9"完全由**进度弧**（外沿，每格 40°）与中心名承担。
+         将来若要恢复：对齐关系仍然成立（conic-gradient 的 0deg 在 12 点方向、顺时针为正，
+         与模块角 -90 + 40·i 同坐标系），原规则是 inset 6px 层、mask 60%~73%（即 21.0~25.5px）、
+         repeating-conic-gradient 40° 一格、3° 宽 —— 抄回去即可，但**先确认它跟花瓣会不会打架**。 */
+      /* ---- 八芒星罗盘 + 花瓣花环 ----
+         全部用"细点"描边（stroke-dasharray + round cap）做出星尘质感，
+         没有一个实心块 —— 与参考图的语言一致，也延续"中心不做实心"。
+         viewBox 100 映到 var(--dial) 82px，即 1 单位 ≈ 0.82px，半径分配（dial 半径 41px）：
+           进度弧      38.1~39.4   （最外，承载"第几格"）
+           花瓣花环    27.5~37.0   （12 瓣，根 27.5、尖 37.0 —— 盘上最醒目的一层）
+           星形主尖    19.7        （len 24）
+         ⚠️ 21.0~25.5 那片现在是**空的**：原主刻度层已按用户要求删除，
+         所以「指针 → 花瓣」之间不再有任何线条（见上面「刻度层：已删」）。
+         盘**外** 41~70 那条 29px 的空带现在**完全留空**：曾放过一圈环绕盘绕线，已按用户要求
+         撤掉（见 HERO_CSS —— 位置量得对，输在真实尺寸下读不出"交错"）。
+         每两层之间留 ≥1px（线条本身只有 ~0.85px 宽）。
+         **花瓣这一层要最亮**（78%）—— 它是用户明确要的"花纹"，其余层是陪衬；
+         第一版把花纹做成两层淡波浪（36%/26%），用户反馈"没有花纹啊，看不出来"。 */
+      .hub-compass {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      /* 花瓣花环：12 片叶形花瓣绕一圈，尖朝外。描边点阵、填充极淡 ——
+         花瓣是主体，所以透明度给足（78%），不然又回到"看不出来"。
+         ⚠️ 选择器写成「.hub-compass__petals path」（组 + 后代），不是给每片花瓣挂类：
+         挂类的写法一旦漏了，SVG 的 path 会走**默认黑色填充** ——
+         实测就是这样：12 片花瓣全黑，而"忘了写 class"本身不会报任何错。 */
+      .hub-compass__petals path {
+        fill: color-mix(in srgb, var(--accent) 14%, transparent);
+        stroke: color-mix(in srgb, var(--accent) 78%, transparent);
+        stroke-width: 0.9;
+        stroke-dasharray: 1.5 1.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      /* 星形与那根细针**共用 --na**，所以两者永远同向、不会错位。
+         ⚠️ SVG 里做 CSS 旋转必须给 transform-box —— 默认的 origin 落在用户坐标系的 (0,0)，
+         不给就会绕左上角甩出去（实测过：星形整个飞出圆盘）。 */
+      .hub-compass__star {
+        transform-box: view-box;
+        transform-origin: 50% 50%;
+        /* ⚠️ 这里**不再写 transition** —— 平滑已经由 --na 自己的过渡提供
+           （见 @property --na 的注释）。两处都写会串成 ~0.7s 的迟钝，
+           而且针会比 CTA 的光边慢半拍，"同一个数驱动两处"的同步感就没了。 */
+        transform: rotate(var(--na, 0deg));
+      }
+      .hub-compass__star path {
+        fill: color-mix(in srgb, var(--accent) 20%, transparent);
+        stroke: color-mix(in srgb, var(--accent) 82%, transparent);
+        stroke-width: 0.9;
+        stroke-dasharray: 1.4 1.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      /* 主尖：最长、最亮 —— 它承担"指向选中项"，所以要和其余三根明显分得开 */
+      .hub-compass__star path.is-main {
+        fill: color-mix(in srgb, var(--accent) 34%, transparent);
+        stroke: var(--accent);
+        stroke-width: 1.1;
+      }
+      /* 进度弧：外沿一圈，长度 = 当前是第几个（9 个模块 → 每格 40°）。
+         它把"第 i / 共 N"变成**视觉信息** —— 比在别处补一行"3 / 9"的文字便宜得多，
+         ⚠️ 主刻度层已删，所以它现在是"第几格"的**唯一**读数（见上面「刻度层：已删」）。
+         --arc 由脚本写（每格 40°），注册成 <angle> 才能扫过去。 */
+      .hub-arc {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: conic-gradient(
+          from 0deg,
+          color-mix(in srgb, var(--accent) 85%, transparent) 0deg var(--arc, 0deg),
+          transparent var(--arc, 0deg) 360deg
+        );
+        -webkit-mask: radial-gradient(closest-side, transparent 93%, #000 95%);
+        mask: radial-gradient(closest-side, transparent 93%, #000 95%);
+        transition: --arc 0.5s cubic-bezier(0, 0, 0.2, 1);
+      }
+      .hub-pin {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        margin: -3px 0 0 -3px;
+        border-radius: 999px;
+        background: var(--accent);
+        box-shadow:
+          0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent),
+          0 0 12px color-mix(in srgb, var(--accent) 65%, transparent);
+      }
+      /* --na（指针角度）现在由**八芒星的主尖**消费，壳体上不再有独立的针元素。
+         它仍然写在 .radial 那一层：这条链只留一份事实源
+         （早先扫描光束也读它；光束已撤，但写在环上仍是对的 —— 将来要加"跟随方向的元素"，直接读 --na 即可）。
+         角度由脚本**单调累加**保证走最短弧（见 SCRIPT 的 pointTo）。 */
+      .hub-name {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        white-space: nowrap;
+        transform: translate(-50%, var(--nameY));
+      }
+      /* 窄档：四个数**必须成对地收**。
+         ⚠️ rl − r 的差（径向间隙）任何时候都得保持在 ~38px：
+         圆形瓦片半宽 22 + 标签沿径向的半支撑 23 − 容差 ≈ 38。
+         只收 rl 不收 r（或反过来）会立刻把标签压回瓦片上 ——
+         而"r 单独收"还会让瓦片顶上来撞中心名（nameY 是跟球半径、r 一起定的）。
+         收完的宽向跨度 = 2 × (114 + 23) = 274px，与上一版一致（不引入回归）。 */
+      @media (max-width: 600px) {
+        .radial {
+          --r: 76px;
+          --rl: 114px;
+          --dial: 64px;
+          --nameY: 34px;
+        }
+      }
+      /* ============================================================================
+         助手栏 · 参考图（正念陪伴）真正可迁移的是**几何**，不是配色
+         ----------------------------------------------------------------------------
+           ① 头像是一颗「被光从左上方照亮的球」—— 径向高光 + 细白环 + 外发光，
+              而不是一块圆角方块铺一条 45° 线性渐变（那是"标签"，不是"球"）
+           ② 状态与声波同一行、元信息另起一行，三行的字号落差拉得很大
+           ③ 输入栏是一条**胶囊**，两端各住一枚圆钮
+         ⚠️ 色彩分配不照抄：参考图的重色在左端（麦克风 = 主行动），
+            而文字场景的主行动是「发送」→ 左端中性、右端实底紫。
+         ============================================================================ */
+      .rail-avatar {
+        display: inline-flex;
+        /* 尺寸取 --rail-ball（定义在 .rail 上）：收起态的轨道宽度就是由它推出来的
+           （球 40 + 两侧各 8 = 56）—— 两处共用一个源，改球的大小轨道会自动跟上。 */
+        height: var(--rail-ball, 40px);
+        width: var(--rail-ball, 40px);
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        color: #fff;
+        /* 两层：上层是球体高光（光摆在左上 32%/26%），下层是色相。
+           色相取 src/data/derive.ts 的 avatarGradient(265)，与顶栏用户头像同源。 */
+        background:
+          radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 60%),
+          linear-gradient(135deg, hsl(265, 72%, 64%), hsl(235, 68%, 52%));
+        /* 细白环 + 域色辉光 = 参考图里那颗球"浮"在卡片上的感觉。
+           ⚠️ 白环的 α 不能太小：实测 .42 时球的边界会糊进玻璃底衬，"球"就读成了
+           "一团印子"—— 它全靠这一圈把外缘切出来（放大 8 倍才看得出来）。 */
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.58),
+          0 6px 16px -6px rgba(79, 70, 229, 0.6);
+      }
+      .rail-avatar--sm {
+        height: 22px;
+        width: 22px;
+      }
+      /* 声波：五根不等高的条。
+         ⚠️ 这里**刻意不写 animation** —— 它只在切换模块时由脚本跳一拍（railWavePulse）。
+         常驻栏里一直动的东西会一直抢注意力，而它并没有新消息要报告。
+         结构守卫会检查这条规则里没有 animation，防止有人"顺手"加上。 */
+      .rail-wave {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        height: 12px;
+        color: var(--color-brand-500);
+      }
+      .rail-wave i {
+        display: block;
+        width: 2px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+      .rail-wave i:nth-child(1) { height: 4px; }
+      .rail-wave i:nth-child(2) { height: 8px; }
+      .rail-wave i:nth-child(3) { height: 12px; }
+      .rail-wave i:nth-child(4) { height: 7px; }
+      .rail-wave i:nth-child(5) { height: 5px; }
+      /* 圆钮：抬头右端的按钮簇与输入栏两端共用。
+         参考图里那几枚都是"白圆 + 细描边 + 柔和阴影"，所以亮的那一枚默认就带一层薄环。 */
+      .rail-round {
+        display: inline-flex;
+        height: 32px;
+        width: 32px;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        color: var(--color-ink-400);
+        transition:
+          background-color 0.15s ease,
+          color 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+      .rail-round:hover {
+        background-color: var(--color-ink-50);
+        color: var(--color-ink-900);
+      }
+      /* 抬头那枚「新建对话」= 参考图右上的 sparkle 圆钮（白圆 + 品牌紫图标）。
+         ⚠️ :hover 必须显式写回来：.rail-round:hover 的特异性与 --tile 相同，
+         不写的话悬停会把白底和紫图标一起冲掉。 */
+      .rail-round--tile {
+        background: rgb(var(--g-panel-rgb) / var(--g-panel-a));
+        color: var(--color-brand-600);
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+          0 4px 10px -4px rgba(79, 70, 229, 0.38);
+      }
+      .rail-round--tile:hover {
+        background: rgb(var(--g-panel-rgb) / var(--g-panel-a));
+        color: var(--color-brand-600);
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+          0 6px 14px -5px rgba(79, 70, 229, 0.52);
+      }
+      /* 输入栏左端的附件：中性，不与右端抢 */
+      .rail-round--soft:hover {
+        background-color: var(--color-ink-50);
+      }
+      /* 输入栏右端的发送：整条栏里唯一的实底 —— 主行动只该有一个。
+         ⚠️ 渐变两端取 Prism 的 --brand-a / --brand-b（0.180 / 0.170）——
+         这两个数存在的**全部理由**就是"渐变两端都落进白字可行的那个窄窗口"。
+         直接拿强调色做渐变，中段一定会出现一段压白字只有 2~3:1 的区段。 */
+      .rail-round--send {
+        color: #fff;
+        background: linear-gradient(135deg, var(--brand-a) 0%, var(--brand-b) 100%);
+        box-shadow: 0 6px 14px -2px color-mix(in srgb, var(--brand-a) 52%, transparent);
+      }
+      .rail-round--send:hover {
+        background: linear-gradient(135deg, var(--brand-a) 0%, var(--brand-b) 100%);
+        filter: brightness(1.06);
+        color: #fff;
+      }
+      .rail-round--send:active {
+        transform: scale(0.94);
+      }
+      /* --- 可缩回 / 展开 --------------------------------------------------------
+         隐喻是"整条栏往右收进窗口边"，所以**只动宽度** —— 右侧锚点（贴窗口右）不动，
+         左边框跟着左移（它就是那道"帘边"）。
+         ⚠️ 时序是**两段拼的**，而且两个方向的排法相反：
+           收起：内容先淡出（120ms）→ 宽度再收窄；
+           展开：宽度先展宽 → 内容后淡入（160ms 延迟）。
+         反过来做的后果很具体：宽度过渡期间内容还可见，会看到文字在**每一帧**疯狂重排
+         （340 → 56 中间有十几帧，每帧的换行位置都不同）。
+         CSS 的规矩：transition 写在**目标状态**上，决定"进入该状态"的时序 ——
+         所以 .rail 上那条管"进展开态"、.rail[data-collapsed] 上那条管"进收起态"。 */
+      .rail {
+        /* 球 40 + 两侧各 8。56 这个数**是从球算出来的**，不是凑的：
+           收起态要让球在轨道里居中，56 - 40 = 16，两边各 8。 */
+        --rail-ball: 40px;
+        --rail-w-collapsed: calc(var(--rail-ball) + 16px);
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .rail[data-collapsed] {
+        width: var(--rail-w-collapsed);
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0.12s;
+      }
+      /* 收起态只剩那颗球。球的左边缘要挪到 (56 - 40) / 2 = 8px 才居中 ——
+         用 padding 而不是 margin：head 是 flex 容器，球本来就是它的第一个子项。 */
+      .rail-head {
+        transition: padding 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0.12s;
+      }
+      .rail[data-collapsed] .rail-head {
+        padding-left: 8px;
+        padding-right: 0;
+        gap: 0;
+      }
+      /* 收起时要消失的几块（抬头文字 / 抬头按钮簇 / 消息区 / 输入区）。
+         ⚠️ 用 visibility 而不是只压 opacity：只压透明度的话，看不见的东西**还能 Tab 进去**
+         （键盘焦点会跑进一条看不见的栏里）。visibility 会把它们从 Tab 序里摘掉，
+         但要**延迟到淡出结束**再切，否则淡出动画会被立刻打断、变成"啪"地消失。 */
+      .rail__fade {
+        transition:
+          opacity 0.2s ease 0.16s,
+          visibility 0s 0s;
+      }
+      .rail[data-collapsed] .rail__fade {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition:
+          opacity 0.12s ease,
+          visibility 0s 0.12s;
+      }
+      /* 那颗球在两态下都是按钮 —— 它是整条栏唯一的开关，也是收起之后唯一的出口，
+         所以 hover 要给足"可点"的反馈（放大 + 光环加强，不换形状）。 */
+      button.rail-avatar {
+        cursor: pointer;
+        transition:
+          transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1),
+          box-shadow 0.22s ease;
+      }
+      button.rail-avatar:hover {
+        transform: scale(1.06);
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.72),
+          0 8px 20px -6px rgba(79, 70, 229, 0.7);
+      }
+      button.rail-avatar:active {
+        transform: scale(0.96);
+      }
+      button.rail-avatar:focus-visible {
+        outline: 2px solid var(--color-brand-500);
+        outline-offset: 2px;
+      }
+      /* 堆叠档（≤1180px）：栏是整宽的块，"往右收窄"没有意义 ——
+         改成**塌成一条 56px 高的窄条**（只剩那颗球），点它再张开。 */
+      @media (max-width: 1180px) {
+        .rail[data-collapsed] {
+          width: 100%;
+          height: 56px;
+        }
+        /* 堆叠档下不走"给球腾出居中空间"那套（栏是整宽的，谈不上居中）——
+           球回到展开态的位置，于是收起时它**原地不动**，动的只有整条栏的高度。 */
+        .rail[data-collapsed] .rail-head {
+          padding-left: 16px;
+        }
+      }
+      /* 降级：全局那条 @media 只把 duration 压到 0.01ms ——
+         对 infinite 动画来说那等于**以 100kHz 空转**，比不动更糟（持续重绘）。
+         所以这里显式停掉持续动画。入场与切换的过渡仍由全局那条压成瞬移。
+         （刻度层与盘绕线都已撤掉，所以名单里只剩这两处。） */
+      @media (prefers-reduced-motion: reduce) {
+        .hub-aura,
+        .radial__item[data-current='true']::after {
+          animation: none !important;
+        }
+      }
+    

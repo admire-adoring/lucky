@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light" />
+    <!-- color-scheme 给两个值：主题由 lib/theme.ts 在首帧前写到 <html> 上，
+         若这里写死 light，暗色主题下滚动条/表单控件会在 CSS 生效前先按亮色画一帧。 -->
+    <meta name="color-scheme" content="light dark" />
+
     <title>Lucky-Y · Personal OS</title>
   </head>
   <body>

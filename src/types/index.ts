@@ -74,6 +74,10 @@ export type IconName =
   | 'i-user'
   | 'i-settings'
   | 'i-logout'
+  // 工作台：主题切换（日/月）与助手头像（星芒）
+  | 'i-sun'
+  | 'i-moon'
+  | 'i-spark'
 
 /**
  * 项目 —— 统一执行层的唯一模型，用 scope 隔离归属。

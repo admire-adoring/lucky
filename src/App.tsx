@@ -7,6 +7,7 @@ import { queryClient } from './lib/query-client'
 import { LoginPage } from './pages/LoginPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ProjectsPage } from './pages/ProjectsPage'
+import { WorkbenchPage } from './pages/WorkbenchPage'
 import { useAuthStore } from './stores/auth-store'
 
 /** 未登录时回落到登录页；登录态持久化在 localStorage */
@@ -18,7 +19,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 function EntryRedirect() {
   const user = useAuthStore((state) => state.user)
-  return <Navigate to={user ? '/projects' : '/login'} replace />
+  return <Navigate to={user ? '/' : '/login'} replace />
 }
 
 /**
@@ -32,6 +33,16 @@ export function App() {
         <IconSprite />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          {/* 工作台 = 首页。它是"九个模块的地图"，所以**不是** `/projects` 的别名 ——
+              项目只是九个菜单域之一，进项目的路径是环上那枚「项目」+ 中心的门。 */}
+          <Route
+            path="/"
+            element={
+              <RequireAuth>
+                <WorkbenchPage />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/projects"
             element={
