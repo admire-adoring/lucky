@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>日程 · 个人系统</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-page: #FAFBFC;
+            --bg-card: rgba(255,255,255,0.62);
+            --bg-sidebar: rgba(255,255,255,0.66);
+            --bg-topbar: rgba(255,255,255,0.66);
+            --border-card: rgba(255,255,255,0.7);
+            --border-subtle: rgba(15,23,42,0.06);
+            --text-primary: #1E293B;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --shadow-card: 0 4px 24px rgba(15,23,42,0.06);
+            --shadow-card-hover: 0 8px 32px rgba(15,23,42,0.10);
+            --blur-card: blur(24px) saturate(160%);
+            --blob-opacity: 0.38;
+            --blob-blur: 110px;
+
+            --a-calendar-1: #7DD3FC; --a-calendar-2: #A5F3FC; --a-calendar-3: #BAE6FD;
+            --s-calendar: #0EA5E9;
+
+            --m1: var(--a-calendar-1);
+            --m2: var(--a-calendar-2);
+            --m3: var(--a-calendar-3);
+            --m-main: var(--s-calendar);
+        }
+
+        .dark {
+            --bg-page: #0F172A;
+            --bg-card: rgba(30,41,59,0.55);
+            --bg-sidebar: rgba(15,23,42,0.7);
+            --bg-topbar: rgba(15,23,42,0.7);
+            --border-card: rgba(255,255,255,0.08);
+            --border-subtle: rgba(255,255,255,0.06);
+            --text-primary: #E2E8F0;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+            --shadow-card-hover: 0 8px 32px rgba(0,0,0,0.4);
+            --blur-card: blur(28px) saturate(140%);
+            --blob-opacity: 0.26;
+            --blob-blur: 130px;
+
+            --a-calendar-1: #0284C7; --a-calendar-2: #0E7490; --a-calendar-3: #075985;
+            --s-calendar: #38BDF8;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: background 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        .aurora-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob {
+            position: absolute; border-radius: 50%;
+            filter: blur(var(--blob-blur));
+            opacity: var(--blob-opacity);
+            transition: opacity 0.5s ease, filter 0.5s ease, background 0.5s ease;
+            animation: drift 22s ease-in-out infinite alternate;
+        }
+        .blob-1 { width: 520px; height: 520px; top: -8%;  left: -8%;  background: var(--m1); }
+        .blob-2 { width: 480px; height: 480px; top: 24%;  right: -10%; background: var(--m2); animation-delay: -7s; }
+        .blob-3 { width: 560px; height: 560px; bottom: -16%; left: 30%; background: var(--m3); animation-delay: -14s; }
+
+        @keyframes drift {
+            from { transform: translate(0,0) scale(1); }
+            to   { transform: translate(36px,-28px) scale(1.08); }
+        }
+        @media (prefers-reduced-motion: reduce) { .blob { animation: none; } }
+
+        .app {
+            position: relative; z-index: 1;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            grid-template-rows: 56px 1fr;
+            grid-template-areas: "sidebar topbar" "sidebar main";
+            height: 100vh;
+        }
+
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-right: 1px solid var(--border-subtle);
+            padding: 16px 12px;
+            display: flex; flex-direction: column; gap: 2px;
+            overflow-y: auto;
+        }
+        .sidebar-title {
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 14px 12px 6px;
+        }
+        .menu-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 10px;
+            font-size: 14px; color: var(--text-secondary);
+            cursor: pointer; border-left: 3px solid transparent;
+            transition: all 0.18s ease; user-select: none;
+        }
+        .menu-item:hover { background: var(--border-subtle); color: var(--text-primary); }
+        .menu-item.active {
+            background: color-mix(in srgb, var(--m-main) 12%, transparent);
+            color: var(--m-main);
+            border-left-color: var(--m-main);
+            font-weight: 600;
+        }
+        .menu-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-main); flex-shrink: 0; }
+
+        .topbar {
+            grid-area: topbar;
+            background: var(--bg-topbar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; gap: 16px;
+        }
+        .breadcrumb { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+        .breadcrumb strong { color: var(--text-primary); font-weight: 600; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+        .btn {
+            border: none; border-radius: 10px;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.18s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary {
+            background: var(--m-main); color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 6px 20px color-mix(in srgb, var(--m-main) 45%, transparent);
+            transform: translateY(-1px);
+        }
+        .btn-ghost {
+            background: var(--bg-card); color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-main); }
+        .theme-toggle {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            cursor: pointer; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s ease;
+        }
+        .theme-toggle:hover { transform: scale(1.05); border-color: var(--m-main); }
+
+        .main {
+            grid-area: main;
+            padding: 24px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+
+        .tabs {
+            display: flex; gap: 4px; flex-wrap: wrap;
+            padding: 6px; border-radius: 14px;
+        }
+        .tab {
+            padding: 8px 16px; border-radius: 10px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer; user-select: none;
+            transition: all 0.18s ease;
+            white-space: nowrap;
+        }
+        .tab:hover { color: var(--text-primary); background: var(--border-subtle); }
+        .tab.active {
+            background: var(--m-main); color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+
+        .panel { display: none; flex-direction: column; gap: 20px; }
+        .panel.active { display: flex; }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-card);
+            padding: 20px;
+            transition: all 0.25s ease;
+        }
+        .card:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-2px); }
+        .card-title {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+        .stat { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+        .stat-desc { font-size: 13px; color: var(--text-secondary); }
+
+        .hero { padding: 24px; position: relative; overflow: hidden; }
+        .hero::before {
+            content: ""; position: absolute; top: -50%; right: -10%;
+            width: 280px; height: 280px; border-radius: 50%;
+            background: var(--m-main); opacity: 0.10;
+            filter: blur(60px);
+        }
+        .hero h1 { font-size: 22px; margin-bottom: 6px; font-weight: 700; }
+        .hero p { color: var(--text-secondary); font-size: 14px; }
+        .hero-meta { display: flex; gap: 20px; margin-top: 14px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); }
+        .hero-meta strong { color: var(--text-primary); }
+
+        /* 日历控制 */
+        .cal-control {
+            display: flex; align-items: center; gap: 12px;
+            flex-wrap: wrap;
+        }
+        .cal-nav {
+            display: flex; align-items: center; gap: 6px;
+        }
+        .cal-nav-btn {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s ease;
+        }
+        .cal-nav-btn:hover { border-color: var(--m-main); color: var(--m-main); }
+        .cal-title { font-size: 16px; font-weight: 600; }
+
+        /* 月视图 */
+        .month-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+        }
+        .month-head {
+            font-size: 12px; color: var(--text-muted);
+            text-align: center; padding: 8px 0;
+            font-weight: 600;
+        }
+        .month-day {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            background: var(--border-subtle);
+            padding: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            overflow: hidden;
+        }
+        .month-day:hover { transform: scale(1.02); border: 1px solid var(--m-main); }
+        .month-day.today {
+            background: var(--m-main);
+            color: #fff;
+        }
+        .month-day-num { font-weight: 600; font-size: 13px; }
+        .month-event {
+            font-size: 10px;
+            padding: 1px 4px;
+            border-radius: 4px;
+            background: color-mix(in srgb, var(--m-main) 20%, transparent);
+            color: var(--m-main);
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .month-event.life { background: rgba(16,185,129,0.18); color: #059669; }
+        .month-event.work { background: rgba(225,29,72,0.18); color: #E11D48; }
+        .month-event.learning { background: rgba(217,70,239,0.18); color: #D946EF; }
+        .month-day.today .month-event { background: rgba(255,255,255,0.3); color: #fff; }
+        .month-day.muted { opacity: 0.3; }
+        .dark .month-event.life { color: #6EE7B7; }
+        .dark .month-event.work { color: #FB7185; }
+        .dark .month-event.learning { color: #E879F9; }
+
+        /* 周视图 */
+        .week-grid {
+            display: grid;
+            grid-template-columns: 60px repeat(7, 1fr);
+            gap: 1px;
+            background: var(--border-subtle);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .week-cell {
+            background: var(--bg-card);
+            padding: 6px;
+            min-height: 60px;
+            font-size: 12px;
+        }
+        .week-head {
+            background: var(--bg-card);
+            padding: 10px 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+        .week-head.today { color: var(--m-main); }
+        .week-time {
+            background: var(--bg-card);
+            padding: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: right;
+            min-height: 60px;
+        }
+        .week-event {
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 11px;
+            margin-bottom: 3px;
+            background: color-mix(in srgb, var(--m-main) 18%, transparent);
+            color: var(--m-main);
+            border-left: 2px solid var(--m-main);
+            cursor: pointer;
+        }
+        .week-event.life { background: rgba(16,185,129,0.15); color: #059669; border-left-color: #10B981; }
+        .week-event.work { background: rgba(225,29,72,0.15); color: #E11D48; border-left-color: #E11D48; }
+        .week-event.learning { background: rgba(217,70,239,0.15); color: #D946EF; border-left-color: #D946EF; }
+
+        /* 日视图 */
+        .day-list {
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .day-event {
+            display: flex; gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            background: var(--border-subtle);
+            border-left: 3px solid var(--m-main);
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .day-event:hover { transform: translateX(4px); }
+        .day-event.life { border-left-color: #10B981; }
+        .day-event.work { border-left-color: #E11D48; }
+        .day-event.learning { border-left-color: #D946EF; }
+        .day-event-time {
+            font-size: 13px; font-weight: 600;
+            color: var(--m-main);
+            min-width: 80px;
+        }
+        .day-event-info { flex: 1; }
+        .day-event-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+        .day-event-meta { font-size: 12px; color: var(--text-muted); display: flex; gap: 8px; flex-wrap: wrap; }
+        .day-event-tag {
+            font-size: 11px; padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--border-subtle);
+            color: var(--text-secondary);
+        }
+
+        /* 议程 */
+        .agenda-group { margin-bottom: 20px; }
+        .agenda-group:last-child { margin-bottom: 0; }
+        .agenda-date {
+            font-size: 13px; font-weight: 600;
+            color: var(--m-main);
+            margin-bottom: 10px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .agenda-date::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--border-subtle);
+        }
+
+        /* 订阅 */
+        .subscribe-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .subscribe-item:last-child { border-bottom: none; }
+        .subscribe-icon {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--m-main) 14%, transparent);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .subscribe-info { flex: 1; }
+        .subscribe-name { font-size: 14px; font-weight: 500; }
+        .subscribe-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        .switch {
+            width: 44px; height: 24px;
+            border-radius: 999px;
+            background: var(--border-subtle);
+            position: relative;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            flex-shrink: 0;
+        }
+        .switch::after {
+            content: "";
+            position: absolute;
+            top: 2px; left: 2px;
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            transition: all 0.18s ease;
+        }
+        .switch.on { background: var(--m-main); }
+        .switch.on::after { transform: translateX(20px); }
+
+        .setting-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            gap: 16px;
+        }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-info { flex: 1; }
+        .setting-label { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+        .setting-desc { font-size: 12px; color: var(--text-muted); }
+        .setting-value { font-size: 14px; color: var(--text-secondary); }
+
+        .select {
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            min-width: 180px;
+        }
+
+        /* 弹窗 */
+        .modal-mask {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.35);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 100;
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-mask.open { display: flex; }
+
+        .modal {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(15,23,42,0.25);
+            width: 100%; max-width: 560px;
+            max-height: 88vh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .modal-title { font-size: 16px; font-weight: 700; }
+        .modal-close {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.18s ease;
+        }
+        .modal-close:hover { background: var(--border-subtle); color: var(--text-primary); }
+
+        .modal-body { padding: 22px; overflow-y: auto; }
+
+        .form-field { margin-bottom: 14px; }
+        .form-label {
+            display: block;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.18s ease;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            border-color: var(--m-main);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--m-main) 14%, transparent);
+        }
+        .form-textarea { resize: vertical; min-height: 70px; }
+
+        .form-actions {
+            display: flex; gap: 10px; justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        @media (max-width: 768px) {
+            .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+            .sidebar { display: none; }
+            .week-grid { grid-template-columns: 50px repeat(3, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="aurora-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+</div>
+
+<div class="app">
+
+    <aside class="sidebar">
+        <div class="sidebar-title">全局层</div>
+        <div class="menu-item"><span class="menu-dot"></span>工作台</div>
+        <div class="menu-item"><span class="menu-dot"></span>任务清单</div>
+        <div class="menu-item active"><span class="menu-dot"></span>日程</div>
+
+        <div class="sidebar-title">领域层</div>
+        <div class="menu-item"><span class="menu-dot"></span>生活</div>
+        <div class="menu-item"><span class="menu-dot"></span>工作</div>
+        <div class="menu-item"><span class="menu-dot"></span>学习</div>
+
+        <div class="sidebar-title">执行层</div>
+        <div class="menu-item"><span class="menu-dot"></span>项目</div>
+
+        <div class="sidebar-title">沉淀层</div>
+        <div class="menu-item"><span class="menu-dot"></span>知识库</div>
+
+        <div class="sidebar-title">支撑层</div>
+        <div class="menu-item"><span class="menu-dot"></span>设置</div>
+    </aside>
+
+    <header class="topbar">
+        <div class="breadcrumb">日程 / <strong>月视图</strong></div>
+        <div class="topbar-actions">
+            <button class="btn btn-ghost" id="aiAdd">✨ AI 找空闲</button>
+            <button class="btn btn-primary" id="newEventBtn">+ 新建日程</button>
+            <button class="theme-toggle" id="themeToggle">🌙</button>
+        </div>
+    </header>
+
+    <main class="main">
+
+        <nav class="tabs" id="tabs">
+            <div class="tab active" data-tab="month">月视图</div>
+            <div class="tab" data-tab="week">周视图</div>
+            <div class="tab" data-tab="day">日视图</div>
+            <div class="tab" data-tab="agenda">议程</div>
+            <div class="tab" data-tab="subscribe">日历订阅</div>
+            <div class="tab" data-tab="settings">日程设置</div>
+        </nav>
+
+        <!-- 月视图 -->
+        <div class="panel active" data-panel="month">
+            <section class="card hero">
+                <h1>日程 📅</h1>
+                <p>统一时间轴，聚合生活、工作、学习、项目。</p>
+                <div class="hero-meta">
+                    <span>今日：<strong>3 个事件</strong></span>
+                    <span>本周：<strong>12 个事件</strong></span>
+                    <span>下一场：<strong>14:00 项目评审</strong></span>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="cal-control" style="margin-bottom:16px;">
+                    <div class="cal-nav">
+                        <div class="cal-nav-btn" onclick="alert('原型演示：上个月')">‹</div>
+                        <div class="cal-nav-btn" onclick="alert('原型演示：下个月')">›</div>
+                    </div>
+                    <div class="cal-title">2026 年 9 月</div>
+                    <button class="btn btn-ghost" style="margin-left:auto;" onclick="alert('原型演示：回到今天')">今天</button>
+                </div>
+
+                <div class="month-grid">
+                    <div class="month-head">一</div>
+                    <div class="month-head">二</div>
+                    <div class="month-head">三</div>
+                    <div class="month-head">四</div>
+                    <div class="month-head">五</div>
+                    <div class="month-head">六</div>
+                    <div class="month-head">日</div>
+
+                    <div class="month-day muted"><div class="month-day-num">31</div></div>
+                    <div class="month-day"><div class="month-day-num">1</div></div>
+                    <div class="month-day"><div class="month-day-num">2</div></div>
+                    <div class="month-day"><div class="month-day-num">3</div><div class="month-event work">站会</div></div>
+                    <div class="month-day"><div class="month-day-num">4</div></div>
+                    <div class="month-day"><div class="month-day-num">5</div><div class="month-event life">家庭聚餐</div></div>
+                    <div class="month-day"><div class="month-day-num">6</div></div>
+
+                    <div class="month-day"><div class="month-day-num">7</div></div>
+                    <div class="month-day"><div class="month-day-num">8</div><div class="month-event work">评审</div></div>
+                    <div class="month-day"><div class="month-day-num">9</div></div>
+                    <div class="month-day"><div class="month-day-num">10</div></div>
+                    <div class="month-day"><div class="month-day-num">11</div></div>
+                    <div class="month-day"><div class="month-day-num">12</div><div class="month-event learning">技术分享</div></div>
+                    <div class="month-day"><div class="month-day-num">13</div></div>
+
+                    <div class="month-day"><div class="month-day-num">14</div></div>
+                    <div class="month-day"><div class="month-day-num">15</div><div class="month-event work">周会</div></div>
+                    <div class="month-day"><div class="month-day-num">16</div></div>
+                    <div class="month-day"><div class="month-day-num">17</div></div>
+                    <div class="month-day"><div class="month-day-num">18</div></div>
+                    <div class="month-day"><div class="month-day-num">19</div><div class="month-event life">运动</div></div>
+                    <div class="month-day today">
+                        <div class="month-day-num">20</div>
+                        <div class="month-event work">站会</div>
+                        <div class="month-event work">评审</div>
+                        <div class="month-event life">运动</div>
+                    </div>
+
+                    <div class="month-day"><div class="month-day-num">21</div></div>
+                    <div class="month-day"><div class="month-day-num">22</div></div>
+                    <div class="month-day"><div class="month-day-num">23</div><div class="month-event life">宠物疫苗</div></div>
+                    <div class="month-day"><div class="month-day-num">24</div></div>
+                    <div class="month-day"><div class="month-day-num">25</div></div>
+                    <div class="month-day"><div class="month-day-num">26</div></div>
+                    <div class="month-day"><div class="month-day-num">27</div></div>
+
+                    <div class="month-day"><div class="month-day-num">28</div></div>
+                    <div class="month-day"><div class="month-day-num">29</div></div>
+                    <div class="month-day"><div class="month-day-num">30</div><div class="month-event work">月会</div></div>
+                    <div class="month-day muted"><div class="month-day-num">1</div></div>
+                    <div class="month-day muted"><div class="month-day-num">2</div></div>
+                    <div class="month-day muted"><div class="month-day-num">3</div></div>
+                    <div class="month-day muted"><div class="month-day-num">4</div></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 周视图 -->
+        <div class="panel" data-panel="week">
+            <section class="card">
+                <div class="cal-control" style="margin-bottom:16px;">
+                    <div class="cal-nav">
+                        <div class="cal-nav-btn" onclick="alert('原型演示：上周')">‹</div>
+                        <div class="cal-nav-btn" onclick="alert('原型演示：下周')">›</div>
+                    </div>
+                    <div class="cal-title">2026-09-14 ~ 2026-09-20</div>
+                    <button class="btn btn-ghost" style="margin-left:auto;">今天</button>
+                </div>
+
+                <div class="week-grid">
+                    <div class="week-head"></div>
+                    <div class="week-head">周一</div>
+                    <div class="week-head">周二</div>
+                    <div class="week-head">周三</div>
+                    <div class="week-head">周四</div>
+                    <div class="week-head">周五</div>
+                    <div class="week-head">周六</div>
+                    <div class="week-head today">周日</div>
+
+                    <div class="week-time">09:00</div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+
+                    <div class="week-time">10:00</div>
+                    <div class="week-cell"><div class="week-event work">周会</div></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"><div class="week-event learning">技术分享</div></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"><div class="week-event work">站会</div></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"><div class="week-event work">站会</div></div>
+
+                    <div class="week-time">12:00</div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"><div class="week-event life">运动</div></div>
+                    <div class="week-cell"></div>
+
+                    <div class="week-time">14:00</div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"><div class="week-event work">评审</div></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"><div class="week-event work">项目评审</div></div>
+
+                    <div class="week-time">16:00</div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                    <div class="week-cell"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 日视图 -->
+        <div class="panel" data-panel="day">
+            <section class="card hero">
+                <h1>2026-09-20 星期日</h1>
+                <p>今天有 3 个事件，下一场 14:00 项目评审。</p>
+            </section>
+
+            <section class="card">
+                <div class="card-title">今日日程</div>
+                <div class="day-list">
+                    <div class="day-event work" onclick="openEvent('每日站会')">
+                        <div class="day-event-time">10:00 - 10:30</div>
+                        <div class="day-event-info">
+                            <div class="day-event-title">每日站会</div>
+                            <div class="day-event-meta">
+                                <span class="day-event-tag">工作</span>
+                                <span>线上</span>
+                                <span>30 分钟</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="day-event work" onclick="openEvent('项目评审')">
+                        <div class="day-event-time">14:00 - 15:00</div>
+                        <div class="day-event-info">
+                            <div class="day-event-title">项目评审</div>
+                            <div class="day-event-meta">
+                                <span class="day-event-tag">工作</span>
+                                <span>会议室 A</span>
+                                <span>60 分钟</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="day-event life" onclick="openEvent('运动')">
+                        <div class="day-event-time">18:30 - 19:00</div>
+                        <div class="day-event-info">
+                            <div class="day-event-title">运动</div>
+                            <div class="day-event-meta">
+                                <span class="day-event-tag">生活</span>
+                                <span>跑步</span>
+                                <span>30 分钟</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 议程 -->
+        <div class="panel" data-panel="agenda">
+            <section class="card">
+                <div class="agenda-group">
+                    <div class="agenda-date">今天 · 2026-09-20</div>
+                    <div class="day-event work" onclick="openEvent('每日站会')">
+                        <div class="day-event-time">10:00</div>
+                        <div class="day-event-info">
+                            <div class="day-event-title">每日站会</div>
+                            <div class="day-event-meta"><span class="day-event-tag">工作</span><span>线上</span></div>
+                        </div>
+                    </div>
+                    <div class="day-event work" onclick="openEvent('项目评审')">
+                        <div class="day-event-time">14:00</div>
+                        <div class="day-event-info">
+                            <div class="day-event-title">项目评审</div>
+                            <div class="day-event-meta"><span class="day-event-tag">工作</span><span>会议室 A</span></div>
+                        </div>
+                    </div>
+                    <div class="day-event life" onclick="openEvent('运动')">
+                        <div class="day-event-time">18:30</div>
+                        <div class="day-event-info">
+                            <div class="day-event-title">运动</div>
+                            <div class="day-event-meta"><span class="day-event-tag">生活</span><span>跑步</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agenda-group">
+                    <div class="agenda-date">明天 · 2026-09-21</div>
+                    <div class="day-event work" onclick="openEvent('周会')">
+                        <div class="day-event-time">10:00</div>
+                        <div class="day-event-info">
+                            <div class="day-event-title">周会</div>
+                            <div class="day-event-meta"><span class="day-event-tag">工作</span><span>60 分钟</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agenda-group">
+                    <div class="agenda-date">周三 · 2026-09-23</div>
+                    <div class="day-event life" onclick="openEvent('宠物疫苗')">
+                        <div class="day-event-time">全天</div>
+                        <div class="day-event-info">
+                            <div class="day-event-title">团子疫苗 + 驱虫</div>
+                            <div class="day-event-meta"><span class="day-event-tag">生活</span><span>宠物</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agenda-group">
+                    <div class="agenda-date">周五 · 2026-09-25</div>
+                    <div class="day-event work" onclick="openEvent('项目复盘')">
+                        <div class="day-event-time">15:00</div>
+                        <div class="day-event-info">
+                            <div class="day-event-title">项目复盘</div>
+                            <div class="day-event-meta"><span class="day-event-tag">工作</span><span>60 分钟</span></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 日历订阅 -->
+        <div class="panel" data-panel="subscribe">
+            <section class="card">
+                <div class="card-title">订阅的日历</div>
+
+                <div class="subscribe-item">
+                    <div class="subscribe-icon">📅</div>
+                    <div class="subscribe-info">
+                        <div class="subscribe-name">Google Calendar</div>
+                        <div class="subscribe-meta">已连接 · 同步中</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+
+                <div class="subscribe-item">
+                    <div class="subscribe-icon">📅</div>
+                    <div class="subscribe-info">
+                        <div class="subscribe-name">Outlook</div>
+                        <div class="subscribe-meta">未连接</div>
+                    </div>
+                    <div class="switch" onclick="toggleSwitch(this)"></div>
+                </div>
+
+                <div class="subscribe-item">
+                    <div class="subscribe-icon">📅</div>
+                    <div class="subscribe-info">
+                        <div class="subscribe-name">iCal 订阅</div>
+                        <div class="subscribe-meta">未连接</div>
+                    </div>
+                    <div class="switch" onclick="toggleSwitch(this)"></div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">日历分类</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">生活</div>
+                        <div class="setting-desc">私密</div>
+                    </div>
+                    <div class="setting-value" style="color:#10B981;">● 翠绿</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">工作</div>
+                        <div class="setting-desc">工作内部</div>
+                    </div>
+                    <div class="setting-value" style="color:#E11D48;">● 玫红</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">学习</div>
+                        <div class="setting-desc">私密</div>
+                    </div>
+                    <div class="setting-value" style="color:#D946EF;">● 粉紫</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">项目里程碑</div>
+                        <div class="setting-desc">跟随项目</div>
+                    </div>
+                    <div class="setting-value" style="color:#F97316;">● 橙</div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 日程设置 -->
+        <div class="panel" data-panel="settings">
+            <section class="card">
+                <div class="card-title">日程设置</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">时区</div>
+                        <div class="setting-desc">用于日历显示</div>
+                    </div>
+                    <select class="select">
+                        <option>Asia/Shanghai (UTC+8)</option>
+                        <option>UTC</option>
+                        <option>America/New_York</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">默认视图</div>
+                        <div class="setting-desc">打开日程时默认显示</div>
+                    </div>
+                    <select class="select">
+                        <option>月视图</option>
+                        <option>周视图</option>
+                        <option>日视图</option>
+                        <option>议程</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">默认提醒</div>
+                        <div class="setting-desc">日程开始前多久提醒</div>
+                    </div>
+                    <select class="select">
+                        <option>15 分钟前</option>
+                        <option>30 分钟前</option>
+                        <option>1 小时前</option>
+                        <option>不提醒</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">显示周数</div>
+                        <div class="setting-desc">在月视图显示第几周</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">显示农历</div>
+                        <div class="setting-desc">在月视图显示农历</div>
+                    </div>
+                    <div class="switch" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">显示已完成日程</div>
+                        <div class="setting-desc">过去的日程是否显示</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+            </section>
+        </div>
+
+    </main>
+</div>
+
+<!-- 弹窗 -->
+<div class="modal-mask" id="modalMask">
+    <div class="modal">
+        <div class="modal-head">
+            <div class="modal-title" id="modalTitle">新建日程</div>
+            <div class="modal-close" onclick="closeModal()">✕</div>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+
+<script>
+    // ========== Tab 切换 ==========
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const key = tab.dataset.tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelectorAll('.panel').forEach(p => {
+                p.classList.toggle('active', p.dataset.panel === key);
+            });
+            const titleMap = {
+                month: '月视图',
+                week: '周视图',
+                day: '日视图',
+                agenda: '议程',
+                subscribe: '日历订阅',
+                settings: '日程设置'
+            };
+            document.querySelector('.breadcrumb').innerHTML = `日程 / <strong>${titleMap[key]}</strong>`;
+        });
+    });
+
+    // ========== 开关 ==========
+    function toggleSwitch(el) {
+        el.classList.toggle('on');
+    }
+
+    // ========== 弹窗 ==========
+    const modalMask = document.getElementById('modalMask');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+
+    function openModal(title, html) {
+        modalTitle.textContent = title;
+        modalBody.innerHTML = html;
+        modalMask.classList.add('open');
+    }
+    function closeModal() {
+        modalMask.classList.remove('open');
+    }
+    modalMask.addEventListener('click', (e) => {
+        if (e.target === modalMask) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+    });
+
+    // ========== 新建日程 ==========
+    document.getElementById('newEventBtn').addEventListener('click', () => {
+        openModal('新建日程', `
+      <div class="form-field">
+        <label class="form-label">标题</label>
+        <input class="form-input" placeholder="日程标题..." />
+      </div>
+      <div class="form-field">
+        <label class="form-label">日历</label>
+        <select class="form-select">
+          <option>生活</option>
+          <option>工作</option>
+          <option>学习</option>
+          <option>项目里程碑</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">日期</label>
+        <input class="form-input" type="date" value="2026-09-20" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">开始时间</label>
+        <input class="form-input" type="time" value="14:00" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">结束时间</label>
+        <input class="form-input" type="time" value="15:00" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">全天</label>
+        <select class="form-select">
+          <option>否</option>
+          <option>是</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">地点</label>
+        <input class="form-input" placeholder="会议室 A / 线上" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">提醒</label>
+        <select class="form-select">
+          <option>15 分钟前</option>
+          <option>30 分钟前</option>
+          <option>1 小时前</option>
+          <option>不提醒</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">备注</label>
+        <textarea class="form-textarea" placeholder="补充说明..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：已创建');closeModal()">创建</button>
+      </div>
+    `);
+    });
+
+    // ========== AI 找空闲 ==========
+    document.getElementById('aiAdd').addEventListener('click', () => {
+        openModal('✨ AI 找空闲', `
+      <div class="form-field">
+        <label class="form-label">想安排什么？</label>
+        <input class="form-input" placeholder="例如：找 1 小时写文档" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">时间范围</label>
+        <select class="form-select">
+          <option>本周</option>
+          <option>下周</option>
+          <option>本月</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：AI 推荐时段');closeModal()">推荐</button>
+      </div>
+    `);
+    });
+
+    // ========== 日程详情 ==========
+    function openEvent(title) {
+        openModal(title, `
+      <div class="form-field">
+        <label class="form-label">标题</label>
+        <input class="form-input" value="${title}" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">时间</label>
+        <input class="form-input" value="2026-09-20 14:00 - 15:00" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">日历</label>
+        <select class="form-select">
+          <option>工作</option>
+          <option>生活</option>
+          <option>学习</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">地点</label>
+        <input class="form-input" value="会议室 A" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">备注</label>
+        <textarea class="form-textarea">项目评审，准备演示文档。</textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="alert('原型演示：删除')">删除</button>
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：已保存');closeModal()">保存</button>
+      </div>
+    `);
+    }
+
+    // ========== 主题切换 ==========
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        themeToggle.textContent = '☀️';
+    }
+    themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        themeToggle.textContent = isDark ? '☀️' : '🌙';
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+</script>
+</body>
+</html>

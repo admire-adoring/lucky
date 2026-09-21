@@ -1,0 +1,3095 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>项目工作区 · 个人系统</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-page: #FAFBFC;
+            --bg-card: rgba(255,255,255,0.62);
+            --bg-sidebar: rgba(255,255,255,0.66);
+            --bg-topbar: rgba(255,255,255,0.66);
+            --border-card: rgba(255,255,255,0.7);
+            --border-subtle: rgba(15,23,42,0.06);
+            --text-primary: #1E293B;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --shadow-card: 0 4px 24px rgba(15,23,42,0.06);
+            --shadow-card-hover: 0 8px 32px rgba(15,23,42,0.10);
+            --blur-card: blur(24px) saturate(160%);
+            --blob-opacity: 0.38;
+            --blob-blur: 110px;
+
+            --a-projects-1: #FDBA74; --a-projects-2: #FED7AA; --a-projects-3: #FDE68A;
+            --s-projects: #F97316;
+
+            --m1: var(--a-projects-1);
+            --m2: var(--a-projects-2);
+            --m3: var(--a-projects-3);
+            --m-main: var(--s-projects);
+
+            /* 四象限：色相分开，避免"四个格子长得一样" */
+            --q1: #EF4444;   /* 重要且紧急 */
+            --q2: #F97316;   /* 重要不紧急（= 本模块强调色） */
+            --q3: #3B82F6;   /* 紧急不重要 */
+            --q4: #94A3B8;   /* 不重要不紧急 */
+
+            /* 语义色：一律"淡底 + 深字"，与 badge 的既有写法同源 */
+            --ok: #047857;       --ok-bg: rgba(16,185,129,0.15);
+            --info: #1D4ED8;     --info-bg: rgba(59,130,246,0.16);
+            --warn: #C2410C;     --warn-bg: rgba(249,115,22,0.16);
+            --danger: #B91C1C;   --danger-bg: rgba(239,68,68,0.16);
+
+            --star: #D97706;     /* 收藏 / 自评共用一支金色，不再各写一枚 */
+            /* 实底配色：白字要在它上面过 4.5:1，所以比主色阶深一档
+               （#F97316 上白字 2.9:1、#1D4ED8 上 6.6:1，前者必须压深） */
+            --doc-deep: #C2410C;
+            --note-deep: #1D4ED8;
+        }
+
+        .dark {
+            --bg-page: #0F172A;
+            --bg-card: rgba(30,41,59,0.55);
+            --bg-sidebar: rgba(15,23,42,0.7);
+            --bg-topbar: rgba(15,23,42,0.7);
+            --border-card: rgba(255,255,255,0.08);
+            --border-subtle: rgba(255,255,255,0.06);
+            --text-primary: #E2E8F0;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+            --shadow-card-hover: 0 8px 32px rgba(0,0,0,0.4);
+            --blur-card: blur(28px) saturate(140%);
+            --blob-opacity: 0.26;
+            --blob-blur: 130px;
+
+            --a-projects-1: #EA580C; --a-projects-2: #C2410C; --a-projects-3: #9A3412;
+            --s-projects: #FB923C;
+
+            /* 暗色下四个象限要整体提亮：深底上的 #3B82F6 / #EF4444 会沉下去 */
+            --q1: #FCA5A5;
+            --q2: #FB923C;
+            --q3: #93C5FD;
+            --q4: #94A3B8;
+
+            --ok: #6EE7B7;       --ok-bg: rgba(16,185,129,0.20);
+            --info: #93C5FD;     --info-bg: rgba(59,130,246,0.22);
+            --warn: #FDBA74;     --warn-bg: rgba(249,115,22,0.22);
+            --danger: #FCA5A5;   --danger-bg: rgba(239,68,68,0.22);
+
+            --star: #FBBF24;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: background 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        /* 弥散背景 */
+        .aurora-bg {
+            position: fixed; inset: 0; z-index: 0;
+            overflow: hidden; pointer-events: none;
+        }
+        .blob {
+            position: absolute; border-radius: 50%;
+            filter: blur(var(--blob-blur));
+            opacity: var(--blob-opacity);
+            transition: opacity 0.5s ease, filter 0.5s ease, background 0.5s ease;
+            animation: drift 22s ease-in-out infinite alternate;
+        }
+        .blob-1 { width: 520px; height: 520px; top: -8%;  left: -8%;  background: var(--m1); }
+        .blob-2 { width: 480px; height: 480px; top: 24%;  right: -10%; background: var(--m2); animation-delay: -7s; }
+        .blob-3 { width: 560px; height: 560px; bottom: -16%; left: 30%; background: var(--m3); animation-delay: -14s; }
+
+        @keyframes drift {
+            from { transform: translate(0,0) scale(1); }
+            to   { transform: translate(36px,-28px) scale(1.08); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .blob { animation: none; }
+        }
+
+        /* 布局 */
+        .app {
+            position: relative; z-index: 1;
+            display: grid;
+            grid-template-columns: 220px 1fr 260px;
+            grid-template-rows: 56px 1fr;
+            grid-template-areas:
+      "sidebar topbar topbar"
+      "sidebar main   aside";
+            height: 100vh;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-right: 1px solid var(--border-subtle);
+            padding: 16px 12px;
+            display: flex; flex-direction: column; gap: 2px;
+            overflow-y: auto;
+        }
+        .sidebar-title {
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 14px 12px 6px;
+        }
+        .menu-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 10px;
+            font-size: 14px; color: var(--text-secondary);
+            cursor: pointer; border-left: 3px solid transparent;
+            transition: all 0.18s ease; user-select: none;
+        }
+        .menu-item:hover {
+            background: var(--border-subtle);
+            color: var(--text-primary);
+        }
+        .menu-item.active {
+            background: color-mix(in srgb, var(--m-main) 12%, transparent);
+            color: var(--m-main);
+            border-left-color: var(--m-main);
+            font-weight: 600;
+        }
+        .menu-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--m-main); flex-shrink: 0;
+        }
+
+        /* 顶部栏 */
+        .topbar {
+            grid-area: topbar;
+            background: var(--bg-topbar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; gap: 16px;
+        }
+        .breadcrumb {
+            font-size: 13px; color: var(--text-muted);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .breadcrumb strong { color: var(--text-primary); font-weight: 600; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+        .btn {
+            border: none; border-radius: 10px;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.18s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary {
+            background: var(--m-main);
+            color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 6px 20px color-mix(in srgb, var(--m-main) 45%, transparent);
+            transform: translateY(-1px);
+        }
+        .btn-ghost {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+        .btn-ghost:hover {
+            border-color: var(--m-main);
+            color: var(--m-main);
+        }
+        .theme-toggle {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            cursor: pointer; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s ease;
+        }
+        .theme-toggle:hover {
+            transform: scale(1.05);
+            border-color: var(--m-main);
+        }
+
+        /* 主内容 */
+        .main {
+            grid-area: main;
+            padding: 24px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+
+        /* 项目头部 */
+        .project-header {
+            padding: 24px;
+            position: relative; overflow: hidden;
+        }
+        .project-header::before {
+            content: "";
+            position: absolute; top: -50%; right: -10%;
+            width: 280px; height: 280px; border-radius: 50%;
+            background: var(--m-main); opacity: 0.10;
+            filter: blur(60px);
+        }
+        .project-title-row {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 12px; flex-wrap: wrap;
+        }
+        .project-title {
+            font-size: 22px; font-weight: 700;
+        }
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 999px;
+            font-size: 12px; font-weight: 500;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .badge-scope { background: color-mix(in srgb, var(--m-main) 14%, transparent); color: var(--m-main); }
+        /* 语义徽标：与任务/复盘的色板同源，避免同类信息两套配色 */
+        .badge-neutral { background: var(--border-subtle); color: var(--text-secondary); }
+        .badge-ok      { background: var(--ok-bg);     color: var(--ok); }
+        .badge-doing   { background: var(--info-bg);   color: var(--info); }
+        .badge-danger  { background: var(--danger-bg); color: var(--danger); }
+        .text-danger   { color: var(--danger); font-weight: 600; }
+        .badge:hover { transform: translateY(-1px); }
+
+        .project-meta {
+            display: flex; gap: 20px; flex-wrap: wrap;
+            font-size: 13px; color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        .project-meta span strong { color: var(--text-primary); font-weight: 600; }
+
+        .project-progress {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .progress-bar {
+            flex: 1; height: 8px;
+            background: var(--border-subtle);
+            border-radius: 999px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; border-radius: 999px;
+            background: var(--m-main);
+            opacity: 0.8;
+            transition: width 0.4s ease;
+        }
+        .progress-text {
+            font-size: 13px; font-weight: 600;
+            color: var(--m-main);
+            min-width: 40px;
+        }
+
+        /* Tab */
+        .tabs {
+            display: flex; gap: 4px; flex-wrap: wrap;
+            padding: 6px;
+            border-radius: 14px;
+        }
+        .tab {
+            padding: 8px 16px; border-radius: 10px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer; user-select: none;
+            transition: all 0.18s ease;
+            white-space: nowrap;
+        }
+        .tab:hover {
+            color: var(--text-primary);
+            background: var(--border-subtle);
+        }
+        .tab.active {
+            background: var(--m-main);
+            color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+
+        /* Tab 面板 */
+        .panel { display: none; flex-direction: column; gap: 20px; }
+        .panel.active { display: flex; }
+
+        /* 卡片 */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-card);
+            padding: 20px;
+            transition: all 0.25s ease;
+        }
+        .card:hover {
+            box-shadow: var(--shadow-card-hover);
+            transform: translateY(-2px);
+        }
+
+        .card-title {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+
+        /* ============================================================
+           概览
+           旧写法是 auto-fill + minmax：列数交给容器宽度去猜，结果 1440 宽下
+           三张卡被拉成三块等宽"灰板"，卡与卡之间的关系看不出来。
+           现在改成"四等分 KPI + 两列主体"，每列的卡各自成组。
+           ============================================================ */
+        .ov-kpi {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .ov-kpi-card { position: relative; overflow: hidden; padding-left: 24px; }
+        /* 左边一道色条代替图标：不引字体、不引图标库，颜色本身就是分类 */
+        .ov-kpi-card::before {
+            content: "";
+            position: absolute; left: 0; top: 16px; bottom: 16px;
+            width: 3px; border-radius: 0 3px 3px 0;
+            background: var(--kc);
+        }
+        .ov-kpi-label {
+            font-size: 12px; font-weight: 600;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+        }
+        .ov-kpi-value {
+            margin: 6px 0 4px;
+            font-size: 26px; font-weight: 700; line-height: 1.2;
+            font-variant-numeric: tabular-nums;
+        }
+        .ov-kpi-sub { font-size: 12px; color: var(--text-secondary); }
+
+        .ov-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+            gap: 16px;
+            align-items: start;
+        }
+        .ov-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+        .ov-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .ov-card-head .card-title { margin-bottom: 0; }
+        .ov-link {
+            margin-left: auto;
+            border: none; background: transparent;
+            font: inherit; font-size: 12px;
+            color: var(--m-main);
+            padding: 4px 8px; border-radius: 8px;
+            cursor: pointer; white-space: nowrap;
+            transition: background 0.18s ease;
+        }
+        .ov-link:hover { background: color-mix(in srgb, var(--m-main) 10%, transparent); }
+
+        /* 最近活动：三点散着看不出先后，连一条竖线才是时间线 */
+        .ov-timeline { position: relative; }
+        .ov-timeline::before {
+            content: "";
+            position: absolute; left: 3.5px; top: 18px; bottom: 18px;
+            width: 1px; background: var(--border-subtle);
+        }
+
+        /* 任务分布：按象限的小横条，长度 = 占总数的比例 */
+        .dist-row {
+            display: grid;
+            grid-template-columns: 84px minmax(0, 1fr) 24px;
+            align-items: center; gap: 10px;
+            padding: 6px 0;
+            font-size: 12px;
+        }
+        .dist-name { color: var(--text-secondary); }
+        .dist-bar {
+            height: 6px; border-radius: 999px;
+            background: var(--border-subtle);
+            overflow: hidden;
+        }
+        .dist-bar i { display: block; height: 100%; border-radius: 999px; background: var(--qc); }
+        .dist-num {
+            text-align: right; color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ============================================================
+           知识图谱
+           节点从 DOCS + NOTES 派生、边从 LINKS 派生 —— 图是渲染结果，
+           不是第二份数据。位置用固定迭代次数的力导向算一次并缓存，
+           否则每次重渲染节点都会跳。
+           ============================================================ */
+        .graph-legend {
+            margin-left: auto;
+            display: flex; align-items: center; gap: 14px;
+            font-size: 12px; color: var(--text-muted);
+        }
+        .lg-item { display: inline-flex; align-items: center; gap: 6px; }
+        .lg-dot { width: 11px; height: 11px; flex-shrink: 0; }
+        .lg-doc { border-radius: 3px; background: var(--doc-deep); }
+        .lg-note { border-radius: 50%; background: var(--note-deep); }
+        .lg-orphan { border-radius: 50%; border: 1.5px dashed var(--text-muted); }
+
+        .graph-svg { display: block; width: 100%; height: auto; }
+
+        /* 虚线导引圈：它是"形状"的一部分，不是装饰 —— 有它才读得出这是一个环 */
+        .graph-svg .guide {
+            fill: none;
+            stroke: color-mix(in srgb, var(--text-muted) 34%, transparent);
+            stroke-width: 1;
+            stroke-dasharray: 4 5;
+        }
+
+        /* 边用直线：辐射布局里直线才顺着半径方向走，弧线反而把方向搅乱 */
+        .graph-svg .edge {
+            fill: none;
+            stroke: color-mix(in srgb, var(--text-muted) 40%, transparent);
+            stroke-width: 1.6;
+            stroke-linecap: round;
+            transition: stroke 0.18s ease, stroke-width 0.18s ease;
+        }
+        .graph-svg .edge.is-active { stroke: var(--m-main); stroke-width: 2.6; }
+        .graph-svg .edge.is-dim { stroke: color-mix(in srgb, var(--text-muted) 12%, transparent); }
+
+        .graph-svg .gnode { cursor: pointer; transition: opacity 0.18s ease; }
+        .graph-svg .gnode.is-dim { opacity: 0.24; }
+        /* 实底 + 白字：白字只有在**深一档**的实底上才过得了 4.5:1 */
+        .graph-svg .shape {
+            stroke: var(--bg-page);
+            stroke-width: 3;
+            transition: fill 0.18s ease, stroke 0.18s ease;
+        }
+        .graph-svg .gnode.is-doc .shape { fill: var(--doc-deep); }
+        .graph-svg .gnode.is-note .shape { fill: var(--note-deep); }
+        .graph-svg .gnode.is-orphan .shape {
+            fill: none;
+            stroke: var(--text-muted);
+            stroke-width: 2;
+            stroke-dasharray: 3 3;
+        }
+        .graph-svg .gnode.is-sel .shape,
+        .graph-svg .gnode:hover .shape { stroke: var(--text-primary); }
+
+        .graph-svg .gnode-deg { font-family: inherit; font-size: 12.5px; font-weight: 700; fill: #fff; }
+        .graph-svg .gnode.is-hub .gnode-deg { font-size: 13px; }
+        .graph-svg .gnode.is-orphan .gnode-deg { font-weight: 500; fill: var(--text-muted); }
+        .graph-svg .gnode-label { font-family: inherit; font-size: 12px; fill: var(--text-secondary); }
+        .graph-svg .gnode.is-hub .gnode-label { font-size: 14px; font-weight: 700; fill: var(--text-primary); }
+        .graph-svg .gnode.is-sel .gnode-label { fill: var(--text-primary); font-weight: 600; }
+
+        .gnode-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 10px; border-radius: 9px;
+            cursor: pointer; transition: background 0.16s ease;
+        }
+        .gnode-row:hover { background: var(--border-subtle); }
+        .gnode-row.is-sel { background: color-mix(in srgb, var(--m-main) 12%, transparent); }
+        .gnode-row-dot {
+            width: 11px; height: 11px; flex-shrink: 0;
+            border-radius: 50%; background: var(--note-deep);
+        }
+        .gnode-row.is-doc .gnode-row-dot { border-radius: 3px; background: var(--doc-deep); }
+        .gnode-row.is-orphan .gnode-row-dot {
+            background: none;
+            border: 1.5px dashed var(--text-muted);
+        }
+        .gnode-row-name {
+            flex: 1; min-width: 0;
+            font-size: 14px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .gnode-row-kind, .graph-orphan-tag { font-size: 11px; color: var(--text-muted); }
+        .gnode-row-deg {
+            width: 26px; text-align: right;
+            font-size: 12px; color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+        .gsel-head { display: flex; align-items: center; gap: 8px; }
+        .gsel-title { margin-top: 8px; font-size: 16px; font-weight: 700; line-height: 1.4; }
+
+        /* 任务 */
+        .task-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 14px;
+        }
+        .task-item:last-child { border-bottom: none; }
+        .task-check {
+            width: 18px; height: 18px;
+            border-radius: 6px;
+            /* 未勾选态要能看见：发丝线（--border-subtle）是装饰级对比度，
+               而这是一个"必须被发现"的控件，不能沿用同一个刻度 */
+            border: 1.5px solid color-mix(in srgb, var(--text-muted) 55%, transparent);
+            flex-shrink: 0; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; color: #fff;
+            transition: all 0.18s ease;
+        }
+        .task-check:hover {
+            border-color: var(--m-main);
+            background: color-mix(in srgb, var(--m-main) 10%, transparent);
+        }
+        .task-check.done {
+            background: var(--m-main);
+            border-color: var(--m-main);
+        }
+        .task-check.is-small { width: 15px; height: 15px; border-radius: 5px; font-size: 10px; }
+        .task-check:focus-visible { outline: 2px solid var(--m-main); outline-offset: 2px; }
+        .task-text { flex: 1; cursor: pointer; }
+        .task-text.done {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+        /* 「接下来」里全是待办，状态标签没有信息量 → 换成真正在判的东西：还剩几天 */
+        .task-due-inline {
+            flex-shrink: 0;
+            font-size: 12px; color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+        .task-due-inline.is-late { color: var(--danger); font-weight: 600; }
+
+        /* 看板 */
+        .kanban {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .kanban-col {
+            background: var(--border-subtle);
+            border-radius: 14px;
+            padding: 12px;
+        }
+        .kanban-title {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.06em;
+            margin-bottom: 10px;
+            display: flex; justify-content: space-between;
+        }
+        .kanban-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 13px;
+            margin-bottom: 8px;
+            cursor: grab;
+            transition: all 0.18s ease;
+        }
+        .kanban-card:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-card);
+            border-color: var(--m-main);
+        }
+        .kanban-card:last-child { margin-bottom: 0; }
+        .kanban-card.is-done { opacity: 0.6; text-decoration: line-through; }
+
+        /* 里程碑轨道
+           原来的 .milestone 是"每行一个灰盒子"，五个盒子各自独立 ——
+           看不出顺序，也看不出自己站在哪一格。改成一条轨道：
+           节点连成线，已过的实心、下一关带光晕、未到的含灰。 */
+        .rail { position: relative; }
+        .rail-row {
+            position: relative;
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 0;
+        }
+        /* 竖线画在每一行的下半段：从这一格的圆心连到下一格的圆心，
+           行高怎么变都对得上（不写死 top/bottom 的像素值） */
+        .rail-row:not(:last-child)::before {
+            content: "";
+            position: absolute; left: 4.5px; top: 50%; height: 100%;
+            width: 1px;
+            /* 轨道线是结构（把格子连成序列），不是装饰 → 不沿用发丝线刻度 */
+            background: color-mix(in srgb, var(--text-muted) 30%, transparent);
+        }
+        .rail-dot {
+            position: relative; z-index: 1;
+            width: 10px; height: 10px; flex-shrink: 0;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+        .rail-dot.done { background: var(--ok); }
+        .rail-dot.late { background: var(--danger); }
+        .rail-dot.next {
+            background: var(--m-main);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--m-main) 16%, transparent);
+        }
+        /* 不给 flex:1 —— 让「下一关 / 延期 5 天」这种标注**贴着它标注的那一行**，
+           否则在里程碑 Tab 那种整栏宽度里，标记会被推到 700px 之外，和名字失联 */
+        .rail-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .rail-name { font-size: 14px; font-weight: 500; }
+        .rail-meta {
+            font-size: 12px; color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+        .rail-row.is-next .rail-name { color: var(--m-main); font-weight: 600; }
+        .rail-flag {
+            flex-shrink: 0;
+            font-size: 11px; font-weight: 600;
+            padding: 2px 8px; border-radius: 999px;
+            background: color-mix(in srgb, var(--m-main) 14%, transparent);
+            color: var(--m-main);
+            white-space: nowrap;
+        }
+        .rail-flag.is-late { background: var(--danger-bg); color: var(--danger); }
+        .ov-pos {
+            font-size: 12px; color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 文档 / 笔记 */
+        .doc-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .doc-item:hover {
+            border-color: var(--m-main);
+            transform: translateY(-1px);
+        }
+        .doc-item:last-child { margin-bottom: 0; }
+        .doc-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--m-main) 14%, transparent);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .doc-info { flex: 1; }
+        .doc-name { font-size: 14px; font-weight: 500; }
+        .doc-meta { font-size: 12px; color: var(--text-muted); }
+        .doc-arrow {
+            flex-shrink: 0; font-size: 18px; line-height: 1;
+            color: var(--text-muted);
+            transition: color 0.18s ease, transform 0.18s ease;
+        }
+        .doc-item:hover .doc-arrow { color: var(--m-main); transform: translateX(2px); }
+        /* 详情右栏：目录 + 反向链接 */
+        .doc-side { display: flex; flex-direction: column; gap: 16px; }
+
+        /* 时间线 */
+        .activity {
+            display: flex; gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 13px;
+        }
+        .activity:last-child { border-bottom: none; }
+        .activity-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--m-main);
+            margin-top: 6px; flex-shrink: 0;
+        }
+        .activity-content { flex: 1; color: var(--text-secondary); }
+        .activity-content strong { color: var(--text-primary); font-weight: 500; }
+        .activity-time { font-size: 12px; color: var(--text-muted); }
+
+        /* 复盘 */
+        .review-block { margin-bottom: 16px; }
+        .review-block:last-child { margin-bottom: 0; }
+        .review-label {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.06em;
+            margin-bottom: 8px;
+        }
+        .review-list {
+            list-style: none;
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+        .review-list li::before {
+            content: "·";
+            color: var(--m-main);
+            font-weight: 700;
+            margin-right: 8px;
+        }
+        .review-list li.is-empty { color: var(--text-muted); }
+        .review-list li.is-empty::before { content: ""; margin-right: 0; }
+
+        /* 设置 */
+        .setting-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 14px;
+        }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-row span:first-child { color: var(--text-secondary); }
+        .setting-row span:last-child { color: var(--text-primary); font-weight: 500; }
+
+        /* 右侧上下文栏 */
+        .aside {
+            grid-area: aside;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-left: 1px solid var(--border-subtle);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .aside-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 14px;
+        }
+        .aside-title {
+            font-size: 11px; font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.08em;
+            margin-bottom: 10px;
+        }
+        .info-row {
+            display: flex; justify-content: space-between;
+            font-size: 13px; padding: 5px 0;
+        }
+        .info-row span:first-child { color: var(--text-muted); }
+        .info-row span:last-child { color: var(--text-primary); font-weight: 500; }
+
+        .quick-btn {
+            width: 100%;
+            padding: 9px;
+            border-radius: 10px;
+            border: 1px dashed var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            margin-bottom: 6px;
+        }
+        .quick-btn:hover {
+            border-color: var(--m-main);
+            color: var(--m-main);
+            background: color-mix(in srgb, var(--m-main) 8%, transparent);
+        }
+        .quick-btn:last-child { margin-bottom: 0; }
+
+        /* 右栏：任务行。栏宽只有 260，所以只留「勾 + 标题 + 截止」 */
+        .rail-task { display: flex; align-items: center; gap: 9px; padding: 7px 2px; }
+        .rail-task-title {
+            flex: 1; min-width: 0;
+            font-size: 13px; color: var(--text-primary);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .rail-task-due {
+            flex-shrink: 0;
+            font-size: 11px; color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+        .rail-task-due.is-late { color: var(--danger); font-weight: 600; }
+        .rail-task.is-done .rail-task-title { color: var(--text-muted); text-decoration: line-through; }
+
+        /* 随手记：捕获笔记应该"输入框就在那儿"，而不是先点一个按钮再等一个弹层。
+           虚线 = 可写入口；focus 时转实线 + 光环，明确"现在在写" */
+        .note-capture {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px; margin-bottom: 10px;
+            border-radius: 10px;
+            background: var(--bg-page);
+            border: 1px dashed color-mix(in srgb, var(--m-main) 38%, transparent);
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .note-capture:focus-within {
+            border-style: solid;
+            border-color: var(--m-main);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--m-main) 16%, transparent);
+        }
+        .note-capture input {
+            flex: 1; min-width: 0;
+            border: none; background: transparent;
+            font: inherit; font-size: 13px;
+            color: var(--text-primary);
+        }
+        .note-capture input:focus { outline: none; }
+        .note-capture input::placeholder { color: var(--text-muted); }
+        .note-capture-key {
+            flex-shrink: 0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 11px; color: var(--text-muted);
+            border: 1px solid var(--border-subtle);
+            border-radius: 5px; padding: 1px 5px;
+        }
+
+        /* 笔记行：标题 + 时间 + 一行正文摘要。
+           右栏只有 260px，一行标题看不出这条值不值得点开 ——
+           给一行摘要，短笔记在右栏就能读完，长笔记也能判要不要进去。 */
+        .note-row {
+            display: flex; flex-direction: column; gap: 3px;
+            padding: 8px 9px; border-radius: 9px;
+            cursor: pointer; transition: background 0.16s ease;
+        }
+        .note-row:hover { background: var(--border-subtle); }
+        .note-row-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+        .note-row-title {
+            flex: 1; min-width: 0;
+            font-size: 13px; color: var(--text-primary);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .note-row-time { flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
+        .note-row-snippet {
+            font-size: 12px; line-height: 1.5; color: var(--text-muted);
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* 收藏：★ 是一个动作、不是一个状态灯，所以给它按钮的形；
+           收藏后才上金色，让"已收藏"在三个 ghost 按钮里一眼可辨 */
+        .btn-star.is-on {
+            color: var(--star);
+            background: color-mix(in srgb, var(--star) 12%, transparent);
+            border-color: color-mix(in srgb, var(--star) 45%, transparent);
+        }
+        .btn-star.is-on:hover { border-color: var(--star); }
+
+        .aside-divider { height: 1px; background: var(--border-subtle); margin: 10px 0; }
+
+        /* ============================================================
+           分段切换（任务 Tab 的三视图；比 .tab 低一级：淡染 + 描边）
+           ============================================================ */
+        .seg {
+            display: inline-flex; gap: 4px; padding: 4px;
+            border-radius: 12px;
+            background: var(--border-subtle);
+            border: 1px solid var(--border-subtle);
+        }
+        .seg-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 9px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer; user-select: none; white-space: nowrap;
+            transition: all 0.18s ease;
+        }
+        .seg-btn:hover { color: var(--text-primary); }
+        .seg-btn.active {
+            background: color-mix(in srgb, var(--m-main) 14%, transparent);
+            color: var(--m-main);
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-main) 34%, transparent);
+            font-weight: 600;
+        }
+        .seg-count {
+            font-size: 11px; font-weight: 500;
+            padding: 0 6px; border-radius: 999px;
+            background: color-mix(in srgb, currentColor 16%, transparent);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 视图/视图容器：沿用 .panel 的 active 约定 */
+        .view { display: none; flex-direction: column; gap: 20px; }
+        .view.active { display: flex; }
+
+        .toolbar {
+            display: flex; align-items: center; gap: 12px;
+            flex-wrap: wrap;
+        }
+        .toolbar-summary {
+            margin-left: auto;
+            font-size: 12px; color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ============================================================
+           任务 · 列表视图
+           ============================================================ */
+        .task-group {
+            display: flex; align-items: center; gap: 8px;
+            padding: 2px 12px 8px;
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+        }
+        .task-group:not(:first-child) {
+            margin-top: 12px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-subtle);
+        }
+        .task-group-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .task-group.is-doing { color: var(--info); }
+        .task-group.is-done { color: var(--ok); }
+        .task-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            transition: background 0.18s ease;
+        }
+        .task-row:last-child { border-bottom: none; }
+        .task-row:hover { background: var(--border-subtle); }
+        .task-row.is-done .task-row-title { color: var(--text-muted); text-decoration: line-through; }
+
+        .task-row-main { flex: 1; min-width: 0; }
+        .task-row-title {
+            font-size: 14px; font-weight: 500;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .task-row-sub {
+            display: flex; align-items: center; gap: 10px;
+            margin-top: 4px;
+            font-size: 12px; color: var(--text-muted);
+        }
+
+        /* 右簇：列宽写死，三行才对齐 */
+        .task-row-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .task-due {
+            width: 92px; text-align: right;
+            font-size: 12px; color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+        .task-due.is-late { color: var(--danger); font-weight: 600; }
+        .task-quad-tag {
+            width: 96px;
+            font-size: 11px; color: var(--text-secondary);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        /* 状态 / 优先级 / 标签：共用"淡底深字" */
+        .pill {
+            display: inline-flex; align-items: center;
+            padding: 2px 8px; border-radius: 999px;
+            font-size: 11px; font-weight: 500; white-space: nowrap;
+        }
+        .pill-todo  { background: var(--border-subtle); color: var(--text-secondary); }
+        .pill-doing { background: var(--info-bg);   color: var(--info);   font-weight: 600; }
+        .pill-done  { background: var(--ok-bg);     color: var(--ok); }
+
+        .prio { display: inline-flex; padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+        .prio-P0 { background: var(--danger-bg); color: var(--danger); }
+        .prio-P1 { background: var(--warn-bg);   color: var(--warn); }
+        .prio-P2 { background: var(--info-bg);   color: var(--info); }
+        .prio-P3 { background: var(--border-subtle); color: var(--text-muted); }
+
+        .tag {
+            font-size: 11px; padding: 2px 8px; border-radius: 999px;
+            background: var(--border-subtle); color: var(--text-secondary);
+        }
+
+        /* ============================================================
+           任务 · 四象限（艾森豪威尔矩阵）
+           ============================================================ */
+        .matrix {
+            display: grid;
+            grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+            gap: 10px;
+        }
+        .matrix-axis {
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 0.08em; color: var(--text-muted);
+        }
+        .matrix-axis.is-y { writing-mode: vertical-rl; transform: rotate(180deg); }
+
+        .quad {
+            position: relative;
+            display: flex; flex-direction: column; gap: 8px;
+            padding: 14px 14px 14px 17px;
+            border-radius: 16px;
+            background: var(--border-subtle);
+            border: 1px solid transparent;
+            min-height: 168px;
+            transition: all 0.2s ease;
+        }
+        /* 象限色条：色值来自 --qc，四格只写一次变量 */
+        .quad::before {
+            content: "";
+            position: absolute; left: 0; top: 12px; bottom: 12px;
+            width: 3px; border-radius: 0 3px 3px 0;
+            background: var(--qc);
+        }
+        .quad:hover {
+            border-color: color-mix(in srgb, var(--qc) 45%, transparent);
+            background: color-mix(in srgb, var(--qc) 5%, var(--border-subtle));
+        }
+        .quad.q1 { --qc: var(--q1); }
+        .quad.q2 { --qc: var(--q2); }
+        .quad.q3 { --qc: var(--q3); }
+        .quad.q4 { --qc: var(--q4); }
+
+        .quad-head { display: flex; align-items: baseline; gap: 8px; }
+        .quad-name { font-size: 13px; font-weight: 600; color: var(--qc); }
+        .quad-hint { font-size: 11px; color: var(--text-muted); }
+        .quad-count {
+            margin-left: auto;
+            font-size: 11px; color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .q-task {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 9px;
+            border-radius: 9px;
+            background: var(--bg-card);
+            border: 1px solid transparent;
+            font-size: 13px;
+            transition: all 0.16s ease;
+        }
+        .q-task:hover { border-color: var(--qc); transform: translateX(2px); }
+        .q-task.is-done .q-task-title { color: var(--text-muted); text-decoration: line-through; }
+        .q-task-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .q-task-due { font-size: 11px; color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+        .q-empty { font-size: 12px; color: var(--text-muted); padding: 10px 2px; }
+
+        /* ============================================================
+           文档 · 主从（索引 ⇄ 详情）
+           ============================================================ */
+        .screen { display: none; flex-direction: column; gap: 20px; }
+        .screen.active { display: flex; }
+
+        .crumb-back {
+            display: inline-flex; align-items: center; gap: 6px;
+            align-self: flex-start;
+            padding: 6px 12px 6px 8px; border-radius: 9px;
+            font-size: 13px; color: var(--text-secondary);
+            cursor: pointer; user-select: none;
+            transition: all 0.18s ease;
+        }
+        .crumb-back:hover {
+            background: var(--border-subtle);
+            color: var(--m-main);
+        }
+
+        .doc-head { display: flex; align-items: flex-start; gap: 14px; }
+        .doc-head-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            background: color-mix(in srgb, var(--m-main) 14%, transparent);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 19px; flex-shrink: 0;
+        }
+        .doc-head-main { flex: 1; min-width: 0; }
+        .doc-head-title { font-size: 20px; font-weight: 700; line-height: 1.35; }
+        .doc-head-meta {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 12px; color: var(--text-muted);
+        }
+        .doc-head-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+        .doc-body-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 220px;
+            gap: 20px; align-items: start;
+        }
+
+        .prose { font-size: 14px; line-height: 1.85; color: var(--text-secondary); }
+        .prose h4 {
+            font-size: 13px; font-weight: 600; color: var(--text-primary);
+            margin: 20px 0 8px;
+        }
+        .prose h4:first-child { margin-top: 0; }
+        .prose p { margin-bottom: 10px; }
+        .prose ul { margin: 0 0 10px 18px; }
+        .prose li { margin-bottom: 4px; }
+        .prose code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12.5px;
+            padding: 2px 6px; border-radius: 6px;
+            background: var(--border-subtle); color: var(--text-primary);
+        }
+
+        .callout {
+            display: flex; gap: 10px; align-items: flex-start;
+            padding: 12px 14px; border-radius: 12px;
+            font-size: 13px; line-height: 1.7;
+            color: var(--text-secondary);
+            background: var(--ok-bg);
+            border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent);
+        }
+        .callout-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--ok); margin-top: 7px; flex-shrink: 0;
+        }
+
+        .toc { display: flex; flex-direction: column; gap: 2px; }
+        .toc-item {
+            font-size: 13px; color: var(--text-secondary);
+            padding: 6px 10px; border-radius: 8px;
+            border-left: 2px solid transparent;
+            cursor: pointer; transition: all 0.16s ease;
+        }
+        .toc-item:hover { background: var(--border-subtle); color: var(--text-primary); }
+        .toc-item.active {
+            color: var(--m-main);
+            border-left-color: var(--m-main);
+            background: color-mix(in srgb, var(--m-main) 10%, transparent);
+        }
+
+        .backlink {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 9px; border-radius: 9px;
+            font-size: 13px; color: var(--text-secondary);
+            cursor: pointer; transition: all 0.16s ease;
+        }
+        .backlink:hover { background: var(--border-subtle); color: var(--m-main); }
+        .backlink-icon { flex-shrink: 0; opacity: 0.75; font-size: 12px; }
+
+        .link-card {
+            display: flex; align-items: center; gap: 14px;
+            padding: 16px; border-radius: 14px;
+            background: var(--border-subtle);
+        }
+        .link-card-main { flex: 1; min-width: 0; }
+        .link-card-url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px; color: var(--text-muted);
+            margin-top: 4px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        /* ============================================================
+           复盘 · 只读 ⇄ 编辑
+           ============================================================ */
+        .review-section-head {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 12px;
+        }
+        .review-section-head .card-title { margin-bottom: 0; }
+        .review-section-head .review-actions-inline { margin-left: auto; display: flex; gap: 8px; }
+
+        .review-summary {
+            display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+            padding: 14px 16px; margin-bottom: 18px;
+            border-radius: 14px;
+            background: var(--border-subtle);
+        }
+        .review-summary-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .review-summary-item > span:first-child { color: var(--text-muted); }
+
+        .rating { display: inline-flex; gap: 3px; }
+        .rating-star {
+            font-size: 16px; line-height: 1;
+            color: var(--text-muted); cursor: pointer;
+            transition: transform 0.16s ease, color 0.16s ease;
+        }
+        .rating-star.on { color: var(--star); }
+        .rating-star:hover { transform: scale(1.15); }
+        .rating.is-readonly .rating-star { cursor: default; }
+        .rating.is-readonly .rating-star:hover { transform: none; }
+
+        .verdict {
+            font-size: 12px; font-weight: 600;
+            padding: 3px 10px; border-radius: 999px;
+            background: var(--warn-bg); color: var(--warn);
+        }
+        .verdict.is-ok     { background: var(--ok-bg);     color: var(--ok); }
+        .verdict.is-warn   { background: var(--warn-bg);   color: var(--warn); }
+        .verdict.is-danger { background: var(--danger-bg); color: var(--danger); }
+
+        /* 编辑态：虚线强调框 + 极淡底，只用来"圈出正在编辑的范围" */
+        .review-edit-block {
+            padding: 14px;
+            margin-bottom: 14px;
+            border-radius: 14px;
+            border: 1px dashed color-mix(in srgb, var(--m-main) 40%, transparent);
+            background: color-mix(in srgb, var(--m-main) 5%, transparent);
+        }
+        .review-edit-block .review-label { margin-bottom: 10px; }
+
+        .review-edit-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .review-input, .review-select {
+            font: inherit; font-size: 14px;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .review-input { flex: 1; min-width: 0; padding: 9px 12px; }
+        .review-select {
+            padding: 7px 10px; font-size: 13px; cursor: pointer;
+            color-scheme: light;
+        }
+        .dark .review-select { color-scheme: dark; }
+        .review-input::placeholder { color: var(--text-muted); }
+        .review-input:focus, .review-select:focus {
+            outline: none;
+            border-color: var(--m-main);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--m-main) 20%, transparent);
+        }
+
+        .icon-btn {
+            width: 30px; height: 30px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 15px; line-height: 1; cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .icon-btn:hover {
+            color: var(--danger);
+            background: var(--danger-bg);
+            border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+        }
+        .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .icon-btn:disabled:hover { color: var(--text-muted); background: transparent; border-color: transparent; }
+
+        .review-add {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 12px; border-radius: 9px;
+            border: 1px dashed var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px; cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .review-add:hover {
+            border-color: var(--m-main); color: var(--m-main);
+            background: color-mix(in srgb, var(--m-main) 8%, transparent);
+        }
+
+        .review-bar {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            margin-top: 16px; padding-top: 16px;
+            border-top: 1px solid var(--border-subtle);
+        }
+        .review-bar .review-bar-hint {
+            margin-right: auto;
+            font-size: 12px; color: var(--text-muted);
+        }
+
+        /* ============================================================
+           Toast（替代 alert：不打断、可叠加）
+           ============================================================ */
+        .toast-wrap {
+            position: fixed; left: 50%; bottom: 28px;
+            transform: translateX(-50%);
+            z-index: 60;
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 16px; border-radius: 12px;
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            box-shadow: 0 8px 30px rgba(15, 23, 42, 0.18);
+            font-size: 13px; color: var(--text-primary);
+            opacity: 0; transform: translateY(8px);
+            transition: opacity 0.22s ease, transform 0.22s ease;
+        }
+        .toast.on { opacity: 1; transform: translateY(0); }
+        .toast-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-main); flex-shrink: 0; }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-subtle); border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        @media (max-width: 1200px) {
+            .app {
+                grid-template-columns: 200px 1fr;
+                grid-template-areas:
+        "sidebar topbar"
+        "sidebar main";
+            }
+            .aside { display: none; }
+        }
+        @media (max-width: 1180px) {
+            /* 右栏没了，详情的两列也该并成一列 */
+            .doc-body-grid { grid-template-columns: minmax(0, 1fr); }
+        }
+        @media (max-width: 1100px) {
+            .ov-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 1000px) {
+            .ov-grid { grid-template-columns: minmax(0, 1fr); }
+        }
+        @media (max-width: 980px) {
+            .matrix { grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr); }
+            .task-quad-tag { display: none; }
+        }
+        @media (max-width: 768px) {
+            .app {
+                grid-template-columns: 1fr;
+                grid-template-areas: "topbar" "main";
+            }
+            .sidebar { display: none; }
+            .kanban { grid-template-columns: 1fr; }
+            /* 矩阵落到一列：轴标签失去意义（象限标题自带"重要/紧急"），一并收掉 */
+            .matrix {
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-rows: auto;
+            }
+            .matrix-axis { display: none; }
+            .seg { width: 100%; }
+            .seg-btn { flex: 1; justify-content: center; }
+            .toolbar-summary { margin-left: 0; }
+            .task-row-right { flex-wrap: wrap; justify-content: flex-end; }
+            .task-due { width: auto; }
+            .doc-head { flex-wrap: wrap; }
+            .doc-head-actions { width: 100%; }
+            .ov-kpi { grid-template-columns: minmax(0, 1fr); }
+            .dist-row { grid-template-columns: 72px minmax(0, 1fr) 22px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="aurora-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+</div>
+
+<div class="app">
+
+    <!-- 左侧导航 -->
+    <aside class="sidebar">
+        <div class="sidebar-title">全局层</div>
+        <div class="menu-item"><span class="menu-dot"></span>工作台</div>
+        <div class="menu-item"><span class="menu-dot"></span>任务清单</div>
+        <div class="menu-item"><span class="menu-dot"></span>日程</div>
+
+        <div class="sidebar-title">领域层</div>
+        <div class="menu-item"><span class="menu-dot"></span>生活</div>
+        <div class="menu-item"><span class="menu-dot"></span>工作</div>
+        <div class="menu-item"><span class="menu-dot"></span>学习</div>
+
+        <div class="sidebar-title">执行层</div>
+        <div class="menu-item active"><span class="menu-dot"></span>项目</div>
+
+        <div class="sidebar-title">沉淀层</div>
+        <div class="menu-item"><span class="menu-dot"></span>知识库</div>
+
+        <div class="sidebar-title">支撑层</div>
+        <div class="menu-item"><span class="menu-dot"></span>设置</div>
+    </aside>
+
+    <!-- 顶部栏 -->
+    <header class="topbar">
+        <div class="breadcrumb">
+            项目 / <strong>个人系统前端</strong>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn btn-ghost" id="archiveBtn">归档</button>
+            <button class="btn btn-primary" id="newTaskBtn">+ 新建任务</button>
+            <button class="theme-toggle" id="themeToggle">🌙</button>
+        </div>
+    </header>
+
+    <!-- 主内容 -->
+    <main class="main">
+
+        <!-- 项目头部 -->
+        <section class="card project-header">
+            <div class="project-title-row">
+                <div class="project-title" id="projectTitle">个人系统前端</div>
+                <span class="badge badge-scope">工作</span>
+                <span class="badge badge-doing" id="statusBadge">进行中</span>
+                <span class="badge prio prio-P0" id="priorityBadge">P0</span>
+            </div>
+            <div class="project-meta">
+                <span>开始：<strong>2026-08-01</strong></span>
+                <span>截止：<strong>2026-10-31</strong></span>
+                <span>标签：<strong>React / Vite / TS</strong></span>
+            </div>
+            <div class="project-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 62%"></div>
+                </div>
+                <div class="progress-text" id="progressText">62%</div>
+            </div>
+        </section>
+
+        <!-- Tab -->
+        <nav class="tabs" id="tabs">
+            <div class="tab active" data-tab="overview">概览</div>
+            <div class="tab" data-tab="tasks">任务</div>
+            <div class="tab" data-tab="milestones">里程碑</div>
+            <div class="tab" data-tab="docs">文档</div>
+            <div class="tab" data-tab="notes">笔记</div>
+            <div class="tab" data-tab="graph">知识图谱</div>
+            <div class="tab" data-tab="timeline">时间线</div>
+            <div class="tab" data-tab="review">复盘</div>
+            <div class="tab" data-tab="settings">设置</div>
+        </nav>
+
+        <!-- 概览 -->
+        <div class="panel active" data-panel="overview">
+
+            <!-- 四等分 KPI：列数写死，不交给 auto-fill 去猜 -->
+            <section class="ov-kpi">
+                <div class="card ov-kpi-card" style="--kc: var(--m-main)">
+                    <div class="ov-kpi-label">任务</div>
+                    <div class="ov-kpi-value" id="kpiTasks">—</div>
+                    <div class="ov-kpi-sub" id="kpiTasksSub">—</div>
+                </div>
+                <div class="card ov-kpi-card" style="--kc: var(--info)">
+                    <div class="ov-kpi-label">里程碑</div>
+                    <div class="ov-kpi-value" id="kpiMilestones">—</div>
+                    <div class="ov-kpi-sub" id="kpiMilestonesSub">—</div>
+                </div>
+                <div class="card ov-kpi-card" style="--kc: var(--q4)">
+                    <div class="ov-kpi-label">投入</div>
+                    <div class="ov-kpi-value" id="kpiHours">—</div>
+                    <div class="ov-kpi-sub" id="kpiHoursSub">—</div>
+                </div>
+                <div class="card ov-kpi-card" style="--kc: var(--danger)">
+                    <div class="ov-kpi-label">逾期</div>
+                    <div class="ov-kpi-value" id="kpiLate">—</div>
+                    <div class="ov-kpi-sub" id="kpiLateSub">—</div>
+                </div>
+            </section>
+
+            <!-- 主体两列：左宽右窄，每列各成一组，不再有一条孤零零的通栏卡 -->
+            <section class="ov-grid">
+                <div class="ov-col">
+                    <div class="card">
+                        <div class="ov-card-head">
+                            <div class="card-title">接下来</div>
+                            <div class="ov-pos" id="upcomingPos"></div>
+                            <button class="ov-link" data-goto-tab="tasks">全部任务 →</button>
+                        </div>
+                        <div id="upcomingTasks"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="ov-card-head">
+                            <div class="card-title">最近活动</div>
+                            <button class="ov-link" data-goto-tab="timeline">时间线 →</button>
+                        </div>
+                        <div class="ov-timeline" id="ovActivity"></div>
+                    </div>
+                </div>
+
+                <div class="ov-col">
+                    <div class="card">
+                        <div class="ov-card-head">
+                            <div class="card-title">收藏笔记</div>
+                            <div class="ov-pos" id="starCount"></div>
+                            <button class="ov-link" data-goto-tab="notes">全部笔记 →</button>
+                        </div>
+                        <div id="ovStarred"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="ov-card-head">
+                            <div class="card-title">里程碑</div>
+                            <div class="ov-pos" id="ovMilestonePos"></div>
+                            <button class="ov-link" data-goto-tab="milestones">全部 →</button>
+                        </div>
+                        <div class="rail" id="ovMilestones"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="ov-card-head">
+                            <div class="card-title">任务分布</div>
+                            <button class="ov-link" data-goto-task-view="matrix">四象限 →</button>
+                        </div>
+                        <div id="ovQuadDist"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 任务 -->
+        <div class="panel" data-panel="tasks">
+            <section class="card toolbar">
+                <div class="seg" id="taskViewSeg">
+                    <div class="seg-btn active" data-task-view="list">列表</div>
+                    <div class="seg-btn" data-task-view="board">看板</div>
+                    <div class="seg-btn" data-task-view="matrix">四象限</div>
+                </div>
+                <div class="toolbar-summary" id="taskSummary"></div>
+            </section>
+
+            <!-- 视图一：列表（按状态分组） -->
+            <section class="view active" data-task-panel="list">
+                <div class="card">
+                    <div id="taskListBody"></div>
+                </div>
+            </section>
+
+            <!-- 视图二：看板 -->
+            <section class="view" data-task-panel="board">
+                <div class="card">
+                    <div class="card-title">任务看板</div>
+                    <div class="kanban" id="kanban"></div>
+                </div>
+            </section>
+
+            <!-- 视图三：四象限（艾森豪威尔矩阵） -->
+            <section class="view" data-task-panel="matrix">
+                <div class="card">
+                    <div class="card-title">四象限 · 重要 × 紧急</div>
+                    <div class="matrix">
+                        <div class="matrix-axis is-corner"></div>
+                        <div class="matrix-axis">紧急</div>
+                        <div class="matrix-axis">不紧急</div>
+
+                        <div class="matrix-axis is-y">重要</div>
+                        <div class="quad q1" data-quad="q1"></div>
+                        <div class="quad q2" data-quad="q2"></div>
+
+                        <div class="matrix-axis is-y">不重要</div>
+                        <div class="quad q3" data-quad="q3"></div>
+                        <div class="quad q4" data-quad="q4"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 里程碑 -->
+        <div class="panel" data-panel="milestones">
+            <section class="card">
+                <div class="ov-card-head">
+                    <div class="card-title">里程碑</div>
+                    <div class="toolbar-summary" id="milestoneSummary"></div>
+                </div>
+                <div class="rail" id="milestoneList"></div>
+            </section>
+        </div>
+
+        <!-- 文档（索引 ⇄ 详情） -->
+        <div class="panel" data-panel="docs">
+            <div class="screen active" data-doc-screen="index">
+                <section class="card">
+                    <div class="card-title">文档索引</div>
+                    <div id="docIndex"></div>
+                </section>
+            </div>
+
+            <div class="screen" data-doc-screen="detail">
+                <div class="crumb-back" data-doc-back>
+                    <span aria-hidden="true">←</span>
+                    <span>返回文档索引</span>
+                </div>
+                <div id="docDetail"></div>
+            </div>
+        </div>
+
+        <!-- 笔记（索引 ⇄ 阅读器：与文档同一套主从约定，长内容不发明第二套承载方式） -->
+        <div class="panel" data-panel="notes">
+            <div class="screen active" data-note-screen="index">
+                <section class="card">
+                    <div class="ov-card-head">
+                        <div class="card-title">关联笔记</div>
+                        <div class="ov-pos" id="noteCountTab"></div>
+                        <label class="note-capture" style="margin: 0 0 0 auto; flex: 0 1 240px;">
+                            <input id="noteInput2" type="text" placeholder="记一笔…" autocomplete="off">
+                            <span class="note-capture-key">↵</span>
+                        </label>
+                    </div>
+                    <div id="noteList"></div>
+                </section>
+            </div>
+
+            <div class="screen" data-note-screen="detail">
+                <div class="crumb-back" data-note-back>
+                    <span aria-hidden="true">←</span>
+                    <span>返回笔记列表</span>
+                </div>
+                <div id="noteDetail"></div>
+            </div>
+        </div>
+
+        <!-- 知识图谱 -->
+        <div class="panel" data-panel="graph">
+            <section class="card">
+                <div class="ov-card-head">
+                    <div class="card-title">知识图谱</div>
+                    <div class="ov-pos" id="graphStats"></div>
+                    <div class="graph-legend">
+                        <span class="lg-item"><i class="lg-dot lg-doc"></i>文档</span>
+                        <span class="lg-item"><i class="lg-dot lg-note"></i>笔记</span>
+                        <span class="lg-item"><i class="lg-dot lg-orphan"></i>未连线</span>
+                    </div>
+                </div>
+                <div id="graphSvgWrap"></div>
+            </section>
+
+            <section class="doc-body-grid">
+                <div class="card">
+                    <div class="ov-card-head">
+                        <div class="card-title">节点清单</div>
+                        <div class="ov-pos">按连接数排 · 孤立节点一眼可见</div>
+                    </div>
+                    <div id="graphList"></div>
+                </div>
+                <div class="card" id="graphInspector"></div>
+            </section>
+        </div>
+
+        <!-- 时间线 -->
+        <div class="panel" data-panel="timeline">
+            <section class="card">
+                <div class="card-title">时间线</div>
+                <div class="activity">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">完成任务「搭建 Vite + React + TS 基础框架」</div>
+                    <div class="activity-time">2 小时前</div>
+                </div>
+                <div class="activity">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">更新文档「架构设计」</div>
+                    <div class="activity-time">昨天</div>
+                </div>
+                <div class="activity">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">里程碑「9 模块路由接入」标记为延期</div>
+                    <div class="activity-time">2 天前</div>
+                </div>
+                <div class="activity">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">里程碑「主题系统完成」</div>
+                    <div class="activity-time">2026-09-01</div>
+                </div>
+                <div class="activity">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">创建项目「个人系统前端」</div>
+                    <div class="activity-time">2026-08-01</div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 复盘（只读 ⇄ 编辑） -->
+        <div class="panel" data-panel="review">
+            <section class="card">
+                <div class="review-section-head">
+                    <div class="card-title">阶段复盘</div>
+                    <div class="review-actions-inline" id="reviewActions"></div>
+                </div>
+                <div id="reviewSummary"></div>
+                <div id="reviewBody"></div>
+            </section>
+        </div>
+
+        <!-- 设置 -->
+        <div class="panel" data-panel="settings">
+            <section class="card">
+                <div class="card-title">项目设置</div>
+                <div class="setting-row"><span>名称</span><span>个人系统前端</span></div>
+                <div class="setting-row"><span>Scope</span><span>工作</span></div>
+                <div class="setting-row"><span>状态</span><span>进行中</span></div>
+                <div class="setting-row"><span>优先级</span><span>P0</span></div>
+                <div class="setting-row"><span>开始</span><span>2026-08-01</span></div>
+                <div class="setting-row"><span>截止</span><span>2026-10-31</span></div>
+                <div class="setting-row"><span>归档</span><span style="color:var(--m-main);cursor:pointer;">点击归档</span></div>
+                <div class="setting-row"><span>删除</span><span style="color:#EF4444;cursor:pointer;">删除项目</span></div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- 右侧上下文栏
+         顺序按「看的频次」排，不按分类排：常看的两块在最上面，
+         静态信息与低频操作往下沉 —— 这一栏会滚，滚不到的才算沉底。 -->
+    <aside class="aside">
+        <div class="aside-card">
+            <div class="aside-title">当前任务</div>
+            <div id="asideTasks"></div>
+        </div>
+
+        <div class="aside-card">
+            <div class="aside-title">笔记</div>
+            <label class="note-capture">
+                <input id="noteInput" type="text" placeholder="记一笔…" autocomplete="off">
+                <span class="note-capture-key">↵</span>
+            </label>
+            <div id="asideNotes"></div>
+            <button class="quick-btn" style="margin-top: 10px;" data-goto-tab="notes">全部笔记 →</button>
+        </div>
+
+        <div class="aside-card">
+            <div class="aside-title">项目信息</div>
+            <div class="info-row"><span>Scope</span><span>工作</span></div>
+            <div class="info-row"><span>状态</span><span>进行中</span></div>
+            <div class="info-row"><span>优先级</span><span>P0</span></div>
+            <div class="info-row"><span>进度</span><span>62%</span></div>
+            <div class="aside-divider"></div>
+            <div class="info-row"><span>仓库</span><span>GitHub</span></div>
+            <div class="info-row"><span>文档</span><span>3 个</span></div>
+            <div class="info-row"><span>笔记</span><span id="asideNoteCount">—</span></div>
+            <div class="info-row"><span>日程</span><span>2 个</span></div>
+        </div>
+
+        <div class="aside-card">
+            <div class="aside-title">快捷操作</div>
+            <button class="quick-btn" data-action="new-task">+ 新建任务</button>
+            <button class="quick-btn" data-action="new-milestone">+ 新建里程碑</button>
+            <button class="quick-btn" data-action="new-note">+ 关联笔记</button>
+            <button class="quick-btn" data-action="log-time">+ 记录投入</button>
+        </div>
+    </aside>
+
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+    /* ============================================================
+       0. 数据
+       三个任务视图、概览统计、徽标计数全部从 TASKS 派生 —— 只此一份，
+       避免"看板说有 4 条、列表只列出 2 条"这类手抄漂移。
+       ============================================================ */
+    const TODAY = '2026-09-20';   // 原型的"今天"，与时间线同一时点
+
+    const TASKS = [
+        { id: 't1',  title: '设计 9 模块路由与菜单配置',        status: 'doing', quad: 'q1', prio: 'P0', due: '2026-09-25', tag: '架构' },
+        { id: 't2',  title: '修复路由切换时的首屏空白',          status: 'doing', quad: 'q1', prio: 'P0', due: '2026-09-22', tag: '修复' },
+        { id: 't3',  title: '实现弥散风格主题系统',              status: 'todo',  quad: 'q2', prio: 'P0', due: '2026-10-08', tag: '主题' },
+        { id: 't4',  title: '项目模块统一 scope 隔离',           status: 'doing', quad: 'q2', prio: 'P1', due: '2026-10-15', tag: '重构' },
+        { id: 't5',  title: '任务清单四象限视图',                status: 'todo',  quad: 'q2', prio: 'P1', due: '2026-10-20', tag: '功能' },
+        { id: 't6',  title: '知识库双链图谱',                    status: 'todo',  quad: 'q2', prio: 'P2', due: '2026-10-31', tag: '功能' },
+        { id: 't7',  title: '日程模块外部日历同步',              status: 'todo',  quad: 'q3', prio: 'P2', due: '2026-09-28', tag: '集成' },
+        { id: 't8',  title: '清理 Vite 构建告警',                status: 'todo',  quad: 'q3', prio: 'P3', due: '2026-09-24', tag: '杂务' },
+        { id: 't9',  title: '搭建 Vite + React + TS 基础框架',   status: 'done',  quad: 'q2', prio: 'P1', due: '2026-08-15', tag: '基建' },
+        { id: 't10', title: '定义 18 色弥散色板',                status: 'done',  quad: 'q2', prio: 'P1', due: '2026-08-28', tag: '设计' },
+        { id: 't11', title: '抽出通用卡片与徽标组件',            status: 'done',  quad: 'q2', prio: 'P1', due: '2026-09-05', tag: '重构' },
+        { id: 't12', title: '接入 HashRouter 与路由守卫',        status: 'done',  quad: 'q1', prio: 'P0', due: '2026-09-12', tag: '架构' },
+        { id: 't13', title: '调研 Markdown 编辑器选型',          status: 'todo',  quad: 'q4', prio: 'P3', due: '2026-11-30', tag: '调研' },
+        { id: 't14', title: '阅读 React 19 新特性文档',          status: 'todo',  quad: 'q4', prio: 'P3', due: '2026-11-30', tag: '学习' },
+    ];
+
+    const STATUS = {
+        todo:  { label: '待办',   pill: 'pill-todo'  },
+        doing: { label: '进行中', pill: 'pill-doing' },
+        done:  { label: '已完成', pill: 'pill-done'  },
+    };
+
+    const QUADS = {
+        q1: { name: '重要且紧急',   hint: '立即执行' },
+        q2: { name: '重要不紧急',   hint: '计划安排' },
+        q3: { name: '紧急不重要',   hint: '委托或快速清' },
+        q4: { name: '不重要不紧急', hint: '少做或删除' },
+    };
+
+    /* 里程碑：概览只取"没过完的"，里程碑 Tab 取全部 —— 同一份数据、同一条状态规则。
+       ⚠️ 只写 `done`（既成事实），**不写 state** ——
+       "延期"是可推导的（未完成 && 已过期），手写就会和日期打架：
+       上一版把 09-25 的关卡写成"延期"，而原型的今天是 09-20。 */
+    const MILESTONES = [
+        { name: '基础框架搭建',   due: '2026-08-15', done: true },
+        { name: '主题系统完成',   due: '2026-09-01', done: true },
+        { name: '9 模块路由接入', due: '2026-09-15' },
+        { name: '项目模块统一',   due: '2026-10-15' },
+        { name: 'AI 助手接入',    due: '2026-10-31' },
+    ];
+
+    const INVEST = { total: 86, week: 12, left: 40 };
+
+    const ACTIVITY = [
+        { text: '完成任务「搭建 Vite + React + TS 基础框架」', time: '2 小时前' },
+        { text: '更新了文档「架构设计」',                      time: '昨天' },
+        { text: '将里程碑「9 模块路由接入」标记为延期',         time: '2 天前' },
+    ];
+
+    /* 笔记：右栏的捕获框、右栏的摘要行、笔记 Tab 的索引与阅读器，共用这一份 ——
+       否则"在右栏记了一笔、笔记页里没有"这种漂移马上就会出现 */
+    const NOTES = [
+        {
+            id: 'n1', title: '弥散风格 UI 设计笔记', time: '昨天', tag: '学习', star: true,
+            body: [
+                { h: '为什么选弥散', p: '个人系统的信息密度低、停留时间长。卡片之间的边界感太强，会让人一直处在"处理任务"的状态；弥散（大半径模糊的色团 + 半透明面板）把边界磨掉，整页读起来更像一张纸。' },
+                { h: '三支色团怎么选', p: '色团不是装饰，它是氛围的色相来源。低饱和 + 低透明度，三支取相邻色相（本项目是橘 / 浅橘 / 米黄）。饱和度一高，色团自己就变成主角，开始和卡片抢注意力。' },
+                { h: '面板透过率的代价', p: '透过率越高越"像玻璃"，但文字对比度会一起掉。实测亮色主题 α 可以低到 .30，但 <code>暗色不能跟着降</code> —— 两端都在暗端，一降就直接沉回底衬。' },
+            ],
+            tasks: ['t3'],
+        },
+        {
+            id: 'n2', title: 'React 19 新特性整理', time: '3 天前', tag: '学习',
+            body: [
+                { h: '值得用的', p: '<code>use()</code> 读 Promise 与 Context，配合 Suspense 能把"加载中"从组件里挪出去；表单的 action + <code>useFormStatus</code> 省掉一层受控状态。' },
+                { h: '暂不上车', p: 'React Compiler 还在演进。本项目组件量不大，手写 <code>memo</code> 的成本可控，不值得为它引入编译期依赖。' },
+                { h: '与工作台的关系', p: '工作台的模块切换是整页重置，用不上并发渲染；真正能省代码的只有 <code>use()</code> + Suspense 这一对。' },
+            ],
+        },
+        {
+            id: 'n3', title: 'Vite 构建优化记录', time: '上周', tag: '工作',
+            body: [
+                { h: '起点', p: '打包产物 JS 455 KB，在桌面壳里首屏要 400ms 以上。' },
+                { h: '做法', ul: ['路由级 <code>lazy()</code> 拆包；', '把令牌表与工作台 Hero 的样式提到首屏；', '其余模块按需加载。'] },
+                { h: '结果与一个坑', p: '首屏 JS 降到约 180 KB。⚠️ <code>base=\'./\'</code> 下产物必须落在 <code>dist</code> 根目录 —— 放子目录会 404，而且不报错。' },
+            ],
+            tasks: ['t8'],
+        },
+        {
+            id: 'n4', title: '玻璃材质上的对比度实测记录', time: '08-30', tag: '设计', star: true,
+            body: [
+                { h: '为什么不能算', p: '玻璃的合成亮度取决于它背后是什么。同一个令牌放在纯色底和极光底上，量出来的对比度能差一倍以上。' },
+                { h: '判据', p: '一律取"最差相位"：把那块玻璃移到极光最浓的位置再量，而不是在它最舒服的位置量。' },
+                { h: '刻意保留的偏差', p: '元信息层 3.14~3.92、发丝线 1.2~1.5。前者可接受，后者只用于分隔、不承载文字。' },
+            ],
+        },
+        {
+            id: 'n5', title: 'HashRouter 与 file:// 的取舍', time: '08-12', tag: '架构', star: true,
+            body: [
+                { h: '要解决的问题', p: '同一份产物，既要能被桌面壳内嵌，也要能双击 <code>dist/index.html</code> 直接打开。' },
+                { h: '结论', p: 'HashRouter + <code>base=\'./\'</code>。代价是 URL 带 <code>#</code>，外链分享要额外拼装。' },
+                { h: '它牵连到的事', p: '这条决定同时否掉了"后端独立起 HTTP 服务"的方案 —— 双击打开时没有服务端可以改写路径。' },
+            ],
+            tasks: ['t12'],
+        },
+        {
+            id: 'n6', title: 'Tauri 自绘标题栏的三个坑', time: '08-08', tag: '外壳',
+            body: [
+                { h: '一次拿走四样', p: '<code>decorations:false</code> 会同时去掉窗口控制、拖动、双击缩放、窗口圆角。前三样必须自己补。' },
+                { h: '圆角', p: '透明窗口 + 自绘；<code>Cargo.toml</code> 的 feature 也要开，否则 <code>cargo check</code> 报 allowlist 不匹配。' },
+                { h: '代价', p: '<code>macOSPrivateApi</code> 会让应用无法上架 App Store。这条是明账，不是意外。' },
+            ],
+        },
+    ];
+
+    /* 知识图谱的边 —— **只此一份**。
+       文档 / 笔记阅读器里的「反向链接」也由它派生；
+       否则一旦有了图，"图上连着、列表里没列"这种自相矛盾会当场露馅。
+       节点不在这里写：节点 = DOCS + NOTES 派生出来的。 */
+    const LINKS = [
+        ['adr',    'routes', '引用'],
+        ['adr',    'repo',   '引用'],
+        ['adr',    'n5',     '依据'],   // 架构设计 ← HashRouter 与 file:// 的取舍
+        ['adr',    'n3',     '依据'],   // 架构设计 ← Vite 构建优化记录
+        ['adr',    'n6',     '依据'],   // 架构设计 ← Tauri 自绘标题栏
+        ['routes', 'n5',     '依据'],
+        ['n1',     'n4',     '同题'],   // 弥散风格 ↔ 玻璃对比度实测
+        /* ⚠️ n2「React 19 新特性整理」刻意不连：它在真实数据里就是孤立的，
+           留一个孤立节点比把它硬接上去诚实 —— 孤立本身是信息。 */
+    ];
+
+    const DOCS = [
+        {
+            id: 'adr',
+            icon: '📄',
+            name: '架构设计',
+            kind: 'ADR · 已采纳',
+            pill: 'pill-done',
+            updated: '更新于昨天',
+            words: '1 240 字',
+            minutes: '约 5 分钟',
+            callout: '已采纳 · 2026-08-08。本决策同时约束前端路由策略与后端进程模型，改动前请先读"后果"一节。',
+            sections: [
+                {
+                    h: '背景',
+                    p: '这个前端要同时被两种宿主使用：桌面外壳（Tauri）内嵌，以及直接双击 <code>dist/index.html</code> 打开。若采用 BrowserRouter，双击打开时 <code>file://</code> 协议下没有服务端可以改写路径，刷新即 404。',
+                },
+                {
+                    h: '决策',
+                    p: '采用 <code>HashRouter</code> + <code>base="./"</code> 的相对资源策略；路由表按六个顶层模块切分，模块内的页面挂在各自的懒加载分支下。',
+                    ul: [
+                        '资源一律走相对路径，产物落在 <code>dist/</code> 根目录即可双击可用；',
+                        '后端不做独立 HTTP 服务，随桌面应用同进程起停；',
+                        '领域层 <code>lucky_y_server</code> 不得依赖任何传输层。',
+                    ],
+                },
+                {
+                    h: '后果',
+                    p: '双击 <code>dist/index.html</code> 即可使用，不需要先起服务；但 URL 里会带 <code>#</code>，外链分享要额外拼装。更贵的一笔是分层纪律：<code>lucky_y_server</code> 里出现 <code>tauri::AppHandle</code> 或 <code>axum::Json</code> 就会把领域层和宿主锁死，同进程起停的价值随之消失。',
+                },
+                {
+                    h: '备选方案',
+                    ul: [
+                        'BrowserRouter + 本地静态服务 —— 多一个进程，就多一个可以失败的点；',
+                        'Electron 自定义协议 —— 生态更重，收益不明显。',
+                    ],
+                },
+            ],
+            tasks: ['t1', 't12'],
+        },
+        {
+            id: 'routes',
+            icon: '📘',
+            name: '路由与菜单设计',
+            kind: 'Wiki · 长期维护',
+            pill: 'pill-doing',
+            updated: '更新于 3 天前',
+            words: '860 字',
+            minutes: '约 3 分钟',
+            callout: '菜单配置与路由表必须同源：改一处就要同步另一处，否则会出现"点得进、但页面不存在"。',
+            sections: [
+                {
+                    h: '模块层级',
+                    p: '顶层是六个模块：生活、工作、学习、项目、知识库、设置。「工作台、任务清单、日程」是模块内的页面，不是顶层模块。',
+                },
+                {
+                    h: '路由表',
+                    ul: [
+                        '<code>/</code> 是工作台，即九模块环形菜单；',
+                        '<code>/projects</code> 与 <code>/projects/:id</code> 是「项目」这一域的落地页；',
+                        '其余八个域的主页面尚未实现，「进门」按钮给提示而不是跳死链。',
+                    ],
+                },
+                {
+                    h: '菜单配置',
+                    p: '菜单数据在 <code>src/data/meta.ts</code> 的 <code>NAV_GROUPS</code>，目前只落了六个顶层模块。新增模块要同时补 <code>NAV_GROUPS</code>、路由表与环形菜单的几何常量。',
+                },
+                {
+                    h: '与 scope 的对应',
+                    p: 'scope 取值为 <code>life | work | learn | project | knowledge | settings</code>。⚠️ 本文档早前把"学习"写成 <code>learning</code>，与代码及后端 <code>model.rs</code> 的 <code>learn</code> 冲突，待统一。',
+                },
+            ],
+            tasks: ['t1', 't5'],
+        },
+        {
+            id: 'repo',
+            icon: '🔗',
+            name: 'GitHub 仓库',
+            kind: '外部链接',
+            pill: 'pill-todo',
+            updated: '同步于 2 小时前',
+            url: 'https://github.com/example/lucky-y',
+            note: '主仓库包含 client / backend 两个工作区；根目录另有设计交付物目录。',
+            tasks: ['t8', 't12'],
+        },
+    ];
+
+    const REVIEW = {
+        verdict: '部分达成',
+        score: 4,
+        good: [
+            '主题系统抽象成 CSS 变量，切换成本低',
+            '项目模块用 scope 隔离，复用度高',
+        ],
+        improve: [
+            '路由接入延期，前期低估工作量',
+            '文档更新滞后，应边做边写',
+        ],
+        lesson: [
+            '弥散风格 UI 适合个人系统，氛围好',
+            '色团低饱和 + 低透明度，避免视觉趋同',
+        ],
+    };
+
+    const REVIEW_SECTIONS = [
+        { key: 'good',    label: '做得好',   ph: '写下这次做得好的地方' },
+        { key: 'improve', label: '待改进',   ph: '写下这次没做好、下次要改的' },
+        { key: 'lesson',  label: '经验沉淀', ph: '可以复用到别处的结论' },
+    ];
+    const VERDICTS = ['达成', '部分达成', '未达成'];
+    const VERDICT_CLASS = { '达成': 'is-ok', '部分达成': 'is-warn', '未达成': 'is-danger' };
+
+    /* ============================================================
+       1. 工具
+       ============================================================ */
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+
+    function toast(msg) {
+        const wrap = document.getElementById('toastWrap');
+        const el = document.createElement('div');
+        el.className = 'toast';
+        const dot = document.createElement('span');
+        dot.className = 'toast-dot';
+        el.appendChild(dot);
+        el.appendChild(document.createTextNode(msg));
+        wrap.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('on'));
+        setTimeout(() => {
+            el.classList.remove('on');
+            setTimeout(() => el.remove(), 260);
+        }, 2200);
+    }
+
+    const byDue = (a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
+    const isLate = (t) => t.status !== 'done' && t.due < TODAY;
+    const dateShort = (d) => d.slice(5);
+
+    /* ============================================================
+       2. 任务：列表 / 看板 / 四象限
+       ============================================================ */
+    const CHECK = (t, small) => `
+        <div class="task-check${small ? ' is-small' : ''}${t.status === 'done' ? ' done' : ''}"
+             data-task-toggle="${t.id}"
+             role="checkbox" aria-checked="${t.status === 'done'}" tabindex="0"
+             aria-label="切换完成状态">${t.status === 'done' ? '✓' : ''}</div>`;
+
+    function taskRowHtml(t) {
+        const done = t.status === 'done';
+        return `
+        <div class="task-row${done ? ' is-done' : ''}">
+            ${CHECK(t)}
+            <div class="task-row-main">
+                <div class="task-row-title">${esc(t.title)}</div>
+                <div class="task-row-sub"><span class="tag">${esc(t.tag)}</span></div>
+            </div>
+            <div class="task-row-right">
+                <span class="task-due${isLate(t) ? ' is-late' : ''}">${dateShort(t.due)}${isLate(t) ? ' 逾期' : ''}</span>
+                <span class="task-quad-tag">${QUADS[t.quad].name}</span>
+                <span class="prio prio-${t.prio}">${t.prio}</span>
+                <span class="pill ${STATUS[t.status].pill}">${STATUS[t.status].label}</span>
+            </div>
+        </div>`;
+    }
+
+    function renderTaskList() {
+        const groups = [['doing', '进行中'], ['todo', '待办'], ['done', '已完成']];
+        document.getElementById('taskListBody').innerHTML = groups.map(([k, label]) => {
+            const items = TASKS.filter((t) => t.status === k).sort(byDue);
+            if (!items.length) return '';
+            return `<div class="task-group is-${k}"><span class="task-group-dot"></span><span>${label} · ${items.length}</span></div>`
+                + items.map(taskRowHtml).join('');
+        }).join('');
+    }
+
+    function renderKanban() {
+        const cols = [['todo', '待办'], ['doing', '进行中'], ['done', '已完成']];
+        document.getElementById('kanban').innerHTML = cols.map(([k, label]) => {
+            const items = TASKS.filter((t) => t.status === k).sort(byDue);
+            return `<div class="kanban-col">
+                <div class="kanban-title"><span>${label}</span><span>${items.length}</span></div>
+                ${items.map((t) => `<div class="kanban-card${k === 'done' ? ' is-done' : ''}"
+                     data-demo="打开任务「${esc(t.title)}」">${esc(t.title)}</div>`).join('')}
+            </div>`;
+        }).join('');
+    }
+
+    function renderMatrix() {
+        document.querySelectorAll('[data-quad]').forEach((cell) => {
+            const k = cell.dataset.quad;
+            const items = TASKS.filter((t) => t.quad === k).sort(byDue);
+            cell.innerHTML = `
+                <div class="quad-head">
+                    <span class="quad-name">${QUADS[k].name}</span>
+                    <span class="quad-hint">${QUADS[k].hint}</span>
+                    <span class="quad-count">${items.length}</span>
+                </div>`
+                + (items.length
+                    ? items.map((t) => `
+                        <div class="q-task${t.status === 'done' ? ' is-done' : ''}" data-task-toggle-row="${t.id}">
+                            ${CHECK(t, true)}
+                            <span class="q-task-title">${esc(t.title)}</span>
+                            <span class="q-task-due">${dateShort(t.due)}</span>
+                        </div>`).join('')
+                    : '<div class="q-empty">这一格是空的 —— 好事</div>');
+        });
+    }
+
+    function renderTaskSummary() {
+        const done = TASKS.filter((t) => t.status === 'done').length;
+        const late = TASKS.filter(isLate).length;
+        document.getElementById('taskSummary').innerHTML =
+            `${TASKS.length} 项 · ${done} 已完成` +
+            (late ? ` · <span class="text-danger">${late} 项逾期</span>` : '');
+    }
+
+    /* ---------- 里程碑：一条状态规则，两个视图各取所需 ---------- */
+    const DAY = 86400000;
+    const dateNum = (s) => Date.parse(s + 'T00:00:00');
+    const daysFrom = (due) => Math.round((dateNum(due) - dateNum(TODAY)) / DAY);
+
+    const msState = (m) => (m.done ? 'done' : (m.due < TODAY ? 'late' : 'todo'));
+    /** 下一关：最早的、还没到期也没完成的关卡（延期的不算"下一关"，它是"欠着的"） */
+    const nextMilestone = () => MILESTONES.find((m) => msState(m) === 'todo') || null;
+
+    function milestoneHtml(m, isNext) {
+        const st = msState(m);
+        const n = daysFrom(m.due);
+        const tail = st === 'done' ? '已完成'
+            : st === 'late' ? `已延期 ${-n} 天`
+            : `还有 ${n} 天`;
+        const flag = st === 'late'
+            ? `<span class="rail-flag is-late">延期 ${-n} 天</span>`
+            : (isNext ? '<span class="rail-flag">下一关</span>' : '');
+        return `
+        <div class="rail-row${isNext ? ' is-next' : ''}">
+            <span class="rail-dot ${st}"></span>
+            <span class="rail-main">
+                <span class="rail-name">${esc(m.name)}</span>
+                <span class="rail-meta">${m.due} · ${tail}</span>
+            </span>
+            ${flag}
+        </div>`;
+    }
+
+    function renderMilestones() {
+        const done = MILESTONES.filter((m) => msState(m) === 'done').length;
+        const late = MILESTONES.filter((m) => msState(m) === 'late').length;
+        const next = nextMilestone();
+
+        document.getElementById('ovMilestonePos').textContent =
+            `已过 ${done}/${MILESTONES.length}` + (late ? ` · ${late} 个延期` : '');
+        /* 概览只列"还没过完的"：已完成的收进上面那个计数，把版面留给"接下来" */
+        document.getElementById('ovMilestones').innerHTML =
+            MILESTONES.filter((m) => !m.done)
+                .map((m) => milestoneHtml(m, m === next)).join('');
+        document.getElementById('milestoneList').innerHTML =
+            MILESTONES.map((m) => milestoneHtml(m, m === next)).join('');
+        document.getElementById('milestoneSummary').innerHTML =
+            `${MILESTONES.length} 个 · ${done} 已完成`
+            + (late ? ` · <span class="text-danger">${late} 延期</span>` : '');
+    }
+
+    function renderOverview() {
+        const count = (k) => TASKS.filter((t) => t.status === k).length;
+        const doneM = MILESTONES.filter((m) => msState(m) === 'done').length;
+        const next = nextMilestone();
+        const late = TASKS.filter(isLate);
+
+        document.getElementById('kpiTasks').textContent = TASKS.length;
+        document.getElementById('kpiTasksSub').textContent =
+            `${count('doing')} 进行中 · ${count('todo')} 待办 · ${count('done')} 完成`;
+        /* 里程碑这一格给的是"位置"，不是"个数"：个数说明不了走到哪了 */
+        document.getElementById('kpiMilestones').textContent = `${doneM}/${MILESTONES.length}`;
+        document.getElementById('kpiMilestonesSub').textContent = next
+            ? `下一关 ${next.due.slice(5)} · 还有 ${daysFrom(next.due)} 天`
+            : '全部关卡已过';
+        document.getElementById('kpiHours').textContent = INVEST.total + 'h';
+        document.getElementById('kpiHoursSub').textContent =
+            `本周 ${INVEST.week}h · 剩余预估 ${INVEST.left}h`;
+        document.getElementById('kpiLate').textContent = late.length;
+        document.getElementById('kpiLateSub').textContent = late.length
+            ? `最近一笔 ${late.slice().sort(byDue)[0].due.slice(5)} 到期`
+            : '没有逾期任务';
+
+        /* 「接下来」= 还没开始、但快到了的。
+           与右栏「当前任务」（只列进行中）**按状态互斥** ——
+           两块天然不重叠，而不是靠"这里记得别重复那里"去手写排除；
+           手写排除是维护不了的规则，加一条任务就会破。 */
+        const upcoming = TASKS.filter((t) => t.status === 'todo').sort(byDue).slice(0, 4);
+        document.getElementById('upcomingTasks').innerHTML = upcoming.length
+            ? upcoming.map((t) => `
+                <div class="task-item">
+                    ${CHECK(t)}
+                    <div class="task-text">${esc(t.title)}</div>
+                    <span class="task-due-inline${isLate(t) ? ' is-late' : ''}">${dateShort(t.due)}</span>
+                </div>`).join('')
+            : '<div class="q-empty">没有待办任务</div>';
+        document.getElementById('upcomingPos').textContent = `${count('todo')} 条待办`;
+
+        document.getElementById('ovActivity').innerHTML = ACTIVITY.map((a) => `
+            <div class="activity">
+                <div class="activity-dot"></div>
+                <div class="activity-content">${esc(a.text)}</div>
+                <div class="activity-time">${esc(a.time)}</div>
+            </div>`).join('');
+
+        /* 任务分布：条长 = 该象限占总数的比例，四行并排就读出结构 */
+        const total = TASKS.length || 1;
+        document.getElementById('ovQuadDist').innerHTML = Object.keys(QUADS).map((k) => {
+            const n = TASKS.filter((t) => t.quad === k).length;
+            const pct = Math.round((n / total) * 100);
+            return `<div class="dist-row" style="--qc: var(--${k})">
+                <span class="dist-name">${QUADS[k].name}</span>
+                <span class="dist-bar"><i style="width:${pct}%"></i></span>
+                <span class="dist-num">${n}</span>
+            </div>`;
+        }).join('');
+
+        renderStarred();
+    }
+
+    /* ============================================================
+       3. 右栏：当前任务 + 笔记
+       一栏跨所有 Tab 常驻，所以只放"无论在哪个 Tab 都想看见"的东西。
+       ============================================================ */
+    function renderAside() {
+        const doing = TASKS.filter((t) => t.status === 'doing').sort(byDue);
+        document.getElementById('asideTasks').innerHTML = doing.length
+            ? doing.map((t) => `
+                <div class="rail-task${t.status === 'done' ? ' is-done' : ''}">
+                    ${CHECK(t)}
+                    <span class="rail-task-title" title="${esc(t.title)}">${esc(t.title)}</span>
+                    <span class="rail-task-due${isLate(t) ? ' is-late' : ''}">${dateShort(t.due)}</span>
+                </div>`).join('')
+            : '<div class="q-empty">没有进行中的任务</div>';
+
+        /* 右栏只放最近三条：它是"刚记下的那几笔"的位置，不是笔记的索引。
+           每条给一行摘要 —— 一行标题判不出值不值得点开 */
+        document.getElementById('asideNotes').innerHTML =
+            NOTES.slice(0, 3).map(noteRowHtml).join('');
+
+        document.getElementById('asideNoteCount').textContent = NOTES.length + ' 条';
+        document.getElementById('noteCountTab').textContent =
+            `${NOTES.length} 条 · 最近 ${NOTES[0] ? NOTES[0].time : '—'}`;
+    }
+
+    const plain = (s) => String(s).replace(/<[^>]+>/g, '');
+
+    /** 摘要：正文首段；随手记没有正文，标题本身就是内容 */
+    function noteSnippet(n) {
+        const first = n.body && n.body[0];
+        return plain((first && (first.p || first.h)) || n.title);
+    }
+
+    /** 笔记行：右栏与概览共用同一个渲染 —— 改一次样式，两处同时生效 */
+    function noteRowHtml(n) {
+        return `
+        <div class="note-row" data-note-open="${n.id}">
+            <div class="note-row-head">
+                <span class="note-row-title" title="${esc(n.title)}">${esc(n.title)}</span>
+                <span class="note-row-time">${esc(n.time)}</span>
+            </div>
+            <div class="note-row-snippet">${esc(noteSnippet(n))}</div>
+        </div>`;
+    }
+
+    let currentNote = null;
+
+    function renderNotesTab() {
+        document.getElementById('noteCountTab').textContent = `${NOTES.length} 条`;
+        document.getElementById('noteList').innerHTML = NOTES.map((n) => `
+            <div class="doc-item" data-note-open="${n.id}" role="button" tabindex="0">
+                <div class="doc-icon">📝</div>
+                <div class="doc-info">
+                    <div class="doc-name">${esc(n.title)}</div>
+                    <div class="doc-meta">${esc(n.tag)}笔记 · ${esc(n.time)}${n.star ? ' · ★ 已收藏' : ''}</div>
+                </div>
+                <span class="doc-arrow" aria-hidden="true">›</span>
+            </div>`).join('');
+        /* 阅读器开着的时候也要跟着重渲染，否则勾一下关联任务它不更新 */
+        if (currentNote) {
+            document.getElementById('noteDetail').innerHTML = noteDetailHtml(currentNote);
+        }
+    }
+
+    /** 概览的「收藏笔记」：★ 是用户标的，不是按打开次数猜的 ——
+        原型里没有真实使用记录，凭空写一组"常用次数"就是编数字。 */
+    function renderStarred() {
+        const starred = NOTES.filter((n) => n.star);
+        document.getElementById('starCount').textContent = `${starred.length} 条`;
+        document.getElementById('ovStarred').innerHTML = starred.length
+            ? starred.map(noteRowHtml).join('')
+            : '<div class="q-empty">还没有收藏 —— 打开一条笔记，点「☆ 收藏」</div>';
+    }
+
+    function toggleStar(id) {
+        const n = NOTES.find((x) => x.id === id);
+        if (!n) return;
+        n.star = !n.star;
+        renderStarred();
+        renderNotesTab();
+        toast(n.star ? `已收藏「${n.title}」` : `已取消收藏「${n.title}」`);
+    }
+
+    function noteDetailHtml(n) {
+        const body = n.body && n.body.length
+            ? `<div class="prose">${n.body.map((s, i) => `
+                    <h4 id="note-sec-${i}">${esc(s.h)}</h4>
+                    ${s.p ? `<p>${s.p}</p>` : ''}
+                    ${s.ul ? `<ul>${s.ul.map((li) => `<li>${li}</li>`).join('')}</ul>` : ''}
+                `).join('')}</div>`
+            /* 随手记就是一句话，没有小标题可分 —— 别硬造结构 */
+            : `<div class="prose"><p>${esc(n.title)}</p></div>`;
+
+        return `
+        <section class="card">
+            <div class="doc-head">
+                <div class="doc-head-icon">📝</div>
+                <div class="doc-head-main">
+                    <div class="doc-head-title">${esc(n.title)}</div>
+                    <div class="doc-head-meta">
+                        <span class="pill pill-todo">${esc(n.tag)}笔记</span>
+                        <span>${esc(n.time)}</span>
+                    </div>
+                </div>
+                <div class="doc-head-actions">
+                    <button class="btn btn-ghost btn-star${n.star ? ' is-on' : ''}" data-note-star="${n.id}">
+                        ${n.star ? '★ 已收藏' : '☆ 收藏'}
+                    </button>
+                    <button class="btn btn-ghost" data-demo="在编辑器中打开：${esc(n.title)}">编辑</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="doc-body-grid">
+            <div class="card">${body}</div>
+            <div class="doc-side">
+                <div class="card">
+                    <div class="card-title">关联任务</div>
+                    ${relatedTasksHtml(n)}
+                </div>
+                <div class="card">
+                    <div class="card-title">相关</div>
+                    ${neighborListHtml(n.id, 'open')}
+                </div>
+                <div class="card">
+                    <div class="card-title">所属</div>
+                    <div class="backlink" data-demo="跳转到知识库">
+                        <span class="backlink-icon">📚</span><span>知识库</span>
+                    </div>
+                    <div class="backlink" data-demo="跳转到项目「个人系统前端」">
+                        <span class="backlink-icon">🧩</span><span>个人系统前端</span>
+                    </div>
+                </div>
+            </div>
+        </section>`;
+    }
+
+    function showNoteScreen(name) {
+        document.querySelectorAll('[data-note-screen]').forEach((s) => {
+            s.classList.toggle('active', s.dataset.noteScreen === name);
+        });
+    }
+
+    /** 从右栏或索引点一条笔记：一步落到那条的内容，不用先进笔记页再找 */
+    function openNote(id) {
+        const n = NOTES.find((x) => x.id === id);
+        if (!n) return;
+        currentNote = n;
+        activateTab('notes');
+        document.getElementById('noteDetail').innerHTML = noteDetailHtml(n);
+        showNoteScreen('detail');
+        document.querySelector('.main').scrollTop = 0;
+    }
+
+    function backToNoteIndex() {
+        currentNote = null;
+        showNoteScreen('index');
+        document.querySelector('.main').scrollTop = 0;
+    }
+
+    /** 回车即存：捕获路径上不该有第二个动作 */
+    function captureNote(input) {
+        const text = input.value.trim();
+        if (!text) return;
+        NOTES.unshift({ id: 'n' + Date.now(), title: text, time: '刚刚', tag: '随手记' });
+        input.value = '';
+        renderAside();
+        renderNotesTab();
+        renderGraph();     // 新记的笔记在图上会是一个"未连线"的点 —— 这正是图谱的用处
+        toast('已记下：' + text);
+    }
+
+    /* ============================================================
+       4. 知识图谱：节点 = DOCS + NOTES 派生，边 = LINKS 派生
+       图是渲染结果，不是第二份数据。
+       ============================================================ */
+    /* 辐射布局的取景框是**固定**的，不是裁出来的 ——
+       "四周均匀的留白"本身就是对称感的一部分；裁到内容反而会把形状裁歪。
+       （散点布局相反：那边必须裁到包围盒，否则图会浮在一片空白里。） */
+    const G_W = 660, G_H = 460, G_CX = 330, G_CY = 200, G_R1 = 140, G_R2 = 236;
+    let selectedNode = null;
+    let gLayout = null;
+    let gSig = '';
+
+    const graphIds = () => DOCS.map((d) => d.id).concat(NOTES.map((n) => n.id));
+    const nodeKind = (id) => (DOCS.some((d) => d.id === id) ? 'doc' : 'note');
+    const nodeOf = (id) => DOCS.find((d) => d.id === id) || NOTES.find((n) => n.id === id) || null;
+    const nodeLabel = (id) => {
+        const x = nodeOf(id);
+        return x ? (x.name || x.title) : id;
+    };
+
+    /** 无向邻居：出链入链都算 —— 图谱回答的是"谁和谁有关系"，不是"谁指向谁" */
+    function neighborsOf(id) {
+        const out = [];
+        LINKS.forEach(([a, b]) => {
+            if (a === id) out.push({ id: b });
+            else if (b === id) out.push({ id: a });
+        });
+        return out;
+    }
+
+    /** 关系清单：mode='open' 直接打开它；mode='select' 在图里选中它（便于顺着链往下走） */
+    function neighborListHtml(id, mode) {
+        const nb = neighborsOf(id);
+        if (!nb.length) return '<div class="q-empty">还没有连线</div>';
+        return nb.map((x) => {
+            const isDoc = nodeKind(x.id) === 'doc';
+            const attr = mode === 'select'
+                ? `data-graph-node="${x.id}"`
+                : `data-open-node="${x.id}"`;
+            return `<div class="backlink" ${attr} role="button" tabindex="0">
+                <span class="backlink-icon">${isDoc ? '📄' : '📝'}</span>
+                <span>${esc(nodeLabel(x.id))}</span>
+            </div>`;
+        }).join('');
+    }
+
+    /** 中心辐射布局
+        ------------------------------------------------------------------
+        圆心 = 连接数最高的节点。它周围的半径由**语义**决定，不由力学决定：
+        BFS 层级 → 第 1 层均布内环、第 2 层均布外环、够不到的排在下方一排。
+        所以这里没有"调力"这回事 —— 也不会有空洞或叠字，因为角度是均分的。
+
+        踩过的坑（别再往回走）：
+        · 标签沿径向往外放，但正上 / 正下的节点要退回居中：那里"外"的方向是竖直的，
+          横排标签会互相压住。
+        · 下方那排里，**互相有连线的节点必须彼此相邻**，否则那条边会横穿中间那个节点；
+          成对的还要留够横向距离，不然两条居中标签叠字。
+        · 反复试过"力导向 + 调向心力系数"想消掉空洞：那是结构性空洞，
+          调参只会把它挪到别处（详见技能 labelled-mini-graph-svg §2）。
+    */
+    function layoutGraph(ids, links) {
+        const adj = {};
+        ids.forEach((id) => { adj[id] = []; });
+        links.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
+
+        /* 圆心取连接数最高；并列时取顺序在前的 —— 结果必须确定 */
+        let hub = ids[0];
+        ids.forEach((id) => { if (adj[id].length > adj[hub].length) hub = id; });
+
+        const layer = { [hub]: 0 };
+        const queue = [hub];
+        while (queue.length) {
+            const cur = queue.shift();
+            adj[cur].forEach((nb) => {
+                if (layer[nb] !== undefined) return;
+                layer[nb] = layer[cur] + 1;
+                queue.push(nb);
+            });
+        }
+        const ring1 = ids.filter((id) => layer[id] === 1);
+        const ring2 = ids.filter((id) => layer[id] >= 2);
+        const rest = ids.filter((id) => layer[id] === undefined);
+
+        const P = { [hub]: { x: G_CX, y: G_CY } };
+        ring1.forEach((id, i) => {
+            const ang = (-90 + (360 / ring1.length) * i) * Math.PI / 180;
+            P[id] = { x: G_CX + Math.cos(ang) * G_R1, y: G_CY + Math.sin(ang) * G_R1, ang };
+        });
+        ring2.forEach((id, i) => {
+            /* 外环错开半格，免得正好躲在内环节点背后 */
+            const ang = (-90 + (360 / ring2.length) * (i + 0.5)) * Math.PI / 180;
+            P[id] = { x: G_CX + Math.cos(ang) * G_R2, y: G_CY + Math.sin(ang) * G_R2, ang };
+        });
+
+        const linkedRest = new Set();
+        links.forEach(([a, b]) => {
+            if (rest.indexOf(a) > -1 && rest.indexOf(b) > -1) { linkedRest.add(a); linkedRest.add(b); }
+        });
+        const orderedRest = rest.filter((id) => linkedRest.has(id))
+            .concat(rest.filter((id) => !linkedRest.has(id)));
+        const restY = G_CY + G_R1 + 58;
+        let restX = 112;
+        orderedRest.forEach((id, i) => {
+            P[id] = { x: restX, y: restY };
+            const near = linkedRest.has(id) && linkedRest.has(orderedRest[i + 1]);
+            restX += near ? 190 : 200;
+        });
+
+        return {
+            P, hub, adj,
+            guide: { cx: G_CX, cy: G_CY, r: G_R1 },
+            box: { w: G_W, h: rest.length ? restY + 66 : G_CY + G_R1 + 100 },
+        };
+    }
+
+    function renderGraph() {
+        const ids = graphIds();
+        const links = LINKS.filter(([a, b]) => ids.indexOf(a) > -1 && ids.indexOf(b) > -1);
+        const sig = ids.join(',');
+        if (!gLayout || gSig !== sig) {
+            gLayout = layoutGraph(ids, links);
+            gSig = sig;
+        }
+        const { P, box, guide, hub } = gLayout;
+
+        const sel = selectedNode;
+        const near = sel ? new Set([sel].concat(neighborsOf(sel).map((x) => x.id))) : null;
+        const orphans = ids.filter((id) => !neighborsOf(id).length);
+        document.getElementById('graphStats').textContent =
+            `${ids.length} 个节点 · ${links.length} 条连线 · ${orphans.length} 个未连线`;
+
+        /* 边用直线：辐射布局里直线才顺着半径走，弧线反而乱了方向 */
+        const edgesSvg = links.map(([a, b]) => {
+            const A = P[a], B = P[b];
+            const act = sel && (a === sel || b === sel);
+            const dim = sel && !act;
+            return `<path class="edge${act ? ' is-active' : ''}${dim ? ' is-dim' : ''}"`
+                + ` d="M ${A.x.toFixed(1)} ${A.y.toFixed(1)} L ${B.x.toFixed(1)} ${B.y.toFixed(1)}"></path>`;
+        }).join('');
+
+        const nodesSvg = ids.map((id) => {
+            const p = P[id];
+            const isHub = id === hub;
+            const isDoc = nodeKind(id) === 'doc';
+            const deg = neighborsOf(id).length;
+            const full = nodeLabel(id);
+            const short = full.length > 12 ? full.slice(0, 11) + '…' : full;
+            const r = isHub ? 30 : 13 + Math.min(deg, 4) * 1.6;
+
+            const cls = ['gnode'];
+            if (isDoc) cls.push('is-doc');
+            if (isHub) cls.push('is-hub');
+            if (sel === id) cls.push('is-sel');
+            if (sel && !near.has(id)) cls.push('is-dim');
+            if (!deg) cls.push('is-orphan');
+
+            const shape = isDoc
+                ? `<rect class="shape" x="${(-r).toFixed(1)}" y="${(-r).toFixed(1)}"`
+                  + ` width="${(r * 2).toFixed(1)}" height="${(r * 2).toFixed(1)}" rx="${(r * 0.4).toFixed(1)}"></rect>`
+                : `<circle class="shape" r="${r.toFixed(1)}"></circle>`;
+
+            /* 标签沿径向往外；正上 / 正下退回居中 —— 那里"外"是竖直的，横排标签会互压 */
+            let lx = 0, ly = r + 18, anchor = 'middle';
+            if (isHub) {
+                ly = r + 26;
+            } else if (p.ang !== undefined) {
+                const c = Math.cos(p.ang);
+                if (c > 0.35) { lx = r + 10; ly = 4.5; anchor = 'start'; }
+                else if (c < -0.35) { lx = -(r + 10); ly = 4.5; anchor = 'end'; }
+                else if (Math.sin(p.ang) < 0) { ly = -(r + 12); }
+            }
+
+            return `<g class="${cls.join(' ')}" data-graph-node="${id}"`
+                + ` transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})"`
+                + ` tabindex="0" role="button" aria-label="${esc(full)}">`
+                + shape
+                + `<text class="gnode-deg" x="0" y="${(r * 0.19).toFixed(1)}" text-anchor="middle">${deg}</text>`
+                + `<text class="gnode-label" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}">${esc(short)}</text>`
+                + '</g>';
+        }).join('');
+
+        document.getElementById('graphSvgWrap').innerHTML =
+            `<svg class="graph-svg" viewBox="0 0 ${box.w} ${box.h}" role="img" aria-label="知识图谱">`
+            + `<circle class="guide" cx="${guide.cx}" cy="${guide.cy}" r="${guide.r}"></circle>`
+            + edgesSvg + nodesSvg + '</svg>';
+
+        /* 清单：图看不出"谁没连上"，所以必须配一份按连接数排的清单 */
+        const rows = ids.slice().sort((a, b) => neighborsOf(b).length - neighborsOf(a).length);
+        document.getElementById('graphList').innerHTML = rows.map((id) => {
+            const deg = neighborsOf(id).length;
+            const isDoc = nodeKind(id) === 'doc';
+            const cls = ['gnode-row'];
+            if (isDoc) cls.push('is-doc');
+            if (!deg) cls.push('is-orphan');
+            if (sel === id) cls.push('is-sel');
+            return `<div class="${cls.join(' ')}" data-graph-node="${id}" role="button" tabindex="0">`
+                + '<span class="gnode-row-dot"></span>'
+                + `<span class="gnode-row-name">${esc(nodeLabel(id))}</span>`
+                + (deg ? '' : '<span class="graph-orphan-tag">未连线</span>')
+                + `<span class="gnode-row-kind">${isDoc ? '文档' : '笔记'}</span>`
+                + `<span class="gnode-row-deg">${deg}</span>`
+                + '</div>';
+        }).join('');
+
+        renderGraphInspector();
+    }
+
+    function renderGraphInspector() {
+        const box = document.getElementById('graphInspector');
+        if (!selectedNode) {
+            box.innerHTML = '<div class="card-title">节点详情</div>'
+                + '<div class="q-empty">点一个节点或一行清单，看它连了哪些东西</div>';
+            return;
+        }
+        const id = selectedNode;
+        const isDoc = nodeKind(id) === 'doc';
+        const nb = neighborsOf(id);
+        box.innerHTML = `
+            <div class="card-title">节点详情</div>
+            <div class="gsel-head">
+                <span class="pill ${isDoc ? 'pill-doing' : 'pill-todo'}">${isDoc ? '文档' : '笔记'}</span>
+                <span class="ov-pos">${nb.length} 条连线</span>
+            </div>
+            <div class="gsel-title">${esc(nodeLabel(id))}</div>
+            <button class="btn btn-ghost" style="margin-top: 12px;" data-open-node="${id}">打开</button>
+            <div class="aside-divider"></div>
+            <div class="card-title">关系</div>
+            ${neighborListHtml(id, 'select')}`;
+    }
+
+    function toggleTask(id) {
+        const t = TASKS.find((x) => x.id === id);
+        if (!t) return;
+        t.status = t.status === 'done' ? 'todo' : 'done';
+        renderTaskViews();
+        toast(t.status === 'done' ? `已完成「${t.title}」` : `已重置「${t.title}」`);
+    }
+
+    function renderTaskViews() {
+        renderOverview();
+        renderTaskSummary();
+        renderTaskList();
+        renderKanban();
+        renderMatrix();
+        renderAside();     // 勾掉一条"进行中"，右栏的当前任务要跟着少一条
+    }
+
+    function setTaskView(key) {
+        document.querySelectorAll('#taskViewSeg .seg-btn').forEach((b) => {
+            b.classList.toggle('active', b.dataset.taskView === key);
+        });
+        document.querySelectorAll('[data-task-panel]').forEach((p) => {
+            p.classList.toggle('active', p.dataset.taskPanel === key);
+        });
+    }
+
+    function activateTab(key) {
+        document.querySelectorAll('.tab').forEach((t) => {
+            t.classList.toggle('active', t.dataset.tab === key);
+        });
+        document.querySelectorAll('.panel').forEach((p) => {
+            p.classList.toggle('active', p.dataset.panel === key);
+        });
+        document.querySelector('.main').scrollTop = 0;
+    }
+
+    /* ============================================================
+       5. 文档：索引 ⇄ 详情
+       ============================================================ */
+    let currentDoc = null;
+
+    function renderDocIndex() {
+        document.getElementById('docIndex').innerHTML = DOCS.map((d) => `
+            <div class="doc-item" data-doc-open="${d.id}" role="button" tabindex="0">
+                <div class="doc-icon">${d.icon}</div>
+                <div class="doc-info">
+                    <div class="doc-name">${esc(d.name)}</div>
+                    <div class="doc-meta">${esc(d.kind)} · ${esc(d.updated)}</div>
+                </div>
+                <span class="doc-arrow" aria-hidden="true">›</span>
+            </div>`).join('');
+    }
+
+    function relatedTasksHtml(d) {
+        if (!d.tasks || !d.tasks.length) return '<div class="q-empty">没有关联任务</div>';
+        return d.tasks.map((id) => {
+            const t = TASKS.find((x) => x.id === id);
+            if (!t) return '';
+            const done = t.status === 'done';
+            return `<div class="task-item">
+                ${CHECK(t)}
+                <div class="task-text${done ? ' done' : ''}">${esc(t.title)}</div>
+                <span class="pill ${STATUS[t.status].pill}">${STATUS[t.status].label}</span>
+            </div>`;
+        }).join('');
+    }
+
+    function docDetailHtml(d) {
+        const head = `
+        <section class="card">
+            <div class="doc-head">
+                <div class="doc-head-icon">${d.icon}</div>
+                <div class="doc-head-main">
+                    <div class="doc-head-title">${esc(d.name)}</div>
+                    <div class="doc-head-meta">
+                        <span class="pill ${d.pill}">${esc(d.kind)}</span>
+                        <span>${esc(d.updated)}</span>
+                        ${d.words ? `<span>·</span><span>${esc(d.words)}</span>` : ''}
+                        ${d.minutes ? `<span>·</span><span>${esc(d.minutes)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="doc-head-actions">
+                    <button class="btn btn-ghost" data-demo="已复制文档链接">复制链接</button>
+                    <button class="btn btn-primary" data-demo="在编辑器中打开：${esc(d.name)}">打开</button>
+                </div>
+            </div>
+        </section>`;
+
+        const related = `
+        <section class="card">
+            <div class="card-title">关联任务</div>
+            ${relatedTasksHtml(d)}
+        </section>`;
+
+        if (!d.sections) {
+            return head + `
+            <section class="card">
+                <div class="link-card">
+                    <div class="doc-head-icon">${d.icon}</div>
+                    <div class="link-card-main">
+                        <div class="doc-name">${esc(d.name)}</div>
+                        <div class="link-card-url">${esc(d.url)}</div>
+                        <div class="doc-meta" style="margin-top:6px">${esc(d.note)}</div>
+                    </div>
+                    <button class="btn btn-primary" data-demo="原型演示：不会真的打开外部链接">打开链接</button>
+                </div>
+            </section>
+            <section class="card">
+                <div class="card-title">反向链接</div>
+                ${neighborListHtml(d.id, 'open')}
+            </section>` + related;
+        }
+
+        return head + `
+        <section class="doc-body-grid">
+            <div class="card">
+                <div class="callout"><span class="callout-dot"></span><span>${d.callout}</span></div>
+                <div class="prose">
+                    ${d.sections.map((s, i) => `
+                        <h4 id="doc-sec-${i}">${esc(s.h)}</h4>
+                        ${s.p ? `<p>${s.p}</p>` : ''}
+                        ${s.ul ? `<ul>${s.ul.map((li) => `<li>${li}</li>`).join('')}</ul>` : ''}
+                    `).join('')}
+                </div>
+            </div>
+            <div class="doc-side">
+                <div class="card">
+                    <div class="card-title">目录</div>
+                    <div class="toc">
+                        ${d.sections.map((s, i) => `
+                            <div class="toc-item${i === 0 ? ' active' : ''}" data-toc="${i}">${esc(s.h)}</div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">反向链接</div>
+                    ${neighborListHtml(d.id, 'open')}
+                </div>
+            </div>
+        </section>` + related;
+    }
+
+    function showDocScreen(name) {
+        document.querySelectorAll('[data-doc-screen]').forEach((s) => {
+            s.classList.toggle('active', s.dataset.docScreen === name);
+        });
+    }
+
+    function openDoc(id) {
+        const d = DOCS.find((x) => x.id === id);
+        if (!d) return;
+        currentDoc = d;
+        activateTab('docs');   // 现在能从图谱 / 反向链接跳过来，Tab 必须跟着走
+        document.getElementById('docDetail').innerHTML = docDetailHtml(d);
+        showDocScreen('detail');
+        document.querySelector('.main').scrollTop = 0;
+    }
+
+    function backToDocIndex() {
+        currentDoc = null;
+        showDocScreen('index');
+        document.querySelector('.main').scrollTop = 0;
+    }
+
+    function gotoSection(i) {
+        const el = document.getElementById('doc-sec-' + i);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.querySelectorAll('.toc-item').forEach((it) => {
+            it.classList.toggle('active', it.dataset.toc === String(i));
+        });
+    }
+
+    /* ============================================================
+       6. 复盘：只读 ⇄ 编辑
+       reviewDraft === null 表示只读；非 null 表示编辑中（草稿与 REVIEW 分离）
+       ============================================================ */
+    let reviewDraft = null;
+
+    const cloneReview = (r) => ({
+        verdict: r.verdict,
+        score: r.score,
+        good: r.good.slice(),
+        improve: r.improve.slice(),
+        lesson: r.lesson.slice(),
+    });
+
+    function reviewBodyHtml(r, readOnly) {
+        if (readOnly) {
+            return REVIEW_SECTIONS.map((s) => `
+                <div class="review-block">
+                    <div class="review-label">${s.label}</div>
+                    <ul class="review-list">
+                        ${r[s.key].length
+                            ? r[s.key].map((x) => `<li>${esc(x)}</li>`).join('')
+                            : '<li class="is-empty">尚未填写</li>'}
+                    </ul>
+                </div>`).join('');
+        }
+        return REVIEW_SECTIONS.map((s) => `
+            <div class="review-edit-block">
+                <div class="review-label">${s.label}</div>
+                ${r[s.key].map((x, i) => `
+                    <div class="review-edit-row">
+                        <input class="review-input" data-review-input="${s.key}" data-idx="${i}"
+                               value="${esc(x)}" placeholder="${s.ph}">
+                        <button class="icon-btn" data-review-del="${s.key}:${i}"
+                                title="删除这条" ${r[s.key].length <= 1 ? 'disabled' : ''}>×</button>
+                    </div>`).join('')}
+                <button class="review-add" data-review-add="${s.key}">+ 添加一条</button>
+            </div>`).join('')
+        + `
+            <div class="review-bar">
+                <div class="review-bar-hint">编辑中 · 未保存的改动不会写入</div>
+                <button class="btn btn-ghost" data-review-cancel>取消</button>
+                <button class="btn btn-primary" data-review-save>保存复盘</button>
+            </div>`;
+    }
+
+    function renderReview() {
+        const readOnly = reviewDraft === null;
+        const r = readOnly ? REVIEW : reviewDraft;
+        const filled = REVIEW_SECTIONS.reduce(
+            (n, s) => n + r[s.key].filter((x) => String(x).trim()).length, 0);
+
+        document.getElementById('reviewActions').innerHTML = readOnly
+            ? '<button class="btn btn-ghost" data-review-edit>编辑</button>'
+            : '';
+
+        document.getElementById('reviewSummary').innerHTML = `
+            <div class="review-summary">
+                <div class="review-summary-item">
+                    <span>达成度</span>
+                    ${readOnly
+                        ? `<span class="verdict ${VERDICT_CLASS[r.verdict] || ''}">${esc(r.verdict)}</span>`
+                        : `<select class="review-select" data-review-verdict>
+                               ${VERDICTS.map((v) => `<option${v === r.verdict ? ' selected' : ''}>${v}</option>`).join('')}
+                           </select>`}
+                </div>
+                <div class="review-summary-item">
+                    <span>自评</span>
+                    <span class="rating${readOnly ? ' is-readonly' : ''}">
+                        ${[1, 2, 3, 4, 5].map((i) => `<span class="rating-star${i <= r.score ? ' on' : ''}"
+                            data-review-star="${i}" title="${i} 分">${i <= r.score ? '★' : '☆'}</span>`).join('')}
+                    </span>
+                </div>
+                <div class="review-summary-item"><span>条目</span><span>${filled} 条</span></div>
+            </div>`;
+
+        document.getElementById('reviewBody').innerHTML = reviewBodyHtml(r, readOnly);
+    }
+
+    function startReviewEdit() {
+        reviewDraft = cloneReview(REVIEW);
+        renderReview();
+    }
+
+    function saveReview() {
+        if (!reviewDraft) return;
+        syncDraftFromDom();
+        REVIEW.verdict = reviewDraft.verdict;
+        REVIEW.score = reviewDraft.score;
+        REVIEW_SECTIONS.forEach((s) => {
+            REVIEW[s.key] = reviewDraft[s.key].map((x) => String(x).trim()).filter(Boolean);
+        });
+        reviewDraft = null;
+        renderReview();
+        toast('复盘已保存');
+    }
+
+    function cancelReviewEdit() {
+        reviewDraft = null;
+        renderReview();
+        toast('已放弃改动');
+    }
+
+    /* 编辑态里 DOM 才是当前值的持有者：增删/保存前先把输入框收回草稿 */
+    function syncDraftFromDom() {
+        if (!reviewDraft) return;
+        document.querySelectorAll('[data-review-input]').forEach((inp) => {
+            const key = inp.dataset.reviewInput;
+            const idx = Number(inp.dataset.idx);
+            if (reviewDraft[key] && idx < reviewDraft[key].length) reviewDraft[key][idx] = inp.value;
+        });
+        const sel = document.querySelector('[data-review-verdict]');
+        if (sel) reviewDraft.verdict = sel.value;
+    }
+
+    /* ============================================================
+       7. 事件：统一委托，重渲染后无需重新绑定
+       ============================================================ */
+    document.addEventListener('click', (e) => {
+        const hit = (sel) => e.target.closest(sel);
+
+        /* Tab */
+        const tab = hit('.tab');
+        if (tab) { activateTab(tab.dataset.tab); return; }
+
+        /* 概览里那两个"→"：先换 Tab，必要时再把任务视图也切过去 */
+        const gotoView = hit('[data-goto-task-view]');
+        if (gotoView) {
+            activateTab('tasks');
+            setTaskView(gotoView.dataset.gotoTaskView);
+            return;
+        }
+        const gotoTab = hit('[data-goto-tab]');
+        if (gotoTab) { activateTab(gotoTab.dataset.gotoTab); return; }
+
+        /* 任务：视图切换 */
+        const seg = hit('[data-task-view]');
+        if (seg) { setTaskView(seg.dataset.taskView); return; }
+
+        /* 任务：勾选（列表 / 概览 / 四象限行内） */
+        const check = hit('[data-task-toggle]');
+        if (check) {
+            if (e.target.closest('.kanban-card')) return;   // 看板卡片另有用途
+            toggleTask(check.dataset.taskToggle);
+            return;
+        }
+        const qrow = hit('[data-task-toggle-row]');
+        if (qrow && !hit('[data-task-toggle]')) { toggleTask(qrow.dataset.taskToggleRow); return; }
+
+        /* 文档 */
+        const openDocEl = hit('[data-doc-open]');
+        if (openDocEl) { openDoc(openDocEl.dataset.docOpen); return; }
+        if (hit('[data-doc-back]')) { backToDocIndex(); return; }
+        const toc = hit('[data-toc]');
+        if (toc) { gotoSection(Number(toc.dataset.toc)); return; }
+
+        /* 笔记：右栏的摘要行与索引行都走这一条 —— 一步落到内容 */
+        const noteOpenEl = hit('[data-note-open]');
+        if (noteOpenEl) { openNote(noteOpenEl.dataset.noteOpen); return; }
+        if (hit('[data-note-back]')) { backToNoteIndex(); return; }
+        const starBtn = hit('[data-note-star]');
+        if (starBtn) { toggleStar(starBtn.dataset.noteStar); return; }
+
+        /* 图谱：图上的点与清单里的行是同一个动作 —— 选中 */
+        const gnode = hit('[data-graph-node]');
+        if (gnode) { selectedNode = gnode.dataset.graphNode; renderGraph(); return; }
+
+        /* 跨页跳转：反向链接 / 关系清单 / 图谱详情的「打开」。走同一个入口。 */
+        const openNodeEl = hit('[data-open-node]');
+        if (openNodeEl) {
+            const nid = openNodeEl.dataset.openNode;
+            if (nodeKind(nid) === 'doc') openDoc(nid); else openNote(nid);
+            return;
+        }
+
+        /* 复盘 */
+        if (hit('[data-review-edit]')) { startReviewEdit(); return; }
+        if (hit('[data-review-save]')) { saveReview(); return; }
+        if (hit('[data-review-cancel]')) { cancelReviewEdit(); return; }
+
+        const del = hit('[data-review-del]');
+        if (del) {
+            syncDraftFromDom();
+            const [key, idx] = del.dataset.reviewDel.split(':');
+            if (reviewDraft[key].length > 1) {
+                reviewDraft[key].splice(Number(idx), 1);
+                renderReview();
+            }
+            return;
+        }
+        const add = hit('[data-review-add]');
+        if (add) {
+            syncDraftFromDom();
+            reviewDraft[add.dataset.reviewAdd].push('');
+            renderReview();
+            const inputs = document.querySelectorAll(`[data-review-input="${add.dataset.reviewAdd}"]`);
+            const last = inputs[inputs.length - 1];
+            if (last) last.focus();
+            return;
+        }
+        const star = hit('[data-review-star]');
+        if (star) {
+            if (!reviewDraft) { toast('先点「编辑」才能改自评'); return; }
+            syncDraftFromDom();
+            reviewDraft.score = Number(star.dataset.reviewStar);
+            renderReview();
+            return;
+        }
+
+        /* 顶栏 / 快捷操作 / 反链等原型占位动作 */
+        if (hit('#archiveBtn')) { toast('原型演示：归档项目'); return; }
+        if (hit('#newTaskBtn')) { toast('原型演示：新建任务'); return; }
+        const action = hit('[data-action]') || hit('.quick-btn');
+        if (action) { toast('原型演示：' + action.textContent.trim()); return; }
+        const demo = hit('[data-demo]');
+        if (demo) { toast('原型演示：' + demo.dataset.demo); return; }
+    });
+
+    /* 编辑态输入：边打字边收进草稿，增删/保存才不会丢 */
+    document.addEventListener('input', (e) => {
+        const inp = e.target.closest('[data-review-input]');
+        if (!inp || !reviewDraft) return;
+        const key = inp.dataset.reviewInput;
+        const idx = Number(inp.dataset.idx);
+        if (reviewDraft[key] && idx < reviewDraft[key].length) reviewDraft[key][idx] = inp.value;
+    });
+
+    document.addEventListener('change', (e) => {
+        const sel = e.target.closest('[data-review-verdict]');
+        if (sel && reviewDraft) reviewDraft.verdict = sel.value;
+    });
+
+    /* 勾选框支持键盘（它们是 tabindex=0 的 role=checkbox） */
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const check = e.target.closest('[data-task-toggle]');
+        if (check) { e.preventDefault(); toggleTask(check.dataset.taskToggle); return; }
+        const row = e.target.closest('[data-doc-open]');
+        if (row) { e.preventDefault(); openDoc(row.dataset.docOpen); return; }
+        const note = e.target.closest('[data-note-open]');
+        if (note) { e.preventDefault(); openNote(note.dataset.noteOpen); return; }
+        const gnode = e.target.closest('[data-graph-node]');
+        if (gnode) {
+            e.preventDefault();
+            selectedNode = gnode.dataset.graphNode;
+            renderGraph();
+            return;
+        }
+        const openNode = e.target.closest('[data-open-node]');
+        if (openNode) {
+            e.preventDefault();
+            const nid = openNode.dataset.openNode;
+            if (nodeKind(nid) === 'doc') openDoc(nid); else openNote(nid);
+        }
+    });
+
+    /* ============================================================
+       8. 徽章 / 进度条 / 主题（沿用原型已有交互）
+       ============================================================ */
+    const statusBadge = document.getElementById('statusBadge');
+    const statusList = ['规划中', '进行中', '阻塞', '验收', '已归档'];
+    const statusCls = ['badge-neutral', 'badge-doing', 'badge-danger', 'badge-ok', 'badge-neutral'];
+    let statusIdx = 1;
+    statusBadge.addEventListener('click', () => {
+        statusIdx = (statusIdx + 1) % statusList.length;
+        statusBadge.textContent = statusList[statusIdx];
+        statusBadge.className = 'badge ' + statusCls[statusIdx];
+    });
+
+    const priorityBadge = document.getElementById('priorityBadge');
+    const priorityList = ['P0', 'P1', 'P2', 'P3'];
+    let priorityIdx = 0;
+    priorityBadge.addEventListener('click', () => {
+        priorityIdx = (priorityIdx + 1) % priorityList.length;
+        priorityBadge.textContent = priorityList[priorityIdx];
+        priorityBadge.className = 'badge prio prio-' + priorityList[priorityIdx];
+    });
+
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    progressFill.parentElement.addEventListener('click', (e) => {
+        const rect = progressFill.parentElement.getBoundingClientRect();
+        const pct = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+        const clamped = Math.min(100, Math.max(0, pct));
+        progressFill.style.width = clamped + '%';
+        progressText.textContent = clamped + '%';
+        document.querySelectorAll('.aside .info-row').forEach((row) => {
+            if (row.firstElementChild.textContent === '进度') {
+                row.lastElementChild.textContent = clamped + '%';
+            }
+        });
+    });
+
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        themeToggle.textContent = '☀️';
+    }
+    themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        themeToggle.textContent = isDark ? '☀️' : '🌙';
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+
+    /* ============================================================
+       9. 首屏
+       ============================================================ */
+    renderTaskViews();
+    renderMilestones();
+    renderDocIndex();
+    renderNotesTab();
+    renderGraph();
+    renderReview();
+
+    /* 两处捕获框（右栏 / 笔记页）共用同一个函数、同一份 NOTES */
+    ['noteInput', 'noteInput2'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') captureNote(el); });
+    });
+
+</script>
+</body>
+</html>

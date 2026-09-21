@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>设置 · 个人系统</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-page: #FAFBFC;
+            --bg-card: rgba(255,255,255,0.62);
+            --bg-sidebar: rgba(255,255,255,0.66);
+            --bg-topbar: rgba(255,255,255,0.66);
+            --border-card: rgba(255,255,255,0.7);
+            --border-subtle: rgba(15,23,42,0.06);
+            --text-primary: #1E293B;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --shadow-card: 0 4px 24px rgba(15,23,42,0.06);
+            --shadow-card-hover: 0 8px 32px rgba(15,23,42,0.10);
+            --blur-card: blur(24px) saturate(160%);
+            --blob-opacity: 0.38;
+            --blob-blur: 110px;
+
+            --a-settings-1: #B8C4D9; --a-settings-2: #C9D5E5; --a-settings-3: #DCE4F0;
+            --s-settings: #475569;
+
+            --m1: var(--a-settings-1);
+            --m2: var(--a-settings-2);
+            --m3: var(--a-settings-3);
+            --m-main: var(--s-settings);
+        }
+
+        .dark {
+            --bg-page: #0F172A;
+            --bg-card: rgba(30,41,59,0.55);
+            --bg-sidebar: rgba(15,23,42,0.7);
+            --bg-topbar: rgba(15,23,42,0.7);
+            --border-card: rgba(255,255,255,0.08);
+            --border-subtle: rgba(255,255,255,0.06);
+            --text-primary: #E2E8F0;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+            --shadow-card-hover: 0 8px 32px rgba(0,0,0,0.4);
+            --blur-card: blur(28px) saturate(140%);
+            --blob-opacity: 0.26;
+            --blob-blur: 130px;
+
+            --a-settings-1: #5A6B82; --a-settings-2: #44546B; --a-settings-3: #2E3B52;
+            --s-settings: #A8B8CC;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: background 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        .aurora-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob {
+            position: absolute; border-radius: 50%;
+            filter: blur(var(--blob-blur));
+            opacity: var(--blob-opacity);
+            transition: opacity 0.5s ease, filter 0.5s ease, background 0.5s ease;
+            animation: drift 22s ease-in-out infinite alternate;
+        }
+        .blob-1 { width: 520px; height: 520px; top: -8%;  left: -8%;  background: var(--m1); }
+        .blob-2 { width: 480px; height: 480px; top: 24%;  right: -10%; background: var(--m2); animation-delay: -7s; }
+        .blob-3 { width: 560px; height: 560px; bottom: -16%; left: 30%; background: var(--m3); animation-delay: -14s; }
+
+        @keyframes drift {
+            from { transform: translate(0,0) scale(1); }
+            to   { transform: translate(36px,-28px) scale(1.08); }
+        }
+        @media (prefers-reduced-motion: reduce) { .blob { animation: none; } }
+
+        .app {
+            position: relative; z-index: 1;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            grid-template-rows: 56px 1fr;
+            grid-template-areas: "sidebar topbar" "sidebar main";
+            height: 100vh;
+        }
+
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-right: 1px solid var(--border-subtle);
+            padding: 16px 12px;
+            display: flex; flex-direction: column; gap: 2px;
+            overflow-y: auto;
+        }
+        .sidebar-title {
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 14px 12px 6px;
+        }
+        .menu-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 10px;
+            font-size: 14px; color: var(--text-secondary);
+            cursor: pointer; border-left: 3px solid transparent;
+            transition: all 0.18s ease; user-select: none;
+        }
+        .menu-item:hover { background: var(--border-subtle); color: var(--text-primary); }
+        .menu-item.active {
+            background: color-mix(in srgb, var(--m-main) 12%, transparent);
+            color: var(--m-main);
+            border-left-color: var(--m-main);
+            font-weight: 600;
+        }
+        .menu-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-main); flex-shrink: 0; }
+
+        .topbar {
+            grid-area: topbar;
+            background: var(--bg-topbar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; gap: 16px;
+        }
+        .breadcrumb { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+        .breadcrumb strong { color: var(--text-primary); font-weight: 600; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+        .btn {
+            border: none; border-radius: 10px;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.18s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary {
+            background: var(--m-main); color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 6px 20px color-mix(in srgb, var(--m-main) 45%, transparent);
+            transform: translateY(-1px);
+        }
+        .btn-ghost {
+            background: var(--bg-card); color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-main); }
+        .btn-danger {
+            background: #EF4444; color: #fff;
+            box-shadow: 0 4px 14px rgba(239,68,68,0.3);
+        }
+        .btn-danger:hover {
+            box-shadow: 0 6px 20px rgba(239,68,68,0.45);
+            transform: translateY(-1px);
+        }
+        .theme-toggle {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            cursor: pointer; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s ease;
+        }
+        .theme-toggle:hover { transform: scale(1.05); border-color: var(--m-main); }
+
+        .main {
+            grid-area: main;
+            padding: 24px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+
+        .tabs {
+            display: flex; gap: 4px; flex-wrap: wrap;
+            padding: 6px; border-radius: 14px;
+        }
+        .tab {
+            padding: 8px 16px; border-radius: 10px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer; user-select: none;
+            transition: all 0.18s ease;
+            white-space: nowrap;
+        }
+        .tab:hover { color: var(--text-primary); background: var(--border-subtle); }
+        .tab.active {
+            background: var(--m-main); color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+
+        .panel { display: none; flex-direction: column; gap: 20px; }
+        .panel.active { display: flex; }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-card);
+            padding: 20px;
+            transition: all 0.25s ease;
+        }
+        .card-title {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+        .setting-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            gap: 16px;
+        }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-info { flex: 1; }
+        .setting-label { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+        .setting-desc { font-size: 12px; color: var(--text-muted); }
+        .setting-value { font-size: 14px; color: var(--text-secondary); }
+
+        .avatar-lg {
+            width: 64px; height: 64px; border-radius: 50%;
+            background: var(--m-main);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .switch {
+            width: 44px; height: 24px;
+            border-radius: 999px;
+            background: var(--border-subtle);
+            position: relative;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            flex-shrink: 0;
+        }
+        .switch::after {
+            content: "";
+            position: absolute;
+            top: 2px; left: 2px;
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            transition: all 0.18s ease;
+        }
+        .switch.on { background: var(--m-main); }
+        .switch.on::after { transform: translateX(20px); }
+
+        .theme-preview {
+            display: flex; gap: 12px;
+        }
+        .theme-swatch {
+            width: 60px; height: 44px;
+            border-radius: 10px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.18s ease;
+            position: relative;
+        }
+        .theme-swatch.active { border-color: var(--m-main); }
+        .theme-swatch.light { background: #FAFBFC; }
+        .theme-swatch.dark { background: #0F172A; }
+        .theme-swatch.auto { background: linear-gradient(135deg, #FAFBFC 50%, #0F172A 50%); }
+
+        .module-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .module-item:last-child { border-bottom: none; }
+        .module-info { display: flex; align-items: center; gap: 10px; }
+        .module-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+        }
+        .module-name { font-size: 14px; font-weight: 500; }
+
+        .input, .select {
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            transition: all 0.18s ease;
+            min-width: 180px;
+        }
+        .input:focus, .select:focus {
+            border-color: var(--m-main);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--m-main) 14%, transparent);
+        }
+
+        .integration-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .integration-item:last-child { border-bottom: none; }
+        .integration-icon {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--m-main) 14%, transparent);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .integration-info { flex: 1; }
+        .integration-name { font-size: 14px; font-weight: 500; }
+        .integration-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        .shortcut-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 14px;
+        }
+        .shortcut-row:last-child { border-bottom: none; }
+        .kbd {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        }
+
+        .notice {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        .danger-zone {
+            border: 1px solid rgba(239,68,68,0.3);
+            background: rgba(239,68,68,0.05);
+        }
+        .dark .danger-zone { background: rgba(239,68,68,0.08); }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        @media (max-width: 768px) {
+            .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+            .sidebar { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="aurora-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+</div>
+
+<div class="app">
+
+    <aside class="sidebar">
+        <div class="sidebar-title">全局层</div>
+        <div class="menu-item"><span class="menu-dot"></span>工作台</div>
+        <div class="menu-item"><span class="menu-dot"></span>任务清单</div>
+        <div class="menu-item"><span class="menu-dot"></span>日程</div>
+
+        <div class="sidebar-title">领域层</div>
+        <div class="menu-item"><span class="menu-dot"></span>生活</div>
+        <div class="menu-item"><span class="menu-dot"></span>工作</div>
+        <div class="menu-item"><span class="menu-dot"></span>学习</div>
+
+        <div class="sidebar-title">执行层</div>
+        <div class="menu-item"><span class="menu-dot"></span>项目</div>
+
+        <div class="sidebar-title">沉淀层</div>
+        <div class="menu-item"><span class="menu-dot"></span>知识库</div>
+
+        <div class="sidebar-title">支撑层</div>
+        <div class="menu-item active"><span class="menu-dot"></span>设置</div>
+    </aside>
+
+    <header class="topbar">
+        <div class="breadcrumb">设置 / <strong>账户与安全</strong></div>
+        <div class="topbar-actions">
+            <button class="theme-toggle" id="themeToggle">🌙</button>
+        </div>
+    </header>
+
+    <main class="main">
+
+        <nav class="tabs" id="tabs">
+            <div class="tab active" data-tab="account">账户与安全</div>
+            <div class="tab" data-tab="modules">模块管理</div>
+            <div class="tab" data-tab="appearance">主题与外观</div>
+            <div class="tab" data-tab="notifications">通知提醒</div>
+            <div class="tab" data-tab="data">数据与备份</div>
+            <div class="tab" data-tab="integrations">集成与 API</div>
+            <div class="tab" data-tab="ai">AI 设置</div>
+            <div class="tab" data-tab="privacy">权限与隐私</div>
+            <div class="tab" data-tab="shortcuts">快捷键</div>
+            <div class="tab" data-tab="about">关于</div>
+        </nav>
+
+        <!-- 账户与安全 -->
+        <div class="panel active" data-panel="account">
+            <section class="card">
+                <div class="card-title">账户信息</div>
+                <div class="setting-row">
+                    <div class="avatar-lg">杨</div>
+                    <div class="setting-info">
+                        <div class="setting-label">杨刘</div>
+                        <div class="setting-desc">yangliu@example.com</div>
+                    </div>
+                    <button class="btn btn-ghost">编辑</button>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">昵称</div>
+                        <div class="setting-desc">显示在系统内</div>
+                    </div>
+                    <div class="setting-value">杨刘</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">邮箱</div>
+                        <div class="setting-desc">用于登录和通知</div>
+                    </div>
+                    <div class="setting-value">yangliu@example.com</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">安全</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">密码</div>
+                        <div class="setting-desc">上次修改：30 天前</div>
+                    </div>
+                    <button class="btn btn-ghost">修改</button>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">两步验证</div>
+                        <div class="setting-desc">登录时需要额外验证</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">登录设备</div>
+                        <div class="setting-desc">当前有 2 台设备登录</div>
+                    </div>
+                    <button class="btn btn-ghost">管理</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- 模块管理 -->
+        <div class="panel" data-panel="modules">
+            <section class="card">
+                <div class="card-title">模块开关</div>
+                <div class="module-item">
+                    <div class="module-info">
+                        <div class="module-dot" style="background:#6366F1;"></div>
+                        <div class="module-name">工作台</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="module-item">
+                    <div class="module-info">
+                        <div class="module-dot" style="background:#F59E0B;"></div>
+                        <div class="module-name">任务清单</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="module-item">
+                    <div class="module-info">
+                        <div class="module-dot" style="background:#0EA5E9;"></div>
+                        <div class="module-name">日程</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="module-item">
+                    <div class="module-info">
+                        <div class="module-dot" style="background:#10B981;"></div>
+                        <div class="module-name">生活</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="module-item">
+                    <div class="module-info">
+                        <div class="module-dot" style="background:#E11D48;"></div>
+                        <div class="module-name">工作</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="module-item">
+                    <div class="module-info">
+                        <div class="module-dot" style="background:#D946EF;"></div>
+                        <div class="module-name">学习</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="module-item">
+                    <div class="module-info">
+                        <div class="module-dot" style="background:#F97316;"></div>
+                        <div class="module-name">项目</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="module-item">
+                    <div class="module-info">
+                        <div class="module-dot" style="background:#14B8A6;"></div>
+                        <div class="module-name">知识库</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 主题与外观 -->
+        <div class="panel" data-panel="appearance">
+            <section class="card">
+                <div class="card-title">主题</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">颜色模式</div>
+                        <div class="setting-desc">亮色 / 暗色 / 跟随系统</div>
+                    </div>
+                    <div class="theme-preview">
+                        <div class="theme-swatch light" onclick="setTheme('light', this)"></div>
+                        <div class="theme-swatch dark" onclick="setTheme('dark', this)"></div>
+                        <div class="theme-swatch auto" onclick="setTheme('auto', this)"></div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">弥散背景</div>
+                        <div class="setting-desc">低饱和色团 + 毛玻璃</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">动画效果</div>
+                        <div class="setting-desc">色团漂移、悬停动效</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">紧凑模式</div>
+                        <div class="setting-desc">减少间距，显示更多内容</div>
+                    </div>
+                    <div class="switch" onclick="toggleSwitch(this)"></div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">模块主题色</div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">工作台</div></div>
+                    <div class="setting-value" style="color:#6366F1;">靛蓝 #6366F1</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">任务清单</div></div>
+                    <div class="setting-value" style="color:#F59E0B;">琥珀 #F59E0B</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">日程</div></div>
+                    <div class="setting-value" style="color:#0EA5E9;">天蓝 #0EA5E9</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">生活</div></div>
+                    <div class="setting-value" style="color:#10B981;">翠绿 #10B981</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">工作</div></div>
+                    <div class="setting-value" style="color:#E11D48;">玫红 #E11D48</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">学习</div></div>
+                    <div class="setting-value" style="color:#D946EF;">粉紫 #D946EF</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">项目</div></div>
+                    <div class="setting-value" style="color:#F97316;">橙 #F97316</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">知识库</div></div>
+                    <div class="setting-value" style="color:#14B8A6;">青色 #14B8A6</div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 通知提醒 -->
+        <div class="panel" data-panel="notifications">
+            <section class="card">
+                <div class="card-title">通知</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">任务提醒</div>
+                        <div class="setting-desc">任务到期前提醒</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">日程提醒</div>
+                        <div class="setting-desc">日程开始前 15 分钟</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">习惯打卡提醒</div>
+                        <div class="setting-desc">每天固定时间提醒</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">复习提醒</div>
+                        <div class="setting-desc">有卡片到期时提醒</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">里程碑提醒</div>
+                        <div class="setting-desc">项目里程碑临近时提醒</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">宠物提醒</div>
+                        <div class="setting-desc">疫苗、驱虫到期提醒</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">提醒方式</div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">站内通知</div></div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">邮件通知</div></div>
+                    <div class="switch" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">浏览器推送</div></div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info"><div class="setting-label">手机推送</div></div>
+                    <div class="switch" onclick="toggleSwitch(this)"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 数据与备份 -->
+        <div class="panel" data-panel="data">
+            <section class="card">
+                <div class="card-title">数据</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">本地存储</div>
+                        <div class="setting-desc">使用 IndexedDB / SQLite</div>
+                    </div>
+                    <div class="setting-value">128 MB</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">云同步</div>
+                        <div class="setting-desc">同步到私有服务器</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">上次备份</div>
+                        <div class="setting-desc">自动备份，每天一次</div>
+                    </div>
+                    <div class="setting-value">今天 03:00</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">导入导出</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">导出全部数据</div>
+                        <div class="setting-desc">JSON / Markdown / CSV</div>
+                    </div>
+                    <button class="btn btn-ghost" onclick="alert('原型演示：导出数据')">导出</button>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">从 Obsidian 导入</div>
+                        <div class="setting-desc">导入 Markdown 笔记</div>
+                    </div>
+                    <button class="btn btn-ghost" onclick="alert('原型演示：导入')">导入</button>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">从 Notion 导入</div>
+                        <div class="setting-desc">导入页面和数据库</div>
+                    </div>
+                    <button class="btn btn-ghost" onclick="alert('原型演示：导入')">导入</button>
+                </div>
+            </section>
+
+            <section class="card danger-zone">
+                <div class="card-title" style="color:#EF4444;">危险操作</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">清空所有数据</div>
+                        <div class="setting-desc">不可恢复，请先备份</div>
+                    </div>
+                    <button class="btn btn-danger" onclick="alert('原型演示：请谨慎操作')">清空</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- 集成与 API -->
+        <div class="panel" data-panel="integrations">
+            <section class="card">
+                <div class="card-title">集成</div>
+
+                <div class="integration-item">
+                    <div class="integration-icon">🐙</div>
+                    <div class="integration-info">
+                        <div class="integration-name">GitHub</div>
+                        <div class="integration-meta">关联仓库、提交记录</div>
+                    </div>
+                    <button class="btn btn-ghost">连接</button>
+                </div>
+
+                <div class="integration-item">
+                    <div class="integration-icon">📅</div>
+                    <div class="integration-info">
+                        <div class="integration-name">Google Calendar</div>
+                        <div class="integration-meta">同步日程</div>
+                    </div>
+                    <button class="btn btn-ghost">连接</button>
+                </div>
+
+                <div class="integration-item">
+                    <div class="integration-icon">📝</div>
+                    <div class="integration-info">
+                        <div class="integration-name">Notion</div>
+                        <div class="integration-meta">导入笔记、数据库</div>
+                    </div>
+                    <button class="btn btn-ghost">连接</button>
+                </div>
+
+                <div class="integration-item">
+                    <div class="integration-icon">💬</div>
+                    <div class="integration-info">
+                        <div class="integration-name">企业微信 / 飞书</div>
+                        <div class="integration-meta">消息通知</div>
+                    </div>
+                    <button class="btn btn-ghost">连接</button>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">API</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">API Token</div>
+                        <div class="setting-desc">用于外部调用</div>
+                    </div>
+                    <button class="btn btn-ghost">生成</button>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Webhook</div>
+                        <div class="setting-desc">事件推送到指定 URL</div>
+                    </div>
+                    <button class="btn btn-ghost">配置</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- AI 设置 -->
+        <div class="panel" data-panel="ai">
+            <section class="card">
+                <div class="card-title">AI 能力</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">启用 AI 助手</div>
+                        <div class="setting-desc">命令面板 Cmd + K、页面内嵌</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">模型</div>
+                        <div class="setting-desc">选择默认模型</div>
+                    </div>
+                    <select class="select">
+                        <option>Claude</option>
+                        <option>GPT</option>
+                        <option>本地模型</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">API Key</div>
+                        <div class="setting-desc">不存明文，只存引用</div>
+                    </div>
+                    <button class="btn btn-ghost">配置</button>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">隐私</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">工作数据不进 AI</div>
+                        <div class="setting-desc">工作机密默认不进入上下文</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">本次对话不记录</div>
+                        <div class="setting-desc">临时会话不写日志</div>
+                    </div>
+                    <div class="switch" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">AI 调用日志</div>
+                        <div class="setting-desc">记录调用，便于审计</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 权限与隐私 -->
+        <div class="panel" data-panel="privacy">
+            <section class="card">
+                <div class="card-title">权限</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">生活数据</div>
+                        <div class="setting-desc">private / family</div>
+                    </div>
+                    <div class="setting-value">私有</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">工作数据</div>
+                        <div class="setting-desc">work-internal / confidential</div>
+                    </div>
+                    <div class="setting-value">工作内部</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">学习数据</div>
+                        <div class="setting-desc">private / public</div>
+                    </div>
+                    <div class="setting-value">私有</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">隐私</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">敏感信息脱敏</div>
+                        <div class="setting-desc">自动识别并脱敏</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">审计日志</div>
+                        <div class="setting-desc">记录关键操作</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">工作机密本地加密</div>
+                        <div class="setting-desc">本地文件加密存储</div>
+                    </div>
+                    <div class="switch on" onclick="toggleSwitch(this)"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 快捷键 -->
+        <div class="panel" data-panel="shortcuts">
+            <section class="card">
+                <div class="card-title">全局快捷键</div>
+                <div class="shortcut-row">
+                    <span>打开命令面板</span>
+                    <span><span class="kbd">⌘</span> <span class="kbd">K</span></span>
+                </div>
+                <div class="shortcut-row">
+                    <span>快速新建</span>
+                    <span><span class="kbd">⌘</span> <span class="kbd">N</span></span>
+                </div>
+                <div class="shortcut-row">
+                    <span>全局搜索</span>
+                    <span><span class="kbd">⌘</span> <span class="kbd">/</span></span>
+                </div>
+                <div class="shortcut-row">
+                    <span>切换主题</span>
+                    <span><span class="kbd">⌘</span> <span class="kbd">⇧</span> <span class="kbd">L</span></span>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">模块快捷键</div>
+                <div class="shortcut-row">
+                    <span>切换模块</span>
+                    <span><span class="kbd">⌘</span> <span class="kbd">1</span> ~ <span class="kbd">9</span></span>
+                </div>
+                <div class="shortcut-row">
+                    <span>新建任务</span>
+                    <span><span class="kbd">T</span></span>
+                </div>
+                <div class="shortcut-row">
+                    <span>新建笔记</span>
+                    <span><span class="kbd">N</span></span>
+                </div>
+                <div class="shortcut-row">
+                    <span>新建日程</span>
+                    <span><span class="kbd">E</span></span>
+                </div>
+            </section>
+        </div>
+
+        <!-- 关于 -->
+        <div class="panel" data-panel="about">
+            <section class="card">
+                <div class="card-title">关于</div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">个人系统</div>
+                        <div class="setting-desc">生活 / 工作 / 学习 / 项目 / 知识库 / 设置</div>
+                    </div>
+                    <div class="setting-value">v1.0.0</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">技术栈</div>
+                        <div class="setting-desc">Vite + React 19 + TypeScript</div>
+                    </div>
+                    <div class="setting-value">-</div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">最近更新</div>
+                        <div class="setting-desc">2026-09-20</div>
+                    </div>
+                    <div class="setting-value">-</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">更新日志</div>
+                <div class="notice">
+                    v1.0.0 · 2026-09-20<br/>
+                    初始版本，包含 9 模块、弥散风格、亮暗双模式。
+                </div>
+            </section>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    // ========== Tab 切换 ==========
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const key = tab.dataset.tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelectorAll('.panel').forEach(p => {
+                p.classList.toggle('active', p.dataset.panel === key);
+            });
+
+            // 更新面包屑
+            const titleMap = {
+                account: '账户与安全',
+                modules: '模块管理',
+                appearance: '主题与外观',
+                notifications: '通知提醒',
+                data: '数据与备份',
+                integrations: '集成与 API',
+                ai: 'AI 设置',
+                privacy: '权限与隐私',
+                shortcuts: '快捷键',
+                about: '关于'
+            };
+            document.querySelector('.breadcrumb').innerHTML = `设置 / <strong>${titleMap[key]}</strong>`;
+        });
+    });
+
+    // ========== 开关 ==========
+    function toggleSwitch(el) {
+        el.classList.toggle('on');
+    }
+
+    // ========== 主题切换 ==========
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        themeToggle.textContent = '☀️';
+    }
+    themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        themeToggle.textContent = isDark ? '☀️' : '🌙';
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+
+    // ========== 主题预览 ==========
+    function setTheme(type, el) {
+        document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+        if (type === 'dark') {
+            document.documentElement.classList.add('dark');
+            themeToggle.textContent = '☀️';
+            localStorage.setItem('theme', 'dark');
+        } else if (type === 'light') {
+            document.documentElement.classList.remove('dark');
+            themeToggle.textContent = '🌙';
+            localStorage.setItem('theme', 'light');
+        } else {
+            // auto
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.classList.toggle('dark', prefersDark);
+            themeToggle.textContent = prefersDark ? '☀️' : '🌙';
+            localStorage.setItem('theme', prefersDark ? 'dark' : 'light');
+        }
+    }
+</script>
+</body>
+</html>

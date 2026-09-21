@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>工作台 · 个人系统</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-page: #FAFBFC;
+            --bg-card: rgba(255,255,255,0.62);
+            --bg-sidebar: rgba(255,255,255,0.66);
+            --bg-topbar: rgba(255,255,255,0.66);
+            --border-card: rgba(255,255,255,0.7);
+            --border-subtle: rgba(15,23,42,0.06);
+            --text-primary: #1E293B;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --shadow-card: 0 4px 24px rgba(15,23,42,0.06);
+            --shadow-card-hover: 0 8px 32px rgba(15,23,42,0.10);
+            --blur-card: blur(24px) saturate(160%);
+            --blob-opacity: 0.38;
+            --blob-blur: 110px;
+
+            --a-dashboard-1: #A5B4FC; --a-dashboard-2: #C4B5FD; --a-dashboard-3: #BAE6FD;
+            --s-dashboard: #6366F1;
+
+            --m1: var(--a-dashboard-1);
+            --m2: var(--a-dashboard-2);
+            --m3: var(--a-dashboard-3);
+            --m-main: var(--s-dashboard);
+
+            /* 各模块强调色 */
+            --c-life: #10B981;
+            --c-work: #E11D48;
+            --c-learning: #D946EF;
+            --c-projects: #F97316;
+            --c-knowledge: #14B8A6;
+            --c-tasks: #F59E0B;
+            --c-calendar: #0EA5E9;
+        }
+
+        .dark {
+            --bg-page: #0F172A;
+            --bg-card: rgba(30,41,59,0.55);
+            --bg-sidebar: rgba(15,23,42,0.7);
+            --bg-topbar: rgba(15,23,42,0.7);
+            --border-card: rgba(255,255,255,0.08);
+            --border-subtle: rgba(255,255,255,0.06);
+            --text-primary: #E2E8F0;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+            --shadow-card-hover: 0 8px 32px rgba(0,0,0,0.4);
+            --blur-card: blur(28px) saturate(140%);
+            --blob-opacity: 0.26;
+            --blob-blur: 130px;
+
+            --a-dashboard-1: #4F46E5; --a-dashboard-2: #7C3AED; --a-dashboard-3: #0EA5E9;
+            --s-dashboard: #818CF8;
+
+            --c-life: #34D399;
+            --c-work: #FB7185;
+            --c-learning: #E879F9;
+            --c-projects: #FB923C;
+            --c-knowledge: #2DD4BF;
+            --c-tasks: #FBBF24;
+            --c-calendar: #38BDF8;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: background 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        .aurora-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob {
+            position: absolute; border-radius: 50%;
+            filter: blur(var(--blob-blur));
+            opacity: var(--blob-opacity);
+            transition: opacity 0.5s ease, filter 0.5s ease, background 0.5s ease;
+            animation: drift 22s ease-in-out infinite alternate;
+        }
+        .blob-1 { width: 520px; height: 520px; top: -8%;  left: -8%;  background: var(--m1); }
+        .blob-2 { width: 480px; height: 480px; top: 24%;  right: -10%; background: var(--m2); animation-delay: -7s; }
+        .blob-3 { width: 560px; height: 560px; bottom: -16%; left: 30%; background: var(--m3); animation-delay: -14s; }
+
+        @keyframes drift {
+            from { transform: translate(0,0) scale(1); }
+            to   { transform: translate(36px,-28px) scale(1.08); }
+        }
+        @media (prefers-reduced-motion: reduce) { .blob { animation: none; } }
+
+        .app {
+            position: relative; z-index: 1;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            grid-template-rows: 56px 1fr;
+            grid-template-areas: "sidebar topbar" "sidebar main";
+            height: 100vh;
+        }
+
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-right: 1px solid var(--border-subtle);
+            padding: 16px 12px;
+            display: flex; flex-direction: column; gap: 2px;
+            overflow-y: auto;
+        }
+        .sidebar-title {
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 14px 12px 6px;
+        }
+        .menu-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 10px;
+            font-size: 14px; color: var(--text-secondary);
+            cursor: pointer; border-left: 3px solid transparent;
+            transition: all 0.18s ease; user-select: none;
+        }
+        .menu-item:hover { background: var(--border-subtle); color: var(--text-primary); }
+        .menu-item.active {
+            background: color-mix(in srgb, var(--m-main) 12%, transparent);
+            color: var(--m-main);
+            border-left-color: var(--m-main);
+            font-weight: 600;
+        }
+        .menu-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-main); flex-shrink: 0; }
+        .menu-item.life .menu-dot { background: var(--c-life); }
+        .menu-item.work .menu-dot { background: var(--c-work); }
+        .menu-item.learning .menu-dot { background: var(--c-learning); }
+        .menu-item.projects .menu-dot { background: var(--c-projects); }
+        .menu-item.knowledge .menu-dot { background: var(--c-knowledge); }
+
+        .topbar {
+            grid-area: topbar;
+            background: var(--bg-topbar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; gap: 16px;
+        }
+        .breadcrumb { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+        .breadcrumb strong { color: var(--text-primary); font-weight: 600; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+        .btn {
+            border: none; border-radius: 10px;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.18s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary {
+            background: var(--m-main); color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 6px 20px color-mix(in srgb, var(--m-main) 45%, transparent);
+            transform: translateY(-1px);
+        }
+        .btn-ghost {
+            background: var(--bg-card); color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-main); }
+        .btn-ai {
+            background: linear-gradient(135deg, #818CF8, #A78BFA, #C084FC);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(139,92,246,0.28);
+        }
+        .btn-ai:hover {
+            box-shadow: 0 6px 20px rgba(139,92,246,0.42);
+            transform: translateY(-1px);
+        }
+        .theme-toggle {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            cursor: pointer; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s ease;
+        }
+        .theme-toggle:hover { transform: scale(1.05); border-color: var(--m-main); }
+
+        .main {
+            grid-area: main;
+            padding: 24px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-card);
+            padding: 20px;
+            transition: all 0.25s ease;
+        }
+        .card:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-2px); }
+        .card-title {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .card-title .more {
+            font-size: 11px;
+            color: var(--m-main);
+            cursor: pointer;
+            text-transform: none;
+            letter-spacing: 0;
+            font-weight: 500;
+        }
+
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+        .stat { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+        .stat-desc { font-size: 13px; color: var(--text-secondary); }
+
+        /* Hero */
+        .hero {
+            padding: 28px;
+            position: relative; overflow: hidden;
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-card);
+        }
+        .hero::before {
+            content: ""; position: absolute; top: -50%; right: -10%;
+            width: 340px; height: 340px; border-radius: 50%;
+            background: var(--m-main); opacity: 0.12;
+            filter: blur(70px);
+        }
+        .hero::after {
+            content: ""; position: absolute; bottom: -60%; left: 20%;
+            width: 280px; height: 280px; border-radius: 50%;
+            background: #A855F7; opacity: 0.10;
+            filter: blur(70px);
+        }
+        .hero-inner { position: relative; z-index: 1; }
+        .hero h1 { font-size: 24px; margin-bottom: 8px; font-weight: 700; }
+        .hero p { color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+        .hero-meta {
+            display: flex; gap: 24px; margin-top: 18px; flex-wrap: wrap;
+            font-size: 13px; color: var(--text-secondary);
+        }
+        .hero-meta strong { color: var(--text-primary); }
+
+        /* 快捷操作 */
+        .quick-actions {
+            display: flex; gap: 10px; flex-wrap: wrap;
+            margin-top: 18px;
+        }
+        .quick-btn {
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .quick-btn:hover {
+            border-color: var(--m-main);
+            color: var(--m-main);
+            transform: translateY(-1px);
+        }
+
+        /* 今日概览统计 */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 14px;
+        }
+        .overview-item {
+            padding: 14px;
+            border-radius: 14px;
+            background: var(--border-subtle);
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .overview-item:hover { transform: translateY(-2px); }
+        .overview-icon {
+            width: 32px; height: 32px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px;
+            margin-bottom: 10px;
+        }
+        .overview-value {
+            font-size: 20px; font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .overview-label {
+            font-size: 12px; color: var(--text-muted);
+        }
+
+        /* 任务 */
+        .task-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 14px;
+        }
+        .task-item:last-child { border-bottom: none; }
+        .task-check {
+            width: 18px; height: 18px;
+            border-radius: 6px;
+            border: 1.5px solid var(--border-subtle);
+            flex-shrink: 0; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; color: #fff;
+            transition: all 0.18s ease;
+            margin-top: 2px;
+        }
+        .task-check.done { background: var(--m-main); border-color: var(--m-main); }
+        .task-body { flex: 1; }
+        .task-text { margin-bottom: 4px; cursor: pointer; }
+        .task-text.done { text-decoration: line-through; color: var(--text-muted); }
+        .task-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .task-tag {
+            font-size: 11px; padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--border-subtle);
+            color: var(--text-secondary);
+        }
+        .tag-life { background: rgba(16,185,129,0.14); color: var(--c-life); }
+        .tag-work { background: rgba(225,29,72,0.14); color: var(--c-work); }
+        .tag-learning { background: rgba(217,70,239,0.14); color: var(--c-learning); }
+        .task-date { font-size: 12px; color: var(--text-muted); }
+        .task-date.overdue { color: #EF4444; }
+
+        /* 日程 */
+        .event-item {
+            display: flex; gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .event-item:last-child { border-bottom: none; }
+        .event-item:hover { transform: translateX(4px); }
+        .event-time {
+            font-size: 13px; font-weight: 600;
+            color: var(--m-main);
+            min-width: 60px;
+        }
+        .event-info { flex: 1; }
+        .event-title { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+        .event-meta { font-size: 12px; color: var(--text-muted); }
+
+        /* 项目 */
+        .project-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            cursor: pointer;
+        }
+        .project-item:last-child { border-bottom: none; }
+        .project-icon {
+            width: 32px; height: 32px;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--c-projects) 16%, transparent);
+            color: var(--c-projects);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .project-info { flex: 1; }
+        .project-name { font-size: 14px; font-weight: 500; }
+        .project-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .project-progress {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--c-projects);
+        }
+
+        /* 学习 */
+        .learn-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            cursor: pointer;
+        }
+        .learn-item:last-child { border-bottom: none; }
+        .learn-icon {
+            width: 32px; height: 32px;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--c-learning) 16%, transparent);
+            color: var(--c-learning);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .learn-info { flex: 1; }
+        .learn-name { font-size: 14px; font-weight: 500; }
+        .learn-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        /* 生活 */
+        .life-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .life-item:last-child { border-bottom: none; }
+        .life-icon {
+            width: 32px; height: 32px;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--c-life) 16%, transparent);
+            color: var(--c-life);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .life-info { flex: 1; }
+        .life-name { font-size: 14px; font-weight: 500; }
+        .life-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        /* 进度条 */
+        .progress-bar {
+            height: 6px;
+            background: var(--border-subtle);
+            border-radius: 999px; overflow: hidden;
+            margin-top: 8px;
+        }
+        .progress-fill {
+            height: 100%; border-radius: 999px;
+            background: var(--m-main);
+            opacity: 0.8;
+            transition: width 0.4s ease;
+        }
+
+        /* AI 摘要 */
+        .ai-card {
+            background: linear-gradient(135deg, color-mix(in srgb, #6366F1 12%, transparent), color-mix(in srgb, #A855F7 12%, transparent));
+            border: 1px solid color-mix(in srgb, #8B5CF6 30%, transparent);
+        }
+        .ai-title {
+            font-size: 12px; font-weight: 600;
+            color: #8B5CF6;
+            margin-bottom: 12px;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .ai-content {
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--text-secondary);
+        }
+        .ai-content strong { color: var(--text-primary); }
+        .ai-actions {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        /* 最近活动 */
+        .activity {
+            display: flex; gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 13px;
+        }
+        .activity:last-child { border-bottom: none; }
+        .activity-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--m-main);
+            margin-top: 6px; flex-shrink: 0;
+        }
+        .activity-content { flex: 1; color: var(--text-secondary); }
+        .activity-content strong { color: var(--text-primary); font-weight: 500; }
+        .activity-time { font-size: 12px; color: var(--text-muted); }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        @media (max-width: 768px) {
+            .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+            .sidebar { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="aurora-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+</div>
+
+<div class="app">
+
+    <aside class="sidebar">
+        <div class="sidebar-title">全局层</div>
+        <div class="menu-item active"><span class="menu-dot"></span>工作台</div>
+        <div class="menu-item"><span class="menu-dot"></span>任务清单</div>
+        <div class="menu-item"><span class="menu-dot"></span>日程</div>
+
+        <div class="sidebar-title">领域层</div>
+        <div class="menu-item life"><span class="menu-dot"></span>生活</div>
+        <div class="menu-item work"><span class="menu-dot"></span>工作</div>
+        <div class="menu-item learning"><span class="menu-dot"></span>学习</div>
+
+        <div class="sidebar-title">执行层</div>
+        <div class="menu-item projects"><span class="menu-dot"></span>项目</div>
+
+        <div class="sidebar-title">沉淀层</div>
+        <div class="menu-item knowledge"><span class="menu-dot"></span>知识库</div>
+
+        <div class="sidebar-title">支撑层</div>
+        <div class="menu-item"><span class="menu-dot"></span>设置</div>
+    </aside>
+
+    <header class="topbar">
+        <div class="breadcrumb">工作台 / <strong>今日概览</strong></div>
+        <div class="topbar-actions">
+            <button class="btn btn-ai" id="aiBtn">✨ AI 助手</button>
+            <button class="btn btn-ghost" id="quickAdd">+ 快速添加</button>
+            <button class="theme-toggle" id="themeToggle">🌙</button>
+        </div>
+    </header>
+
+    <main class="main">
+
+        <!-- Hero -->
+        <section class="hero">
+            <div class="hero-inner">
+                <h1>下午好，杨刘 👋</h1>
+                <p>今天是 2026-09-20 星期日，本周还有 1 天。今天有 3 个日程、5 个任务。</p>
+                <div class="hero-meta">
+                    <span>今日任务：<strong>3 / 8</strong></span>
+                    <span>今日日程：<strong>3 个</strong></span>
+                    <span>进行项目：<strong>4 个</strong></span>
+                    <span>本周学习：<strong>8.5h</strong></span>
+                </div>
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="alert('原型演示：新建任务')">✅ 新建任务</button>
+                    <button class="quick-btn" onclick="alert('原型演示：新建日程')">📅 新建日程</button>
+                    <button class="quick-btn" onclick="alert('原型演示：新建笔记')">📝 新建笔记</button>
+                    <button class="quick-btn" onclick="alert('原型演示：记录支出')">💰 记录支出</button>
+                    <button class="quick-btn" onclick="alert('原型演示：习惯打卡')">🎯 习惯打卡</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI 摘要 -->
+        <section class="card ai-card">
+            <div class="ai-title">✨ AI 今日摘要</div>
+            <div class="ai-content">
+                今天你有 <strong>3 个日程</strong>，下一场是 <strong>14:00 项目评审</strong>。
+                任务方面，<strong>2 个任务已逾期</strong>，建议先处理「优化首页加载速度」。
+                本周学习 <strong>8.5 小时</strong>，距离目标还差 1.5 小时。
+                猫猫「团子」的疫苗还有 <strong>3 天</strong> 到期。
+            </div>
+            <div class="ai-actions">
+                <button class="btn btn-ghost" onclick="alert('原型演示：生成今日计划')">生成今日计划</button>
+                <button class="btn btn-ghost" onclick="alert('原型演示：重新摘要')">重新摘要</button>
+            </div>
+        </section>
+
+        <!-- 今日概览 -->
+        <section class="overview-grid">
+            <div class="overview-item" onclick="alert('原型演示：跳转任务')">
+                <div class="overview-icon" style="background:rgba(245,158,11,0.14);color:var(--c-tasks);">✅</div>
+                <div class="overview-value">3 / 8</div>
+                <div class="overview-label">今日任务</div>
+            </div>
+            <div class="overview-item" onclick="alert('原型演示：跳转日程')">
+                <div class="overview-icon" style="background:rgba(14,165,233,0.14);color:var(--c-calendar);">📅</div>
+                <div class="overview-value">3</div>
+                <div class="overview-label">今日日程</div>
+            </div>
+            <div class="overview-item" onclick="alert('原型演示：跳转项目')">
+                <div class="overview-icon" style="background:rgba(249,115,22,0.14);color:var(--c-projects);">📦</div>
+                <div class="overview-value">4</div>
+                <div class="overview-label">进行项目</div>
+            </div>
+            <div class="overview-item" onclick="alert('原型演示：跳转学习')">
+                <div class="overview-icon" style="background:rgba(217,70,239,0.14);color:var(--c-learning);">📚</div>
+                <div class="overview-value">8.5h</div>
+                <div class="overview-label">本周学习</div>
+            </div>
+            <div class="overview-item" onclick="alert('原型演示：跳转生活')">
+                <div class="overview-icon" style="background:rgba(16,185,129,0.14);color:var(--c-life);">🎯</div>
+                <div class="overview-value">3 / 5</div>
+                <div class="overview-label">今日习惯</div>
+            </div>
+            <div class="overview-item" onclick="alert('原型演示：跳转工作')">
+                <div class="overview-icon" style="background:rgba(225,29,72,0.14);color:var(--c-work);">💼</div>
+                <div class="overview-value">32h</div>
+                <div class="overview-label">本周工时</div>
+            </div>
+        </section>
+
+        <!-- 今日任务 + 今日日程 -->
+        <section class="grid-2">
+            <div class="card">
+                <div class="card-title">
+                    <span>今日任务</span>
+                    <span class="more" onclick="alert('原型演示：跳转任务清单')">查看全部 ›</span>
+                </div>
+                <div class="task-item">
+                    <div class="task-check"></div>
+                    <div class="task-body">
+                        <div class="task-text">准备项目评审</div>
+                        <div class="task-meta">
+                            <span class="task-tag tag-work">工作</span>
+                            <span class="task-date">14:00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-item">
+                    <div class="task-check"></div>
+                    <div class="task-body">
+                        <div class="task-text">买猫粮</div>
+                        <div class="task-meta">
+                            <span class="task-tag tag-life">生活</span>
+                            <span class="task-date overdue">已逾期</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-item">
+                    <div class="task-check"></div>
+                    <div class="task-body">
+                        <div class="task-text">复习 React 19 笔记</div>
+                        <div class="task-meta">
+                            <span class="task-tag tag-learning">学习</span>
+                            <span class="task-date">今天</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-item">
+                    <div class="task-check done">✓</div>
+                    <div class="task-body">
+                        <div class="task-text done">修复登录页样式</div>
+                        <div class="task-meta">
+                            <span class="task-tag tag-work">工作</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-item">
+                    <div class="task-check done">✓</div>
+                    <div class="task-body">
+                        <div class="task-text done">铲屎</div>
+                        <div class="task-meta">
+                            <span class="task-tag tag-life">生活</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <span>今日日程</span>
+                    <span class="more" onclick="alert('原型演示：跳转日程')">查看全部 ›</span>
+                </div>
+                <div class="event-item">
+                    <div class="event-time">10:00</div>
+                    <div class="event-info">
+                        <div class="event-title">每日站会</div>
+                        <div class="event-meta">30 分钟 · 线上</div>
+                    </div>
+                </div>
+                <div class="event-item">
+                    <div class="event-time">14:00</div>
+                    <div class="event-info">
+                        <div class="event-title">项目评审</div>
+                        <div class="event-meta">60 分钟 · 会议室 A</div>
+                    </div>
+                </div>
+                <div class="event-item">
+                    <div class="event-time">18:30</div>
+                    <div class="event-info">
+                        <div class="event-title">运动</div>
+                        <div class="event-meta">30 分钟 · 跑步</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 进行中项目 + 学习 -->
+        <section class="grid-2">
+            <div class="card">
+                <div class="card-title">
+                    <span>进行中项目</span>
+                    <span class="more" onclick="alert('原型演示：跳转项目')">查看全部 ›</span>
+                </div>
+                <div class="project-item">
+                    <div class="project-icon">📦</div>
+                    <div class="project-info">
+                        <div class="project-name">支付系统重构</div>
+                        <div class="project-meta">截止 10-31</div>
+                    </div>
+                    <div class="project-progress">62%</div>
+                </div>
+                <div class="project-item">
+                    <div class="project-icon">📦</div>
+                    <div class="project-info">
+                        <div class="project-name">用户中心改版</div>
+                        <div class="project-meta">截止 11-15</div>
+                    </div>
+                    <div class="project-progress">38%</div>
+                </div>
+                <div class="project-item">
+                    <div class="project-icon">📦</div>
+                    <div class="project-info">
+                        <div class="project-name">个人系统前端</div>
+                        <div class="project-meta">截止 12-31</div>
+                    </div>
+                    <div class="project-progress">55%</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <span>学习进度</span>
+                    <span class="more" onclick="alert('原型演示：跳转学习')">查看全部 ›</span>
+                </div>
+                <div class="learn-item">
+                    <div class="learn-icon">📚</div>
+                    <div class="learn-info">
+                        <div class="learn-name">React 19 官方文档</div>
+                        <div class="learn-meta">文档 · 进度 45%</div>
+                    </div>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width:45%;background:var(--c-learning);"></div></div>
+
+                <div class="learn-item" style="margin-top:16px;">
+                    <div class="learn-icon">📚</div>
+                    <div class="learn-info">
+                        <div class="learn-name">深入理解计算机系统</div>
+                        <div class="learn-meta">书 · 进度 30%</div>
+                    </div>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width:30%;background:var(--c-learning);"></div></div>
+
+                <div class="learn-item" style="margin-top:16px;">
+                    <div class="learn-icon">📚</div>
+                    <div class="learn-info">
+                        <div class="learn-name">Vite 构建原理课程</div>
+                        <div class="learn-meta">课程 · 进度 60%</div>
+                    </div>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width:60%;background:var(--c-learning);"></div></div>
+            </div>
+        </section>
+
+        <!-- 生活提醒 + 最近活动 -->
+        <section class="grid-2">
+            <div class="card">
+                <div class="card-title">
+                    <span>生活提醒</span>
+                    <span class="more" onclick="alert('原型演示：跳转生活')">查看全部 ›</span>
+                </div>
+                <div class="life-item">
+                    <div class="life-icon">🐱</div>
+                    <div class="life-info">
+                        <div class="life-name">团子 · 疫苗 + 驱虫</div>
+                        <div class="life-meta">3 天后 · 2026-09-23</div>
+                    </div>
+                </div>
+                <div class="life-item">
+                    <div class="life-icon">🐱</div>
+                    <div class="life-info">
+                        <div class="life-name">猫粮快没了</div>
+                        <div class="life-meta">建议本周购买</div>
+                    </div>
+                </div>
+                <div class="life-item">
+                    <div class="life-icon">💰</div>
+                    <div class="life-info">
+                        <div class="life-name">本月预算</div>
+                        <div class="life-meta">已用 ¥3,240 / ¥5,000</div>
+                    </div>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width:65%;background:var(--c-life);"></div></div>
+
+                <div class="life-item" style="margin-top:16px;">
+                    <div class="life-icon">🎯</div>
+                    <div class="life-info">
+                        <div class="life-name">今日习惯</div>
+                        <div class="life-meta">已完成 3 / 5</div>
+                    </div>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width:60%;background:var(--c-life);"></div></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <span>最近活动</span>
+                    <span class="more" onclick="alert('原型演示：查看全部')">查看全部 ›</span>
+                </div>
+                <div class="activity">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">完成任务「修复登录页样式」</div>
+                    <div class="activity-time">2 小时前</div>
+                </div>
+                <div class="activity">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">更新文档「支付系统重构方案」</div>
+                    <div class="activity-time">昨天</div>
+                </div>
+                <div class="activity">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">记录运动「跑步 4.2 km」</div>
+                    <div class="activity-time">昨天</div>
+                </div>
+                <div class="activity">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">新增笔记「弥散风格 UI 设计要点」</div>
+                    <div class="activity-time">2 天前</div>
+                </div>
+                <div class="activity">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">里程碑「主题系统完成」</div>
+                    <div class="activity-time">2026-09-01</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 工作摘要 + 知识库 -->
+        <section class="grid-2">
+            <div class="card">
+                <div class="card-title">
+                    <span>工作摘要</span>
+                    <span class="more" onclick="alert('原型演示：跳转工作')">查看全部 ›</span>
+                </div>
+                <div class="overview-grid" style="margin-bottom:14px;">
+                    <div class="overview-item" style="background:transparent;padding:0;">
+                        <div class="overview-value" style="color:var(--c-work);">32h</div>
+                        <div class="overview-label">本周工时</div>
+                    </div>
+                    <div class="overview-item" style="background:transparent;padding:0;">
+                        <div class="overview-value" style="color:var(--c-work);">2</div>
+                        <div class="overview-label">今日会议</div>
+                    </div>
+                    <div class="overview-item" style="background:transparent;padding:0;">
+                        <div class="overview-value" style="color:var(--c-work);">86k</div>
+                        <div class="overview-label">本月回款</div>
+                    </div>
+                </div>
+                <div class="event-item">
+                    <div class="event-time" style="color:var(--c-work);">14:00</div>
+                    <div class="event-info">
+                        <div class="event-title">项目评审</div>
+                        <div class="event-meta">会议室 A</div>
+                    </div>
+                </div>
+                <div class="event-item">
+                    <div class="event-time" style="color:var(--c-work);">16:30</div>
+                    <div class="event-info">
+                        <div class="event-title">一对一沟通</div>
+                        <div class="event-meta">线上</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <span>知识库</span>
+                    <span class="more" onclick="alert('原型演示：跳转知识库')">查看全部 ›</span>
+                </div>
+                <div class="learn-item">
+                    <div class="learn-icon" style="background:color-mix(in srgb, var(--c-knowledge) 16%, transparent);color:var(--c-knowledge);">📝</div>
+                    <div class="learn-info">
+                        <div class="learn-name">弥散风格 UI 设计要点</div>
+                        <div class="learn-meta">设计 / UI · 2 小时前</div>
+                    </div>
+                </div>
+                <div class="learn-item">
+                    <div class="learn-icon" style="background:color-mix(in srgb, var(--c-knowledge) 16%, transparent);color:var(--c-knowledge);">📝</div>
+                    <div class="learn-info">
+                        <div class="learn-name">React 19 新特性整理</div>
+                        <div class="learn-meta">React / 前端 · 昨天</div>
+                    </div>
+                </div>
+                <div class="learn-item">
+                    <div class="learn-icon" style="background:color-mix(in srgb, var(--c-knowledge) 16%, transparent);color:var(--c-knowledge);">📝</div>
+                    <div class="learn-info">
+                        <div class="learn-name">Vite 构建优化记录</div>
+                        <div class="learn-meta">Vite / 构建 · 2 天前</div>
+                    </div>
+                </div>
+                <div class="learn-item">
+                    <div class="learn-icon" style="background:color-mix(in srgb, var(--c-knowledge) 16%, transparent);color:var(--c-knowledge);">📝</div>
+                    <div class="learn-info">
+                        <div class="learn-name">支付系统重构思路</div>
+                        <div class="learn-meta">架构 / 脱敏 · 3 天前</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<script>
+    // ========== 任务勾选 ==========
+    document.querySelectorAll('.task-check').forEach(check => {
+        check.addEventListener('click', (e) => {
+            e.stopPropagation();
+            check.classList.toggle('done');
+            check.textContent = check.classList.contains('done') ? '✓' : '';
+            const text = check.parentElement.querySelector('.task-text');
+            if (text) text.classList.toggle('done');
+        });
+    });
+
+    // ========== 快捷操作 ==========
+    document.getElementById('quickAdd').addEventListener('click', () => {
+        alert('原型演示：快速添加');
+    });
+
+    // ========== AI 助手 ==========
+    document.getElementById('aiBtn').addEventListener('click', () => {
+        alert('原型演示：打开 AI 助手（Cmd + K）');
+    });
+
+    // ========== 主题切换 ==========
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        themeToggle.textContent = '☀️';
+    }
+    themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        themeToggle.textContent = isDark ? '☀️' : '🌙';
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+</script>
+</body>
+</html>

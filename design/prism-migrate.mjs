@@ -33,7 +33,7 @@ const RULES = [
   [/\bglass-panel\b/g, 'g g3 g--refr'],
   [/\bglass-bar\b/g, 'shell g g4'],
   [/\bglass-soft\b/g, 'g g1'],
-  [/\bglass-lift\b/g, 'g-lift'],
+  [/\bglass-lift\b/g, 'g-life'],
 ]
 
 /** 一个 class 串里是否已经有材质档位 */
@@ -108,7 +108,7 @@ const LEGACY = [
   'glass-panel',
   'glass-bar',
   'glass-soft',
-  'glass-lift',
+  'glass-life',
   'bg-surface',
   'bg-surface-raised',
   'bg-surface-sunken',

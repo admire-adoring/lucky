@@ -3081,7 +3081,7 @@ if (uses('data-domain-panel') > 0) {
     const mark = stripComments(markup)
 
     /* ① 旧材质类名一律不许再出现（新标记的词汇表就是 Prism 那一套） */
-    for (const legacy of ['glass-panel', 'glass-bar', 'glass-soft', 'glass-lift', 'bg-surface', 'bg-canvas', 'shadow-xs', 'shadow-sm', 'border-line-strong']) {
+    for (const legacy of ['glass-panel', 'glass-bar', 'glass-soft', 'glass-life', 'bg-surface', 'bg-canvas', 'shadow-xs', 'shadow-sm', 'border-line-strong']) {
       if (mark.includes(legacy)) {
         throw new Error(`标记里还有旧材质类名：${legacy} —— 它引用的令牌已不在 Prism 这套里，会静默失效`)
       }

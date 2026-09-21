@@ -284,7 +284,7 @@ html[data-platform='windows'] {
    ------------------------------------------------------------
    为什么用 @utility 而不是 @layer components：
    工具类层支持 hover: / max-[860px]: 这类变体，材质需要按状态换档
-   （例如 hover:glass-lift），放 components 层就调不动。
+   （例如 hover:glass-life），放 components 层就调不动。
    为什么高光走 ::after 而不是 box-shadow：
    Tailwind 的 shadow-* 工具类写的是同一个 box-shadow 属性，两者会互相覆盖，
    且"谁生效"取决于产出顺序、不取决于 class 书写顺序。把上沿高光隔离进 ::after，
