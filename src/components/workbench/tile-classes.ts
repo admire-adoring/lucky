@@ -5,18 +5,24 @@
  *   磁贴与行是**同一套骨架的两种排布**，`HEAD_CHIP` 这类东西一旦在四处各写一遍，
  *   改一处就会漏三处 —— 而漏掉的那三处不会报错，只会"看着有点不一样"。
  *
- * ⚠️ 材质用的是 Prism 的 `.g` + `.g3` / `.g1`（而不是旧的 `glass-*` 工具类）：
- *    规范要求材质本体与档位**必须成对出现**，档位是"一次选型"
- *    （α + 模糊 + 饱和度 + 投影绑在一起），工具类表达不了。
+ * ⚠️ 材质用 `wb-card`（模块工作区的卡片材质），**不再是** Prism 的 `.g` + `.g3`：
+ *    磁贴的样式应当与「各工作区里的卡片」一致。`wb-card` 由
+ *    `design/build-workspace-css.mjs` 从原型的 `.card` 规则反解出来（去掉它的
+ *    内边距与过渡，见那边 §5b），所以 20px 圆角 / 白玻璃 / 卡片投影都跟着原型走，
+ *    这里不写任何材质数值。
+ *    ⚠️ 顺带的后果：磁贴不再吃 Prism 的 `--m-lt-*` 色团，因此**不再带当前模块的淡染色**
+ *       —— 原型的卡片本来就是中性白玻璃，模块色只在底衬与强调色上出现。
+ *    ⚠️ **悬停位移也交给 `wb-card`**（原型 `.card:hover` = 投影加深 + 上浮 2px）。
+ *       这里不要再写 `hover:-translate-y-0.5`：那个值恰好也是 2px，两边都留会叠成 4px。
  */
 
-/** 磁贴（KPI）：抬升一档的玻璃 + 悬停微抬 */
+/** 磁贴（KPI）：模块工作区的卡片材质（含它的悬停态） */
 export const TILE_CLASS =
-  'g g3 g--refr relative flex flex-col overflow-hidden rounded-xl border border-line p-5 transition-all duration-[220ms] ease-out hover:-translate-y-0.5'
+  'wb-card relative flex flex-col overflow-hidden p-5 transition-all duration-[220ms] ease-out'
 
-/** 列表卡：同一档材质，但内边距交给行自己（行要通铺到边） */
+/** 列表卡：同一份材质，但内边距交给行自己（行要通铺到边） */
 export const LIST_CLASS =
-  'g g3 g--refr relative flex flex-col overflow-hidden rounded-xl border border-line transition-all duration-[220ms] ease-out hover:-translate-y-0.5'
+  'wb-card relative flex flex-col overflow-hidden transition-all duration-[220ms] ease-out'
 
 /** 标题左侧的图标底托 */
 export const HEAD_CHIP = 'g g1 flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-line text-ink-500'

@@ -44,10 +44,14 @@
             --danger: #B91C1C;   --danger-bg: rgba(239,68,68,0.16);
 
             --star: #D97706;     /* 收藏 / 自评共用一支金色，不再各写一枚 */
-            /* 实底配色：白字要在它上面过 4.5:1，所以比主色阶深一档
-               （#F97316 上白字 2.9:1、#1D4ED8 上 6.6:1，前者必须压深） */
-            --doc-deep: #C2410C;
-            --note-deep: #1D4ED8;
+            /* 知识图谱的类型色（色 = 类型、态 = 描边/环，两条通道分开）。
+               这两个值就是图例、胶囊描边、光斑、清单圆点共用的唯一来源。 */
+            --gmap-doc: #C2410C;
+            --gmap-note: #1D4ED8;
+            /* 知识图谱 · 弥散图：不再另起一套深空配色 ——
+               节点光斑本就和页面极光同材质，颜色全走既有令牌。
+               只补一支"光斑中心的玻璃珠"底色。 */
+            --gmap-core: rgba(255,255,255,0.78);
         }
 
         .dark {
@@ -81,6 +85,11 @@
             --danger: #FCA5A5;   --danger-bg: rgba(239,68,68,0.22);
 
             --star: #FBBF24;
+
+            --gmap-core: rgba(30,41,59,0.62);
+            /* 暗色下两支类型色都要提亮：深橙/深蓝压在深玻璃上会沉下去 */
+            --gmap-doc: #FB923C;
+            --gmap-note: #93C5FD;
         }
 
         html, body {
@@ -423,68 +432,222 @@
         }
 
         /* ============================================================
-           知识图谱
-           节点从 DOCS + NOTES 派生、边从 LINKS 派生 —— 图是渲染结果，
-           不是第二份数据。位置用固定迭代次数的力导向算一次并缓存，
-           否则每次重渲染节点都会跳。
+           知识图谱 · 弥散图
+           判据：**图里的元素要能和页面其余元素互换而看不出违和。**
+           所以节点不是"实心圆"，而是和背景极光（.blob）同一种材质的
+           弥散光斑；配色也不另起一套，全走本页既有令牌。
            ============================================================ */
-        .graph-legend {
-            margin-left: auto;
-            display: flex; align-items: center; gap: 14px;
-            font-size: 12px; color: var(--text-muted);
+        .gmap {
+            position: relative;
+            overflow: hidden;
+            border-radius: 14px;
+            /* 卡片本身已经有页面极光垫在下面，图谱**不再自己造第二层**。 */
+            /* 环境光不写在这里：球体那层雾由 SVG 自己画（gb-body），
+               因为它必须和球的半径严格对齐 —— CSS 的百分比对不上 viewBox 的单位。
+               ⚠️ 只允许存在**一层**雾，两层橙叠起来整张卡会糊。 */
         }
-        .lg-item { display: inline-flex; align-items: center; gap: 6px; }
-        .lg-dot { width: 11px; height: 11px; flex-shrink: 0; }
-        .lg-doc { border-radius: 3px; background: var(--doc-deep); }
-        .lg-note { border-radius: 50%; background: var(--note-deep); }
-        .lg-orphan { border-radius: 50%; border: 1.5px dashed var(--text-muted); }
+        .gmap-svg { display: block; width: 100%; height: auto; }
+        /* 缩放做在**容器**上（transform），不动 SVG 的 viewBox ——
+           重新算 viewBox 会让整张图重排，而这里只需要放大镜的效果。
+           ⚠️ 不做滚轮缩放：图谱嵌在页面里，滚轮劫持会把页面滚动弄坏。 */
+        #graphSvgWrap { transform-origin: 50% 48%; transition: transform 0.22s ease; }
 
-        .graph-svg { display: block; width: 100%; height: auto; }
+        /* 拖动旋转。touch-action:none 是必须的，否则触控板上拖动会变成滚页面 */
+        #graphSvgWrap { cursor: grab; touch-action: none; }
+        #graphSvgWrap.is-dragging { cursor: grabbing; }
+        #graphSvgWrap.is-dragging .gnode { pointer-events: none; }
 
-        /* 虚线导引圈：它是"形状"的一部分，不是装饰 —— 有它才读得出这是一个环 */
-        .graph-svg .guide {
-            fill: none;
-            stroke: color-mix(in srgb, var(--text-muted) 34%, transparent);
+        /* 光斑的色只在这里挂一次 —— 用 class 而不是 inline，
+           切主题时 stop-color 跟着令牌走，不需要重渲染 */
+        .bs-doc { stop-color: var(--gmap-doc); }
+        .bs-note { stop-color: var(--gmap-note); }
+        .bs-mute { stop-color: var(--text-muted); }
+        .bs-body { stop-color: var(--m-main); }
+        /* 箭头独立定义两枚：marker 不继承 stroke，只能各写一份 */
+        .ah-n { fill: var(--text-muted); }
+        .ah-on { fill: var(--m-main); }
+        .gmap-svg .bloom { pointer-events: none; }
+
+        /* 节点 = **玻璃胶囊**：图标 + 名称 + 连接数。
+           原来是"圆点 / 方块"两个裸形状、标签还飘在形状外面 ——
+           那既不是这个页面的组件语言（页面里全是 pill / badge / 卡片），
+           也把"标签往哪放"变成一道要单独解的几何题。
+           名称进了胶囊之后，那道题自然消失。 */
+        .gmap-svg .chip {
+            fill: var(--gmap-core);
+            stroke: color-mix(in srgb, var(--gmap-doc) 38%, transparent);
             stroke-width: 1;
-            stroke-dasharray: 4 5;
+            transition: stroke 0.16s ease, stroke-width 0.16s ease;
+        }
+        .gmap-svg .gnode.is-note .chip {
+            stroke: color-mix(in srgb, var(--gmap-note) 38%, transparent);
+        }
+        .gmap-svg .gnode.is-doc:hover .chip { stroke: var(--gmap-doc); }
+        .gmap-svg .gnode.is-note:hover .chip { stroke: var(--gmap-note); }
+        .gmap-svg .gnode.is-hub.is-doc .chip {
+            fill: color-mix(in srgb, var(--gmap-doc) 12%, var(--gmap-core));
+            stroke: var(--gmap-doc);
+            stroke-width: 1.6;
+        }
+        .gmap-svg .gnode.is-hub.is-note .chip {
+            fill: color-mix(in srgb, var(--gmap-note) 12%, var(--gmap-core));
+            stroke: var(--gmap-note);
+            stroke-width: 1.6;
+        }
+        .gmap-svg .gnode.is-orphan .chip {
+            stroke: var(--text-muted);
+            stroke-dasharray: 3 3;
+        }
+        .gmap-svg .gnode.is-sel .chip { stroke-width: 1.8; }
+        .gmap-svg .gnode.is-sel.is-doc .chip { stroke: var(--gmap-doc); }
+        .gmap-svg .gnode.is-sel.is-note .chip { stroke: var(--gmap-note); }
+
+        /* 点了一个节点之后：**关联的那一组要成组地被显示出来**，
+           而不是"其他都变淡了，所以剩下看着像关联"。
+           强调色从此只属于这一组 —— 无关的连描边都退回中性。 */
+        /* 关联态用**节点自己的类型色**做实线，不换成强调色 ——
+           换了就等于用同一个通道同时说"类型"和"状态"两件事 */
+        .gmap-svg .gnode.is-rel.is-doc .chip {
+            fill: color-mix(in srgb, var(--gmap-doc) 8%, var(--gmap-core));
+            stroke: var(--gmap-doc);
+            stroke-width: 1.4;
+        }
+        .gmap-svg .gnode.is-rel.is-note .chip {
+            fill: color-mix(in srgb, var(--gmap-note) 8%, var(--gmap-core));
+            stroke: var(--gmap-note);
+            stroke-width: 1.4;
+        }
+        .gmap-svg .gnode.is-rel .chip-label { font-weight: 600; }
+        .gmap-svg .gnode.is-dim .chip {
+            stroke: color-mix(in srgb, var(--text-muted) 34%, transparent);
         }
 
-        /* 边用直线：辐射布局里直线才顺着半径方向走，弧线反而把方向搅乱 */
-        .graph-svg .edge {
+        /* 选中环：同形状往外让 3.5px —— 与 :focus-visible 的写法同源，
+           比"虚线圆"更像一个 UI 状态，也不跟胶囊自己的描边抢 */
+        .gmap-svg .sel-ring {
             fill: none;
-            stroke: color-mix(in srgb, var(--text-muted) 40%, transparent);
-            stroke-width: 1.6;
+            stroke: var(--m-main);
+            stroke-width: 1.2;
+            opacity: 0.5;
+        }
+
+        /* 名称在白玻璃底上 → 直接用正文色，层级靠字号和颜色分开。
+           不再需要描边兜底 —— 那是在"标签飘在橙雾上"时才需要的补丁。 */
+        .gmap-svg .chip-icon { font-family: inherit; }
+        .gmap-svg .chip-label { font-family: inherit; fill: var(--text-primary); font-weight: 500; }
+        .gmap-svg .gnode.is-hub .chip-label { font-weight: 600; }
+        .gmap-svg .gnode.is-orphan .chip-label { fill: var(--text-secondary); }
+        .gmap-svg .chip-deg {
+            font-family: inherit;
+            fill: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 边：端点收到胶囊边界上（见 trimToChip）。
+           ⚠️ 这里**不能给 opacity** —— 每条边的不透明度由深度逐条算、
+           写在 inline style 上，CSS 再写一次会把它盖掉。 */
+        /* 普通边退成中性灰：颜色这个通道让给"类型"，边不再和节点抢
+           （参考图里也是灰线 + 彩色节点）。选中节点的边才升到强调色。 */
+        .gmap-svg .edge {
+            fill: none;
+            stroke: var(--text-muted);
+            stroke-width: 1.2;
             stroke-linecap: round;
             transition: stroke 0.18s ease, stroke-width 0.18s ease;
         }
-        .graph-svg .edge.is-active { stroke: var(--m-main); stroke-width: 2.6; }
-        .graph-svg .edge.is-dim { stroke: color-mix(in srgb, var(--text-muted) 12%, transparent); }
+        .gmap-svg .edge.is-active { stroke: var(--m-main); stroke-width: 1.8; }
+        .gmap-svg .edge.is-dim { stroke: var(--text-muted); }
 
-        .graph-svg .gnode { cursor: pointer; transition: opacity 0.18s ease; }
-        .graph-svg .gnode.is-dim { opacity: 0.24; }
-        /* 实底 + 白字：白字只有在**深一档**的实底上才过得了 4.5:1 */
-        .graph-svg .shape {
-            stroke: var(--bg-page);
-            stroke-width: 3;
-            transition: fill 0.18s ease, stroke 0.18s ease;
+        /* 关系词：LINKS 里一直被丢掉的那一列。只在选中时出现 */
+        .gmap-svg .edge-label {
+            font-family: inherit;
+            font-size: 10px;
+            fill: var(--text-secondary);
+            paint-order: stroke;
+            stroke: var(--gmap-core);
+            stroke-width: 2.6px;
+            stroke-linejoin: round;
+            pointer-events: none;
         }
-        .graph-svg .gnode.is-doc .shape { fill: var(--doc-deep); }
-        .graph-svg .gnode.is-note .shape { fill: var(--note-deep); }
-        .graph-svg .gnode.is-orphan .shape {
-            fill: none;
-            stroke: var(--text-muted);
-            stroke-width: 2;
-            stroke-dasharray: 3 3;
-        }
-        .graph-svg .gnode.is-sel .shape,
-        .graph-svg .gnode:hover .shape { stroke: var(--text-primary); }
 
-        .graph-svg .gnode-deg { font-family: inherit; font-size: 12.5px; font-weight: 700; fill: #fff; }
-        .graph-svg .gnode.is-hub .gnode-deg { font-size: 13px; }
-        .graph-svg .gnode.is-orphan .gnode-deg { font-weight: 500; fill: var(--text-muted); }
-        .graph-svg .gnode-label { font-family: inherit; font-size: 12px; fill: var(--text-secondary); }
-        .graph-svg .gnode.is-hub .gnode-label { font-size: 14px; font-weight: 700; fill: var(--text-primary); }
-        .graph-svg .gnode.is-sel .gnode-label { fill: var(--text-primary); font-weight: 600; }
+        .gmap-svg .gnode { cursor: pointer; transition: opacity 0.18s ease; }
+        /* 无关的降到刚好看得出"那里还有东西"的程度，
+           但不至于和关联组抢注意力 */
+        .gmap-svg .gnode.is-dim { opacity: 0.16; }
+
+        /* 选中状态条。它同时是"取消选中"的**显式出口** ——
+           之前只有"点空白处"这一条路，而没有人会知道。 */
+        .gmap-hud {
+            position: absolute; left: 12px; top: 12px; z-index: 2;
+            display: none; align-items: center; gap: 8px;
+            padding: 5px 6px 5px 11px;
+            border-radius: 999px;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px) saturate(140%);
+            border: 1px solid color-mix(in srgb, var(--m-main) 34%, transparent);
+            box-shadow: var(--shadow-card);
+            font-size: 12px; line-height: 1.5;
+        }
+        .gmap-hud.is-on { display: inline-flex; }
+        .gmap-hud b { font-weight: 600; color: var(--text-primary); }
+        .gmap-hud .hud-sub { color: var(--text-secondary); }
+        .gmap-hud-close {
+            width: 20px; height: 20px; flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 0; border-radius: 50%; cursor: pointer;
+            background: var(--border-subtle); color: var(--text-secondary);
+            font-size: 12px; line-height: 1;
+            transition: background 0.16s ease, color 0.16s ease;
+        }
+        .gmap-hud-close:hover {
+            background: color-mix(in srgb, var(--m-main) 18%, transparent);
+            color: var(--text-primary);
+        }
+
+        /* 工具栏：类型筛选 / 关系筛选 / 缩放。
+           参考图里这些分住左右两栏，这里挤成一横排 —— 图谱只是本项目的一个 Tab，
+           没有条件再切走一条侧栏。 */
+        .gmap-bar {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            padding: 0 0 12px;
+        }
+        .gmap-bar .seg { flex-wrap: wrap; }
+        .gmap-zoom {
+            margin-left: auto;
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+        .gmap-tool {
+            height: 30px; min-width: 30px; padding: 0 10px;
+            border-radius: 9px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-family: inherit; font-size: 13px; line-height: 1;
+            cursor: pointer;
+            transition: color 0.16s ease, border-color 0.16s ease;
+        }
+        .gmap-tool:hover {
+            color: var(--text-primary);
+            border-color: color-mix(in srgb, var(--m-main) 40%, transparent);
+        }
+        .gmap-zoom-val {
+            min-width: 44px; text-align: center;
+            font-size: 12px; color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .graph-legend {
+            margin-left: auto;
+            display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center;
+            gap: 5px 14px;
+            font-size: 12px; color: var(--text-muted);
+        }
+        .lg-item { display: inline-flex; align-items: center; gap: 6px; }
+        /* 图例要与图上的胶囊**同一种画法**，否则图例在解释另一个东西 */
+        .lg-dot { width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; background: var(--gmap-note); }
+        .lg-doc { background: var(--gmap-doc); }
+        .lg-orphan { background: none; border: 1.2px dashed var(--text-muted); }
+        .lg-cap { font-style: italic; opacity: 0.85; }
 
         .gnode-row {
             display: flex; align-items: center; gap: 10px;
@@ -495,9 +658,9 @@
         .gnode-row.is-sel { background: color-mix(in srgb, var(--m-main) 12%, transparent); }
         .gnode-row-dot {
             width: 11px; height: 11px; flex-shrink: 0;
-            border-radius: 50%; background: var(--note-deep);
+            border-radius: 50%; background: var(--gmap-note);
         }
-        .gnode-row.is-doc .gnode-row-dot { border-radius: 3px; background: var(--doc-deep); }
+        .gnode-row.is-doc .gnode-row-dot { border-radius: 3px; background: var(--gmap-doc); }
         .gnode-row.is-orphan .gnode-row-dot {
             background: none;
             border: 1.5px dashed var(--text-muted);
@@ -1142,6 +1305,27 @@
         }
         .backlink:hover { background: var(--border-subtle); color: var(--m-main); }
         .backlink-icon { flex-shrink: 0; opacity: 0.75; font-size: 12px; }
+        .bl-name {
+            flex: 1; min-width: 0;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        /* 关系词：LINKS 的第三列，之前只活在数据里没露过面 */
+        .bl-kind {
+            flex-shrink: 0;
+            font-size: 11px; color: var(--text-muted);
+            padding: 1px 7px; border-radius: 999px;
+            background: var(--border-subtle);
+        }
+
+        /* 详情里的"关系构成"：静态读数，所以不复用可点的 .badge */
+        .badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .tally {
+            font-size: 11px; font-weight: 500;
+            padding: 2px 9px; border-radius: 999px;
+            background: color-mix(in srgb, var(--m-main) 12%, transparent);
+            color: var(--m-main);
+            font-variant-numeric: tabular-nums;
+        }
 
         .link-card {
             display: flex; align-items: center; gap: 14px;
@@ -1616,13 +1800,26 @@
                 <div class="ov-card-head">
                     <div class="card-title">知识图谱</div>
                     <div class="ov-pos" id="graphStats"></div>
-                    <div class="graph-legend">
-                        <span class="lg-item"><i class="lg-dot lg-doc"></i>文档</span>
-                        <span class="lg-item"><i class="lg-dot lg-note"></i>笔记</span>
-                        <span class="lg-item"><i class="lg-dot lg-orphan"></i>未连线</span>
+                    <div class="graph-legend" id="graphLegend"
+                         title="颜色 = 连成一组的知识（连通分量）；孤立的节点是中性白"></div>
+                </div>
+                <div class="gmap-bar">
+                    <div class="seg" id="segType">
+                        <div class="seg-btn active" data-gtype="doc">📄 文档<span class="seg-count">0</span></div>
+                        <div class="seg-btn active" data-gtype="note">📝 笔记<span class="seg-count">0</span></div>
+                    </div>
+                    <div class="seg" id="segRel"></div>
+                    <div class="gmap-zoom">
+                        <button class="gmap-tool" type="button" data-zoom="-1" title="缩小">−</button>
+                        <span class="gmap-zoom-val" id="zoomVal">100%</span>
+                        <button class="gmap-tool" type="button" data-zoom="1" title="放大">+</button>
+                        <button class="gmap-tool" type="button" data-zoom="0" title="复位视角与缩放">复位</button>
                     </div>
                 </div>
-                <div id="graphSvgWrap"></div>
+                <div class="gmap">
+                    <div id="graphSvgWrap"></div>
+                    <div class="gmap-hud" id="graphHud"></div>
+                </div>
             </section>
 
             <section class="doc-body-grid">
@@ -2368,16 +2565,51 @@
     }
 
     /* ============================================================
-       4. 知识图谱：节点 = DOCS + NOTES 派生，边 = LINKS 派生
-       图是渲染结果，不是第二份数据。
-       ============================================================ */
-    /* 辐射布局的取景框是**固定**的，不是裁出来的 ——
-       "四周均匀的留白"本身就是对称感的一部分；裁到内容反而会把形状裁歪。
-       （散点布局相反：那边必须裁到包围盒，否则图会浮在一片空白里。） */
-    const G_W = 660, G_H = 460, G_CX = 330, G_CY = 200, G_R1 = 140, G_R2 = 236;
+       4. 知识图谱 · 三维球面辐射树（弥散风格）
+       节点 = DOCS + NOTES 派生，边 = LINKS 派生 —— 图是渲染结果，不是第二份数据。
+
+       布局：根（连接数最高）在**球心**，其余挂在同一个球面上（黄金螺旋撒点，
+       对任意 n 都均匀）。层级留在边上，不靠半径再说一遍。
+
+       视觉：与页面其余部分同一套语言 —— 节点是弥散光斑（和背景极光同材质）、
+       核是"淡底 + 同色描边"、配色全走既有令牌。**三维只体现在位置上**，
+       不引入深色视口、不引入噪点。
+
+       三维里必须自己写的三件东西：
+       · **透视投影**：绕 Y → 绕 X → ÷(persp + z)。少了它只是压扁的平面图。
+         ⚠️ 半径也要乘 f —— 位置被透视缩过了、半径不缩，看起来还是平的。
+       · **画家算法**：边和点放进**同一个**数组按 z 排序再画。
+         分两组画的话，前面的点会被后面的边穿过去。
+       · **深度线索**：不透明度 + 半径都要跟着 f 走。只做一个不足以读成三维。
+
+       ⚠️ 刻意不做自动旋转：转到哪个相位取决于时间，每次截图都不一样，
+          验证和对照就失去确定性。
+    */
+    const GM = { w: 600, h: 404, cx: 300, cy: 196, R: 166, persp: 560 };
+    /* "复位"要回到的那个角度。⚠️ 必须声明在 gRot **之前** ——
+       const 有暂时性死区，写在后面会以 ReferenceError 直接掐死整个脚本
+       （症状是"整页都不响应"，而不是"图谱不对"）。 */
+    const G_ROT0 = { x: -0.30, y: 0.55 };
+
+    let gRot = { x: G_ROT0.x, y: G_ROT0.y };
     let selectedNode = null;
     let gLayout = null;
     let gSig = '';
+    let gDragSuppress = 0;
+    let gZoom = 1;
+
+    /* 筛选：**只影响显示、不影响布局**（见 renderGraph 里的注释）。
+       rel 的键从 LINKS 派生，不手写 —— 加一种关系不用改两处。 */
+    let gFilter = { doc: true, note: true, rel: {} };
+    const relKinds = () => {
+        const seen = [];
+        LINKS.forEach((l) => { if (seen.indexOf(l[2]) < 0) seen.push(l[2]); });
+        return seen;
+    };
+    relKinds().forEach((k) => { gFilter.rel[k] = true; });
+    const gVisible = (id) => !!gFilter[nodeKind(id)];
+    const gLinkVisible = (l) => gFilter.rel[l[2]] !== false
+        && gVisible(l[0]) && gVisible(l[1]);
 
     const graphIds = () => DOCS.map((d) => d.id).concat(NOTES.map((n) => n.id));
     const nodeKind = (id) => (DOCS.some((d) => d.id === id) ? 'doc' : 'note');
@@ -2386,13 +2618,19 @@
         const x = nodeOf(id);
         return x ? (x.name || x.title) : id;
     };
+    /** 球面上只留短名：三维里标签越长越容易互相压，全名在清单/气泡/详情里都有 */
+    const nodeShort = (id) => {
+        const full = nodeLabel(id);
+        return full.length > 9 ? full.slice(0, 8) + '…' : full;
+    };
 
-    /** 无向邻居：出链入链都算 —— 图谱回答的是"谁和谁有关系"，不是"谁指向谁" */
+    /** 邻居：出链入链都算 —— 图谱回答的是"谁和谁有关"，不是"谁指向谁"。
+        **把关系类型一起带上**（LINKS 的第三列），否则那一列永远只存在于数据里。 */
     function neighborsOf(id) {
         const out = [];
-        LINKS.forEach(([a, b]) => {
-            if (a === id) out.push({ id: b });
-            else if (b === id) out.push({ id: a });
+        LINKS.forEach(([a, b, kind]) => {
+            if (a === id) out.push({ id: b, kind, dir: 'out' });
+            else if (b === id) out.push({ id: a, kind, dir: 'in' });
         });
         return out;
     }
@@ -2408,150 +2646,345 @@
                 : `data-open-node="${x.id}"`;
             return `<div class="backlink" ${attr} role="button" tabindex="0">
                 <span class="backlink-icon">${isDoc ? '📄' : '📝'}</span>
-                <span>${esc(nodeLabel(x.id))}</span>
+                <span class="bl-name">${esc(nodeLabel(x.id))}</span>
+                <span class="bl-kind">${esc(x.kind || '')}</span>
             </div>`;
         }).join('');
     }
 
-    /** 中心辐射布局
-        ------------------------------------------------------------------
-        圆心 = 连接数最高的节点。它周围的半径由**语义**决定，不由力学决定：
-        BFS 层级 → 第 1 层均布内环、第 2 层均布外环、够不到的排在下方一排。
-        所以这里没有"调力"这回事 —— 也不会有空洞或叠字，因为角度是均分的。
+    /* ---------------- 三维 ---------------- */
 
-        踩过的坑（别再往回走）：
-        · 标签沿径向往外放，但正上 / 正下的节点要退回居中：那里"外"的方向是竖直的，
-          横排标签会互相压住。
-        · 下方那排里，**互相有连线的节点必须彼此相邻**，否则那条边会横穿中间那个节点；
-          成对的还要留够横向距离，不然两条居中标签叠字。
-        · 反复试过"力导向 + 调向心力系数"想消掉空洞：那是结构性空洞，
-          调参只会把它挪到别处（详见技能 labelled-mini-graph-svg §2）。
-    */
+    /** 球面上的均匀撒点：黄金螺旋 */
+    function shellPoints(n, r) {
+        const ga = Math.PI * (3 - Math.sqrt(5));
+        const out = [];
+        for (let i = 0; i < n; i++) {
+            const y = n === 1 ? 0 : 1 - ((i + 0.5) / n) * 2;
+            const rad = Math.sqrt(Math.max(0, 1 - y * y));
+            const th = ga * (i + 0.5);
+            out.push({ x: Math.cos(th) * rad * r, y: y * r, z: Math.sin(th) * rad * r });
+        }
+        return out;
+    }
+
+    /** 绕 Y → 绕 X → 透视。f = persp/(persp+z)：越大越近 */
+    function projectPoint(p, rot) {
+        const cy = Math.cos(rot.y), sy = Math.sin(rot.y);
+        let x = p.x * cy - p.z * sy;
+        let z = p.x * sy + p.z * cy;
+        const cx = Math.cos(rot.x), sx = Math.sin(rot.x);
+        const y = p.y * cx - z * sx;
+        z = p.y * sx + z * cx;
+        const f = GM.persp / (GM.persp + z);
+        return { x: GM.cx + x * f, y: GM.cy + y * f, z, f };
+    }
+
+    /** 深度归一：0 = 最远，1 = 最近。节点和边共用同一个刻度。
+        两个端点由 R 和 persp **算出来**，不写死 —— 写死的常数一旦和实际范围对不上，
+        最近的节点也到不了满不透明度，整张图会整体发灰。 */
+    const clamp01 = (x) => Math.max(0, Math.min(1, x));
+    const F_MIN = GM.persp / (GM.persp + GM.R);
+    const F_MAX = GM.persp / (GM.persp - GM.R);
+    const depthT = (f) => clamp01((f - F_MIN) / (F_MAX - F_MIN));
+
+    /* ---------------- 布局 / 渲染 ---------------- */
+
+    /** 文本估算宽：中文 1em / 其它 0.55em。中文原型里这条错不得 —— 一错避让就失效 */
+    function textWidth(str, fs) {
+        let u = 0;
+        for (let i = 0; i < str.length; i++) u += str.charCodeAt(i) > 0x2e80 ? 1 : 0.55;
+        return u * fs;
+    }
+
+    /* ---------------- 胶囊节点 ---------------- */
+
+    /* 节点 = **玻璃胶囊**（图标 + 名称 + 连接数）。
+       色 = **类型**（文档橙 / 笔记蓝，取自参考图的"实体类型分色"），
+       态 = 描边粗细 + focus ring + 其他变淡。两条通道分开，不互相冒充。 */
+    const CHIP = {
+        h: 24, hubH: 28,
+        padL: 21, padR: 11,     // 左（图标位）/ 右 留白
+        gap: 7, cntW: 14,       // 名称与计数之间 / 计数的占位
+        textMax: 82,            // 名称最多占多宽，超了就省略号
+        fs: 11.5, fsHub: 12.5, ic: 12, fsDeg: 10,
+    };
+
+    /** 胶囊尺寸 + 要显示的短名 */
+    function chipMetrics(id, hub) {
+        const fs = hub ? CHIP.fsHub : CHIP.fs;
+        const full = nodeLabel(id);
+        let s = full;
+        while (s.length > 1 && textWidth(s, fs) > CHIP.textMax) s = s.slice(0, -1);
+        if (s !== full) s = s.slice(0, -1) + '…';
+        return {
+            fs, text: s,
+            w: CHIP.padL + textWidth(s, fs) + CHIP.gap + CHIP.cntW + CHIP.padR,
+            h: hub ? CHIP.hubH : CHIP.h,
+        };
+    }
+
+    /** 连线端点收到胶囊边界上（按内切椭圆求交）—— 线穿进胶囊里会显脏 */
+    function trimToChip(a, b, W, H) {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const L = Math.hypot(dx, dy) || 1;
+        const ux = dx / L, uy = dy / L;
+        const t = 1 / Math.sqrt(Math.pow(ux / (W / 2), 2) + Math.pow(uy / (H / 2), 2));
+        return { x: a.x + ux * t, y: a.y + uy * t };
+    }
+
     function layoutGraph(ids, links) {
         const adj = {};
         ids.forEach((id) => { adj[id] = []; });
         links.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
 
-        /* 圆心取连接数最高；并列时取顺序在前的 —— 结果必须确定 */
+        /* 球心取连接数最高；并列时取顺序在前的 —— 结果必须确定 */
         let hub = ids[0];
         ids.forEach((id) => { if (adj[id].length > adj[hub].length) hub = id; });
 
-        const layer = { [hub]: 0 };
-        const queue = [hub];
-        while (queue.length) {
-            const cur = queue.shift();
-            adj[cur].forEach((nb) => {
-                if (layer[nb] !== undefined) return;
-                layer[nb] = layer[cur] + 1;
-                queue.push(nb);
-            });
+        /* 非根节点**全部挂在同一个球面上**。
+           分成内外两层会让外层稀疏、内层拥挤 —— 8 个点撑不起两个球壳，
+           而三维里"球是不是被填满"直接决定它像不像球。 */
+        const leaves = ids.filter((id) => id !== hub);
+        const P = {};
+        P[hub] = { x: 0, y: 0, z: 0 };
+        shellPoints(leaves.length, GM.R).forEach((p, i) => { P[leaves[i]] = p; });
+
+        return { P, hub };
+    }
+
+    /* 光斑 = 一枚径向渐变（椭圆版，贴着胶囊的形状）。不用 feGaussianBlur：
+       模糊半径得跟着尺寸分档，一枚渐变就够，也没有滤镜那笔性能账。
+       颜色挂 class 而不是 inline —— 切主题时 stop-color 跟着令牌走，不用重渲染。 */
+    function bloomDefs() {
+        const g = (id, cls, a) =>
+            `<radialGradient id="${id}">`
+            + `<stop class="${cls}" offset="0" stop-opacity="${a}"></stop>`
+            + `<stop class="${cls}" offset="28%" stop-opacity="${(a * 0.6).toFixed(2)}"></stop>`
+            + `<stop class="${cls}" offset="60%" stop-opacity="${(a * 0.2).toFixed(2)}"></stop>`
+            + `<stop class="${cls}" offset="100%" stop-opacity="0"></stop>`
+            + '</radialGradient>';
+        /* 球体自己那层雾：偏心高光（fx/fy）是关键 —— 同心圆环读出来是一个橙色圆盘，
+           偏心高光才读得出"被照亮的一个球"。 */
+        const body = '<radialGradient id="gb-body" cx="50%" cy="50%" r="54%" fx="36%" fy="30%">'
+            + '<stop class="bs-body" offset="0" stop-opacity="0.15"></stop>'
+            + '<stop class="bs-body" offset="52%" stop-opacity="0.08"></stop>'
+            + '<stop class="bs-body" offset="100%" stop-opacity="0"></stop>'
+            + '</radialGradient>';
+        /* 箭头两枚：普通边灰、选中节点的边用强调色。
+           marker 不继承 stroke，所以只能定义两份 —— 别指望 currentColor。 */
+        const head = (id, cls) =>
+            `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5"`
+            + ' markerWidth="5.5" markerHeight="5.5" orient="auto">'
+            + `<path class="${cls}" d="M0,0 L10,5 L0,10 z"></path></marker>`;
+        return '<defs>' + g('gb-doc', 'bs-doc', 0.42) + g('gb-note', 'bs-note', 0.42)
+            + g('gb-mute', 'bs-mute', 0.34) + body
+            + head('gv-ah', 'ah-n') + head('gv-ah-on', 'ah-on') + '</defs>';
+    }
+
+    /** 图例与图上节点**同一种画法**（类型色 + 计数），否则图例在解释另一个东西 */
+    function renderGraphLegend(orphans) {
+        document.getElementById('graphLegend').innerHTML =
+            `<span class="lg-item"><i class="lg-dot lg-doc"></i>文档 · ${DOCS.length}</span>`
+            + `<span class="lg-item"><i class="lg-dot lg-note"></i>笔记 · ${NOTES.length}</span>`
+            + `<span class="lg-item"><i class="lg-dot lg-orphan"></i>未连线 · ${orphans}</span>`;
+    }
+
+    /** 工具栏：类型筛选 / 关系筛选 / 缩放。计数全部派生，不手写 */
+    function renderGraphBar() {
+        const ids = graphIds();
+        document.querySelectorAll('#segType .seg-btn').forEach((b) => {
+            const k = b.dataset.gtype;
+            b.classList.toggle('active', !!gFilter[k]);
+            b.querySelector('.seg-count').textContent = ids.filter((id) => nodeKind(id) === k).length;
+        });
+        document.getElementById('segRel').innerHTML = relKinds().map((k) => {
+            const n = LINKS.filter((l) => l[2] === k).length;
+            return `<div class="seg-btn${gFilter.rel[k] !== false ? ' active' : ''}"`
+                + ` data-grel="${esc(k)}">${esc(k)}<span class="seg-count">${n}</span></div>`;
+        }).join('');
+        document.getElementById('zoomVal').textContent = Math.round(gZoom * 100) + '%';
+    }
+
+    /** 画布内那条选中状态条：说出"关联了几个"，并给一个显式的取消出口 */
+    function renderGraphHud() {
+        const box = document.getElementById('graphHud');
+        if (!selectedNode) {
+            box.className = 'gmap-hud';
+            box.innerHTML = '';
+            return;
         }
-        const ring1 = ids.filter((id) => layer[id] === 1);
-        const ring2 = ids.filter((id) => layer[id] >= 2);
-        const rest = ids.filter((id) => layer[id] === undefined);
-
-        const P = { [hub]: { x: G_CX, y: G_CY } };
-        ring1.forEach((id, i) => {
-            const ang = (-90 + (360 / ring1.length) * i) * Math.PI / 180;
-            P[id] = { x: G_CX + Math.cos(ang) * G_R1, y: G_CY + Math.sin(ang) * G_R1, ang };
-        });
-        ring2.forEach((id, i) => {
-            /* 外环错开半格，免得正好躲在内环节点背后 */
-            const ang = (-90 + (360 / ring2.length) * (i + 0.5)) * Math.PI / 180;
-            P[id] = { x: G_CX + Math.cos(ang) * G_R2, y: G_CY + Math.sin(ang) * G_R2, ang };
-        });
-
-        const linkedRest = new Set();
-        links.forEach(([a, b]) => {
-            if (rest.indexOf(a) > -1 && rest.indexOf(b) > -1) { linkedRest.add(a); linkedRest.add(b); }
-        });
-        const orderedRest = rest.filter((id) => linkedRest.has(id))
-            .concat(rest.filter((id) => !linkedRest.has(id)));
-        const restY = G_CY + G_R1 + 58;
-        let restX = 112;
-        orderedRest.forEach((id, i) => {
-            P[id] = { x: restX, y: restY };
-            const near = linkedRest.has(id) && linkedRest.has(orderedRest[i + 1]);
-            restX += near ? 190 : 200;
-        });
-
-        return {
-            P, hub, adj,
-            guide: { cx: G_CX, cy: G_CY, r: G_R1 },
-            box: { w: G_W, h: rest.length ? restY + 66 : G_CY + G_R1 + 100 },
-        };
+        const id = selectedNode;
+        box.className = 'gmap-hud is-on';
+        box.innerHTML = `<span>${nodeKind(id) === 'doc' ? '📄' : '📝'}</span>`
+            + `<b>${esc(nodeLabel(id))}</b>`
+            + `<span class="hud-sub">关联 ${neighborsOf(id).length} 个节点</span>`
+            + '<button class="gmap-hud-close" type="button" data-graph-deselect'
+            + ' aria-label="取消选中" title="取消选中">✕</button>';
     }
 
     function renderGraph() {
-        const ids = graphIds();
-        const links = LINKS.filter(([a, b]) => ids.indexOf(a) > -1 && ids.indexOf(b) > -1);
-        const sig = ids.join(',');
+        const allIds = graphIds();
+        const allLinks = LINKS.filter(([a, b]) => allIds.indexOf(a) > -1 && allIds.indexOf(b) > -1);
+        const sig = allIds.join(',');
         if (!gLayout || gSig !== sig) {
-            gLayout = layoutGraph(ids, links);
+            gLayout = layoutGraph(allIds, allLinks);
             gSig = sig;
         }
-        const { P, box, guide, hub } = gLayout;
+        const { P, hub } = gLayout;
+
+        /* ⚠️ 筛选只影响**显示**，不影响布局 ——
+           被筛掉的位置照旧占着，空间记忆才立得住；重排会让"筛一下全变了"。 */
+        const ids = allIds.filter(gVisible);
+        const links = allLinks.filter(gLinkVisible);
+        if (selectedNode && !gVisible(selectedNode)) selectedNode = null;
+
+        const at = {};
+        ids.forEach((id) => { at[id] = projectPoint(P[id], gRot); });
 
         const sel = selectedNode;
         const near = sel ? new Set([sel].concat(neighborsOf(sel).map((x) => x.id))) : null;
         const orphans = ids.filter((id) => !neighborsOf(id).length);
         document.getElementById('graphStats').textContent =
             `${ids.length} 个节点 · ${links.length} 条连线 · ${orphans.length} 个未连线`;
+        renderGraphLegend(orphans.length);
+        renderGraphBar();
 
-        /* 边用直线：辐射布局里直线才顺着半径走，弧线反而乱了方向 */
-        const edgesSvg = links.map(([a, b]) => {
-            const A = P[a], B = P[b];
+        /* ---------- 胶囊：尺寸 + 投影后的盒子 ---------- */
+        const boxes = ids.map((id) => {
+            const m = chipMetrics(id, id === hub);
+            const q = at[id];
+            /* 透视也作用在**胶囊尺寸**上：位置缩过了、尺寸不缩，看起来还是平的 */
+            const sc = Math.max(0.8, Math.min(1.16, q.f));
+            return {
+                id, q, m, sc,
+                W: m.w * sc, H: m.h * sc,
+                fs: m.fs * sc, ic: CHIP.ic * sc, fsDeg: CHIP.fsDeg * sc,
+                x: q.x, y: q.y,
+                op: 0.4 + depthT(q.f) * 0.6,
+            };
+        });
+
+        /* ---------- 胶囊之间避让 ----------
+           **推的是屏幕坐标，不动三维结构**。三维里前后叠着是对的（近的盖住远的），
+           但两张同深度的胶囊叠上就是糊字。 */
+        for (let pass = 0; pass < 40; pass++) {
+            let hit = 0;
+            for (let i = 0; i < boxes.length; i++) {
+                for (let j = i + 1; j < boxes.length; j++) {
+                    const A = boxes[i], B = boxes[j];
+                    const ox = (A.W + B.W) / 2 + 6 - Math.abs(A.x - B.x);
+                    const oy = (A.H + B.H) / 2 + 6 - Math.abs(A.y - B.y);
+                    if (ox <= 0 || oy <= 0) continue;
+                    hit++;
+                    /* 挑更容易让开的那一轴推：胶囊是横长条，纵向多半更省 */
+                    if (oy <= ox) {
+                        const s = (A.y < B.y ? -1 : 1) * oy / 2;
+                        A.y += s; B.y -= s;
+                    } else {
+                        const s = (A.x < B.x ? -1 : 1) * ox / 2;
+                        A.x += s; B.x -= s;
+                    }
+                }
+            }
+            if (!hit) break;
+        }
+        /* 夹回画布：避让不能把胶囊推出去（推出去了还不如让它叠着） */
+        boxes.forEach((b) => {
+            b.x = Math.max(b.W / 2 + 6, Math.min(GM.w - b.W / 2 - 6, b.x));
+            b.y = Math.max(b.H / 2 + 8, Math.min(GM.h - b.H / 2 - 10, b.y));
+        });
+        const bx = {};
+        boxes.forEach((b) => { bx[b.id] = b; });
+
+        /* ---------- 边和胶囊进同一个数组，按 z 排序再画（画家算法）---------- */
+        const items = [];
+        const onTop = [];       // 关系词：画在所有东西之上，否则会被近处的胶囊压住
+        links.forEach(([a, b, kind]) => {
+            const A = bx[a], B = bx[b];
             const act = sel && (a === sel || b === sel);
             const dim = sel && !act;
-            return `<path class="edge${act ? ' is-active' : ''}${dim ? ' is-dim' : ''}"`
-                + ` d="M ${A.x.toFixed(1)} ${A.y.toFixed(1)} L ${B.x.toFixed(1)} ${B.y.toFixed(1)}"></path>`;
-        }).join('');
-
-        const nodesSvg = ids.map((id) => {
-            const p = P[id];
+            /* 深度也作用在边上：只淡节点、边一样重，前后就分不出来 */
+            const t = depthT((A.q.f + B.q.f) / 2);
+            const p1 = trimToChip(A, B, A.W, A.H);
+            const end = trimToChip(B, A, B.W, B.H);
+            const dx = end.x - p1.x, dy = end.y - p1.y;
+            const L = Math.hypot(dx, dy) || 1;
+            /* 终点再退 7px，给箭头留位置，别让箭头戳进胶囊里 */
+            const p2 = { x: end.x - dx / L * 7, y: end.y - dy / L * 7 };
+            items.push({
+                z: (A.q.z + B.q.z) / 2,
+                html: `<path class="edge${act ? ' is-active' : ''}${dim ? ' is-dim' : ''}"`
+                    + ` style="opacity:${(act ? 0.9 : dim ? 0.07 : 0.16 + t * 0.3).toFixed(2)}"`
+                    + ` marker-end="url(#${act ? 'gv-ah-on' : 'gv-ah'})"`
+                    + ` d="M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} L ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}"></path>`,
+            });
+            /* 关系词只在选中时才出现 —— 7 条边全挂标签就是一片噪音。
+               这是 LINKS 里一直被丢掉的那一列，也是"知识图谱"和"连线图"的区别。
+               ⚠️ 位置贴着**起点那一端**（离胶囊 30px），不放中点：
+               中点附近的几条标签会挤成一堆，而贴着起点放，它们天然按角度散开。 */
+            if (act) {
+                const ux = dx / L, uy = dy / L;
+                const at = Math.min(30, L * 0.4);
+                const px = p1.x + ux * at, py = p1.y + uy * at;
+                onTop.push(`<text class="edge-label" x="${(px - uy * 9).toFixed(1)}"`
+                    + ` y="${(py + ux * 9 + 3).toFixed(1)}" text-anchor="middle">${esc(kind)}</text>`);
+            }
+        });
+        boxes.forEach((b) => {
+            const id = b.id;
             const isHub = id === hub;
             const isDoc = nodeKind(id) === 'doc';
             const deg = neighborsOf(id).length;
-            const full = nodeLabel(id);
-            const short = full.length > 12 ? full.slice(0, 11) + '…' : full;
-            const r = isHub ? 30 : 13 + Math.min(deg, 4) * 1.6;
+            const orphan = !deg;
 
-            const cls = ['gnode'];
-            if (isDoc) cls.push('is-doc');
+            const cls = ['gnode', isDoc ? 'is-doc' : 'is-note'];
             if (isHub) cls.push('is-hub');
+            if (orphan) cls.push('is-orphan');
+            /* 三种状态由**同一个** sel 派生，不各写一套判断：选中 / 关联 / 无关 */
             if (sel === id) cls.push('is-sel');
-            if (sel && !near.has(id)) cls.push('is-dim');
-            if (!deg) cls.push('is-orphan');
+            else if (sel) cls.push(near.has(id) ? 'is-rel' : 'is-dim');
 
-            const shape = isDoc
-                ? `<rect class="shape" x="${(-r).toFixed(1)}" y="${(-r).toFixed(1)}"`
-                  + ` width="${(r * 2).toFixed(1)}" height="${(r * 2).toFixed(1)}" rx="${(r * 0.4).toFixed(1)}"></rect>`
-                : `<circle class="shape" r="${r.toFixed(1)}"></circle>`;
+            const hw = b.W / 2, hh = b.H / 2;
+            const padL = CHIP.padL * b.sc, padR = CHIP.padR * b.sc;
+            const baseY = (b.fs * 0.35).toFixed(1);
 
-            /* 标签沿径向往外；正上 / 正下退回居中 —— 那里"外"是竖直的，横排标签会互压 */
-            let lx = 0, ly = r + 18, anchor = 'middle';
-            if (isHub) {
-                ly = r + 26;
-            } else if (p.ang !== undefined) {
-                const c = Math.cos(p.ang);
-                if (c > 0.35) { lx = r + 10; ly = 4.5; anchor = 'start'; }
-                else if (c < -0.35) { lx = -(r + 10); ly = 4.5; anchor = 'end'; }
-                else if (Math.sin(p.ang) < 0) { ly = -(r + 12); }
-            }
+            items.push({
+                z: b.q.z,
+                html: `<g class="${cls.join(' ')}" data-graph-node="${id}"`
+                    + ` transform="translate(${b.x.toFixed(1)},${b.y.toFixed(1)})"`
+                    + ` opacity="${b.op.toFixed(2)}" tabindex="0" role="button" aria-label="${esc(nodeLabel(id))}">`
+                    + `<title>${esc(nodeLabel(id))} · ${deg} 条连线</title>`
+                    + `<ellipse class="bloom" rx="${(b.W * 0.62).toFixed(1)}" ry="${(b.H * 1.55).toFixed(1)}"`
+                    + ` fill="url(#gb-${orphan ? 'mute' : (isDoc ? 'doc' : 'note')})"></ellipse>`
+                    /* 选中环：同形状往外让 3.5px —— 与 :focus-visible 的写法同源，
+                       比"虚线圆"更像一个 UI 状态，也不跟胶囊自己的描边抢 */
+                    + (sel === id
+                        ? `<rect class="sel-ring" x="${(-hw - 3.5).toFixed(1)}" y="${(-hh - 3.5).toFixed(1)}"`
+                          + ` width="${(b.W + 7).toFixed(1)}" height="${(b.H + 7).toFixed(1)}"`
+                          + ` rx="${((b.H + 7) / 2).toFixed(1)}"></rect>`
+                        : '')
+                    + `<rect class="chip" x="${(-hw).toFixed(1)}" y="${(-hh).toFixed(1)}"`
+                    + ` width="${b.W.toFixed(1)}" height="${b.H.toFixed(1)}" rx="${hh.toFixed(1)}"></rect>`
+                    + `<text class="chip-icon" x="${(-hw + padL / 2).toFixed(1)}" y="${baseY}"`
+                    + ` text-anchor="middle" style="font-size:${b.ic.toFixed(1)}px">${isDoc ? '📄' : '📝'}</text>`
+                    + `<text class="chip-label" x="${(-hw + padL).toFixed(1)}" y="${baseY}"`
+                    + ` style="font-size:${b.fs.toFixed(1)}px">${esc(b.m.text)}</text>`
+                    + `<text class="chip-deg" x="${(hw - padR).toFixed(1)}" y="${(b.fs * 0.33).toFixed(1)}"`
+                    + ` text-anchor="end" style="font-size:${b.fsDeg.toFixed(1)}px">${deg}</text>`
+                    + '</g>',
+            });
+        });
+        items.sort((a, b) => a.z - b.z);
 
-            return `<g class="${cls.join(' ')}" data-graph-node="${id}"`
-                + ` transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})"`
-                + ` tabindex="0" role="button" aria-label="${esc(full)}">`
-                + shape
-                + `<text class="gnode-deg" x="0" y="${(r * 0.19).toFixed(1)}" text-anchor="middle">${deg}</text>`
-                + `<text class="gnode-label" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}">${esc(short)}</text>`
-                + '</g>';
-        }).join('');
+        /* 球体自己那层雾放在最下（它不属于任何一个节点，不参与排序） */
+        const body = `<circle class="sphere-body" cx="${GM.cx}" cy="${GM.cy}" r="${GM.R}"`
+            + ' fill="url(#gb-body)"></circle>';
 
         document.getElementById('graphSvgWrap').innerHTML =
-            `<svg class="graph-svg" viewBox="0 0 ${box.w} ${box.h}" role="img" aria-label="知识图谱">`
-            + `<circle class="guide" cx="${guide.cx}" cy="${guide.cy}" r="${guide.r}"></circle>`
-            + edgesSvg + nodesSvg + '</svg>';
+            `<svg class="gmap-svg" viewBox="0 0 ${GM.w} ${GM.h}" role="img" aria-label="知识图谱">`
+            + bloomDefs() + body + items.map((x) => x.html).join('') + onTop.join('') + '</svg>';
+        const wrapEl = document.getElementById('graphSvgWrap');
+        wrapEl.style.transform = gZoom === 1 ? '' : 'scale(' + gZoom + ')';
 
         /* 清单：图看不出"谁没连上"，所以必须配一份按连接数排的清单 */
         const rows = ids.slice().sort((a, b) => neighborsOf(b).length - neighborsOf(a).length);
@@ -2571,6 +3004,7 @@
                 + '</div>';
         }).join('');
 
+        renderGraphHud();
         renderGraphInspector();
     }
 
@@ -2584,12 +3018,18 @@
         const id = selectedNode;
         const isDoc = nodeKind(id) === 'doc';
         const nb = neighborsOf(id);
+        /* 关系构成：把 LINKS 的第三列按类型数出来（参考图右栏的"属性行"） */
+        const tally = {};
+        nb.forEach((x) => { tally[x.kind] = (tally[x.kind] || 0) + 1; });
+        const tallyHtml = Object.keys(tally)
+            .map((k) => `<span class="tally">${esc(k)} ×${tally[k]}</span>`).join('');
         box.innerHTML = `
             <div class="card-title">节点详情</div>
             <div class="gsel-head">
                 <span class="pill ${isDoc ? 'pill-doing' : 'pill-todo'}">${isDoc ? '文档' : '笔记'}</span>
                 <span class="ov-pos">${nb.length} 条连线</span>
             </div>
+            <div class="badge-row">${tallyHtml}</div>
             <div class="gsel-title">${esc(nodeLabel(id))}</div>
             <button class="btn btn-ghost" style="margin-top: 12px;" data-open-node="${id}">打开</button>
             <div class="aside-divider"></div>
@@ -2932,9 +3372,54 @@
         const starBtn = hit('[data-note-star]');
         if (starBtn) { toggleStar(starBtn.dataset.noteStar); return; }
 
-        /* 图谱：图上的点与清单里的行是同一个动作 —— 选中 */
+        /* 图谱：图上的点与清单里的行是同一个动作 —— 选中。
+           只在没有选中任何节点时才切 Tab。 */
+        if (hit('[data-graph-deselect]')) {
+            selectedNode = null;
+            renderGraph();
+            return;
+        }
+
+        /* 类型筛选：**至少留一类可见** —— 两类都关掉会得到一张空图，
+           而空图没有任何东西解释"为什么是空的" */
+        const gtype = hit('[data-gtype]');
+        if (gtype) {
+            const k = gtype.dataset.gtype;
+            if (gFilter[k] && !gFilter[k === 'doc' ? 'note' : 'doc']) return;
+            gFilter[k] = !gFilter[k];
+            renderGraph();
+            return;
+        }
+
+        const grel = hit('[data-grel]');
+        if (grel) {
+            const k = grel.dataset.grel;
+            gFilter.rel[k] = gFilter.rel[k] === false;
+            renderGraph();
+            return;
+        }
+
+        const zbtn = hit('[data-zoom]');
+        if (zbtn) {
+            const d = Number(zbtn.dataset.zoom);
+            if (d === 0) {
+                gZoom = 1;
+                gRot = { x: G_ROT0.x, y: G_ROT0.y };
+            } else {
+                const next = gZoom * (d > 0 ? 1.25 : 0.8);
+                gZoom = Math.round(Math.max(0.6, Math.min(1.8, next)) * 100) / 100;
+            }
+            renderGraph();
+            return;
+        }
+
         const gnode = hit('[data-graph-node]');
-        if (gnode) { selectedNode = gnode.dataset.graphNode; renderGraph(); return; }
+        if (gnode && Date.now() < gDragSuppress) return;   // 刚拖过的那一下不算点
+        if (gnode) {
+            selectedNode = gnode.dataset.graphNode;
+            renderGraph();
+            return;
+        }
 
         /* 跨页跳转：反向链接 / 关系清单 / 图谱详情的「打开」。走同一个入口。 */
         const openNodeEl = hit('[data-open-node]');
@@ -3025,54 +3510,62 @@
         }
     });
 
-    /* ============================================================
-       8. 徽章 / 进度条 / 主题（沿用原型已有交互）
-       ============================================================ */
-    const statusBadge = document.getElementById('statusBadge');
-    const statusList = ['规划中', '进行中', '阻塞', '验收', '已归档'];
-    const statusCls = ['badge-neutral', 'badge-doing', 'badge-danger', 'badge-ok', 'badge-neutral'];
-    let statusIdx = 1;
-    statusBadge.addEventListener('click', () => {
-        statusIdx = (statusIdx + 1) % statusList.length;
-        statusBadge.textContent = statusList[statusIdx];
-        statusBadge.className = 'badge ' + statusCls[statusIdx];
-    });
-
-    const priorityBadge = document.getElementById('priorityBadge');
-    const priorityList = ['P0', 'P1', 'P2', 'P3'];
-    let priorityIdx = 0;
-    priorityBadge.addEventListener('click', () => {
-        priorityIdx = (priorityIdx + 1) % priorityList.length;
-        priorityBadge.textContent = priorityList[priorityIdx];
-        priorityBadge.className = 'badge prio prio-' + priorityList[priorityIdx];
-    });
-
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('progressText');
-    progressFill.parentElement.addEventListener('click', (e) => {
-        const rect = progressFill.parentElement.getBoundingClientRect();
-        const pct = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-        const clamped = Math.min(100, Math.max(0, pct));
-        progressFill.style.width = clamped + '%';
-        progressText.textContent = clamped + '%';
-        document.querySelectorAll('.aside .info-row').forEach((row) => {
-            if (row.firstElementChild.textContent === '进度') {
-                row.lastElementChild.textContent = clamped + '%';
-            }
+    /* 拖动旋转：监听挂在**容器**上，不是挂在 SVG 上 ——
+       SVG 每次重渲染都会被换掉，挂它上面第一次拖动之后就失效了。
+       位移超过 4px 记为"拖动"，随后的那次 click 要丢弃，否则拖完会顺手选中一个节点。 */
+    (function initGraphDrag() {
+        const wrap = document.getElementById('graphSvgWrap');
+        let dragging = false, moved = 0, lastX = 0, lastY = 0;
+        wrap.addEventListener('pointerdown', (e) => {
+            dragging = true; moved = 0;
+            lastX = e.clientX; lastY = e.clientY;
+            /* 指针捕获失败不该让整次拖动报废（合成事件、某些指针类型下会抛） */
+            try { wrap.setPointerCapture(e.pointerId); } catch (err) { /* 不影响下面的旋转 */ }
+            wrap.classList.add('is-dragging');
         });
-    });
+        wrap.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            const dx = e.clientX - lastX;
+            const dy = e.clientY - lastY;
+            lastX = e.clientX; lastY = e.clientY;
+            moved += Math.abs(dx) + Math.abs(dy);
+            gRot.y += dx * 0.009;
+            /* 夹住俯仰角：翻过极点会让人分不清上下 */
+            gRot.x = Math.max(-1.45, Math.min(1.45, gRot.x + dy * 0.009));
+            renderGraph();
+        });
+        /* ⚠️ 点选必须在这里判，**不能靠 click 事件**：
+           setPointerCapture 会把随后的 click 重新定向到捕获元素（也就是这个容器）上，
+           委托在 document 上的 [data-graph-node] 永远收不到 ——
+           症状是"点图上的节点没反应，只有点清单能选中"。
+           （合成 dispatchEvent 不会触发这个重定向，所以这个 bug 骗过了之前的每一轮验证。）
+           直接用坐标做命中测试，绕过整件事。 */
+        const end = (e) => {
+            if (!dragging) return;
+            dragging = false;
+            wrap.classList.remove('is-dragging');
+            if (moved > 4) { gDragSuppress = Date.now() + 150; return; }   // 拖动，不是点选
 
-    const themeToggle = document.getElementById('themeToggle');
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    if (savedTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-        themeToggle.textContent = '☀️';
-    }
-    themeToggle.addEventListener('click', () => {
-        const isDark = document.documentElement.classList.toggle('dark');
-        themeToggle.textContent = isDark ? '☀️' : '🌙';
-        localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    });
+            const el = document.elementFromPoint(e.clientX, e.clientY);
+            const node = el && el.closest ? el.closest('[data-graph-node]') : null;
+            if (node) {
+                if (selectedNode !== node.dataset.graphNode) {
+                    selectedNode = node.dataset.graphNode;
+                    renderGraph();
+                }
+            } else if (selectedNode) {
+                /* 点空白处取消选中 —— 和"点节点选中"配成一对，
+                   免得用户找不到退出的路 */
+                selectedNode = null;
+                renderGraph();
+            }
+        };
+        wrap.addEventListener('pointerup', end);
+        wrap.addEventListener('pointercancel', () => {
+            dragging = false;
+            wrap.classList.remove('is-dragging');
+        });
+    })();
 
     /* ============================================================
        9. 首屏

@@ -1,3 +1,17 @@
+/*
+ * ⚠️ 已被取代（2026-09-21），**当前没有任何路由指向这个文件**。
+ *
+ * 取代它的是：
+ *   · src/pages/workspace/ProjectsListPage.tsx   —— 列表（新壳 + 原型的设计语言）
+ *   · src/pages/workspace/ProjectsWorkspace.tsx  —— 工作区（design/project 原型的落地）
+ *
+ * 保留它的唯一理由是**这个仓库还没有任何提交** —— 删掉就找不回来了。
+ * 确认新页面可用之后可以整体删除（连组件目录一起）：
+ *   src/pages/ProjectsPage.tsx        + src/components/projects/**
+ *   src/pages/ProjectDetailPage.tsx   + src/components/detail/**
+ * 删完记得再跑一次 tsc —— 这两个页面是 AppShell / glass-* 那一套的最后使用者，
+ * 它们一走，AppShell 与 detail 组件 也就没有别的引用了。
+ */
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { SCOPE_META } from '../data/meta'

@@ -1,0 +1,185 @@
+/* ============================================================
+   模块工作区 · 应用级补充样式（**手写**）
+   ------------------------------------------------------------
+   与 `module-workspace.css` 的分工：
+
+     · `module-workspace.css` = 生成物，忠实还原 8 个原型（令牌 + 内核 + 模块增量）
+     · 本文件                = 手写层，只放"原型没做、做成应用必须有"的那几件事
+
+   放在一起会让"下次重新生成"覆盖掉应用级补充；放在这就不冲突。
+   本文件必须在 `module-workspace.css` **之后**导入（见 styles/index.css）。
+
+  里面只有四件事，每件都是原型作为静态页时不成立、变成应用后才成立的问题：
+
+  1. **窄屏抽屉**。原型的 `@media (max-width: 768px)` 直接把 `.sidebar`
+     `display: none` 掉 —— 那不是"响应式取舍"，是窄屏上整页没有任何导航入口。
+  2. **抽屉遮罩**。抽屉打开时下面那层要能点走，并明确"现在是覆盖层"。
+  3. **抽屉开关**。宽屏下必须消失（侧栏本来就常驻，多一个按钮是噪音）。
+  4. **窄屏降弥散模糊**。设计令牌文档 §九 要求"移动端降 blur 80px / 90px"，
+     而 8 个原型里没有这条分断点覆盖 —— 原型只按桌面视口验收过。
+   ============================================================ */
+
+/* ---------- 1 · 窄屏抽屉 ---------- */
+
+/* 宽屏下两者都不存在：侧栏常驻，不需要开关；也不需要遮罩 */
+.workspace-scrim {
+  display: none;
+}
+
+/* 顶栏左侧那一组（窗口控制 + 抽屉开关 + 面包屑）。
+   必须包成一组：原型的 `.topbar` 是 space-between 且只有两个子元素，
+   多挂元素不分组的话，面包屑会被撒到顶栏正中间。 */
+.mw-root .topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ⚠️ 选择器要写成 `.mw-root .workspace-drawer-toggle`（0,2,0）。
+   写成单个类名（0,1,0）会被 `.mw-root .btn` 的 `display: inline-flex` 压过 ——
+   症状是**宽屏下顶栏里多出一个汉堡按钮**，而它看起来很像"设计就是这样"，
+   是一类不容易被当成 bug 的缺陷。 */
+.mw-root .workspace-drawer-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* ⚠️ 选择器写成 `.app > .sidebar`（多一节）而不是 `.sidebar`：
+     原型的 `display: none` 是 `.mw-root .sidebar`（特异性 0,2,0），
+     同特异性下谁生效取决于**导入顺序**这一条隐含前提。
+     多挂一节 `.app` 把特异性抬到 0,3,0，就不再依赖顺序了。 */
+  .mw-root .app > .sidebar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 240px;
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    /* 抽屉浮在内容之上，必须自带底衬：`.sidebar` 自己的 α 只有 .66，
+       底下透出的会是正文而不是极光。 */
+    background: var(--mw-bg-page);
+    box-shadow: none;
+  }
+
+  .mw-root .app > .sidebar.is-open {
+    transform: translateX(0);
+    box-shadow: 0 12px 48px rgba(15, 23, 42, 0.28);
+  }
+
+  .mw-root .workspace-scrim.is-open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(15, 23, 42, 0.3);
+    backdrop-filter: blur(3px);
+  }
+
+  /* 抽屉里的菜单项要能被手指按住 —— 原型是鼠标尺寸的 9px 内边距 */
+  .mw-root .app > .sidebar .menu-item {
+    padding: 12px;
+  }
+
+  .mw-root .workspace-drawer-toggle {
+    display: inline-flex;
+    /* 抽屉开关是窄屏唯一入口，做成 38px 的方块，与右侧主题开关同高 */
+    height: 34px;
+    padding: 0 10px;
+    font-size: 15px;
+    line-height: 1;
+  }
+}
+
+/* 抽屉打开时，顶栏里的开关与面包屑要让位给遮罩 —— 遮罩 z-index 55 > 顶栏。
+   这里不是"藏起来"，只是保证抽屉本身（60）在遮罩之上。 */
+
+/* ============================================================
+   2 · 项目列表页缺的那一小块
+   ------------------------------------------------------------
+   原型里**没有列表页**（`design/project/project_index.html` 是单项目工作区），
+   所以这一页的视觉是"参考原型"而不是"照搬"：其余部分全部复用生成的那套类名
+   （`.ov-kpi` / `.toolbar` / `.seg` / `.card` / `.task-row` / `.kanban`），
+   只有下面三样是生成物里确实没有的：
+
+     · 项目卡的栅格（原型只有两列的 `.ov-grid`，装不下 N 个项目）
+     · 搜索框与下拉（`projects` 模块没有 `.form-input` —— 它的原型没有表单弹窗）
+
+   判据：**能用已有类名拼出来的，就不要新写样式**。新写的每一条都是将来要单独维护的。
+   ============================================================ */
+
+.mw-root .proj-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+/* 卡片本身沿用 `.card`，这里只补"它是一张可点的卡"这件事 */
+.mw-root .proj-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.mw-root .proj-card .ov-card-head {
+  margin-bottom: 0;
+}
+
+.mw-root .proj-card .task-row-sub {
+  margin-bottom: 0;
+}
+
+/* 搜索框与下拉：与各模块的 `.form-input` 同一套观感（描边 + 卡片底色 + 圆角 10），
+   只是 scope 落在内核上 —— 这一页属于 projects 模块，而 projects 没有表单样式。 */
+.mw-root .proj-input {
+  border: 1px solid var(--mw-border-subtle);
+  background: var(--mw-bg-card);
+  color: var(--mw-text-primary);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  min-width: 0;
+}
+
+.mw-root input.proj-input {
+  flex: 1 1 220px;
+}
+
+.mw-root .proj-input:focus {
+  outline: none;
+  border-color: var(--mw-m-main);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mw-m-main) 18%, transparent);
+}
+
+.mw-root .proj-input::placeholder {
+  color: var(--mw-text-muted);
+}
+
+/* 工具栏在窄屏要能换行 —— 三个控件 + 视图切换横排会溢出 */
+.mw-root .toolbar {
+  flex-wrap: wrap;
+}
+
+/* ---------- 4 · 窄屏降弥散模糊（设计令牌 §九） ---------- */
+
+/* 文档 §九：「移动端降 blur 80px / 90px」。原型里没有这条分断点覆盖（静态页只按桌面视口
+   验收过），所以它是"应用级补充"，放这一层而不是生成物里。
+   ⚠️ **只动 --mw-blob-blur**：三个色团各是 480~560px 的圆，110/130px 的模糊在窄屏上
+      每帧都要重算一大片，是移动端最贵的一项。
+   ⚠️ 卡片自身那支 `--mw-blur-card` **不动**：它决定"能不能读出玻璃"，
+      降下来会改变观感，而 §九 给的两个数（80/90）是色团尺度的。
+   ⚠️ 选择器与 module-workspace.css 里那两个**完全一致**，靠"本文件在后面导入"取胜
+      （同特异性、后到者赢）。改导入顺序会让这条静默失效。 */
+@media (max-width: 768px) {
+  html:not([data-theme='dark']) {
+    --mw-blob-blur: 80px;
+  }
+  html[data-theme='dark'] {
+    --mw-blob-blur: 90px;
+  }
+}

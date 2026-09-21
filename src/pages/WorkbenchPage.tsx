@@ -18,12 +18,34 @@ import { toast } from '../stores/toast-store'
 import { useWorkbenchStore } from '../stores/workbench-store'
 
 /**
- * 已经落地的模块主页面。只有它才真的跳转，其余给一条"未实现"提示 ——
- * `ENTER` 里的路由取自 `docs/模块设计.md`，但**文档写了不等于代码里有**：
- * 直接跳过去会撞到 catch-all 路由，用户看到的是"页面跳没了"，
- * 比当场说"还没做"难懂得多。
+ * 已经落地的模块主页面。
+ *
+ * 从「只有 /projects 一个」扩到「八个模块全部落地」之后，判定方式也跟着变了 ——
+ * 不再是"路径在白名单里"，而是"**前缀**在白名单里"：每个模块都有自己的子路由
+ * （`/life/habits`、`/settings/appearance`…），而 `ENTER` 里给的是模块根路径，
+ * 两者必须都能进。
+ *
+ * ⚠️ 已知漂移（**未修**，改动会牵动生成器三方）：`ENTER` 里「任务清单」与「日程」
+ * 的目标是 `/work/tasks`、`/work/calendar`（依据 `docs/模块设计.md`：它们在文档里是
+ * 工作模块内的页面）。而新建的 8 个原型把两者提升成了**顶层页面**（`/tasks`、`/calendar`）。
+ * 于是从环上进「任务清单」会落到「工作 / 任务」那个 Tab 上 —— 是个真页面，只是不是同一处。
+ * 事实源在 `design/gen-modules.mjs` 的 `ENTER`，改动要连带重跑 `run-gen.mjs`
+ * 与 `export-workbench-content.mjs`，且工作台这一版已定「不动」，所以留到统一那一轮。
  */
-const IMPLEMENTED_PATHS = new Set(['/projects'])
+const IMPLEMENTED_PREFIXES = [
+  '/tasks',
+  '/calendar',
+  '/life',
+  '/work',
+  '/learning',
+  '/projects',
+  '/knowledge',
+  '/settings',
+]
+
+function isImplementedPath(path: string): boolean {
+  return IMPLEMENTED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+}
 
 /** 助手栏状态行的口径：与工作台摘要同源 —— 项目数取 PROJECTS，任务数取聚合值，不另算一套 */
 const RAIL_STATUS = `已接入 ${PROJECTS.length} 个项目 · ${WORKBENCH_AGG.TASKS.total} 条任务`
@@ -67,7 +89,7 @@ export function WorkbenchPage() {
      同一个元素承担两个语义的前提是它们在操作链上相邻：选模块 → 进模块。 */
   function enterModule(target: typeof module) {
     if (target.enter.self) return
-    if (IMPLEMENTED_PATHS.has(target.enter.path)) {
+    if (isImplementedPath(target.enter.path)) {
       navigate(target.enter.path)
       return
     }
@@ -123,7 +145,7 @@ export function WorkbenchPage() {
               </div>
 
               {/* 今日焦点：数据全部由 projects.ts 派生 */}
-              <section className="g g3 g--refr min-w-0 flex-1 self-stretch rounded-2xl border border-line p-4 max-[1240px]:w-full">
+              <section className="wb-card min-w-0 flex-1 self-stretch p-4 max-[1240px]:w-full">
                 <div className="flex items-baseline gap-2">
                   <h2 className="text-13-5 font-bold text-ink-900">今日焦点</h2>
                   <span className="text-11-5 font-medium text-ink-400">

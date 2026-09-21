@@ -63,19 +63,26 @@ const { Scanner } = await import(resolveFromPnpm('@tailwindcss/oxide', 'index.js
 
 const rawTokens = await readFile(TOKENS, 'utf8')
 
-/* ⚠️ 编译给**原型**的那份入口要先把这两行 `@import` 摘掉。
+/* ⚠️ 编译给**原型**的那份入口要先把这几行 `@import` 摘掉。
    ----------------------------------------------------------------------------
    `src/styles/index.css` 现在是**应用**的样式入口，它除了 Tailwind 之外还拉进
-   `prism.css` 与 `workbench-hero.css`（应用需要它们）。
+   `prism.css` / `workbench-hero.css` / `module-workspace.css` / `workspace-shell.css`
+   （应用需要它们）。
    而这个脚本把 index.css 编译成 `style#lucky-y-tw` 内联进原型 ——
-   原型**已经**分别内联了这两份（`style#lucky-y-prism` 与它自带的 `lucky-y-tw-hero` 块）。
+   原型**已经**分别内联了这些（`style#lucky-y-prism` 与它自带的 `lucky-y-tw-hero` 块，
+   9 个模块页各自内联了自己那份 CSS）。
    不摘的话，同一份令牌与同一套 hero 几何会在页面里出现**两遍**：
    体积翻倍之外，`@property` 与同特异性规则**重复注册**还会让过渡行为变得不可预期。
 
    判据：这里要的是"**应用的布局工具类**"，不是"应用完整的样式入口"。
-   ⚠️ 两行都必须真的在 —— 找不到就报错，别让"哪天改了导入写法、摘不掉了"
+   ⚠️ 每一行都必须真的在 —— 找不到就报错，别让"哪天改了导入写法、摘不掉了"
       变成静默地把 CSS 内联两遍。 */
-const STRIP = ["@import './prism.css';", "@import './workbench-hero.css';"]
+const STRIP = [
+  "@import './prism.css';",
+  "@import './workbench-hero.css';",
+  "@import './module-workspace.css';",
+  "@import './workspace-shell.css';",
+]
 for (const line of STRIP) {
   if (!rawTokens.includes(line)) {
     throw new Error(`src/styles/index.css 里找不到 ${line} —— 导入写法变了，build-css 的摘除逻辑要跟着改`)

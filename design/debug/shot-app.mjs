@@ -16,8 +16,16 @@
    用法：
      node design/debug/shot-app.mjs --out /tmp/a.png [--theme dark] [--glass quiet]
                                     [--series tasks] [--size 1440x900] [--probe file.js]
+                                    [--hash /life] [--dump]
    --probe 会在页面里注入一段脚本（读计算值用），它**不参与**业务逻辑。
-*/
+   --dump 不写图片，而是把渲染后的 DOM 打到 stdout。
+
+   ⚠️ 为什么要有一个 --dump 模式：截图依赖 Chrome 能把 png 写进磁盘，
+      而这件事在受限环境里会**静默失败**（Chrome 退出码 0、只有一堆
+      CVDisplayLink 警告，文件根本不出现）。DOM dump 走的是 stdout，
+      不走文件写入 —— 于是"页面到底渲染出了什么"仍然可验。
+      它验的是**内容与结构**（某段文案在不在、渲染了几个节点），
+      验不了观感；观感仍然要靠人眼或能出图的环境。 */
 import fs from 'node:fs'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -40,6 +48,13 @@ const GLASS = arg('glass', 'strong')
 const SERIES = arg('series', '')
 const SIZE = arg('size', '1440x900')
 const PROBE = arg('probe', '')
+/* `--hash` 用来直接落到某个路由（`--hash /life`）。
+   模块工作区的 8 个页面都是独立路由，而 HashRouter 读的就是地址栏的 hash ——
+   所以最省事、也最"走页面自己的入口"的做法是把 hash 拼进 target，
+   而不是在页面里改 DOM 或 store。 */
+const HASH = arg('hash', '')
+/** `--dump`：只把渲染后的 DOM 打出来，不写图片（受限环境里截图会静默失败） */
+const DUMP = process.argv.includes('--dump')
 
 if (!fs.existsSync(path.join(DIST, 'index.html'))) {
   console.error('✗ 找不到 dist/index.html —— 先跑 vite build')
@@ -113,7 +128,32 @@ if (SERIES) {
 fs.writeFileSync(page, html)
 
 const [w, h] = SIZE.split('x')
-const target = `http://127.0.0.1:${PORT}/__shot.html`
+const target = `http://127.0.0.1:${PORT}/__shot.html` + (HASH ? `#${HASH}` : '')
+
+/* --dump：不截图，把渲染后的 DOM 打到 stdout（见文件头的说明） */
+if (DUMP) {
+  const dumped = spawnSync(
+    CHROME,
+    [
+      '--headless=new',
+      '--disable-gpu',
+      '--no-sandbox',
+      '--hide-scrollbars',
+      `--virtual-time-budget=${SERIES ? 7000 : 4000}`,
+      `--window-size=${w},${h}`,
+      '--dump-dom',
+      target,
+    ],
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+  )
+  const dom = dumped.stdout || ''
+  if (!dom) {
+    console.error('✗ DOM 取不到：' + (dumped.stderr || '').slice(0, 300))
+    process.exit(1)
+  }
+  process.stdout.write(dom)
+  process.exit(0)
+}
 /* ⚠️ `--virtual-time-budget` **只能出现一次**：给两个时 Chrome 取先出现的那个，
    于是"切模块"多要的那段时间根本没生效 —— 截出来仍是切换前的画面，
    而画面看起来完全正常（就是个首页），最容易误判成"点击没生效"。 */
