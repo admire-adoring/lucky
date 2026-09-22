@@ -55,6 +55,9 @@ const PROBE = arg('probe', '')
 const HASH = arg('hash', '')
 /** `--dump`：只把渲染后的 DOM 打出来，不写图片（受限环境里截图会静默失败） */
 const DUMP = process.argv.includes('--dump')
+/** `--print`：把渲染结果打成 PDF（本环境下 `--screenshot` 会**静默不落盘**，见文件头）。
+ *  PDF 可以再 `sips -s format png` 转成图看 —— 这是"真的看一眼"的退路。 */
+const PRINT = process.argv.includes('--print')
 
 if (!fs.existsSync(path.join(DIST, 'index.html'))) {
   console.error('✗ 找不到 dist/index.html —— 先跑 vite build')
@@ -80,6 +83,40 @@ if (GLASS !== 'strong') {
 /* 3) 可选的读值探针 */
 if (PROBE) {
   html = html.replace('</body>', `<script>${fs.readFileSync(PROBE, 'utf8')}\n</script>\n</body>`)
+}
+
+/* 3b) `--print`：本环境下唯一**能看到画面**的通道（见文件头）。
+     两处注入缺一不可，都是"PDF 通道与截图通道的差别"：
+
+     ① `@page { size: WxH; margin: 0 }` —— 打印时的布局宽度取**纸张**，
+        不是 `--window-size`。不写这一条会按 Letter（8.5in ≈ 816px）排版，
+        于是"1440 的图"其实是一张 **≤768 的窄屏图**：侧栏变抽屉（滑在屏幕外）、
+        右栏被 ≤1200 收掉、顶栏文字全收成图标 —— 看起来像"三栏全没了"。
+
+     ② `animation: none` —— 消息与思考卡挂着 `animation: ai-msg-in .3s ease backwards`，
+        而 **backwards 的语义是"动画开始前用 from 那一帧"**（opacity: 0）。
+        打印通道不做合成帧 ⇒ 动画永远停在开始前 ⇒ **整片消息区是空的**。
+        `animation: none` 不是"把动画关掉看静态版"，而是让 fill-mode 不再生效，
+        元素回到它自己的正常外观。`transition: none` 同理（抽屉/浮层的终态要立刻读到）。
+     ⚠️ 这一条与 `read-probe.mjs` 里"不要读动画驱动的 opacity"是同一件事的两面：
+        那边是"别信它"，这边是"绕开它"。
+
+     ③ **但这条通道有个已实测的怪癖：它出的是「窄屏版」。**
+        实测方式：注入一个 `html::after` 徽标，按 1200 / 768 两个断点改文案，
+        再以 `@page size:1440px 900px` 出 PDF —— 徽标读到的是 **W<=768**，
+        而**版面本身是按 1440 铺的**（顶栏胶囊占满整宽、面板通栏）。
+        也就是说打印时"布局宽度"与"媒体查询求值用的视口"是两个数。
+        后果：侧栏走 ≤768 的抽屉分支（`translateX(-100%)`，看不见）、
+        右栏被收掉、顶栏文字收成图标、汉堡出现 —— 看起来像"三栏全没了"，
+        实际是这一档**本来就应该长这样**。
+        ⇒ 要用它看**宽屏三栏**是做不到的；要看宽屏请用 `--dump --probe`（读计算值）。
+          但要人眼过一遍**窄屏布局**，它是本环境里唯一的通道。 */
+if (PRINT) {
+  html = html.replace(
+    '</head>',
+    `<style>@page{size:${SIZE.replace('x', 'px ')}px;margin:0}` +
+      `*,*::before,*::after{animation:none !important;transition:none !important}</style></head>`,
+  )
 }
 
 /* 4) 产物路径。**先别写盘** —— 后面还有两处注入（玻璃档位已在上面、切模块在下面），
@@ -158,6 +195,30 @@ if (DUMP) {
    于是"切模块"多要的那段时间根本没生效 —— 截出来仍是切换前的画面，
    而画面看起来完全正常（就是个首页），最容易误判成"点击没生效"。 */
 const budget = SERIES ? 7000 : 4000
+const CHROME_ARGS = [
+  '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
+  '--force-device-scale-factor=1', '--allow-file-access-from-files',
+  `--virtual-time-budget=${budget}`, `--window-size=${w},${h}`,
+]
+
+if (PRINT) {
+  /* PDF 通道。`--no-pdf-header-footer` 去掉页眉页脚（否则会多出 URL 与日期两条）。 */
+  const out = `${OUT}.pdf`
+  const r = spawnSync(
+    CHROME,
+    [...CHROME_ARGS, '--no-pdf-header-footer', `--print-to-pdf=${out}`, target],
+    { encoding: 'utf8' },
+  )
+  if (!fs.existsSync(out)) {
+    console.error('✗ 出 PDF 失败：' + (r.stderr || '').slice(0, 300))
+    process.exit(1)
+  }
+  const size = fs.statSync(out).size
+  console.log(`✓ ${out}（${(size / 1024 / 1024).toFixed(1)} MB · ${SIZE} · ${THEME}/${GLASS}${SERIES ? ' · ' + SERIES : ''}）`)
+  console.log(`  看图：sips -s format png --resampleWidth ${w} ${out} --out ${OUT}-p1.png`)
+  process.exit(0)
+}
+
 const r = spawnSync(CHROME, [
   '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
   '--force-device-scale-factor=1', '--allow-file-access-from-files',

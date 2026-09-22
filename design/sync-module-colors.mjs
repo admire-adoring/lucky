@@ -1,38 +1,44 @@
 #!/usr/bin/env node
 /* ============================================================================
-   把「9 个原型」里的模块色表抽出来，同步进 Prism 的两份落点。
+   模块色表：**唯一事实源 = `design/design-tokens/design-tokens.md`**，
+   由本脚本同步进两份代码侧落点。
    ----------------------------------------------------------------------------
-   **为什么要这一步**：应用里同一个模块名有**两套完全不同的颜色** ——
+   **为什么要这一步**：应用里同一个模块名曾经有**两套完全不同的颜色** ——
      工作台（Prism）任务清单是粉 `250 59 138`，模块页（原型）任务清单是琥珀 `#F59E0B`。
    于是「在环上点任务清单 → 整页变粉 → 进去是琥珀」，中间断了一刀。
-   事实源应该是**原型**（模块页已经按它落地了），所以改 Prism 去对齐它，不是反过来。
 
-   两样原值就够了，其余六支由 prism-derive-colors.mjs 反解（它自己的头注释写着这条）：
-     ① 强调色  --s-<模块>          ← 原型 :root 的 --s-<模块>
-     ② 亮色色团 --a-<模块>-1/2/3    ← 原型 :root 的 --a-<模块>-1/2/3
-   另外取原型 `.dark` 里的 --a-<模块>-1/2/3 当**暗色色团**：
-   原型的暗色弥散就是拿它们铺的（`--m1/2/3` 指向它们，`--blob-opacity` 0.26）。
+   现在文档是唯一上游。从文档取四样原值（其余六支由 prism-derive-colors.mjs 反解）：
+     ① 亮色强调色  --s-<模块>          ← §一/§八  `.light.accent`
+     ② 亮色色团    --a-<模块>-1/2/3    ← §一/§八  `.light.rings`
+     ③ 暗色色团    --a-<模块>-1/2/3    ← §二/§八  `.dark.rings`
+     ④ 暗色强调色  --s-<模块>          ← §二/§八  `.dark.accent`（只用于漂移核对）
+
+   ⚠️ 为什么不再读 9 个原型（本脚本上一版就是这么做的）：
+      文档与原型是同一个色表的两次誊写，读哪个都能出对结果，但**只能有一个上游**。
+      原型是"文档的一种渲染"，不该反过来当事实源 —— 否则文档改了、原型没改，
+      代码就跟着旧的原型走，而文档变成一张没人执行的纸。
+      本脚本另出一份「原型 vs 文档」的漂移报告，把这件事摆到明面上。
 
    ⚠️ 为什么不把 9 行数字手抄进 prism-derive-colors.mjs：
-      这正是本次要修的病 —— 同一份"设计原值"存在两处、各自演化。
+      那正是这套机制要修的病 —— 同一份原值存在两处、各自演化。
       抄一次就一定会漂，而漂掉之后的症状是"某一页颜色不对"这种最难定位的观感问题。
-      所以原值表由本脚本**每次覆盖**地写，并且有 --check 门禁。
 
    用法：
-     node design/sync-module-colors.mjs            # 打印抽取结果
+     node design/sync-module-colors.mjs            # 打印抽取结果 + 原型漂移报告
      node design/sync-module-colors.mjs --write    # 写回两份落点
-     node design/sync-module-colors.mjs --check    # 校验两份落点与原型一致（门禁）
+     node design/sync-module-colors.mjs --check    # 校验两份落点与文档一致（门禁）
    ========================================================================= */
 
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readDesignTokens, MODULE_ORDER, DOC_PATH } from './lib/design-tokens-doc.mjs'
 
 const DIR = path.dirname(fileURLToPath(import.meta.url))
 const PROJECT = path.resolve(DIR, '..')
 
 /* ------------------------------------------------------------------ *
- * 1) 原型清单：键名 = Prism 的模块键（也是 data-series / data-module 的值）
+ * 1) 原型清单 —— 只用于「原型是否跟得上文档」的漂移报告，**不再是事实源**
  * ------------------------------------------------------------------ */
 
 /** 键 → 原型文件。dashboard 是工作台原型自己（环的中心那一格）。 */
@@ -68,7 +74,77 @@ const NAMES = {
 }
 
 /* ------------------------------------------------------------------ *
- * 2) 从原型里取原值
+ * 2) 从**文档**取原值（唯一上游）
+ *
+ * ⚠️ 辅助函数必须排在 `harvest()` 调用之前：`hexToRgb` 是 `const` 箭头函数，
+ *    不提升。放在后面会踩 TDZ（`Cannot access 'hexToRgb' before initialization`），
+ *    而报错信息指向 toTriplet，看着像"值解析坏了"。
+ * ------------------------------------------------------------------ */
+
+const hexToRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
+const rgbToHex = ([r, g, b]) =>
+  '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')
+
+/** 一支值既可能是 hex 也可能是 RGB 三元组 —— 统一成三元组，省得下游各解各的。 */
+function toTriplet(value, where, name) {
+  const v = value.trim()
+  if (v.startsWith('#')) {
+    if (!/^#[0-9a-fA-F]{6}$/.test(v)) throw new Error(`${where} 的 ${name} 不是 6 位 hex：${v}`)
+    return { hex: v, rgb: hexToRgb(v) }
+  }
+  const parts = v.split(/\s+/).map(Number)
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) {
+    throw new Error(`${where} 的 ${name} 既不是 hex 也不是 RGB 三元组：${v}`)
+  }
+  return { hex: rgbToHex(parts), rgb: parts }
+}
+
+function harvest() {
+  const doc = readDesignTokens()
+  const out = []
+  const problems = []
+
+  for (const key of MODULE_ORDER) {
+    const L = doc.modules.light[key]
+    const D = doc.modules.dark[key]
+    if (!L || !D) {
+      problems.push(`${key}: 文档里缺亮色或暗色模块色`)
+      continue
+    }
+    if (!NAMES[key]) {
+      problems.push(`${key}: NAMES 里没有色系名 —— 加模块时要显式取一个名字，不要回落成"未命名"`)
+      continue
+    }
+    out.push({
+      key,
+      name: NAMES[key],
+      s: toTriplet(L.accent, `doc §一 ${key}`, `--s-${key}`),
+      ring: L.rings.map((v, i) => toTriplet(v, `doc §一 ${key}`, `--a-${key}-${i + 1}`)),
+      dk: D.rings.map((v, i) => toTriplet(v, `doc §二 ${key}`, `--a-${key}-${i + 1}`)),
+      sDark: toTriplet(D.accent, `doc §二 ${key}`, `--s-${key}`),
+    })
+  }
+  if (out.length !== MODULE_ORDER.length) problems.push(`只抽到 ${out.length}/${MODULE_ORDER.length} 个模块`)
+  for (const k of Object.keys(NAMES)) {
+    if (!MODULE_ORDER.includes(k)) problems.push(`${k}: NAMES 里有、文档 §一 里没有 —— 文档删了模块？`)
+  }
+  if (problems.length) {
+    console.error('✗ 从文档抽取色表失败：')
+    for (const p of problems) console.error('   ' + p)
+    process.exit(1)
+  }
+  return out
+}
+
+const MODULES = harvest()
+
+/* ------------------------------------------------------------------ *
+ * 2b) 原型漂移报告：原型是不是还跟得上文档
+ *
+ * 判据：**原型是文档的一种渲染，不是事实源**。所以漂移不阻断代码同步，
+ * 但它意味着"打开原型看到的那一页已经不是文档描述的那一页"——
+ * 这种静默偏差正是当初"工作台点任务清单变粉、进去是琥珀"的成因，
+ * 所以必须打出来，只是不该由门禁替人决定要不要改原型。
  * ------------------------------------------------------------------ */
 
 /** 取出 <style> 正文（原型都是单文件自包含）。 */
@@ -76,6 +152,40 @@ function styleOf(html) {
   const m = /<style[^>]*>([\s\S]*?)<\/style>/.exec(html)
   if (!m) throw new Error('原型里没有 <style> 块')
   return m[1]
+}
+
+function prototypeDrift() {
+  const rows = []
+  for (const [key, file] of Object.entries(PROTOTYPES)) {
+    const full = path.join(DIR, file)
+    if (!fs.existsSync(full)) {
+      rows.push({ key, file, note: '找不到文件' })
+      continue
+    }
+    let css
+    try {
+      css = styleOf(fs.readFileSync(full, 'utf8'))
+    } catch (e) {
+      rows.push({ key, file, note: e.message })
+      continue
+    }
+    const light = declsIn(css, ':root')
+    const dark = declsIn(css, '.dark')
+    const want = MODULES.find((m) => m.key === key)
+    if (!want) continue
+    const diffs = []
+    const cmp = (label, got, expect) => {
+      if (got === undefined) return diffs.push(`${label} 缺`)
+      const g = toTriplet(got, `${file}`, label)
+      if (g.hex.toLowerCase() !== expect.hex.toLowerCase()) diffs.push(`${label} ${g.hex} ≠ ${expect.hex}`)
+    }
+    cmp(`--s-${key}`, light.get(`--s-${key}`), want.s)
+    want.ring.forEach((r, i) => cmp(`--a-${key}-${i + 1}`, light.get(`--a-${key}-${i + 1}`), r))
+    want.dk.forEach((d, i) => cmp(`--a-${key}-${i + 1}(dark)`, dark.get(`--a-${key}-${i + 1}`), d))
+    if (!dark.size) diffs.push('没有 .dark 块')
+    rows.push({ key, file, diffs })
+  }
+  return rows
 }
 
 /**
@@ -108,89 +218,29 @@ function declsIn(css, selector) {
   return out
 }
 
-const hexToRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
-const rgbToHex = ([r, g, b]) =>
-  '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')
-
-/** 一支值既可能是 hex 也可能是 RGB 三元组 —— 统一成三元组，省得下游各解各的。 */
-function toTriplet(value, where, name) {
-  const v = value.trim()
-  if (v.startsWith('#')) {
-    if (!/^#[0-9a-fA-F]{6}$/.test(v)) throw new Error(`${where} 的 ${name} 不是 6 位 hex：${v}`)
-    return { hex: v, rgb: hexToRgb(v) }
-  }
-  const parts = v.split(/\s+/).map(Number)
-  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) {
-    throw new Error(`${where} 的 ${name} 既不是 hex 也不是 RGB 三元组：${v}`)
-  }
-  return { hex: rgbToHex(parts), rgb: parts }
-}
-
-function harvest() {
-  const out = []
-  const problems = []
-  for (const [key, file] of Object.entries(PROTOTYPES)) {
-    const full = path.join(DIR, file)
-    if (!fs.existsSync(full)) {
-      problems.push(`${key}: 找不到原型 ${file}`)
-      continue
-    }
-    const css = styleOf(fs.readFileSync(full, 'utf8'))
-    const light = declsIn(css, ':root')
-    const dark = declsIn(css, '.dark')
-    if (!dark.size) problems.push(`${key}: 原型里没有 .dark 块（暗色色团取不到）`)
-
-    const need = (map, name, scope) => {
-      const v = map.get(name)
-      if (v === undefined) problems.push(`${key}: ${scope} 里没有 ${name}`)
-      return v
-    }
-    const sLight = need(light, `--s-${key}`, ':root')
-    const aLight = [1, 2, 3].map((i) => need(light, `--a-${key}-${i}`, ':root'))
-    const aDark = [1, 2, 3].map((i) => need(dark, `--a-${key}-${i}`, '.dark'))
-    if ([sLight, ...aLight, ...aDark].some((v) => v === undefined)) continue
-
-    out.push({
-      key,
-      name: NAMES[key],
-      file,
-      s: toTriplet(sLight, `${key} :root`, `--s-${key}`),
-      ring: aLight.map((v, i) => toTriplet(v, `${key} :root`, `--a-${key}-${i + 1}`)),
-      dk: aDark.map((v, i) => toTriplet(v, `${key} .dark`, `--a-${key}-${i + 1}`)),
-    })
-  }
-  for (const k of Object.keys(NAMES)) {
-    if (!out.some((m) => m.key === k)) problems.push(`${k}: 没有抽到（色系名有、原型没有？）`)
-    else if (!NAMES[k]) problems.push(`${k}: NAMES 里没有色系名 —— 加模块时要显式取一个名字，不要回落成"未命名"`)
-  }
-  if (problems.length) {
-    console.error('✗ 抽取原型色表失败：')
-    for (const p of problems) console.error('   ' + p)
-    process.exit(1)
-  }
-  return out
-}
-
 /* ------------------------------------------------------------------ *
- * 3) 两份落点的写法
+/* ------------------------------------------------------------------ *
+ * 3) 落点的写法
  * ------------------------------------------------------------------ */
 
-const MODULES = harvest()
+/** 打印时 hex 一律大写，与文档里的写法一致（文档 §一/§二 用的是大写）。 */
+const up = (h) => h.toUpperCase()
 
 /* ---- 3a) prism-derive-colors.mjs 的原值表 ---- */
-const D_START = '/* @from-prototypes:start */'
-const D_END = '/* @from-prototypes:end */'
+const D_START = '/* @from-design-tokens:start */'
+const D_END = '/* @from-design-tokens:end */'
 
 function emitDeriveBlock() {
   const L = []
   L.push(D_START)
   L.push('/* ---------- 设计原值（**生成物**，不要手改）----------')
-  L.push('   由 design/sync-module-colors.mjs 从 9 个原型抽取：')
-  L.push('     s      ← 原型 :root 的 --s-<模块>')
-  L.push('     ring   ← 原型 :root 的 --a-<模块>-1/2/3（亮色色团）')
-  L.push('     dk     ← 原型 .dark 的 --a-<模块>-1/2/3（暗色色团，原型的暗色弥散就用它们铺）')
-  L.push('   改色只改原型，然后 `node design/sync-module-colors.mjs --write`。')
-  L.push('   --check 会拦住"改了原型忘了同步"和"两边各自演化"这两种漂移。 */')
+  L.push('   由 design/sync-module-colors.mjs 从**唯一事实源**抽取：')
+  L.push('     design/design-tokens/design-tokens.md')
+  L.push('     s      ← §一/§八 的 --s-<模块>（亮色强调色）')
+  L.push('     ring   ← §一/§八 的 --a-<模块>-1/2/3（亮色色团）')
+  L.push('     dk     ← §二/§八 的 --a-<模块>-1/2/3（暗色色团）')
+  L.push('   改色只改那份文档，然后 `node design/sync-module-colors.mjs --write`。')
+  L.push('   --check 会拦住"改了文档忘了同步"这种漂移。 */')
   L.push('const MODULES = [')
   for (const m of MODULES) {
     L.push(
@@ -202,40 +252,6 @@ function emitDeriveBlock() {
   }
   L.push(']')
   L.push(D_END)
-  return L.join('\n')
-}
-
-/* ---- 3b) DESIGN_TOKENS.md §2.7 的两张表 ---- */
-const M_START = '<!-- @from-prototypes:start -->'
-const M_END = '<!-- @from-prototypes:end -->'
-
-/** 表格里 hex 一律大写，与规范文档其余部分一致 */
-const up = (h) => h.toUpperCase()
-
-function emitDocTables() {
-  const L = []
-  L.push(M_START)
-  L.push('')
-  L.push('两样原值：亮色色团 `--a-<模块>-1/2/3`（hex）与强调色 `--s-<模块>` —— 其余六支由 `prism-derive-colors.mjs` 反解：')
-  L.push('')
-  L.push('| 色系 | 键 | 色团1 | 色团2 | 色团3 | 强调色 `--s-*` | 原型 |')
-  L.push('|---|---|---|---|---|---|---|')
-  for (const m of MODULES) {
-    L.push(
-      `| ${m.name} | \`${m.key}\` | \`${up(m.ring[0].hex)}\` | \`${up(m.ring[1].hex)}\` | ` +
-        `\`${up(m.ring[2].hex)}\` | \`${m.s.rgb.join(' ')}\` | \`design/${m.file}\` |`,
-    )
-  }
-  L.push('')
-  L.push('暗色色团（`--m-dk-1/2/3`，RGB 三元组）—— 取原型 `.dark` 的色团，原型的暗色弥散就用它们铺：')
-  L.push('')
-  L.push('| 模块 | 色团1 | 色团2 | 色团3 |')
-  L.push('|---|---|---|---|')
-  for (const m of MODULES) {
-    L.push(`| \`${m.key}\` | \`${m.dk[0].rgb.join(' ')}\` | \`${m.dk[1].rgb.join(' ')}\` | \`${m.dk[2].rgb.join(' ')}\` |`)
-  }
-  L.push('')
-  L.push(M_END)
   return L.join('\n')
 }
 
@@ -257,13 +273,6 @@ const TARGETS = [
     build: emitDeriveBlock,
     label: 'prism-derive-colors.mjs',
   },
-  {
-    file: path.join(DIR, 'DESIGN_TOKENS.md'),
-    start: M_START,
-    end: M_END,
-    build: emitDocTables,
-    label: 'DESIGN_TOKENS.md',
-  },
 ]
 
 const mode = process.argv[2] ?? '--report'
@@ -274,11 +283,11 @@ if (mode === '--check' || mode === '--write') {
     const src = fs.readFileSync(t.file, 'utf8')
     const next = replaceRegion(src, t.start, t.end, t.build(), t.label)
     if (next === src) {
-      console.log(`✓ ${t.label} 与原型一致`)
+      console.log(`✓ ${t.label} 与文档一致`)
       continue
     }
     if (mode === '--check') {
-      console.error(`✗ ${t.label} 与原型不一致 —— 重跑：node design/sync-module-colors.mjs --write`)
+      console.error(`✗ ${t.label} 与文档不一致 —— 重跑：node design/sync-module-colors.mjs --write`)
       bad++
     } else {
       fs.writeFileSync(t.file, next)
@@ -292,7 +301,7 @@ if (mode === '--check' || mode === '--write') {
 /* 默认：打印抽取结果 */
 {
   const pad = (s, n) => String(s).padEnd(n, ' ')
-  console.log('\n模块色表 · 从原型抽取\n')
+  console.log('\n模块色表 · 上游：design/design-tokens/design-tokens.md\n')
   console.log(pad('键', 11) + pad('色系', 10) + pad('强调色', 18) + pad('亮色团', 34) + '暗色团')
   console.log('-'.repeat(112))
   for (const m of MODULES) {
@@ -304,5 +313,14 @@ if (mode === '--check' || mode === '--write') {
         m.dk.map((d) => up(d.hex)).join(' '),
     )
   }
-  console.log(`\n共 ${MODULES.length} 套 · 原型清单见 PROTOTYPES · 加 --write 写回两份落点\n`)
+  console.log(`\n共 ${MODULES.length} 套 · 加 --write 写回落点\n`)
+
+  const drift = prototypeDrift()
+  const off = drift.filter((r) => r.note || (r.diffs && r.diffs.length))
+  if (!off.length) console.log('✓ 9 个原型与文档一致（原型是文档的一种渲染）')
+  else {
+    console.log('⚠️ 原型与文档的漂移 —— 原型是文档的一种渲染，不是事实源，所以这**不阻断**代码：')
+    for (const r of off) console.log('   ' + String(r.key).padEnd(10) + (r.note ?? r.diffs.join(' · ')))
+    console.log('   （要让原型重新等于文档，改原型；代码这边已经按文档走了）')
+  }
 }

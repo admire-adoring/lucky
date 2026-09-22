@@ -10,9 +10,10 @@ import type { WorkspaceModuleKey } from './types'
  * 只有「项目」是真的能跳的，其余点了弹"未实现"。这里是有序的九域导航，
  * 与工作台环上的九个模块、Prism 的九组模块色槽**同一套口径**。
  *
- * ⚠️ 「工作台」的 path 是 `/` —— 工作台不是「九个模块之一」，它是这张地图本身。
- *    原型里 9 个侧栏把它排在第 1 项，所以这里照排；但它的页面仍由工作台自己渲染
- *    （九宫环那套，见 pages/WorkbenchPage.tsx），不套这一层外壳。
+ * ⚠️ 「工作台」有自己的页面了（`/home`），**不再是 `/` 的一个别名**。
+ *    2026-09-22 把工作台也统一到侧栏那套外壳之后，它和其余八域一样有了分区
+ *    （今日概览 / 最近活动 / AI 简报），而分区必须能深链 —— 所以它需要一段自己的基路径。
+ *    `/` 仍然可用（重定向到 `/home`），老书签、以及 `EntryRedirect` 的落点都不受影响。
  */
 export interface NavItem {
   key: WorkspaceModuleKey
@@ -29,7 +30,7 @@ export const WORKSPACE_NAV: NavGroup[] = [
   {
     label: '全局层',
     items: [
-      { key: 'dashboard', label: '工作台', path: '/' },
+      { key: 'dashboard', label: '工作台', path: '/home' },
       { key: 'tasks', label: '任务清单', path: '/tasks' },
       { key: 'calendar', label: '日程', path: '/calendar' },
     ],
@@ -52,7 +53,7 @@ export const WORKSPACE_NAV_FLAT: NavItem[] = WORKSPACE_NAV.flatMap((group) => gr
 
 /** 每个模块的路由前缀 —— 与 `docs/模块设计.md` 的路由口径一致。 */
 export const MODULE_BASE_PATH: Record<WorkspaceModuleKey, string> = {
-  dashboard: '/',
+  dashboard: '/home',
   tasks: '/tasks',
   calendar: '/calendar',
   life: '/life',

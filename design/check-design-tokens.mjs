@@ -1,116 +1,73 @@
 #!/usr/bin/env node
 /* ============================================================================
-   设计令牌一致性门禁：`design/design-tokens/design-tokens.md` ↔ 代码里的实际取值。
+   设计令牌一致性门禁：`design/design-tokens/design-tokens.md` ↔ 代码。
    ----------------------------------------------------------------------------
-   为什么需要它：这份文档是**新外壳的令牌规范**，而代码里同时存在三套东西 ——
-     ① `--mw-*`（模块工作区层，从 8 个原型生成）
-     ② Prism（`--s-*` / `--r-*` / `--t-*` / `--dur-*` / `--g-*`，工作台那条链路）
-     ③ Tailwind `@theme`（`index.css`）
-   "文档写 14px、代码是 13.5px" 这种漂移**不报错**，只会让两页"差一点点"。
-   所以逐项比出来，不靠人记。
+   这份文档是**唯一事实源**。所以本门禁的口径不是"抽几条比一比"，而是：
 
-   ## 判定分三类（判据都实测过，不是分类癖）
+     **文档 §八 列出的每一支变量，都必须在代码里有唯一归属，且取值一致。**
 
-   | 类别 | 含义 | 现在有哪些 |
+   归属由 `design/sync-design-tokens.mjs` 的映射表声明（谁产出 `--mw-*`、
+   谁产出 `--radius-*`……），本门禁**独立复核**那张表 —— 两个脚本各查一遍，
+   是因为"映射表写漏一项"与"生成器没写盘"是两种不同的失效，症状却一样（某个令牌没有值）。
+
+   ## 判定分三种（判据都实测过，不是分类癖）
+
+   | 类别 | 含义 | 门禁行为 |
    | --- | --- | --- |
-   | **约束项** | 文档与代码必须一致；不一致就是缺陷 | 模块色（9×2×4）、中性/毛玻璃（14×2）、Prism 的 `--s-*`、组件尺寸 |
-   | **遗留刻度** | 文档规范的是新外壳，Prism 那套刻度与它**不是同一个东西** | `--t-*`（全仓库零引用，只有定义）、`--r-*`/`--dur-*`（只有 prism.css 内部用，命名也是另一套）、状态色（Prism 按实测底衬反解，是硬约束） |
-   | **未实现** | 文档有、代码里确实没有 | AI 令牌（工作台原型的 `.ai-*` 块尚未移植） |
+   | **约束项** | 文档与代码必须一致 | 不一致 = 缺陷，`--strict` 退出码 1 |
+   | **派生** | 文档给"设计色"，代码里那一支是**按对比度解出来的文字色** | 只登记原因，不判定 |
+   | **待办** | 文档给了角色/尺寸，代码里还没有对应的实现口径 | 打印**精确的**待办清单，不判定 |
 
-   ⚠️ "遗留刻度"只报告、不判定：要改是一次**口径选择**（谁是谁的事实源），
-      不该由门禁替人决定。它的价值是把差多少条摆出来。
+   ⚠️ "待办"这一类**不还给用户一个选择题**，而是把差多少、差在哪写清楚：
+      `字阶` 这一项实测的结论是"模块层完全符合文档、应用外壳整体低 0.5px"，
+      所以它是一条**可执行的待办**，而不是"要不要统一"的征询。
 
    用法：
      node design/check-design-tokens.mjs              # 打印全部
-     node design/check-design-tokens.mjs --strict     # 有约束项不一致则退出码 1（门禁用）
+     node design/check-design-tokens.mjs --strict     # 约束项或覆盖率不达标则退出码 1
      node design/check-design-tokens.mjs --only=✗     # 只看某一类判定
    ========================================================================= */
 
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = path.resolve(HERE, '..')
-const DOC = path.join(ROOT, 'design/design-tokens/design-tokens.md')
+import { readDesignTokens, REPO as ROOT } from './lib/design-tokens-doc.mjs'
 
 const argv = process.argv.slice(2)
 const only = (argv.find((a) => a.startsWith('--only=')) || '').slice(7)
 const strict = argv.includes('--strict')
 
 const BINDING = 'binding'
-const LEGACY = 'legacy'
-const GAP = 'gap'
+const DERIVED = 'derived'
+const TODO = 'todo'
+
+const doc = readDesignTokens()
 
 /* ------------------------------------------------------------------ *
- * 1) 读文档
+ * 1) 读代码
  * ------------------------------------------------------------------ */
 
-const doc = fs.readFileSync(DOC, 'utf8')
+const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8')
+const mwCss = read('src/styles/module-workspace.css')
+const prismCss = read('src/styles/prism.css')
+const idxCss = read('src/styles/index.css')
+const tokCss = read('src/styles/design-tokens.css')
+const shellCss = read('src/styles/workspace-shell.css')
 
-/** 从 ```css 变量汇总块里取 :root / .dark 两张表。 */
-function docVars() {
-  const fence = /```css\n([\s\S]*?)```/.exec(doc)
-  if (!fence) throw new Error('文档里找不到 ```css 变量汇总块')
-  const css = fence[1]
-  const out = { light: new Map(), dark: new Map() }
-  for (const [sel, key] of [
-    [':root', 'light'],
-    ['.dark', 'dark'],
-  ]) {
-    const m = new RegExp(`\\${sel}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm').exec(css)
-    if (!m) throw new Error(`文档的 CSS 块里找不到 ${sel}`)
-    for (const line of m[1].split('\n')) {
-      const text = line.replace(/\/\*[\s\S]*?\*\//g, '')
-      for (const decl of text.split(';')) {
-        const i = decl.indexOf(':')
-        if (i < 0) continue
-        const name = decl.slice(0, i).trim()
-        if (name.startsWith('--')) out[key].set(name, decl.slice(i + 1).trim())
-      }
-    }
-  }
-  return out
-}
-
-/** §1/§2 两张模块色表，按侧栏顺序映射到模块键。 */
-const MODULE_ORDER = ['dashboard', 'tasks', 'calendar', 'life', 'work', 'learning', 'projects', 'knowledge', 'settings']
-
-function docModules() {
-  const rows = [
-    ...doc.matchAll(
-      /^\| (?!模块|---)([^|]+) \| (`#[0-9A-Fa-f]{6}`) \| (`#[0-9A-Fa-f]{6}`) \| (`#[0-9A-Fa-f]{6}`) \| (`#[0-9A-Fa-f]{6}`) \|$/gm,
-    ),
-  ]
-  if (rows.length !== 18) throw new Error(`期望 18 行模块色（9 模块 × 2 模式），实际 ${rows.length}`)
-  const clean = (s) => s.replace(/`/g, '').toUpperCase()
-  const out = {}
-  MODULE_ORDER.forEach((key, i) => {
-    out[key] = {
-      light: { rings: [rows[i][2], rows[i][3], rows[i][4]].map(clean), accent: clean(rows[i][5]) },
-      dark: { rings: [rows[i + 9][2], rows[i + 9][3], rows[i + 9][4]].map(clean), accent: clean(rows[i + 9][5]) },
-    }
-  })
-  return out
-}
-
-const DV = docVars()
-const DM = docModules()
-
-/* ------------------------------------------------------------------ *
- * 2) 读代码
- * ------------------------------------------------------------------ */
-
-const mwCss = fs.readFileSync(path.join(ROOT, 'src/styles/module-workspace.css'), 'utf8')
-const prismCss = fs.readFileSync(path.join(ROOT, 'src/styles/prism.css'), 'utf8')
-const idxCss = fs.readFileSync(path.join(ROOT, 'src/styles/index.css'), 'utf8')
-
-/** 壳令牌：作用域已提到 <html>（工作台要读同一份材质）。 */
-function mwShell(scope) {
-  const sel = scope === 'light' ? `html:not([data-theme='dark']) {` : `html[data-theme='dark'] {`
-  const i = mwCss.indexOf(sel)
-  if (i < 0) throw new Error(`module-workspace.css 里找不到壳令牌块：${sel}`)
-  const body = mwCss.slice(i + sel.length, mwCss.indexOf('\n}', i))
+/** 取某个选择器块里的声明。块以 `\n}` 收尾（这几个文件都是这个写法）。 */
+function blockVars(css, selector) {
+  const i = css.indexOf(selector)
+  if (i < 0) return null
+  const raw = css.slice(i + selector.length, css.indexOf('\n}', i))
+  /* ⚠️ 注释必须在**切分之前**整段剥掉。只在值那一侧剥的话，
+     块内**第一条声明前的注释会粘到变量名上** —— 名字变成"注释正文紧跟着变量名"，
+     于是那条声明被静默跳过。
+     实测症状极具迷惑性：同一块里 warning/error/error/info 全过，**只有第一条报"缺失"**，
+     看着像"这个令牌真的没定义"（本次就是 --c-success 被这么吃掉的）。
+     ⚠️ 本条注释自己也是活教材：这里原本举了那个名字的字面量，而它自带注释收尾符，
+        把一个 JS 块注释**提前闭合**了 —— 同一个坑在 CSS 里吃掉过整块令牌，
+        在 JS 里直接变成 SyntaxError。所以一律用文字描述，不写字面量。 */
+  const body = raw.replace(/\/\*[\s\S]*?\*\//g, '')
   const out = new Map()
   for (const d of body.split(';')) {
     const c = d.indexOf(':')
@@ -121,189 +78,234 @@ function mwShell(scope) {
   return out
 }
 
-/** 模块色槽：`--mw-s-<key>` / `--mw-a-<key>-<n>`，两个主题各一张。 */
-function mwModules(scope) {
-  const re =
-    scope === 'light'
-      ? /html\[data-theme='light'\] \.mw-root,\n\.mw-root \{([\s\S]*?)\n\}/
-      : /html\[data-theme='dark'\] \.mw-root \{([\s\S]*?)\n\}/
-  const m = re.exec(mwCss)
-  if (!m) throw new Error(`找不到 ${scope} 的模块色块`)
-  const out = new Map()
-  for (const d of m[1].split(';')) {
-    const c = d.indexOf(':')
-    if (c < 0) continue
-    const n = d.slice(0, c).trim()
-    if (n.startsWith('--')) out.set(n, d.slice(c + 1).trim())
-  }
-  return out
+const MW = {
+  light: blockVars(mwCss, "html:not([data-theme='dark']) {"),
+  dark: blockVars(mwCss, "html[data-theme='dark'] {"),
 }
-
-function prismVars() {
+const MWA = {
+  light: blockVars(mwCss, "html[data-theme='light'] .mw-root,\n.mw-root {"),
+  dark: blockVars(mwCss, "html[data-theme='dark'] .mw-root {"),
+}
+const TOK = {
+  root: blockVars(tokCss, ':root {'),
+  light: blockVars(tokCss, "html:not([data-theme='dark']) {"),
+  dark: blockVars(tokCss, "html[data-theme='dark'] {"),
+}
+const PZ = (() => {
   const out = new Map()
   for (const m of prismCss.matchAll(/^\s*(--[\w-]+)\s*:\s*([^;]+);/gm)) if (!out.has(m[1])) out.set(m[1], m[2].trim())
   return out
-}
-
-const MW = { light: mwShell('light'), dark: mwShell('dark') }
-const MWA = { light: mwModules('light'), dark: mwModules('dark') }
-const PZ = prismVars()
-
-/* ------------------------------------------------------------------ *
- * 3) 比对
- * ------------------------------------------------------------------ */
+})()
 
 const rows = []
 const add = (what, docVal, codeVal, bucket = BINDING, note = '') => {
-  const verdict = codeVal === undefined ? '⬜' : docVal === codeVal ? '✓' : '✗'
+  const verdict = codeVal === undefined || codeVal === null ? '⬜' : docVal === codeVal ? '✓' : '✗'
   rows.push({ what, docVal, codeVal: codeVal ?? '(无)', verdict, bucket, note })
 }
 
 const hexToTriplet = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(' ')
-
-/* ---- 3a) 模块色（约束项）：与模块层 --mw，以及 Prism --s 都比一遍 ---- */
-for (const key of MODULE_ORDER) {
-  for (const scope of ['light', 'dark']) {
-    const d = DM[key][scope]
-    for (let n = 1; n <= 3; n++) add(`模块色 ${scope} ${key} 色团${n}`, d.rings[n - 1], MWA[scope].get(`--mw-a-${key}-${n}`))
-    add(`模块色 ${scope} ${key} 强调色`, d.accent, MWA[scope].get(`--mw-s-${key}`))
-  }
-  add(`Prism --s-${key}（= 亮色强调色的三元组）`, hexToTriplet(DM[key].light.accent), PZ.get(`--s-${key}`))
-}
-
-/* ---- 3b) 中性／毛玻璃（约束项）：文档名 → --mw-<同名> ---- */
-for (const name of [
-  'bg-page',
-  'bg-card',
-  'bg-sidebar',
-  'bg-topbar',
-  'border-card',
-  'border-subtle',
-  'text-primary',
-  'text-secondary',
-  'text-muted',
-  'shadow-card',
-  'shadow-card-hover',
-  'blur-card',
-  'blob-opacity',
-  'blob-blur',
-]) {
-  for (const scope of ['light', 'dark']) {
-    add(`中性 ${scope} ${name}`, DV[scope].get(`--${name}`), MW[scope].get(`--mw-${name}`))
-  }
-}
-
-/* ---- 3c) 状态色（遗留刻度） ---- */
-for (const [docName, prismName] of Object.entries({ success: 'ok', warning: 'warn', error: 'bad', info: 'info' })) {
-  add(
-    `状态色 ${docName} ↔ Prism --${prismName}`,
-    DV.light.get(`--c-${docName}`),
-    PZ.get(`--${prismName}`),
-    LEGACY,
-    'Prism 的语义色按实测底衬反解，是硬约束；文档那组直接当文字会掉对比度',
-  )
-}
-
-/* ---- 3d) 圆角 / 动效（遗留刻度）---- */
-for (const r of ['sm', 'md', 'lg', 'xl', 'pill']) {
-  add(`圆角 --radius-${r}`, DV.light.get(`--radius-${r}`), PZ.get(`--r-${r}`), LEGACY, 'Prism 是另一套命名（xs/sm/ctl/panel/card）')
-}
-for (const [docKey, prismKey] of [
-  ['fast', '--dur-fast'],
-  ['base', '--dur'],
-  ['slow', '--dur-slow'],
-]) {
-  add(`动效 --transition-${docKey}`, DV.light.get(`--transition-${docKey}`), PZ.get(prismKey), LEGACY, '只有 prism.css 内部消费')
-}
-
-/* ---- 3e) 字阶（遗留刻度）：文档在 §四的正文表格里 ---- */
-const typeScale = (() => {
-  const m = /## 四、字体与间距令牌([\s\S]*?)\n## /.exec(doc)
-  if (!m) throw new Error('文档里找不到 §四')
-  const out = new Map()
-  for (const r of m[1].matchAll(/^\| ([^|]+) \| ([^|]+) \|$/gm)) {
-    const px = /(\d+(?:\.\d+)?)px/.exec(r[2])
-    if (px) out.set(r[1].trim(), px[1] + 'px')
-  }
-  return out
-})()
-for (const [label, prismKey] of [
-  ['主文字', '--t-base'],
-  ['次文字', '--t-sm'],
-  ['弱文字', '--t-meta'],
-  ['标题 H1', '--t-2xl'],
-  ['标题 H2', '--t-xl'],
-  ['卡片标题', '--t-xs'],
-  ['统计数字', '--t-2xl'],
-]) {
-  add(
-    `字阶 ${label} ↔ Prism ${prismKey}`,
-    typeScale.get(label),
-    PZ.get(prismKey),
-    LEGACY,
-    'Prism 的 --t-* 全仓库零引用（只有定义），实际字阶走 Tailwind @theme 的细刻度',
-  )
-}
-
-/* ---- 3f) AI 令牌（未实现）---- */
-const appCss = mwCss + prismCss + idxCss
-add('AI 图标 #8B5CF6', '#8B5CF6', appCss.toUpperCase().includes('#8B5CF6') ? '#8B5CF6' : undefined, GAP, '工作台原型的 .ai-* 块尚未移植')
-add('AI 渐变 #6366F1→#8B5CF6→#A855F7', 'linear-gradient(135deg,…)', appCss.includes('#A855F7') ? 'linear-gradient(135deg,…)' : undefined, GAP, '同上')
-add('AI 边框 rgba(139,92,246,0.3)', 'rgba(139,92,246,0.3)', /139\s*,\s*92\s*,\s*246/.test(appCss) ? 'rgba(139,92,246,0.3)' : undefined, GAP, '同上')
-
-/* ---- 3g) 组件尺寸（约束项）：查应用真正在用的 CSS，不查原型 ----
-   ⚠️ 这类项"文档给的是描述、代码给的是实现"，判定只有**有没有**两种，
-      不能用值比较 —— 那会把"存在"判成"不一致"（第一版就是这么错的）。
-   ⚠️ 别要求 `.mw-root ` 前缀：非内核的规则会被收进 `[data-module='x']`
-      （`.form-input` / `.switch` / `.progress-bar` 都是），带前缀就一条都匹配不到。 */
-const shellCss = fs.readFileSync(path.join(ROOT, 'src/styles/workspace-shell.css'), 'utf8')
-const inApp = (re) => re.test(mwCss) || re.test(shellCss)
-const present = (what, where, ok, note = '') => {
-  rows.push({
-    what,
-    docVal: where,
-    codeVal: ok ? '代码里存在' : '(无)',
-    verdict: ok ? '✓' : '⬜',
-    bucket: BINDING,
-    note,
-  })
-}
-present('输入框圆角 10px', '文档 §七', inApp(/\.form-input,[^{]*\{[^}]*border-radius:\s*10px/))
-present('弹窗遮罩 rgba(15,23,42,0.35) + blur(8px)', '文档 §七', inApp(/rgba\(15,23,42,0\.35\)[^}]*blur\(8px\)/))
-present('标签/开关 pill 圆角 999px', '文档 §七', inApp(/border-radius:\s*999px/))
-present('分割线 1px solid var(--mw-border-subtle)', '文档 §七', inApp(/1px solid var\(--mw-border-subtle\)/))
-present('开关 44×24', '文档 §七', inApp(/\.switch\s*\{[^}]*width:\s*44px[^}]*height:\s*24px/))
-present('进度条高 6px', '文档 §七', inApp(/\.progress-bar\s*\{[^}]*height:\s*6px/))
-present(
-  '移动端降 blur（80px / 90px）',
-  '文档 §九',
-  inApp(/--mw-blob-blur:\s*(80|90)px/),
-  '原型里没有这条分断点覆盖，属于应用级补充',
-)
+const MODULES = Object.keys(doc.modules.light)
 
 /* ------------------------------------------------------------------ *
- * 4) 输出
+ * 2) 覆盖率：§八 的每一支变量都要有归属
+ *
+ * 归属表与 sync-design-tokens.mjs 里那张是**各自独立写的** ——
+ * 两边都声明"这一支归谁"，对不上就说明有人漏了。
+ * ------------------------------------------------------------------ */
+
+const HOME = (name) => {
+  // 14 支中性/毛玻璃 → module-workspace.css 的 --mw-<同名>
+  if (/^--(bg|border|text|shadow|blur|blob)-/.test(name)) return { where: 'mw', key: `--mw-${name.slice(2)}` }
+  // 36 支模块色 → --mw-a-* / --mw-s-*
+  const m = /^--(a-[a-z]+-\d|s-[a-z]+)$/.exec(name)
+  if (m) return { where: 'mw-accent', key: `--mw-${name.slice(2)}` }
+  // 本文件产出的那批
+  if (/^--(c-|radius-|transition-)/.test(name) || name === '--grad-ai') return { where: 'tok', key: name }
+  return null
+}
+
+const uncovered = []
+for (const name of doc.vars.light.keys()) {
+  const home = HOME(name)
+  if (!home) {
+    uncovered.push(name)
+    continue
+  }
+  const got =
+    home.where === 'mw'
+      ? (MW.light.get(home.key) ?? MW.dark.get(home.key))
+      : home.where === 'mw-accent'
+        ? (MWA.light.get(home.key) ?? MWA.dark.get(home.key))
+        : (TOK.light.get(home.key) ?? TOK.dark.get(home.key) ?? TOK.root.get(home.key))
+  add(`§八 ${name} → ${home.key}`, doc.vars.light.get(name), got)
+}
+
+/* ------------------------------------------------------------------ *
+ * 3) 模块色：与 Prism 的三元组也比一遍
+ * ------------------------------------------------------------------ */
+
+for (const key of MODULES) {
+  for (const scope of ['light', 'dark']) {
+    const d = doc.modules[scope][key]
+    d.rings.forEach((hex, i) => add(`模块色 ${scope} ${key} 色团${i + 1}`, hex, MWA[scope].get(`--mw-a-${key}-${i + 1}`)))
+    add(`模块色 ${scope} ${key} 强调色`, d.accent, MWA[scope].get(`--mw-s-${key}`))
+  }
+  add(`Prism --s-${key}（亮色强调色的三元组）`, hexToTriplet(doc.modules.light[key].accent), PZ.get(`--s-${key}`))
+}
+
+/* ------------------------------------------------------------------ *
+ * 4) 派生项：登记原因，不判定
+ *
+ * 文档 §一 4 的状态色是**设计色**（徽标底/图标/边框那类面积）；
+ * Prism 的 --ok/--warn/--bad/--info 是**按实测底衬反解出的文字色**
+ * （同一色族的两端：亮色主题取深档、暗色主题取浅档）。
+ * 文档 §九 自己写着「文字对比度 ≥ 4.5:1」—— 所以文字**不能**直接用 500 号设计色，
+ * 两组值不合并是有依据的，不是没做完。
+ * ------------------------------------------------------------------ */
+
+for (const [label, prismKey] of [
+  ['成功', '--ok'],
+  ['警告', '--warn'],
+  ['错误', '--bad'],
+  ['信息', '--info'],
+]) {
+  const k = { 成功: 'success', 警告: 'warning', 错误: 'error', 信息: 'info' }[label]
+  rows.push({
+    what: `状态色 ${k}：设计色 --c-${k} / 文字色 Prism ${prismKey}`,
+    docVal: `--c-${k} = ${doc.vars.light.get(`--c-${k}`)}`,
+    codeVal: TOK.light.has(`--c-${k}`) && PZ.has(prismKey) ? `两者都在（${TOK.light.get(`--c-${k}`)} / ${PZ.get(prismKey)}）` : '(缺)',
+    verdict: TOK.light.has(`--c-${k}`) && PZ.has(prismKey) ? '✓' : '✗',
+    bucket: DERIVED,
+    note: '文字色由 prism-derive-colors.mjs 反解，与设计色**不合并**',
+  })
+}
+
+/* ------------------------------------------------------------------ *
+ * 5) 待办：文档给了角色/尺寸，代码里还没有对应实现
+ * ------------------------------------------------------------------ */
+
+/* 5a) 字阶。文档 §四 给的是**角色**（主/次/弱/H1/H2/卡片标题/统计），
+   代码里两处实现：模块层（从原型生成）和应用外壳（Tailwind text-* 细刻度）。
+   实测结论：模块层与文档一致，外壳整体低 0.5px。 */
+{
+  const roleSize = new Map()
+  for (const t of doc.typography) {
+    const m = /(\d+(?:\.\d+)?)px/.exec(t.value)
+    if (m) roleSize.set(t.name, m[1] + 'px')
+  }
+  const fontCount = (px) => (mwCss.match(new RegExp(`font-size:\\s*${px}`, 'g')) || []).length
+
+  const walk = (d, o = []) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name)
+      if (e.isDirectory()) walk(p, o)
+      else if (e.name.endsWith('.tsx')) o.push(p)
+    }
+    return o
+  }
+  const shellFiles = walk(path.join(ROOT, 'src')).filter((f) => !/pages\/workspace\//.test(f))
+  const used = {}
+  for (const f of shellFiles) {
+    for (const m of fs.readFileSync(f, 'utf8').matchAll(/\btext-(\d+(?:-\d+)?)\b/g)) {
+      used[m[1]] = (used[m[1]] || 0) + 1
+    }
+  }
+  const asPx = (k) => Number(k.replace('-', '.'))
+
+  for (const [role, prismNote] of [
+    ['主文字', '正文'],
+    ['次文字', '次要'],
+    ['弱文字', '元信息'],
+  ]) {
+    const want = roleSize.get(role)
+    if (!want) continue
+    const target = parseFloat(want)
+    const exact = used[String(target)] || 0
+    const half = used[String(target).replace('.', '-') + '-5'] || used[`${target}-5`] || 0
+    const offHalf = used[`${target - 0.5}`.replace('.', '-')] || 0
+    rows.push({
+      what: `字阶 ${role}（文档 ${want}）`,
+      docVal: `模块层 ${fontCount(want)} 处`,
+      codeVal: `外壳：text-${target} ${exact} 处 · 低 0.5px 的相邻档 ${offHalf} 处`,
+      verdict: fontCount(want) > 0 ? '✓' : '⬜',
+      bucket: TODO,
+      note: `模块层已符合文档；应用外壳那一套细刻度（${Object.entries(used).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `text-${k}×${v}`).join(' ')}…）里存在低 0.5px 的同名档`,
+    })
+  }
+  const shellTotal = Object.values(used).reduce((a, b) => a + b, 0)
+  const halfTotal = Object.entries(used)
+    .filter(([k]) => k.includes('-'))
+    .reduce((a, [, v]) => a + v, 0)
+  rows.push({
+    what: '字阶 应用外壳的细刻度',
+    docVal: '文档只给 6 个具名角色（弱12/次13/主14/H2 18/H1 22/统计24）',
+    codeVal: `外壳共用 ${shellTotal} 处 text-*，其中带 .5 的 ${halfTotal} 处`,
+    verdict: halfTotal ? '⬜' : '✓',
+    bucket: TODO,
+    note: '要对齐得逐处判断"这一处是哪个角色" —— 机械替换会把徽标/标签一起放大，所以留在待办里',
+  })
+}
+
+/* 5b) 动效与布局：文档 §五/§六 的值必须能在代码里找到 */
+for (const [label, re, where] of [
+  ['色团漂移 22s ease-in-out infinite alternate', /22s\s+ease-in-out/, '文档 §五'],
+  ['进度条 0.4s ease', /0\.4s\s+ease/, '文档 §五'],
+  ['悬停位移 -1px / -2px', /translateY\(-?[12]px\)/, '文档 §五'],
+  ['尊重 prefers-reduced-motion', /prefers-reduced-motion:\s*reduce/, '文档 §五'],
+  ['侧边栏宽 220px', /\b220px\b/, '文档 §六'],
+  ['顶部栏高 56px', /--mw-topbar-h:\s*56px|height:\s*56px/, '文档 §六'],
+  ['移动断点 768px', /max-width:\s*768px/, '文档 §六'],
+]) {
+  const found = [mwCss, prismCss, shellCss, idxCss].some((s) => re.test(s))
+  rows.push({
+    what: label,
+    docVal: where,
+    codeVal: found ? '代码里存在' : '(无)',
+    verdict: found ? '✓' : '⬜',
+    bucket: found ? BINDING : TODO,
+  })
+}
+
+/* 5c) 组件尺寸（文档 §七）：只判"有没有"，不能用值比较 ——
+   文档给的是描述、代码给的是实现，一比就把"存在"判成"不一致"。 */
+const APP = [mwCss, shellCss, prismCss]
+const inApp = (re) => APP.some((s) => re.test(s))
+for (const [label, re] of [
+  ['输入框圆角 10px', /\.form-input,[^{]*\{[^}]*border-radius:\s*10px/],
+  ['弹窗遮罩 rgba(15,23,42,0.35) + blur(8px)', /rgba\(15,\s*23,\s*42,\s*0?\.35\)[^}]*blur\(8px\)/],
+  ['标签/开关 pill 圆角 999px', /border-radius:\s*999px/],
+  ['分割线 1px solid var(--mw-border-subtle)', /1px solid var\(--mw-border-subtle\)/],
+  ['开关 44×24', /\.switch\s*\{[^}]*width:\s*44px[^}]*height:\s*24px/],
+  ['进度条高 6px', /\.progress-bar\s*\{[^}]*height:\s*6px/],
+  ['移动端降 blur 80px / 90px', /--mw-blob-blur:\s*(80|90)px/],
+]) {
+  const found = inApp(re)
+  rows.push({ what: label, docVal: '文档 §七/§九', codeVal: found ? '代码里存在' : '(无)', verdict: found ? '✓' : '⬜', bucket: BINDING })
+}
+
+/* ------------------------------------------------------------------ *
+ * 6) 输出
  * ------------------------------------------------------------------ */
 
 const pad = (s, n) => {
   const w = [...String(s)].reduce((a, c) => a + (c.charCodeAt(0) > 127 ? 2 : 1), 0)
   return String(s) + ' '.repeat(Math.max(0, n - w))
 }
-const table = (list) => {
-  console.log(pad('判定', 6) + pad('令牌', 46) + pad('文档', 30) + '代码')
-  console.log('-'.repeat(120))
+function table(list) {
+  console.log(pad('判定', 5) + pad('项', 52) + pad('文档', 34) + '代码')
+  console.log('-'.repeat(132))
   for (const r of list) {
-    console.log(
-      pad(r.verdict, 6) + pad(r.what, 46) + pad(r.docVal ?? '(文档无)', 30) + r.codeVal + (r.note ? `   ← ${r.note}` : ''),
-    )
+    console.log(pad(r.verdict, 5) + pad(r.what, 52) + pad(r.docVal ?? '(文档无)', 34) + r.codeVal + (r.note ? `\n      ← ${r.note}` : ''))
   }
 }
 
 console.log('\n设计令牌一致性（design-tokens.md ↔ 代码）\n')
+console.log(`上游：${path.relative(ROOT, doc.path)} · §八 变量 ${doc.vars.light.size} 支 · 正文表格 9 张\n`)
+
 for (const [bucket, title] of [
   [BINDING, '约束项（不一致 = 缺陷）'],
-  [LEGACY, '遗留刻度（Prism 那套，只报告、不判定）'],
-  [GAP, '未实现（文档有、代码没有）'],
+  [DERIVED, '派生（文档给设计色，代码里那一支按对比度反解 —— 只登记原因）'],
+  [TODO, '待办（文档给了口径、代码还没跟上 —— 打印精确清单，不判定）'],
 ]) {
   const list = rows.filter((r) => r.bucket === bucket && (!only || r.verdict === only))
   if (!list.length) continue
@@ -312,16 +314,25 @@ for (const [bucket, title] of [
   console.log('')
 }
 
-const n = (v, bucket) => rows.filter((r) => r.verdict === v && (!bucket || r.bucket === bucket)).length
-const bindBad = rows.filter((r) => r.bucket === BINDING && r.verdict !== '✓')
+const bind = rows.filter((r) => r.bucket === BINDING)
+const bindBad = bind.filter((r) => r.verdict !== '✓')
+const n = (v, bucket) => rows.filter((r) => (!bucket || r.bucket === bucket) && r.verdict === v).length
 console.log(
   `合计 ${rows.length} 项：✓ ${n('✓')} · ✗ ${n('✗')} · ⬜ ${n('⬜')}\n` +
-    `其中**约束项**：✓ ${rows.filter((r) => r.bucket === BINDING).length - bindBad.length} / ${rows.filter((r) => r.bucket === BINDING).length}` +
-    ` · 遗留刻度 ${rows.filter((r) => r.bucket === LEGACY).length} 项 · 未实现 ${rows.filter((r) => r.bucket === GAP).length} 项\n`,
+    `约束项 ${bind.length - bindBad.length} / ${bind.length} · 派生 ${rows.filter((r) => r.bucket === DERIVED).length}` +
+    ` · 待办 ${rows.filter((r) => r.bucket === TODO).length}\n` +
+    `§八 覆盖率：${doc.vars.light.size - uncovered.length} / ${doc.vars.light.size}` +
+    (uncovered.length ? `（未覆盖：${uncovered.join(' ')}）` : '') +
+    '\n',
 )
 
-if (strict && bindBad.length) {
-  console.error(`✗ 约束项里有 ${bindBad.length} 项与文档不一致：`)
-  for (const r of bindBad) console.error(`   ${r.verdict} ${r.what}：文档 ${r.docVal} / 代码 ${r.codeVal}`)
-  process.exit(1)
+if (strict) {
+  const problems = []
+  if (uncovered.length) problems.push(`§八 有 ${uncovered.length} 支变量没有归属：${uncovered.join(' ')}`)
+  for (const r of bindBad) problems.push(`${r.verdict} ${r.what}：文档 ${r.docVal} / 代码 ${r.codeVal}`)
+  if (problems.length) {
+    console.error('✗ 门禁不通过：')
+    for (const p of problems) console.error('   ' + p)
+    process.exit(1)
+  }
 }

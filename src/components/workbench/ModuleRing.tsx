@@ -46,7 +46,14 @@ const PETAL_PATH = (() => {
  *  旋转写在 `transform` 属性上，不进 `d` —— 与生成器一致。 */
 const spikePath = (len: number, half: number) => `M50 50 L${50 - half} 50 L50 ${50 - len} L${50 + half} 50 Z`
 
-function Compass() {
+/**
+ * 罗盘 —— 表盘内的花瓣花环 + 八芒星。
+ *
+ * ⚠️ **导出**（不只是本文件内部用）：侧栏环形导航（`components/shell/RingNav`）
+ *    复用同一份罗盘。它是**一件资产**，不是"两个环各自的装饰"——
+ *    两处各画一份，下次调花瓣数量就得记得改两处（而且看起来只有一处会生效）。
+ */
+export function Compass() {
   const spikes: Array<{ len: number; half: number; rot: number; main: boolean }> = [
     { len: 24, half: 3.6, rot: 0, main: true },
     ...[90, 180, 270].map((rot) => ({ len: 21, half: 3.2, rot, main: false })),
@@ -111,7 +118,9 @@ export function ModuleRing({ modules, current, onSelect, onEnter }: ModuleRingPr
       aria-label="模块切换"
       style={{ ['--na' as string]: `${pointerAngle}deg` }}
     >
-      <span className="hub-aura" aria-hidden="true" />
+      {/* 光晕（hub-aura）**已撤掉**（用户 2026-09-21：「不要渐变了，就正常的白色就行」）——
+          它是一圈「中心偏白 + 外圈强调色」的径向渐变，白底上要么看不见、要么把底重新染回去。
+          判据与恢复参数见 workbench-hero.css 里那段同名注释。 */}
       <i className="hub-ripple" aria-hidden="true" />
 
       {/* 门：表盘 + 中心名 = 进入当前模块的主页面。

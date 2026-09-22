@@ -76,7 +76,13 @@ const rawTokens = await readFile(TOKENS, 'utf8')
 
    判据：这里要的是"**应用的布局工具类**"，不是"应用完整的样式入口"。
    ⚠️ 每一行都必须真的在 —— 找不到就报错，别让"哪天改了导入写法、摘不掉了"
-      变成静默地把 CSS 内联两遍。 */
+      变成静默地把 CSS 内联两遍。
+
+   ⚠️ `./design-tokens.css` **刻意不在这张表里**。判据是"这个文件在原型里有没有第二份副本"：
+      上面四个都有（原型各自内联了 prism / hero / 模块页 CSS），
+      而 design-tokens.css 没有 —— 摘掉它，原型就丢了 `--radius-*` / `--c-*` / `--grad-ai`，
+      而 `rounded-sm`(75) / `rounded-xl`(73) 会**静默**回落到 Tailwind 默认值（4px / 12px）。
+      留着让编译器内联进来，正好排在 prism 之前，`var(--r-ctl)` 这类引用也能解析。 */
 const STRIP = [
   "@import './prism.css';",
   "@import './workbench-hero.css';",

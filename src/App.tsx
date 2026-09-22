@@ -12,9 +12,10 @@ import { ProjectsWorkspace } from './pages/workspace/ProjectsWorkspace'
 import { SettingsWorkspace } from './pages/workspace/SettingsWorkspace'
 import { TasksWorkspace } from './pages/workspace/TasksWorkspace'
 import { WorkWorkspace } from './pages/workspace/WorkWorkspace'
+import { AiAssistantPage } from './pages/AiAssistantPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProjectsListPage } from './pages/workspace/ProjectsListPage'
-import { WorkbenchPage } from './pages/WorkbenchPage'
+import { DashboardWorkspace } from './pages/workspace/DashboardWorkspace'
 import { useAuthStore } from './stores/auth-store'
 
 /** 未登录时回落到登录页；登录态持久化在 localStorage */
@@ -40,6 +41,17 @@ function EntryRedirect() {
  * 两条具名路由没有这个歧义，代价只是多一行。
  */
 const WORKSPACE_ROUTES: { path: string; element: ReactNode }[] = [
+  /**
+   * 工作台。**它现在也是一个 `WorkspacePageKey` 之外的"域"** ——
+   * 2026-09-22 统一到侧栏那套外壳之后，它有了自己的基路径 `/home` 与三个分区
+   * （今日概览 / 最近活动 / AI 简报）。`/` 仍然可用，只是重定向到这里（见下面那条路由）。
+   *
+   * ⚠️ 为什么必须给它一段真路径、而不是把分区做成页内状态：
+   *    其余八域的分区都是路由（`/life/habits` 这类），深链、后退键、以及"从别处跳进某个分区"
+   *    三件事同时成立。工作台要是例外，`useModuleTab` 那套约定就得开一个口子。
+   */
+  { path: '/home', element: <DashboardWorkspace /> },
+  { path: '/home/:tab', element: <DashboardWorkspace /> },
   { path: '/tasks', element: <TasksWorkspace /> },
   { path: '/tasks/:tab', element: <TasksWorkspace /> },
   { path: '/calendar', element: <CalendarWorkspace /> },
@@ -82,22 +94,36 @@ export function App() {
         <IconSprite />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          {/* 工作台 = 首页。它是"九个模块的地图"，所以**不是** `/projects` 的别名 ——
-              项目只是九个菜单域之一，进项目的路径是环上那枚「项目」+ 中心的门。
-              ⚠️ 工作台**不套**模块工作区外壳（它是全屏的地图页，自成一体的版式）。 */}
-          <Route
-            path="/"
-            element={
-              <RequireAuth>
-                <WorkbenchPage />
-              </RequireAuth>
-            }
-          />
+          {/* 工作台 = 首页。它现在是**九个域之一**（`/home`），与其余八域共用同一套外壳；
+              以前它是"自成一体的全屏页"，那一版的 `WorkbenchPage.tsx` 仍在仓库里但已无路由指向。
+              ⚠️ `/` 只做重定向：老书签、以及下面 `EntryRedirect` 的落点都还指着它。
+                 直接让 `/` 渲染工作台的话，工作台就会有两段可用的地址（`/` 与 `/home`），
+                 "第一个分区用裸路径"那条约定会变得含糊。 */}
+          <Route path="/" element={<Navigate to="/home" replace />} />
           <Route
             path="/projects"
             element={
               <RequireAuth>
                 <ProjectsListPage />
+              </RequireAuth>
+            }
+          />
+          {/*
+            AI 助手（`/ai`）—— 一个**独立页面，不是第十个域**。
+            ⚠️ 它不进 `WORKSPACE_ROUTES`：那张表的每一项都对应九域之一，
+               `module` 会被拿去查 `MODULE_BASE_PATH` / `navLabel` / 环上的图标，
+               而 AI 助手是跨域的（读全部项目与任务），没有"属于自己的分区"。
+               塞进去会让 `useModuleTab` 拿一个不存在的模块去算默认 Tab。
+
+            ⚠️ 它**仍然在 RequireAuth 之内**：这一页要读登录态的称呼，
+               而且它与九域共用顶栏 —— 未登录时顶栏的账户入口会指向一个空用户。
+               让登录页之外的任何页面在未登录时可达，都是把"登录"这道门说成可选的。
+          */}
+          <Route
+            path="/ai"
+            element={
+              <RequireAuth>
+                <AiAssistantPage />
               </RequireAuth>
             }
           />

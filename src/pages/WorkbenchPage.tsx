@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AccountMenu } from '../components/layout/AccountMenu'
 import { SearchField } from '../components/layout/SearchField'
 import { ThemeToggle } from '../components/layout/ThemeToggle'
 import { Topbar } from '../components/layout/Topbar'
 import { WindowControls } from '../components/layout/WindowControls'
+import { CommandPalette, moduleTargets, useCommandHotkey } from '../components/shell/CommandPalette'
 import { BrandMark } from '../components/ui/BrandMark'
 import { IconButton } from '../components/ui/IconButton'
 import { AssistantRail } from '../components/workbench/AssistantRail'
@@ -14,6 +15,7 @@ import { Tile } from '../components/workbench/Tile'
 import { PROJECTS } from '../data/projects'
 import { getModule, WORKBENCH_AGG, WORKBENCH_MODULES_LIST } from '../data/workbench'
 import { useDocumentTitle } from '../hooks/use-document-title'
+import { useRecentsStore } from '../stores/recents-store'
 import { toast } from '../stores/toast-store'
 import { useWorkbenchStore } from '../stores/workbench-store'
 
@@ -65,6 +67,35 @@ export function WorkbenchPage() {
   const setSeries = useWorkbenchStore((state) => state.setSeries)
   const railCollapsed = useWorkbenchStore((state) => state.railCollapsed)
   const toggleRail = useWorkbenchStore((state) => state.toggleRail)
+
+  const [commandOpen, setCommandOpen] = useState(false)
+  const record = useRecentsStore((state) => state.record)
+
+  /**
+   * ⌘K = 打开跳转面板 —— **与模块工作区那套外壳同一个含义**。
+   *
+   * 这里以前是"⌘K 聚焦顶栏那个搜索框"，而模块页的 ⌘K 是"打开跳转面板"：
+   * 同一个组合键在两个页面做两件不同的事。原型自己的口径是统一的
+   * （顶栏搜索按钮的 `title` 写「搜索 ⌘K」、点了却 `openCmd()`）——
+   * **⌘K 属于"跳转"，搜索是面板内部的一件事**。所以让出快捷键的是 `SearchField`，
+   * 不是这里。
+   *
+   * ⚠️ 两个都挂 `window` 的监听器同时存在时**不是"后者覆盖前者"**：两个都会跑。
+   *    所以这不是"顺手加一个"，必须先解掉 `SearchField` 那一处（已解）。
+   */
+  useCommandHotkey(() => setCommandOpen((open) => !open))
+
+  /**
+   * 工作台也记一条「最近」。
+   *
+   * 不记的话，侧栏那个槽里永远不会出现**访问最多的一页** ——
+   * 而"最近去过哪儿"这件事本来就该把首页算进去。
+   * 记的是地址栏的真实路径（`/`），不是拼出来的；`series` 是**状态不是路由**，
+   * 所以九个系列共用这一条、不会刷出九条同名记录。
+   */
+  useEffect(() => {
+    record('/', '工作台')
+  }, [record])
 
   const module = getModule(series)
   useDocumentTitle(`${module.label} · Lucky-Y`)
@@ -184,6 +215,20 @@ export function WorkbenchPage() {
           collapsed={railCollapsed}
           onToggle={toggleRail}
           statusLine={RAIL_STATUS}
+        />
+      </div>
+
+      {/* 跳转面板（⌘K）。
+          ⚠️ 它必须包在一个 `.sb-root` 里 —— 那套 `.cmd-*` 样式收在 `.sb-root` 作用域下
+          （见 `sidebar-shell.css` 的生成规则）。**不要给工作台的根节点挂 `.sb-root`**：
+          那会连带激活整个外壳层的规则，而工作台的版式与模块页是两套（见 MEMORY 里那条
+          「只撞一个 `.rail` 就足以否决整条路」）。包一层 div 是**最窄的作用面**：
+          面板是 `position: fixed`，这个 div 自己不参与工作台的任何布局。 */}
+      <div className="sb-root">
+        <CommandPalette
+          open={commandOpen}
+          onClose={() => setCommandOpen(false)}
+          targets={moduleTargets()}
         />
       </div>
     </div>

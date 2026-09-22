@@ -27,38 +27,38 @@
       workbench-hero.css 里那个 .rail 是助手栏，与 modules 的里程碑轨道同名不同物。
       这些只是自定义属性、不产生任何选择器效果，放开作用域不会影响别的页面。 ---------- */
 html:not([data-theme='dark']) {
-  --mw-bg-page: #FAFBFC;
+  --mw-bg-page: #F7F8FA;
   --mw-bg-card: rgba(255,255,255,0.62);
-  --mw-bg-sidebar: rgba(255,255,255,0.66);
-  --mw-bg-topbar: rgba(255,255,255,0.66);
+  --mw-bg-sidebar: rgba(255,255,255,0.72);
+  --mw-bg-topbar: rgba(255,255,255,0.72);
   --mw-border-card: rgba(255,255,255,0.7);
-  --mw-border-subtle: rgba(15,23,42,0.06);
-  --mw-text-primary: #1E293B;
+  --mw-border-subtle: rgba(15,23,42,0.07);
+  --mw-text-primary: #0F172A;
   --mw-text-secondary: #64748B;
   --mw-text-muted: #94A3B8;
-  --mw-shadow-card: 0 4px 24px rgba(15,23,42,0.06);
+  --mw-shadow-card: 0 4px 24px rgba(15,23,42,0.05);
   --mw-shadow-card-hover: 0 8px 32px rgba(15,23,42,0.10);
-  --mw-blur-card: blur(24px) saturate(160%);
+  --mw-blur-card: blur(24px) saturate(180%);
   --mw-blob-opacity: 0.38;
-  --mw-blob-blur: 110px;
+  --mw-blob-blur: 120px;
 }
 
 /* ---------- §2 壳令牌 · 暗色（14 个，由 html[data-theme='dark'] 驱动，不是 .dark 类） ---------- */
 html[data-theme='dark'] {
-  --mw-bg-page: #0F172A;
-  --mw-bg-card: rgba(30,41,59,0.55);
-  --mw-bg-sidebar: rgba(15,23,42,0.7);
-  --mw-bg-topbar: rgba(15,23,42,0.7);
+  --mw-bg-page: #0A0F1C;
+  --mw-bg-card: rgba(30,41,59,0.5);
+  --mw-bg-sidebar: rgba(15,23,42,0.78);
+  --mw-bg-topbar: rgba(15,23,42,0.78);
   --mw-border-card: rgba(255,255,255,0.08);
   --mw-border-subtle: rgba(255,255,255,0.06);
-  --mw-text-primary: #E2E8F0;
+  --mw-text-primary: #F1F5F9;
   --mw-text-secondary: #94A3B8;
   --mw-text-muted: #64748B;
   --mw-shadow-card: 0 4px 24px rgba(0,0,0,0.3);
   --mw-shadow-card-hover: 0 8px 32px rgba(0,0,0,0.4);
-  --mw-blur-card: blur(28px) saturate(140%);
-  --mw-blob-opacity: 0.26;
-  --mw-blob-blur: 130px;
+  --mw-blur-card: blur(28px) saturate(160%);
+  --mw-blob-opacity: 0.24;
+  --mw-blob-blur: 140px;
 }
 
 /* ---------- §3 模块色（9 组） ----------
@@ -160,8 +160,8 @@ html[data-theme='light'] .mw-root[data-module='projects'] {
   --mw-danger: #B91C1C;
   --mw-danger-bg: rgba(239,68,68,0.16);
   --mw-star: #D97706;
-  --mw-doc-deep: #C2410C;
-  --mw-note-deep: #1D4ED8;
+  --mw-gmap-doc: #C2410C;
+  --mw-gmap-note: #1D4ED8;
   --mw-gmap-core: rgba(255,255,255,0.78);
 }
 html[data-theme='dark'] .mw-root[data-module='projects'] {
@@ -179,6 +179,8 @@ html[data-theme='dark'] .mw-root[data-module='projects'] {
   --mw-danger-bg: rgba(239,68,68,0.22);
   --mw-star: #FBBF24;
   --mw-gmap-core: rgba(30,41,59,0.62);
+  --mw-gmap-doc: #FB923C;
+  --mw-gmap-note: #93C5FD;
 }
 
 /* ---------- §4 强调色指针 ----------
@@ -1494,7 +1496,7 @@ html[data-theme='dark'] .mw-root[data-module='work'] .deploy-status.rollback {
   font-size: 14px; color: var(--mw-text-secondary); line-height: 1.8;
 }
 
-/* ---------- projects（304 条） ---------- */
+/* ---------- projects（325 条） ---------- */
 .mw-root[data-module='projects'] .task-item:last-child {
   border-bottom: none;
 }
@@ -1684,10 +1686,13 @@ html[data-theme='dark'] .mw-root[data-module='work'] .deploy-status.rollback {
   text-align: right; color: var(--mw-text-muted); font-variant-numeric: tabular-nums;
 }
 .mw-root[data-module='projects'] .gmap {
-  position: relative; border-radius: 14px;
+  position: relative; overflow: hidden; border-radius: 14px;
 }
 .mw-root[data-module='projects'] .gmap-svg {
   display: block; width: 100%; height: auto;
+}
+.mw-root[data-module='projects'] #graphSvgWrap {
+  transform-origin: 50% 48%; transition: transform 0.22s ease;
 }
 .mw-root[data-module='projects'] #graphSvgWrap {
   cursor: grab; touch-action: none;
@@ -1698,8 +1703,11 @@ html[data-theme='dark'] .mw-root[data-module='work'] .deploy-status.rollback {
 .mw-root[data-module='projects'] #graphSvgWrap.is-dragging .gnode {
   pointer-events: none;
 }
-.mw-root[data-module='projects'] .bs-main {
-  stop-color: var(--mw-m-main);
+.mw-root[data-module='projects'] .bs-doc {
+  stop-color: var(--mw-gmap-doc);
+}
+.mw-root[data-module='projects'] .bs-note {
+  stop-color: var(--mw-gmap-note);
 }
 .mw-root[data-module='projects'] .bs-mute {
   stop-color: var(--mw-text-muted);
@@ -1707,26 +1715,50 @@ html[data-theme='dark'] .mw-root[data-module='work'] .deploy-status.rollback {
 .mw-root[data-module='projects'] .bs-body {
   stop-color: var(--mw-m-main);
 }
+.mw-root[data-module='projects'] .ah-n {
+  fill: var(--mw-text-muted);
+}
+.mw-root[data-module='projects'] .ah-on {
+  fill: var(--mw-m-main);
+}
 .mw-root[data-module='projects'] .gmap-svg .bloom {
   pointer-events: none;
 }
 .mw-root[data-module='projects'] .gmap-svg .chip {
-  fill: var(--mw-gmap-core); stroke: color-mix(in srgb, var(--mw-m-main) 38%, transparent); stroke-width: 1; transition: stroke 0.16s ease, stroke-width 0.16s ease;
+  fill: var(--mw-gmap-core); stroke: color-mix(in srgb, var(--mw-gmap-doc) 38%, transparent); stroke-width: 1; transition: stroke 0.16s ease, stroke-width 0.16s ease;
 }
-.mw-root[data-module='projects'] .gmap-svg .gnode:hover .chip {
-  stroke: var(--mw-m-main);
+.mw-root[data-module='projects'] .gmap-svg .gnode.is-note .chip {
+  stroke: color-mix(in srgb, var(--mw-gmap-note) 38%, transparent);
 }
-.mw-root[data-module='projects'] .gmap-svg .gnode.is-hub .chip {
-  fill: color-mix(in srgb, var(--mw-m-main) 12%, var(--mw-gmap-core)); stroke: var(--mw-m-main); stroke-width: 1.6;
+.mw-root[data-module='projects'] .gmap-svg .gnode.is-doc:hover .chip {
+  stroke: var(--mw-gmap-doc);
+}
+.mw-root[data-module='projects'] .gmap-svg .gnode.is-note:hover .chip {
+  stroke: var(--mw-gmap-note);
+}
+.mw-root[data-module='projects'] .gmap-svg .gnode.is-hub.is-doc .chip {
+  fill: color-mix(in srgb, var(--mw-gmap-doc) 12%, var(--mw-gmap-core)); stroke: var(--mw-gmap-doc); stroke-width: 1.6;
+}
+.mw-root[data-module='projects'] .gmap-svg .gnode.is-hub.is-note .chip {
+  fill: color-mix(in srgb, var(--mw-gmap-note) 12%, var(--mw-gmap-core)); stroke: var(--mw-gmap-note); stroke-width: 1.6;
 }
 .mw-root[data-module='projects'] .gmap-svg .gnode.is-orphan .chip {
   stroke: var(--mw-text-muted); stroke-dasharray: 3 3;
 }
 .mw-root[data-module='projects'] .gmap-svg .gnode.is-sel .chip {
-  stroke: var(--mw-m-main); stroke-width: 1.8;
+  stroke-width: 1.8;
 }
-.mw-root[data-module='projects'] .gmap-svg .gnode.is-rel .chip {
-  fill: color-mix(in srgb, var(--mw-m-main) 8%, var(--mw-gmap-core)); stroke: var(--mw-m-main); stroke-width: 1.4;
+.mw-root[data-module='projects'] .gmap-svg .gnode.is-sel.is-doc .chip {
+  stroke: var(--mw-gmap-doc);
+}
+.mw-root[data-module='projects'] .gmap-svg .gnode.is-sel.is-note .chip {
+  stroke: var(--mw-gmap-note);
+}
+.mw-root[data-module='projects'] .gmap-svg .gnode.is-rel.is-doc .chip {
+  fill: color-mix(in srgb, var(--mw-gmap-doc) 8%, var(--mw-gmap-core)); stroke: var(--mw-gmap-doc); stroke-width: 1.4;
+}
+.mw-root[data-module='projects'] .gmap-svg .gnode.is-rel.is-note .chip {
+  fill: color-mix(in srgb, var(--mw-gmap-note) 8%, var(--mw-gmap-core)); stroke: var(--mw-gmap-note); stroke-width: 1.4;
 }
 .mw-root[data-module='projects'] .gmap-svg .gnode.is-rel .chip-label {
   font-weight: 600;
@@ -1753,13 +1785,16 @@ html[data-theme='dark'] .mw-root[data-module='work'] .deploy-status.rollback {
   font-family: inherit; fill: var(--mw-text-muted); font-variant-numeric: tabular-nums;
 }
 .mw-root[data-module='projects'] .gmap-svg .edge {
-  fill: none; stroke: var(--mw-m-main); stroke-width: 1.2; stroke-linecap: round; transition: stroke 0.18s ease, stroke-width 0.18s ease;
+  fill: none; stroke: var(--mw-text-muted); stroke-width: 1.2; stroke-linecap: round; transition: stroke 0.18s ease, stroke-width 0.18s ease;
 }
 .mw-root[data-module='projects'] .gmap-svg .edge.is-active {
   stroke: var(--mw-m-main); stroke-width: 1.8;
 }
 .mw-root[data-module='projects'] .gmap-svg .edge.is-dim {
   stroke: var(--mw-text-muted);
+}
+.mw-root[data-module='projects'] .gmap-svg .edge-label {
+  font-family: inherit; font-size: 10px; fill: var(--mw-text-secondary); paint-order: stroke; stroke: var(--mw-gmap-core); stroke-width: 2.6px; stroke-linejoin: round; pointer-events: none;
 }
 .mw-root[data-module='projects'] .gmap-svg .gnode {
   cursor: pointer; transition: opacity 0.18s ease;
@@ -1785,20 +1820,38 @@ html[data-theme='dark'] .mw-root[data-module='work'] .deploy-status.rollback {
 .mw-root[data-module='projects'] .gmap-hud-close:hover {
   background: color-mix(in srgb, var(--mw-m-main) 18%, transparent); color: var(--mw-text-primary);
 }
+.mw-root[data-module='projects'] .gmap-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 0 12px;
+}
+.mw-root[data-module='projects'] .gmap-bar .seg {
+  flex-wrap: wrap;
+}
+.mw-root[data-module='projects'] .gmap-zoom {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+}
+.mw-root[data-module='projects'] .gmap-tool {
+  height: 30px; min-width: 30px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--mw-border-subtle); background: var(--mw-bg-card); color: var(--mw-text-secondary); font-family: inherit; font-size: 13px; line-height: 1; cursor: pointer; transition: color 0.16s ease, border-color 0.16s ease;
+}
+.mw-root[data-module='projects'] .gmap-tool:hover {
+  color: var(--mw-text-primary); border-color: color-mix(in srgb, var(--mw-m-main) 40%, transparent);
+}
+.mw-root[data-module='projects'] .gmap-zoom-val {
+  min-width: 44px; text-align: center; font-size: 12px; color: var(--mw-text-secondary); font-variant-numeric: tabular-nums;
+}
 .mw-root[data-module='projects'] .graph-legend {
   margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 5px 14px; font-size: 12px; color: var(--mw-text-muted);
 }
 .mw-root[data-module='projects'] .lg-item {
   display: inline-flex; align-items: center; gap: 6px;
 }
-.mw-root[data-module='projects'] .lg-ico {
-  font-style: normal; font-size: 12px; line-height: 1;
-}
 .mw-root[data-module='projects'] .lg-dot {
-  width: 16px; height: 11px; flex-shrink: 0;
+  width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; background: var(--mw-gmap-note);
+}
+.mw-root[data-module='projects'] .lg-doc {
+  background: var(--mw-gmap-doc);
 }
 .mw-root[data-module='projects'] .lg-orphan {
-  border-radius: 6px; border: 1.2px dashed var(--mw-text-muted);
+  background: none; border: 1.2px dashed var(--mw-text-muted);
 }
 .mw-root[data-module='projects'] .lg-cap {
   font-style: italic; opacity: 0.85;
@@ -1813,10 +1866,10 @@ html[data-theme='dark'] .mw-root[data-module='work'] .deploy-status.rollback {
   background: color-mix(in srgb, var(--mw-m-main) 12%, transparent);
 }
 .mw-root[data-module='projects'] .gnode-row-dot {
-  width: 11px; height: 11px; flex-shrink: 0; border-radius: 50%; background: var(--mw-note-deep);
+  width: 11px; height: 11px; flex-shrink: 0; border-radius: 50%; background: var(--mw-gmap-note);
 }
 .mw-root[data-module='projects'] .gnode-row.is-doc .gnode-row-dot {
-  border-radius: 3px; background: var(--mw-doc-deep);
+  border-radius: 3px; background: var(--mw-gmap-doc);
 }
 .mw-root[data-module='projects'] .gnode-row.is-orphan .gnode-row-dot {
   background: none; border: 1.5px dashed var(--mw-text-muted);
@@ -2273,6 +2326,18 @@ html[data-theme='dark'] .mw-root[data-module='work'] .deploy-status.rollback {
 }
 .mw-root[data-module='projects'] .backlink-icon {
   flex-shrink: 0; opacity: 0.75; font-size: 12px;
+}
+.mw-root[data-module='projects'] .bl-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mw-root[data-module='projects'] .bl-kind {
+  flex-shrink: 0; font-size: 11px; color: var(--mw-text-muted); padding: 1px 7px; border-radius: 999px; background: var(--mw-border-subtle);
+}
+.mw-root[data-module='projects'] .badge-row {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+}
+.mw-root[data-module='projects'] .tally {
+  font-size: 11px; font-weight: 500; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--mw-m-main) 12%, transparent); color: var(--mw-m-main); font-variant-numeric: tabular-nums;
 }
 .mw-root[data-module='projects'] .link-card {
   display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 14px; background: var(--mw-border-subtle);

@@ -183,3 +183,178 @@
     --mw-blob-blur: 90px;
   }
 }
+
+/* ============================================================
+   5 · 新外壳（`design/sidebar/sidebar_index.html`）的应用级补充
+   ------------------------------------------------------------
+   生成物是 `styles/sidebar-shell.css`（全部收在 `.sb-root` 作用域里）。
+   本段只放**原型作为静态页时不成立、变成应用后才成立**的几件事 —— 与 1~4 段同一分工。
+
+   为什么不进生成物：
+     · 抽屉：原型在 ≤900px 直接把侧栏 `display: none` 掉，"抽屉"这个概念它没有；
+     · 抽屉开关：同上，原型没有这个按钮；
+     · 项目域三栏：**原型里没有项目右栏**，那是应用自己的模块版式；
+     · 窄屏豁免名单：只有"手机上没有别的入口"才会暴露的问题，静态页遇不到。
+   ============================================================ */
+
+/* ---------- 5a · 窄屏抽屉 ---------- */
+
+/* ⚠️ 选择器抬到 0,4,0：生成物里 ≤768px 那条是 `.sb-root .sidebar-wrap{display:none}`
+   （0,2,0）。同特异性下谁赢取决于导入顺序，而"能不能打开侧栏"不该由一个隐含前提决定。 */
+@media (max-width: 768px) {
+  .mw-root.sb-root .sb-app > .sidebar-wrap {
+    display: flex;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 280px;
+    z-index: 60;
+    padding: 8px;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    /* 抽屉浮在内容之上，必须自带底衬：`.sb-sidebar` 自己的 α 只有 .72，
+       底下透出的会是正文而不是极光。 */
+    background: var(--mw-bg-page);
+  }
+
+  .mw-root.sb-root .sb-app > .sidebar-wrap.is-open {
+    transform: translateX(0);
+  }
+
+  /* 环形项在窄屏要能被手指按住 —— 生成物里是鼠标尺寸的 34px */
+  .mw-root.sb-root .sb-app > .sidebar-wrap .radial__item {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+/* ---------- 5b · 窄屏下"必须还能点到"的东西 ---------- */
+
+/* 生成物里 ≤768px 有一条 `.sb-icon-btn:not(.ai):not(.sb-narrow-keep){display:none}`
+   （窄屏别把标题挤没）。`.sb-narrow-keep` 是那条规则的**豁免名单**，
+   挂在主题开关与账户入口上 —— 漏挂的症状是"手机上没法切主题 / 退不出登录"，且零报错。 */
+
+/* 抽屉开关：宽屏必须消失。
+   ⚠️ 选择器写成 `.mw-root .workspace-drawer-toggle`（0,2,0）而不是单个类名（0,1,0）——
+      后者会被 `.mw-root .btn` 的 `display: inline-flex` 压过，症状是**宽屏顶栏里多出一个汉堡**，
+      而它看起来很像"设计就是这样"。与第 1 段那条是同一个缺陷、同一个修法。 */
+.mw-root .workspace-drawer-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mw-root .workspace-drawer-toggle {
+    display: inline-flex;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 15px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+}
+
+/* ---------- 5c · 项目域的三栏 ---------- */
+
+/* 内核给项目域写的是 `.mw-root[data-module='projects'] .app`（220px 1fr 260px + aside 区）。
+   新壳的容器叫 `.sb-app`，那条规则**匹配不到** —— 右栏会掉进栅格的下一个空格里。
+   所以这里按新壳的栅格形状重写一遍，并且顶栏改成**通栏**（原型是顶栏只盖右两列）。
+
+   ⚠️ 列宽用 `var(--sb-w)` 而不是把内核那串 220px 抄过来：侧栏宽度是外壳的刻度，
+      抄一份死值会在"收起/展开"和 ≤1100px 两处同时错位。 */
+.mw-root.sb-root[data-module='projects'] .sb-app {
+  grid-template-columns: var(--sb-w) 1fr 260px;
+  grid-template-rows: var(--sb-topbar-h) 1fr;
+  grid-template-areas:
+    'topbar topbar topbar'
+    'sidebar main aside';
+}
+
+/* ≤1200px 收掉右栏 —— 内核那条同断点，但也匹配不到 `.sb-app`，所以必须重写 */
+@media (max-width: 1200px) {
+  .mw-root.sb-root[data-module='projects'] .sb-app {
+    grid-template-columns: var(--sb-w) 1fr;
+    grid-template-areas:
+      'topbar topbar'
+      'sidebar main';
+  }
+
+  .mw-root.sb-root[data-module='projects'] .aside {
+    display: none;
+  }
+}
+
+/* ≤768px：抽屉态，单列（侧栏已脱离栅格，不进列） */
+@media (max-width: 768px) {
+  .mw-root.sb-root[data-module='projects'] .sb-app {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'topbar'
+      'main';
+  }
+}
+
+/* ---------- 5d · 工作台（dashboard）---------- */
+
+/* 强调色指针。
+   ⚠️ **内核里没有这一条**：§4 那段只写到八域（tasks/calendar/life/work/learning/projects/
+   knowledge/settings）—— dashboard 在 9 个原型里是"地图本身"，没有自己的页面，所以当年
+   不需要指针。现在它有了页面，缺这一条的后果是 `--mw-m-main` **没有值**：
+   外壳的环、按钮、卡片强调色会全部落回 `@property --accent` 的 initial-value（品牌紫）——
+   页面上看起来"只是颜色不太对"，零报错。
+   好在底料是齐的：`--mw-a-dashboard-*` / `--mw-s-dashboard` 两支在 §3a/§3b 里亮暗都有，
+   所以这里只写"选择器 → 槽位"的转发，没有第二份色值。 */
+.mw-root[data-module='dashboard'] {
+  --mw-m1: var(--mw-a-dashboard-1);
+  --mw-m2: var(--mw-a-dashboard-2);
+  --mw-m3: var(--mw-a-dashboard-3);
+  --mw-m-main: var(--mw-s-dashboard);
+}
+
+/* 四栏：顶栏通栏 + 侧栏 + 主区 + 助手栏。
+   与项目域那条是同一套做法（内核那两条都挂在 `.app` 上、匹配不到 `.sb-app`），
+   区别只有两处：这里第三列是助手栏（340px 的浮层），而项目域是 260px 的 aside。
+
+   ⚠️ 助手栏的根节点是 `.rail.rail-shell...`，它自己带 `w-[340px] shrink-0`
+      （为"横向 flex 两列"写的）。落到栅格列里必须把宽度交还给列：
+      `width: auto`。不覆盖的话 340px 会与列宽打架 —— 而 `w-[340px]` 是 Tailwind 工具类
+      （0,1,0，在 `@layer utilities` 里），本文件不带 layer，所以这条稳赢。 */
+.mw-root.sb-root[data-module='dashboard'] .sb-app {
+  grid-template-columns: var(--sb-w) 1fr 340px;
+  grid-template-rows: var(--sb-topbar-h) 1fr;
+  grid-template-areas:
+    'topbar topbar topbar'
+    'sidebar main aside';
+}
+
+.mw-root.sb-root[data-module='dashboard'] .rail {
+  grid-area: aside;
+  width: auto;
+}
+
+/* ≤1200px：助手栏落到主区下面一行，而不是被藏掉。
+   ⚠️ 这与项目域那条不同 —— 项目域 ≤1200 直接把右栏 `display:none`（那是一个只读的
+      里程碑轨道），而助手栏是**可折叠的功能件**，藏掉就等于把入口拿掉。
+      助手栏自己带 `max-[1180px]:w-full max-[1180px]:border-t`，本来就是按"落到下面"设计的。 */
+@media (max-width: 1200px) {
+  .mw-root.sb-root[data-module='dashboard'] .sb-app {
+    grid-template-columns: var(--sb-w) 1fr;
+    grid-template-rows: var(--sb-topbar-h) 1fr auto;
+    grid-template-areas:
+      'topbar topbar'
+      'sidebar main'
+      'sidebar aside';
+  }
+}
+
+/* ≤768px：单列（侧栏已是脱离栅格的抽屉） */
+@media (max-width: 768px) {
+  .mw-root.sb-root[data-module='dashboard'] .sb-app {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--sb-topbar-h) 1fr auto;
+    grid-template-areas:
+      'topbar'
+      'main'
+      'aside';
+  }
+}

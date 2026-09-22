@@ -1,8 +1,16 @@
 /* ============================================================================
    Lucky-Y · Prism 玻璃令牌层
    ----------------------------------------------------------------------------
-   事实源就是本文件。它实现 design/DESIGN_TOKENS.md（《Prism 设计令牌规范》）：
-   规范里的每个数值、每条判据都落在这里，规范与本文件冲突时**以本文件为准并回来修规范**。
+   设计令牌的**唯一事实源**是 `design/design-tokens/design-tokens.md`。
+   本文件是它的**下游**实现之一，负责文档管不到的那一层：
+   三层材质结构、颜色别名（`--color-*`）、派生色（`--brand-*` / `--m-a*` / `--m-b*`）、
+   主题切换与环境底衬。颜色刻度（九组模块色、状态色、圆角、动效）都从文档来 ——
+   其中中性色与模块色由 build-workspace-css.mjs 生成为 `--mw-*`，
+   圆角/动效/状态色/AI 由 sync-design-tokens.mjs 生成为 `src/styles/design-tokens.css`。
+
+   ⚠️ 下面注释里出现的「规范 §N」是**已经退休**的 `design/DESIGN_TOKENS.md` 的章节号
+   （那份文件已删除）。它们只作历史锚点，读的时候不需要去找 —— 判据本身都写在注释里了。
+   本文件里**不再写任何能由文档推出来的数**：那样就会出现"文档改了这个没跟着动"。
 
    两份样式块的分工（workbench.html 里）：
      lucky-y-tw     布局与几何工具类（由 src/styles/index.css 经 build-css.mjs 编译）
@@ -81,31 +89,26 @@
   --sp-6: 24px;
   --sp-8: 32px;
 
-  --r-xs: 8px;
-  --r-sm: 10px;
-  --r-ctl: 12px;
-  --r-panel: 16px;
-  --r-card: 20px;
-  /* ⚠️ 规范给的是 --r-window:18px，本原型**刻意不用**它。
-     判据（用户 2026-09-19 明确指定，与规范无关地成立）：
-     「画多圆」属设计属性、只该有一套数；18px 会让**外壳比它里面的卡片还硬**，
-     而窗口圆角存在的意义正是"比内容更外一层"。故取 24px（= 上一版 --radius-xl）。
-     这是一次**口径选择：平台保真 < 内容一致性**。要改回规范的 18px 就改这一行。 */
+  /* 圆角与时长**不在这里定义**。它们来自设计令牌文档，由 design/sync-design-tokens.mjs
+     生成到 src/styles/design-tokens.css（`--radius-*` / `--transition-*`，以及本文件
+     角色名 `--r-*` / `--dur*` 的转发那一段）。
+     上一版这里写死着 8/10/12/16/20 与 140/200/320ms —— 文档改刻度时这几支不会跟着动，
+     而那正是这套机制要根治的病。判据：**能由文档推出来的数，不许在代码里再写一遍。**
+
+     顺带删掉了 `--t-meta/xs/sm/base/lg/xl/2xl/3xl` 那一套字阶：它在本仓库**零引用**
+     （只有定义，`var(--t-*)` 一次都没出现），而它的刻度（11.5/12/12.5/13.5/15/19/24/29）
+     与文档 §四 的角色（弱 12 / 次 13 / 主 14 / H2 18 / H1 22 / 统计 24）是**两套不同的东西**。
+     留着它就是留一个"看着像事实源、其实没人用"的第二描述。 */
+
+  /* ⚠️ 窗口圆角是**唯一没有文档来源**的一支，理由与文档无关地成立（用户 2026-09-19 明确指定）：
+     「画多圆」属设计属性、只该有一套数；窗口半径若小于它里面的卡片（文档 圆角 xl = 20px），
+     外壳会比内容还硬，而窗口圆角存在的意义正是"比内容更外一层"。故取 24px。
+     这是一次**口径选择：平台保真 < 内容一致性**。 */
   --r-window: 24px;
 
-  --t-meta: 11.5px;
-  --t-xs: 12px;
-  --t-sm: 12.5px;
-  --t-base: 13.5px;
-  --t-lg: 15px;
-  --t-xl: 19px;
-  --t-2xl: 24px;
-  --t-3xl: 29px;
-
+  /* 缓动曲线也只有 Prism 这一支：文档 §五 只写 `ease` 关键字，没有自己的贝塞尔曲线。
+     时长由 design-tokens.css 的 --dur* 提供。 */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --dur-fast: 140ms;
-  --dur: 200ms;
-  --dur-slow: 320ms;
 }
 
 /* ============================================================================
@@ -1058,16 +1061,14 @@ html {
   --color-learn-bg: rgb(var(--s-learning) / 0.13);
   --color-learn-line: var(--brand-line-learning);
 
-  /* 圆角：几何是"可调旋钮"（规范 §4），但既然迁移就取规范那套数 */
-  --radius-xs: var(--r-xs);
-  --radius-sm: var(--r-sm);
-  --radius-md: var(--r-ctl);
-  --radius-lg: var(--r-panel);
-  --radius-xl: var(--r-card);
-  --radius-2xl: var(--r-card);
+  /* 圆角：**不在这里定义，也不在这里转发出去的**。
+     `--radius-*` 由 design-tokens.css 按设计令牌文档的刻度落到 `:root`；
+     Prism 的角色名 `--r-*` 同样在那边转发（`--r-ctl: var(--radius-md)` 等）。
+     这里曾经是**反向**接线（`--radius-lg: var(--r-panel)`）——
+     等于让代码里的角色名当事实源、文档只是旁观者，方向正好反了。 */
 
-  /* ⚠️ 窗口圆角刻意不取规范的 --r-window:18px，理由见 §0 该处注释（用户明确指定 24px）。
-     这里显式回落，防止 index.css 的 24px 被将来的改动覆盖掉而没人发现。 */
+  /* ⚠️ 窗口圆角是唯一没有文档来源的一支，数值与理由都在 §0 的 `--r-window`。
+     这里显式转发一次，防止它被将来的改动覆盖掉而没人发现。 */
   --window-radius: var(--r-window);
 }
 
@@ -1122,17 +1123,17 @@ html {
    ========================================================================= */
 .ambient__aurora {
   background-image:
-    /* ① 顶边薄辉：本模块强调色，7.2% 内收干净 —— "顶边有一道光" */
-    linear-gradient(180deg, rgb(var(--s) / calc(var(--m-tint) * 0.60)) 0%, rgb(var(--s) / 0) 7.2%),
+    /* ① 顶边薄辉（"顶边有一道光"）：**已撤掉**（用户 2026-09-21：「不要渐变了，就正常的白色就行」）。
+       它是一条横贯全宽、7.2% 内收干净的强调色带 —— 在全站最上面读起来就是"一条渐变色条"。
+       判据：**色带与弥散不是一回事**。弥散是"某一角有一点该域的颜色"（下面六块色团），
+       色带是"沿整条边画一道" —— 后者才是被叫"渐变"的那一种，也是让 Hero 整片染色的主因。 */
     /* ② 左上角：色团1 */
     radial-gradient(30% 11% at 6% 0%,
       color-mix(in srgb, rgb(var(--m-lt-1) / calc(var(--m-a1) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-a1) * var(--m-heat)))) 0%,
       transparent 76%),
-    /* ③ 左缘窄带：强调色（"左边是这一域"的最强信号） */
-    linear-gradient(96deg,
-      rgb(var(--s) / calc(var(--m-tint) * 0.95)) 0%,
-      rgb(var(--s) / calc(var(--m-tint) * 0.50)) 13%,
-      rgb(var(--s) / 0) 21%),
+    /* ③ 左缘窄带（"左边是这一域"的最强信号）：**已撤掉**，理由同 ①。
+       它是 96° 的横向色带、21% 宽内收干净 —— 与顶边那条合起来正好把 Hero 的左上角整片染色。
+       撤掉后左缘仍有色：② 左上角与 ⑤ 左下角两块色团各留一点，只是不再"沿边画一道"。 */
     /* ④ 右上角：色团2 */
     radial-gradient(40% 25% at 101% -2%,
       color-mix(in srgb, rgb(var(--m-lt-2) / calc(var(--m-a2) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-a2) * var(--m-heat)))) 0%,
@@ -1155,14 +1156,11 @@ html {
 /* 暗色换用暗色色团（同一套结构、只换色团与 α 来源）—— 这就是"一套结构、两套色团" */
 :root:not([data-theme='light']) .ambient__aurora {
   background-image:
-    linear-gradient(180deg, rgb(var(--s) / calc(var(--m-tint) * 0.60)) 0%, rgb(var(--s) / 0) 7.2%),
+    /* ① 顶边薄辉 / ③ 左缘窄带：暗色同样撤掉，理由见上面亮色块里的注释 ——
+       "沿边画一道"在暗色里更明显（暗底上一条亮色带），而它同样把 Hero 整片染色。 */
     radial-gradient(30% 11% at 6% 0%,
       color-mix(in srgb, rgb(var(--m-dk-1) / calc(var(--m-b1) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-b1) * var(--m-heat)))) 0%,
       transparent 76%),
-    linear-gradient(96deg,
-      rgb(var(--s) / calc(var(--m-tint) * 0.95)) 0%,
-      rgb(var(--s) / calc(var(--m-tint) * 0.50)) 13%,
-      rgb(var(--s) / 0) 21%),
     radial-gradient(40% 25% at 101% -2%,
       color-mix(in srgb, rgb(var(--m-dk-2) / calc(var(--m-b2) * var(--m-heat))) var(--m-mix), rgb(var(--s) / calc(var(--m-b2) * var(--m-heat)))) 0%,
       transparent 74%),

@@ -33,13 +33,13 @@
 
 | 令牌 | 亮色 | 暗色 | 用途 |
 |---|---|---|---|
-| `--bg-page` | `#FAFBFC` | `#0F172A` | 页面背景 |
-| `--bg-card` | `rgba(255,255,255,0.62)` | `rgba(30,41,59,0.55)` | 卡片背景 |
-| `--bg-sidebar` | `rgba(255,255,255,0.66)` | `rgba(15,23,42,0.7)` | 侧边栏 |
-| `--bg-topbar` | `rgba(255,255,255,0.66)` | `rgba(15,23,42,0.7)` | 顶部栏 |
+| `--bg-page` | `#F7F8FA` | `#0A0F1C` | 页面背景 |
+| `--bg-card` | `rgba(255,255,255,0.62)` | `rgba(30,41,59,0.5)` | 卡片背景 |
+| `--bg-sidebar` | `rgba(255,255,255,0.72)` | `rgba(15,23,42,0.78)` | 侧边栏 |
+| `--bg-topbar` | `rgba(255,255,255,0.72)` | `rgba(15,23,42,0.78)` | 顶部栏 |
 | `--border-card` | `rgba(255,255,255,0.7)` | `rgba(255,255,255,0.08)` | 卡片边框 |
-| `--border-subtle` | `rgba(15,23,42,0.06)` | `rgba(255,255,255,0.06)` | 分割线 |
-| `--text-primary` | `#1E293B` | `#E2E8F0` | 主文字 |
+| `--border-subtle` | `rgba(15,23,42,0.07)` | `rgba(255,255,255,0.06)` | 分割线 |
+| `--text-primary` | `#0F172A` | `#F1F5F9` | 主文字 |
 | `--text-secondary` | `#64748B` | `#94A3B8` | 次文字 |
 | `--text-muted` | `#94A3B8` | `#64748B` | 弱文字 |
 
@@ -86,14 +86,14 @@
 
 | 令牌 | 亮色 | 暗色 |
 |---|---|---|
-| `--blur-card` | `blur(24px) saturate(160%)` | `blur(28px) saturate(140%)` |
-| `--blob-opacity` | `0.38` | `0.26` |
-| `--blob-blur` | `110px` | `130px` |
+| `--blur-card` | `blur(24px) saturate(180%)` | `blur(28px) saturate(160%)` |
+| `--blob-opacity` | `0.38` | `0.24` |
+| `--blob-blur` | `120px` | `140px` |
 | 色团尺寸 | 520 / 480 / 560px | 同 |
 | 色团数量 | 每模块 3 个 | 同 |
 | 漂移动画 | `22s ease-in-out infinite alternate` | 同 |
 | 卡片圆角 | `20px` | 同 |
-| 卡片阴影 | `0 4px 24px rgba(15,23,42,0.06)` | `0 4px 24px rgba(0,0,0,0.3)` |
+| 卡片阴影 | `0 4px 24px rgba(15,23,42,0.05)` | `0 4px 24px rgba(0,0,0,0.3)` |
 | 悬停阴影 | `0 8px 32px rgba(15,23,42,0.10)` | `0 8px 32px rgba(0,0,0,0.4)` |
 
 ## 四、字体与间距令牌
@@ -164,24 +164,24 @@
 ```css
 :root {
   /* 中性色 */
-  --bg-page: #FAFBFC;
+  --bg-page: #F7F8FA;
   --bg-card: rgba(255,255,255,0.62);
-  --bg-sidebar: rgba(255,255,255,0.66);
-  --bg-topbar: rgba(255,255,255,0.66);
+  --bg-sidebar: rgba(255,255,255,0.72);
+  --bg-topbar: rgba(255,255,255,0.72);
   --border-card: rgba(255,255,255,0.7);
-  --border-subtle: rgba(15,23,42,0.06);
-  --text-primary: #1E293B;
+  --border-subtle: rgba(15,23,42,0.07);
+  --text-primary: #0F172A;
   --text-secondary: #64748B;
   --text-muted: #94A3B8;
 
   /* 阴影 */
-  --shadow-card: 0 4px 24px rgba(15,23,42,0.06);
+  --shadow-card: 0 4px 24px rgba(15,23,42,0.05);
   --shadow-card-hover: 0 8px 32px rgba(15,23,42,0.10);
 
   /* 毛玻璃 */
-  --blur-card: blur(24px) saturate(160%);
+  --blur-card: blur(24px) saturate(180%);
   --blob-opacity: 0.38;
-  --blob-blur: 110px;
+  --blob-blur: 120px;
 
   /* 模块色 - 工作台 */
   --a-dashboard-1: #A5B4FC;
@@ -244,20 +244,20 @@
 }
 
 .dark {
-  --bg-page: #0F172A;
-  --bg-card: rgba(30,41,59,0.55);
-  --bg-sidebar: rgba(15,23,42,0.7);
-  --bg-topbar: rgba(15,23,42,0.7);
+  --bg-page: #0A0F1C;
+  --bg-card: rgba(30,41,59,0.5);
+  --bg-sidebar: rgba(15,23,42,0.78);
+  --bg-topbar: rgba(15,23,42,0.78);
   --border-card: rgba(255,255,255,0.08);
   --border-subtle: rgba(255,255,255,0.06);
-  --text-primary: #E2E8F0;
+  --text-primary: #F1F5F9;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
   --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
   --shadow-card-hover: 0 8px 32px rgba(0,0,0,0.4);
-  --blur-card: blur(28px) saturate(140%);
-  --blob-opacity: 0.26;
-  --blob-blur: 130px;
+  --blur-card: blur(28px) saturate(160%);
+  --blob-opacity: 0.24;
+  --blob-blur: 140px;
 
   --a-dashboard-1: #4F46E5; --a-dashboard-2: #7C3AED; --a-dashboard-3: #0EA5E9;
   --s-dashboard: #818CF8;

@@ -115,14 +115,15 @@ function solveAtY(hueRad, targetY, chroma, { maxC = 0.37 } = {}) {
   return { rgb: fromOklch({ L, C, h: hueRad }), L, C }
 }
 
-/* @from-prototypes:start */
+/* @from-design-tokens:start */
 /* ---------- 设计原值（**生成物**，不要手改）----------
-   由 design/sync-module-colors.mjs 从 9 个原型抽取：
-     s      ← 原型 :root 的 --s-<模块>
-     ring   ← 原型 :root 的 --a-<模块>-1/2/3（亮色色团）
-     dk     ← 原型 .dark 的 --a-<模块>-1/2/3（暗色色团，原型的暗色弥散就用它们铺）
-   改色只改原型，然后 `node design/sync-module-colors.mjs --write`。
-   --check 会拦住"改了原型忘了同步"和"两边各自演化"这两种漂移。 */
+   由 design/sync-module-colors.mjs 从**唯一事实源**抽取：
+     design/design-tokens/design-tokens.md
+     s      ← §一/§八 的 --s-<模块>（亮色强调色）
+     ring   ← §一/§八 的 --a-<模块>-1/2/3（亮色色团）
+     dk     ← §二/§八 的 --a-<模块>-1/2/3（暗色色团）
+   改色只改那份文档，然后 `node design/sync-module-colors.mjs --write`。
+   --check 会拦住"改了文档忘了同步"这种漂移。 */
 const MODULES = [
   { key: 'dashboard', name: '靛蓝', s: [99, 102, 241], ring: ['#A5B4FC', '#C4B5FD', '#BAE6FD'], dk: [[79, 70, 229], [124, 58, 237], [14, 165, 233]] },
   { key: 'tasks', name: '琥珀', s: [245, 158, 11], ring: ['#FDE68A', '#FED7AA', '#FEF3C7'], dk: [[180, 83, 9], [194, 65, 12], [146, 64, 14]] },
@@ -134,7 +135,7 @@ const MODULES = [
   { key: 'knowledge', name: '青碧', s: [20, 184, 166], ring: ['#99F6E4', '#A7F3D0', '#CCFBF1'], dk: [[20, 184, 166], [15, 118, 110], [17, 94, 89]] },
   { key: 'settings', name: '石板', s: [71, 85, 105], ring: ['#B8C4D9', '#C9D5E5', '#DCE4F0'], dk: [[90, 107, 130], [68, 84, 107], [46, 59, 82]] },
 ]
-/* @from-prototypes:end */
+/* @from-design-tokens:end */
 
 const pct = (n) => (n * 100).toFixed(1) + '%'
 const out = {}

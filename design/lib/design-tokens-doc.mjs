@@ -98,7 +98,10 @@ function tables(text) {
       .replace(/^\|/, '')
       .replace(/\|$/, '')
       .split('|')
-      .map((c) => c.trim())
+      /* 文档用 `…` 标行内代码（`--c-success`、`#10B981`）。**在解析处就剥掉**，
+         不要留给每个消费者各剥一次 —— 漏一处就产出带反引号的 CSS 值，
+         而那种值在浏览器里是**合法但无效**的（颜色变成未定义），不报错。 */
+      .map((c) => c.replace(/`/g, '').trim())
     if (cells.every((c) => /^-{2,}$/.test(c))) continue // |---|---|
     if (!cur) cur = { headers: cells, rows: [] }
     else cur.rows.push(cells)
@@ -187,7 +190,12 @@ export function readDesignTokens(docPath = DOC_PATH) {
   const modules = { light: readModTable(lightMod, '§一 亮色模块表'), dark: readModTable(darkMod, '§二 暗色模块表') }
 
   /* --- §一 3/4/5：中性色、状态色、AI 色 --- */
-  const neutrals = findTable(colorTables, '令牌').rows
+  /* §一 里有**两张**表头都叫「令牌」的表（3 中性色 / 5 AI 色）→ 取第二张。
+     按表头找会拿到第一张，这是本文件第二版的假阴性（AI 解析成 0 项，静默通过）。 */
+  const tokenTables = colorTables.filter((x) => norm(x.headers[0]) === norm('令牌'))
+  if (tokenTables.length !== 2)
+    throw new Error(`§一 里表头为「令牌」的表应有 2 张（中性色 / AI 色），实际 ${tokenTables.length} 张`)
+  const neutrals = tokenTables[0].rows
     .filter((r) => (r[0].replace(/`/g, '') || '').startsWith('--'))
     .map((r) => ({ name: r[0].replace(/`/g, ''), light: r[1], dark: r[2], use: r[3] ?? '' }))
   const statusTable = findTable(colorTables, '状态').rows.map((r) => ({
@@ -195,9 +203,9 @@ export function readDesignTokens(docPath = DOC_PATH) {
     light: r[1],
     dark: r[2],
   }))
-  const aiTable = findTable(colorTables, '令牌').rows.filter((r) => /AI/.test(r[0]))
   const ai = {}
-  for (const r of aiTable) ai[norm(r[0])] = r[1].replace(/`/g, '').trim()
+  for (const r of tokenTables[1].rows) ai[norm(r[0])] = r[1].replace(/`/g, '').trim()
+  if (!Object.keys(ai).length) throw new Error('§一 5 的 AI 色表解析出 0 项')
 
   /* --- §二 渐变 --- */
   const gradSec = need('二、渐变令牌')
@@ -309,13 +317,19 @@ function assertSelfConsistent(m) {
     if (key) eq(`动效 ${key}`, m.vars.light.get(`--transition-${key}`), t.value)
   }
 
-  /* 7) AI 渐变：§一 5 与 §二 与 §八 三处都要一致 */
-  const gradAI = m.grad['AI']
-  if (gradAI) {
-    eq('AI 渐变 §二↔§八', m.vars.light.get('--grad-ai'), gradAI)
-    const aiGrad = m.ai['AI 渐变']
-    if (aiGrad) eq('AI 渐变 §一↔§二', gradAI, aiGrad)
+  /* 7) AI 渐变：§一 5、§二、§八 三处都要一致。
+     ⚠️ 这里比的是**色序**而不是字符串：§二 写的是散文（「三色渐变，#6366F1 → #8B5CF6 → #A855F7」），
+        §八 写的是 CSS 值。逐字比会把散文判成错 —— 这是本文件第一版的假阳性。 */
+  const hexSeq = (s) => (String(s).match(/#[0-9A-Fa-f]{6}/g) || []).map((h) => h.toUpperCase())
+  const aiFromFence = hexSeq(m.vars.light.get('--grad-ai'))
+  const aiFromSec2 = hexSeq(m.grad['AI'])
+  const aiFromSec1 = hexSeq(m.ai['AI 渐变'])
+  const seqEq = (label, a, b) => {
+    if (a.length && b.length && a.join() !== b.join()) bad.push(`${label}：${a.join('→')} ≠ ${b.join('→')}`)
   }
+  seqEq('AI 渐变 §二↔§八', aiFromFence, aiFromSec2)
+  seqEq('AI 渐变 §一↔§二', aiFromSec2, aiFromSec1)
+  if (aiFromFence.length !== 3) bad.push(`AI 渐变应为三色，§八 里是 ${aiFromFence.length} 色`)
 
   if (bad.length) {
     console.error('✗ 文档自身前后不一致（下游无论按哪边对齐都是错的）：')

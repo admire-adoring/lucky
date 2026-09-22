@@ -221,15 +221,16 @@
       .hub-door:focus-visible .hub-dial::before {
         opacity: 1;
       }
-      /* hover 的另一处呼应：表盘的光晕整体加强一档。
-         结构必须与 .hub-dial 的常态 box-shadow **同形**（同样的四项、同样的顺序），
-         否则过渡会在"两套不相干的阴影"之间插值，看起来像抖了一下。 */
+      /* hover 的另一处呼应：表盘的边与投影加强一档。
+         结构必须与 .hub-dial 的常态 box-shadow **同形**（同样的三项、同样的顺序），
+         否则过渡会在"两套不相干的阴影"之间插值，看起来像抖了一下。
+         ⚠️ 加强也只能用素色 —— 这里原本是 accent 的彩色辉光，已随「不要渐变了」一并撤掉；
+            但仍要"看得出被指到了"，所以弱色取 `--mw-text-secondary`（亮 #64748B / 暗 #94A3B8）。 */
       .hub-door:hover:not(:disabled) .hub-dial {
         box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.72),
-          inset 0 0 30px color-mix(in srgb, var(--accent) 44%, transparent),
-          0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent),
-          0 0 46px color-mix(in srgb, var(--accent) 62%, transparent);
+          inset 0 1px 0 rgba(255, 255, 255, 0.62),
+          0 0 0 1px color-mix(in srgb, var(--mw-text-secondary) 34%, transparent),
+          0 16px 34px -16px rgba(15, 23, 42, 0.38);
       }
       /* 中心名右侧那枚**常驻**的小箭头 —— 它是"这里可以进去"唯一的常驻线索，
          所以不做成 hover 才出现（否则静态截图里整屏没有任何"能进去"的提示）。
@@ -283,33 +284,14 @@
 
       /* ---- 装饰层（四件，都在瓦片之前，所以光从瓦片底下穿过）---- */
 
-      /* 1) 光晕：直径正好 2·rl，罩住整个环。
-            中心那一大团**偏白**（让玻璃球像是浮在一枚亮盘上），外圈才是强调色的淡光。
-            它是"整个 Hero 随模块变色"的主要承载 —— 切换时最先被注意到的那处变化。 */
-      .hub-aura {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: calc(2 * var(--rl));
-        height: calc(2 * var(--rl));
-        transform: translate(-50%, -50%);
-        border-radius: 999px;
-        pointer-events: none;
-        background: radial-gradient(
-          circle at 50% 50%,
-          rgba(255, 255, 255, 0.66) 0%,
-          color-mix(in srgb, var(--accent) 17%, transparent) 32%,
-          color-mix(in srgb, var(--accent) 7%, transparent) 60%,
-          transparent 82%
-        );
-        animation: aura-in 0.9s ease-out backwards;
-      }
-      @keyframes aura-in {
-        from {
-          opacity: 0;
-          transform: translate(-50%, -50%) scale(0.7);
-        }
-      }
+      /* 1) 光晕：**已撤掉**（用户 2026-09-21：「不要渐变了，就正常的白色就行」）。
+             它曾是"整个 Hero 随模块变色"的主要承载 —— 一圈「中心偏白 + 外圈强调色」的径向渐变。
+             撤它的判据：Hero 区现在落在**纯白**上，而白底上的白光晕是看不见的、
+                彩光晕又会把刚擦白的底重新染回去 —— 两种结果都不是它当初存在的理由。
+         ⚠️ **撤掉元件，判据不撤**：如果哪天 Hero 又有了带色底衬，"光晕让玻璃球浮在一枚亮盘上"
+            这条结论仍然成立。恢复参数：
+            `radial-gradient(circle at 50% 50%, #fff .66 0%, accent 17% 32%, accent 7% 60%, transparent 82%)`，
+            尺寸 `2 · var(--rl)`，配 `aura-in` 入场动画。 */
 
       /* 2) 环绕盘绕线：**已撤掉**（用户：「会不会显得太花哨了」）——
          详细原因与恢复参数见 gen-modules.mjs 里那段同名注释。
@@ -461,24 +443,20 @@
         position: absolute;
         inset: 0;
         border-radius: 999px;
-        background: radial-gradient(
-          circle at 50% 50%,
-          color-mix(in srgb, var(--accent) 30%, transparent) 0%,
-          color-mix(in srgb, var(--accent) 10%, transparent) 44%,
-          transparent 76%
-        );
-        /* 外边界**不画实线**，交给 SVG 层那圈花瓣花环（罗盘的外环本来就是一圈纹样）。
-           发光仍然要够足 —— 去掉实心之后，"存在感"全靠光：
-           第一版只给了 55% / 26px，在浅紫底上几乎看不见环，视觉重心整个跑到了
-           上面那块选中瓦片（实心圆）上，比"太沉"还糟。 */
-        backdrop-filter: blur(8px) saturate(1.3);
-        -webkit-backdrop-filter: blur(8px) saturate(1.3);
+        /* ⚠️ 这里原本是 accent 的径向渐变（30% → 10% → 透明），外面还有一层彩色 box-shadow 辉光。
+           两样都**已撤掉**（用户 2026-09-21：「不要渐变了，就正常的白色就行」）——
+           Hero 落在纯白上，彩色辉光只会把刚擦白的底重新染回去。
+         ⚠️ **但不能只删不补**：这枚表盘原先"存在感全靠光"（`::before` 那圈描边只在 hover 才亮），
+           删光之后它在白底上会整枚消失 —— 那是把一个可点的"门"变成看不见的按钮。
+           所以补一层**素色**的细边与离地投影：它仍然是"正常的白色"，只是有一道边和一点浮起感。
+           底色取 `--mw-bg-page`（亮 #FAFBFC / 暗 #0F172A）而不是写死 #fff —— 暗色下白盘是错的。 */
+        background: var(--mw-bg-page);
         box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.55),
-          inset 0 0 26px color-mix(in srgb, var(--accent) 30%, transparent),
-          0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent),
-          0 0 34px color-mix(in srgb, var(--accent) 42%, transparent);
+          inset 0 1px 0 rgba(255, 255, 255, 0.5),
+          0 0 0 1px var(--mw-border-subtle),
+          0 10px 26px -16px rgba(15, 23, 42, 0.3);
         /* 门的 hover 会把这一串换成"加强一档"的同形阴影（见 .hub-door:hover .hub-dial）——
+           ⚠️ 层数与顺序必须保持一致（三项），否则过渡会在两套不相干的阴影之间插值、看起来像抖了一下。
            过渡挂在这里，否则 hover 时是"啪"地跳一档。 */
         transition: box-shadow 0.24s ease;
       }
@@ -805,12 +783,11 @@
           padding-left: 16px;
         }
       }
-      /* 降级：全局那条 @media 只把 duration 压到 0.01ms ——
-         对 infinite 动画来说那等于**以 100kHz 空转**，比不动更糟（持续重绘）。
-         所以这里显式停掉持续动画。入场与切换的过渡仍由全局那条压成瞬移。
-         （刻度层与盘绕线都已撤掉，所以名单里只剩这两处。） */
+       /* 降级：全局那条 @media 只把 duration 压到 0.01ms ——
+          对 infinite 动画来说那等于**以 100kHz 空转**，比不动更糟（持续重绘）。
+          所以这里显式停掉持续动画。入场与切换的过渡仍由全局那条压成瞬移。
+          （刻度层、盘绕线、扫描光束、光晕都已撤掉，所以名单里只剩这一处。） */
       @media (prefers-reduced-motion: reduce) {
-        .hub-aura,
         .radial__item[data-current='true']::after {
           animation: none !important;
         }

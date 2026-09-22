@@ -1,0 +1,94 @@
+/* ============================================================================
+   **生成物，不要手改。**
+
+   唯一事实源：`design/design-tokens/design-tokens.md`
+   生成：  node design/sync-design-tokens.mjs --write
+   门禁：  node design/sync-design-tokens.mjs --check
+
+   #### 这里为什么只有一部分令牌
+
+   文档 §八 列了 63 支变量，其中 50 支（中性/毛玻璃 + 九组模块色）
+   已经由 build-workspace-css.mjs 生成成 `--mw-*`（那是模块工作区层的命名空间，
+   为的是不与 Prism 同名撞车）。**本文件只补剩下的那批** ——
+   状态色 / AI / 圆角 / 动效，共 22 条产出。
+   「文档名 → 代码名」的完整映射在生成器里，漏一个就报错退出。
+
+   #### 与 Prism 的 --ok/--warn/--bad/--info 的关系
+
+   文档的 `--c-*` 是**设计状态色**（徽标底/图标/边框那类面积）；
+   Prism 的 `--ok/--warn/--bad/--info` 是**对比度反解出的文字色**（同一色族的两端，
+   亮色主题取深档、暗色主题取浅档，由 prism-derive-colors.mjs 按实测底衬解出）。
+   两者不互相替换 —— 文档 §九「文字对比度 ≥ 4.5:1」恰恰要求文字不能直接用 500 号的设计色。
+
+   #### 圆角的档位补全
+
+   文档只给 sm/md/lg/xl/pill 五档，而代码里 `rounded-xs` / `rounded-2xl` 有用量。
+   这里显式取相邻档补上 —— 不补会静默回落到 Tailwind 默认值（2px / 16px），
+   症状是「某个圆角突然变了」且没有任何报错。
+   ============================================================================ */
+
+/* ---------- 主题无关（圆角 / 动效 / AI 图标与边框） ---------- */
+:root {
+
+  /* 圆角 —— --radius-sm */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+  --radius-xs: var(--radius-sm);  /* 文档无「比 sm 更小」这一档 → 取相邻的 sm；不显式补会静默回落到 Tailwind 默认的 2px */
+  --radius-2xl: var(--radius-xl);  /* 文档无「比 xl 更大」这一档（最大档是 pill 999px，那是全圆）→ 取相邻的 xl */
+
+  /* 动效 —— --transition-fast */
+  --transition-fast: 0.18s ease;
+  --transition-base: 0.25s ease;
+  --transition-slow: 0.3s ease;
+  --dur-fast: 0.18s;  /* Prism 的角色名 → 文档的时长（缓动曲线仍用 Prism 自己的 --ease） */
+  --dur: 0.25s;  /* Prism 的角色名 → 文档的时长（缓动曲线仍用 Prism 自己的 --ease） */
+  --dur-slow: 0.3s;  /* Prism 的角色名 → 文档的时长（缓动曲线仍用 Prism 自己的 --ease） */
+
+  /* AI —— AI 图标（§一 5） */
+  --ai-icon: #8B5CF6;  /* §一 5 只有一列「值」→ 不随主题 */
+  --ai-border: rgba(139,92,246,0.3);  /* 同上 */
+}
+
+/* ---------- 亮色（`html:not([data-theme=dark])`，与 Prism 的写法一致） ---------- */
+html:not([data-theme='dark']) {
+
+  /* 状态色 —— --c-success */
+  --c-success: #10B981;
+  --c-warning: #F59E0B;
+  --c-error: #EF4444;
+  --c-info: #3B82F6;
+  --c-neutral: #64748B;  /* §八 没列它，但 §一 4 的表里有 —— 一并落成令牌 */
+
+  /* AI —— --grad-ai（§八） */
+  --grad-ai: linear-gradient(135deg, #6366F1, #8B5CF6, #A855F7);
+}
+
+/* ---------- 暗色 ---------- */
+html[data-theme='dark'] {
+
+  /* 状态色 —— --c-success（暗色） */
+  --c-success: #34D399;
+  --c-warning: #FBBF24;
+  --c-error: #F87171;
+  --c-info: #60A5FA;
+  --c-neutral: #94A3B8;  /* §八 没列它，但 §一 4 的表里有 —— 一并落成令牌 */
+
+  /* AI —— AI 暗色渐变（§一 5） */
+  --grad-ai: linear-gradient(135deg, #818CF8, #A78BFA, #C084FC);  /* 同名两支、按主题切换（文档 §八 只收了亮色那支） */
+}
+
+/* ---------- Prism 的角色名转发到文档刻度 ----------
+   ⚠️ 只转发、不写死数值：写成 `--r-panel: 14px` 的话，文档改刻度时这一支不会跟着动，
+      而那正是这套机制要根治的病。方向也不能反过来（之前是 --radius-lg: var(--r-panel)，
+      等于让代码里的角色名当事实源、文档只是旁观者）。
+   `--r-window`（窗口圆角）不在这里：文档没有这一支，理由见 prism.css §0。 ---------- */
+:root {
+  --r-xs:        var(--radius-sm);  /* 文档无比 sm 更小的一档 */
+  --r-sm:        var(--radius-md);
+  --r-ctl:       var(--radius-md);  /* 文档 §七「输入框圆角 10px」 */
+  --r-panel:     var(--radius-lg);
+  --r-card:      var(--radius-xl);  /* 文档 §三「卡片圆角 20px」 */
+}
