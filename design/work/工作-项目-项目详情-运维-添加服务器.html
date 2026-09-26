@@ -1,0 +1,1799 @@
+<!DOCTYPE html>
+<!-- ============================================================================
+     项目详情 · 运维 · 添加服务器（`工作-项目-项目详情-运维-添加服务器.html`）
+     ----------------------------------------------------------------------------
+     入口：`工作-项目-项目详情-运维-index.html` 服务器卡片头右侧的「+ 添加」（原为 toast 占位）。
+
+     三处刻意选择：
+       ① **整页表单，不是弹窗** —— 字段跨「标识 / 地址 / 登录 / 规格 / 标签」五组，
+          弹窗（660px、94vh）放不下第五组；页面形态还能给右侧留出「连接检查」。
+       ② **材质走部署页那套纯色范式**，不走运维 index 的毛玻璃 ——
+          面阶四档（页 #F4F5F7 < 区块 #F7F8FA < 悬停 #E9ECF1 < 卡面 #FFFFFF），
+          阴影两段式，输入框边单独一档 `--border-field`（控件的形只靠它被认出来，需 ≥3:1）。
+       ③ **运维绿分三档用**：`--rc` 只做图形（3:1）；`--rc-ink` 做文字与选中描边（白底 7.0:1）；
+          `--rc-btn` 做实底按钮（白字 7.0:1）。浅色 `#10B981` 上白字只有 2.54:1，不能当按钮底。
+     ---------------------------------------------------------------------------- -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>添加服务器 · 运维 · 项目详情</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* [hidden] 必须始终生效，否则会被带 display 的类覆盖 */
+    [hidden] { display: none !important; }
+
+    :root {
+        color-scheme: light;
+
+        /* 面阶四档：页 < 区块 < 悬停/状态 < 卡面 */
+        --bg-page: #F4F5F7;
+        --bg-subtle: #F7F8FA;
+        --bg-hover: #E9ECF1;
+        --bg-card: #FFFFFF;
+        --bg-card-solid: #FFFFFF;
+        --bg-sidebar: #FFFFFF;
+        --bg-topbar: #FFFFFF;
+
+        --border-card: #E6E9EE;
+        --border-subtle: rgba(15, 23, 42, 0.07);
+        --border-strong: rgba(15, 23, 42, 0.13);
+        /* 输入框 / chip 的形只靠这条边被认出来 ⇒ 单独一档，≥3:1（#7F899B 压白 3.53） */
+        --border-field: #7F899B;
+
+        --text-primary: #0F172A;
+        --text-secondary: #4A5A72;
+        --text-muted: #5B6A82;
+
+        /* 两段式阴影：近距细影定轮廓 + 远距柔影给高度（单段大影是给毛玻璃配的） */
+        --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px rgba(15, 23, 42, 0.06);
+        --shadow-card-hover: 0 2px 4px rgba(15, 23, 42, 0.06), 0 14px 32px rgba(15, 23, 42, 0.10);
+
+        --r-sm: 8px; --r-md: 12px; --r-lg: 18px;
+
+        /* 工作域主色（侧栏/顶栏激活项） */
+        --s-work: #E11D48;
+        --m-main: var(--s-work);
+        /* 主色三档、一档一个门槛：--m-main 只做图形（3:1）；
+           --m-ink 做文字（压薄染底 6.6:1 —— 直接用 --m-main 只有 3.89:1）。 */
+        --m-ink: color-mix(in srgb, var(--m-main) 66%, var(--text-primary));
+        /* 主色实底上的前景色。深色下 --m-main 是亮粉（#FB7185），白字只有 2.69:1
+           ⇒ 那一档必须翻深字；两套各自定值，别指望一个 #fff 通吃。 */
+        --ink-on-accent: #FFFFFF;
+
+        /* 运维功能色三档 */
+        --rc: #10B981;      /* 图形档：色条、图标底、进度、焦点环 */
+        --rc-ink: #047857;  /* 文字档 / 选中描边：白底 7.0:1 */
+        --rc-btn: #047857;  /* 实底按钮：白字 7.0:1 */
+        /* 薄染一律混具体的面令牌，不混 transparent（混 transparent 结果仍是半透明色） */
+        --rc-soft: color-mix(in srgb, var(--rc) 12%, var(--bg-card));
+
+        --ok-fg: #047857;     --ok-bg: rgba(16, 185, 129, 0.14);
+        --warn-fg: #9A4708;   --warn-bg: rgba(245, 158, 11, 0.16);
+        --danger-fg: #B91C1C; --danger-bg: rgba(239, 68, 68, 0.13);
+        --idle-fg: #475569;   --idle-bg: rgba(100, 116, 139, 0.16);
+
+        --bar-ok: #10B981;
+        --bar-warn: #F59E0B;
+        --bar-danger: #EF4444;
+        --bar-track: rgba(15, 23, 42, 0.09);
+
+        --focus-ring: #0F172A;
+    }
+
+    .dark {
+        color-scheme: dark;
+
+        --bg-page: #0A0F1C;
+        --bg-subtle: #131A2A;
+        --bg-hover: #1E2840;
+        --bg-card: #171F32;
+        --bg-card-solid: #171F32;
+        --bg-sidebar: #121A29;
+        --bg-topbar: #121A29;
+
+        --border-card: rgba(255, 255, 255, 0.08);
+        --border-subtle: rgba(255, 255, 255, 0.06);
+        --border-strong: rgba(255, 255, 255, 0.14);
+        --border-field: rgba(255, 255, 255, 0.36);
+
+        --text-primary: #F1F5F9;
+        --text-secondary: #94A3B8;
+        --text-muted: #8695AB;
+
+        --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30), 0 6px 18px rgba(0, 0, 0, 0.34);
+        --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.36), 0 14px 32px rgba(0, 0, 0, 0.44);
+
+        --s-work: #FB7185;
+        --ink-on-accent: #0B1220;   /* 亮粉底上翻深字：6.9:1（白字只有 2.69:1） */
+
+        --rc: #34D399;
+        --rc-ink: #6EE7B7;
+        --rc-btn: #047857;
+
+        --ok-fg: #6EE7B7;     --ok-bg: rgba(16, 185, 129, 0.20);
+        --warn-fg: #FCD34D;   --warn-bg: rgba(245, 158, 11, 0.22);
+        --danger-fg: #FCA5A5; --danger-bg: rgba(239, 68, 68, 0.22);
+        --idle-fg: #CBD5E1;   --idle-bg: rgba(148, 163, 184, 0.22);
+
+        --bar-ok: #34D399;
+        --bar-warn: #FBBF24;
+        --bar-danger: #F87171;
+        --bar-track: rgba(255, 255, 255, 0.13);
+
+        --focus-ring: #F1F5F9;
+    }
+
+    html, body {
+        height: 100%;
+        font-family: -apple-system, "SF Pro Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        color: var(--text-primary);
+        background: var(--bg-page);
+        transition: background 0.25s ease, color 0.25s ease;
+        overflow-x: hidden;
+    }
+
+    :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
+
+    /* 图标统一走内联 SVG：同一 16 网格、同一 1.6 描边、stroke=currentColor */
+    .ico { display: block; flex-shrink: 0; }
+
+    /* ============================================================
+       壳（与运维 index 同一套）
+       ============================================================ */
+    .app {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        grid-template-rows: 56px 1fr;
+        grid-template-areas: "sidebar topbar" "sidebar main";
+        height: 100vh;
+    }
+
+    .sidebar {
+        grid-area: sidebar;
+        background: var(--bg-sidebar);
+        border-right: 1px solid var(--border-subtle);
+        padding: 16px 12px;
+        display: flex; flex-direction: column; gap: 2px;
+        overflow-y: auto;
+    }
+    .sidebar-title {
+        font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+        color: var(--text-muted); padding: 14px 12px 6px;
+    }
+    .menu-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 9px 12px; border-radius: 10px;
+        font-size: 14px; color: var(--text-secondary);
+        cursor: pointer; border-left: 3px solid transparent;
+        transition: background 0.18s ease, color 0.18s ease; user-select: none;
+    }
+    .menu-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .menu-item.active {
+        background: color-mix(in srgb, var(--m-main) 12%, var(--bg-card));
+        color: var(--m-ink); border-left-color: var(--m-main); font-weight: 600;
+    }
+    .menu-item .ico { color: inherit; }
+
+    .drawer-mask {
+        position: fixed; inset: 0; z-index: 110;
+        background: rgba(15, 23, 42, 0.42);
+        opacity: 0; pointer-events: none;
+        transition: opacity 0.25s ease;
+    }
+    body.drawer-open .drawer-mask { opacity: 1; pointer-events: auto; }
+    .hamburger {
+        display: none; align-items: center; justify-content: center;
+        width: 36px; height: 36px; flex-shrink: 0;
+        border-radius: 10px; border: 1px solid var(--border-strong);
+        background: var(--bg-card); color: var(--text-primary);
+        cursor: pointer; font-family: inherit;
+    }
+
+    .topbar {
+        grid-area: topbar;
+        background: var(--bg-topbar);
+        border-bottom: 1px solid var(--border-subtle);
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 24px; gap: 16px;
+    }
+    .breadcrumb {
+        font-size: 13px; color: var(--text-muted);
+        display: flex; align-items: center; gap: 8px; min-width: 0;
+    }
+    .breadcrumb a { color: var(--text-muted); cursor: pointer; text-decoration: none; white-space: nowrap; }
+    .breadcrumb a:hover { color: var(--m-ink); }
+    .breadcrumb .sep { color: var(--border-field); }
+    .breadcrumb strong { color: var(--text-primary); font-weight: 600; white-space: nowrap; }
+    .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+    .btn {
+        border: none; border-radius: 10px;
+        padding: 8px 16px; font-size: 13px; font-weight: 500;
+        cursor: pointer; font-family: inherit; white-space: nowrap;
+        display: inline-flex; align-items: center; gap: 6px;
+        transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn .ico { color: inherit; }
+    .btn-primary { background: var(--rc-btn); color: #FFFFFF; box-shadow: var(--shadow-card); }
+    .btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--rc-btn) 88%, #000); }
+    .btn-ghost {
+        background: var(--bg-card); color: var(--text-primary);
+        border: 1px solid var(--border-strong);
+    }
+    .btn-ghost:hover:not(:disabled) { border-color: var(--rc-ink); color: var(--rc-ink); }
+    .btn-quiet { background: transparent; color: var(--text-secondary); }
+    .btn-quiet:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+    .theme-toggle {
+        width: 38px; height: 38px; border-radius: 10px;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-card); color: var(--text-secondary);
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        transition: color 0.18s ease, border-color 0.18s ease;
+    }
+    .theme-toggle:hover { color: var(--rc-ink); border-color: var(--rc-ink); }
+
+    .main { grid-area: main; padding: 24px 28px 0; overflow-y: auto; overscroll-behavior: contain; }
+    .detail {
+        width: min(1120px, 100%);
+        margin: 0 auto;
+        padding-bottom: 28px;
+        display: flex; flex-direction: column; gap: 18px;
+    }
+
+    /* ============================================================
+       页头 + Tab（与运维 index 同一套）
+       ============================================================ */
+    .hero-mini { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .hero-mini-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; }
+    .hero-mini-back {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 13px; color: var(--text-secondary); cursor: pointer;
+        transition: color 0.18s ease;
+    }
+    .hero-mini-back:hover { color: var(--m-ink); }
+    .hero-mini-tag {
+        display: inline-flex; align-items: center;
+        padding: 3px 10px; border-radius: 6px;
+        background: color-mix(in srgb, var(--s-work) 14%, var(--bg-card));
+        color: color-mix(in srgb, var(--s-work) 78%, var(--text-primary));
+        font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .hero-mini-name { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+    .hero-mini-right { display: flex; align-items: center; gap: 10px; }
+    .dirty-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 10px; border-radius: 999px;
+        background: var(--warn-bg); color: var(--warn-fg);
+        font-size: 11px; font-weight: 700; white-space: nowrap;
+    }
+
+    .tabs-wrap {
+        position: sticky; top: 0; z-index: 20;
+        background: var(--bg-page);
+        padding: 4px 0 10px;
+        margin-bottom: -8px;
+    }
+    .tabs {
+        display: flex; gap: 4px; overflow-x: auto;
+        padding: 6px; border-radius: var(--r-md);
+        background: var(--bg-card);
+        border: 1px solid var(--border-card);
+        box-shadow: var(--shadow-card);
+        scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+        flex-shrink: 0; display: flex; align-items: center; gap: 7px;
+        padding: 9px 14px; border-radius: 10px;
+        font-size: 13px; font-weight: 600; color: var(--text-secondary);
+        cursor: pointer; white-space: nowrap; user-select: none;
+        border: none; background: transparent; font-family: inherit;
+        transition: background 0.18s ease, color 0.18s ease;
+    }
+    .tab .ico { color: inherit; }
+    .tab:hover { color: var(--text-primary); background: var(--bg-hover); }
+    .tab.active { background: var(--m-main); color: var(--ink-on-accent); }
+    .tab .tab-count {
+        font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px;
+        background: var(--bg-hover); color: var(--text-secondary);
+        min-width: 18px; text-align: center; font-variant-numeric: tabular-nums;
+    }
+    .tab.active .tab-count {
+        background: color-mix(in srgb, var(--ink-on-accent) 22%, transparent);
+        color: var(--ink-on-accent);
+    }
+
+    /* ============================================================
+       两栏骨架：主列（表单）+ 侧轨（连接检查 / 预览）
+       「主内容 ≥1200 拆主列 + 侧轨」—— 理由不是好看：单列时表单卡横跨 1120px
+         而字段只占 640px，右侧整段空着；侧轨把「检查结果」这类次要信息收进去。
+       ============================================================ */
+    .form-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr);
+        gap: 18px; align-items: start;
+    }
+    .form-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .side-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+    .panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border-card);
+        border-radius: var(--r-lg);
+        box-shadow: var(--shadow-card);
+        overflow: hidden;
+    }
+    .panel-head {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+    .panel-head .head-ico {
+        width: 26px; height: 26px; border-radius: var(--r-sm); flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: color-mix(in srgb, var(--rc) 14%, var(--bg-card));
+        color: var(--rc-ink);
+    }
+    .panel-title { font-size: 13px; font-weight: 700; letter-spacing: -0.005em; }
+    .panel-head-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+    /* ============================================================
+       表单卡片：一卡一问
+       成块靠 --bg-subtle 的底色差，不再加一圈描边 —— 卡面与区块底本来就不同色，
+       再画边等于把同一条边画两遍（纯色范式的判据：同色才用线）。
+       ============================================================ */
+    .form-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+    .fgroup { background: var(--bg-subtle); border-radius: 14px; padding: 14px 15px 15px; }
+    .fgroup-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .fgroup-no {
+        width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: color-mix(in srgb, var(--rc) 14%, var(--bg-card));
+        color: var(--rc-ink); font-size: 10.5px; font-weight: 800;
+        font-variant-numeric: tabular-nums;
+    }
+    .fgroup-title {
+        font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em;
+        color: var(--text-secondary); white-space: nowrap;
+    }
+    .fgroup-title[for] { cursor: pointer; }
+    .fgroup-title[for]:hover { color: var(--text-primary); }
+    .fgroup-count {
+        margin-left: auto; flex-shrink: 0; white-space: nowrap;
+        padding: 2px 9px; border-radius: 999px;
+        background: var(--bg-card); color: var(--text-secondary);
+        font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+
+    /* 必填用徽标而非红星（红星在深色底上几乎看不见） */
+    .field-req {
+        padding: 2px 7px; border-radius: 4px; flex-shrink: 0;
+        background: var(--danger-bg); color: var(--danger-fg);
+        font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+    }
+    /* 字段说明收进「?」气泡，不常驻占位 */
+    .field-help {
+        width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 0; cursor: help;
+        border: 1px solid var(--border-strong); background: transparent;
+        color: var(--text-secondary);
+        font-family: inherit; font-size: 10px; font-weight: 800; line-height: 1;
+        transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+    }
+    .field-help:hover, .field-help:focus-visible {
+        border-color: var(--rc-ink); color: var(--rc-ink);
+        background: color-mix(in srgb, var(--rc) 10%, var(--bg-card));
+    }
+
+    .frow { display: grid; grid-template-columns: minmax(0, 1fr) 132px; gap: 10px; }
+    .field-label {
+        display: flex; align-items: center; gap: 7px; margin-bottom: 6px;
+        font-size: 11.5px; font-weight: 700; color: var(--text-secondary);
+    }
+    label.field-label { cursor: pointer; }
+
+    .inp {
+        width: 100%; padding: 9px 13px; border-radius: 10px;
+        border: 1px solid var(--border-field);
+        background: var(--bg-card); color: var(--text-primary);
+        font-family: inherit; font-size: 13px;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .inp::placeholder { color: var(--text-muted); }
+    .inp:focus {
+        outline: none; border-color: var(--rc-ink);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--rc) 20%, transparent);
+    }
+    .inp[aria-invalid="true"] {
+        border-color: var(--bar-danger);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--bar-danger) 22%, transparent);
+    }
+    .inp.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+    textarea.inp { resize: vertical; min-height: 62px; line-height: 1.6; }
+
+    /* 输入框 + 尾部文字按钮（「选择文件」这类只有系统自己知道的值） */
+    .inp-wrap { display: flex; align-items: center; gap: 8px; }
+    .field-act {
+        flex-shrink: 0; padding: 6px 10px; border-radius: 8px;
+        display: inline-flex; align-items: center; gap: 5px;
+        border: 1px solid var(--border-strong); background: var(--bg-card);
+        color: var(--text-secondary); cursor: pointer;
+        font-family: inherit; font-size: 11.5px; font-weight: 700;
+        transition: border-color 0.15s ease, color 0.15s ease;
+    }
+    .field-act:hover { border-color: var(--rc-ink); color: var(--rc-ink); }
+    .field-act .ico { color: inherit; }
+
+    .field-err {
+        display: flex; align-items: center; gap: 5px;
+        margin-top: 7px;
+        font-size: 10.5px; font-weight: 700; line-height: 1.5; color: var(--danger-fg);
+    }
+    .field-err .ico { color: inherit; }
+    .field-note { margin-top: 7px; font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+
+    /* ---------- 分段控件（登录方式） ----------
+       选中态不能只靠底色差（白药丸压灰轨道只有 1.08:1 = 状态不可见）
+       ⇒ 给状态一条形状线索：内侧「实心 / 空心」单选圆点，两侧常驻常宽、切换不跳字。 */
+    .seg {
+        display: inline-flex; gap: 3px; padding: 3px;
+        border-radius: 11px; background: var(--bg-hover);
+    }
+    .seg-item {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 6px 13px; border-radius: 8px;
+        border: none; background: transparent; cursor: pointer;
+        color: var(--text-secondary); font-family: inherit;
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+    .seg-item:hover { color: var(--text-primary); }
+    .seg-dot {
+        width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+        border: 1.6px solid var(--border-field);
+        display: flex; align-items: center; justify-content: center;
+    }
+    .seg-item.on { background: var(--bg-card); color: var(--text-primary); font-weight: 700; }
+    .seg-item.on .seg-dot { border-color: var(--rc-ink); }
+    .seg-item.on .seg-dot::after {
+        content: ""; width: 6px; height: 6px; border-radius: 50%;
+        background: var(--rc-ink); display: block;
+    }
+
+    /* ---------- 选择 chip（环境 / 云厂商 / 标签） ---------- */
+    .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 11px; border-radius: 999px;
+        border: 1px solid var(--border-field); background: var(--bg-card);
+        color: var(--text-secondary); cursor: pointer;
+        font-family: inherit; font-size: 11px; font-weight: 600;
+        transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+    }
+    .chip:hover { border-color: var(--rc-ink); color: var(--rc-ink); }
+    /* 单选类：小圆点，实心 = 选中 */
+    .chip .dot {
+        width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+        border: 1.4px solid var(--border-field);
+        display: flex; align-items: center; justify-content: center;
+    }
+    .chip.on { border-color: var(--rc-ink); color: var(--rc-ink); font-weight: 700;
+        background: color-mix(in srgb, var(--rc) 10%, var(--bg-card)); }
+    .chip.on .dot { border-color: var(--rc-ink); }
+    .chip.on .dot::after {
+        content: ""; width: 5px; height: 5px; border-radius: 50%;
+        background: var(--rc-ink); display: block;
+    }
+    /* 多选类（标签）：用勾形做形状线索 */
+    .chip-check .box {
+        width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0;
+        border: 1.4px solid var(--border-field);
+        display: flex; align-items: center; justify-content: center;
+        color: var(--rc-ink);
+    }
+    .chip-check .box svg { display: none; }
+    .chip-check.on .box { border-color: var(--rc-ink); background: color-mix(in srgb, var(--rc) 16%, var(--bg-card)); }
+    .chip-check.on .box svg { display: block; }
+    .chip-count { font-size: 10px; font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+    /* 「新建标签」：默认是一枚虚线 ＋ 胶囊，点开在**同一位置**换成输入框 ——
+       缺省态是"选"、新建按需才切到输入态，两态共用一个位置，不做成"多长出来一个字段"。
+       虚线描边是"这里可以再加一个"的通用写法，与已选中的实线 chip 一眼分得开。
+       （与部署页 / 日志页同一套，只是把 --dp 换成运维绿的 --rc-ink。） */
+    .group-add {
+        flex-shrink: 0; width: 30px; height: 25px; padding: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 999px; border: 1px dashed var(--border-field);
+        background: transparent; color: var(--text-secondary); cursor: pointer;
+        font-family: inherit;
+        transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+    }
+    .group-add .ico { color: inherit; }
+    .group-add:hover {
+        border-color: var(--rc-ink); color: var(--rc-ink);
+        background: color-mix(in srgb, var(--rc) 8%, var(--bg-card));
+    }
+    .group-add-input {
+        flex-shrink: 0; width: 104px; height: 25px; padding: 0 10px;
+        border-radius: 999px; border: 1px solid var(--rc-ink);
+        background: var(--bg-card); color: var(--text-primary);
+        font-family: inherit; font-size: 11px; font-weight: 700;
+    }
+    .group-add-input:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--rc) 18%, transparent); }
+    .group-add-input::placeholder { color: var(--text-muted); font-weight: 600; }
+
+    /* 环境用语义色底衬，且标签里必须带范围（这是"本机/生产"这类事实，不是分类） */
+    .chip.on[data-env="prod"] { border-color: var(--warn-fg); color: var(--warn-fg);
+        background: var(--warn-bg); }
+    .chip.on[data-env="prod"] .dot { border-color: var(--warn-fg); }
+    .chip.on[data-env="prod"] .dot::after { background: var(--warn-fg); }
+
+    /* ---------- 登录后提权（卡③ 的第二件事） ----------
+       su - 认证的是「目标账户」，所以要的是目标账户的密码，**不是**上面那个登录用户的密码 ——
+       这是最容易做错的一处。root 登录时 su - 与 sudo 都免认证，密码字段要收起来。
+       与上一块之间用一条线：它是同一张卡里的第二件事（进来之后做什么），不是同一件事的第二行。
+       （纯色范式的例外：这里两块同色，所以线是必需的。） */
+    .esc-block { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--border-subtle); }
+    .esc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .esc-title { font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; color: var(--text-secondary); }
+    /* 徽标只说"这一步执行时会不会停下来等人" —— 也就是 ⚠（一定会停）与沉默（不会停）的区别 */
+    .esc-state {
+        margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+        padding: 2px 9px; border-radius: 999px;
+        background: var(--ok-bg); color: var(--ok-fg);
+        font-size: 10px; font-weight: 700; white-space: nowrap;
+    }
+    .esc-state .ico { color: inherit; display: none; }
+    .esc-state.warn { background: var(--warn-bg); color: var(--warn-fg); }
+    .esc-state.warn .ico { display: block; }
+    .esc-state.idle { background: var(--idle-bg); color: var(--idle-fg); }
+    .esc-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    .esc-k { flex-shrink: 0; min-width: 52px; font-size: 11px; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
+    .esc-row .inp-wrap { flex: 1 1 220px; min-width: 0; }
+    /* 建议写法只摆在提示行里让他照抄，**不代改命令**（工具只识别 + 给建议） */
+    .esc-suggest {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        margin-top: 10px; padding: 8px 10px; border-radius: 9px;
+        background: var(--bg-card); color: var(--text-secondary);
+        font-size: 11px; line-height: 1.6;
+    }
+    .esc-suggest .ico { color: var(--text-muted); flex-shrink: 0; }
+    .esc-suggest code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px; font-weight: 700; color: var(--text-primary);
+        background: var(--bg-hover); padding: 2px 7px; border-radius: 5px;
+    }
+    .esc-suggest .field-act { margin-left: auto; }
+
+    /* ============================================================
+       底部动作行：sticky 贴住滚动容器底部（长表单里动作不能只在顶部）
+       ============================================================ */
+    .form-actions {
+        position: sticky; bottom: 0; z-index: 15;
+        display: flex; align-items: center; gap: 10px; justify-content: flex-end;
+        padding: 12px 14px; border-radius: 14px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-card);
+        box-shadow: 0 -2px 4px rgba(15, 23, 42, 0.04), var(--shadow-card);
+    }
+    .actions-err {
+        margin-right: auto; display: flex; align-items: center; gap: 6px;
+        font-size: 11.5px; font-weight: 700; color: var(--danger-fg);
+    }
+    .actions-err .ico { color: inherit; }
+
+    /* ============================================================
+       侧轨 · 连接检查
+       状态行只说"现在正在发生什么"；未检查态四项皆空，不写"还没检查"这类注解。
+       ============================================================ */
+    .check-list { padding: 6px 8px 8px; }
+    .check-item {
+        display: flex; align-items: center; gap: 9px;
+        padding: 9px 8px; border-radius: 9px;
+        transition: background 0.15s ease;
+    }
+    .check-item:hover { background: var(--bg-subtle); }
+    .check-dot {
+        width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        border: 1.6px solid var(--border-field);
+        color: var(--text-muted);
+    }
+    .check-dot .ico { display: none; }
+    .check-item .check-name { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+    .check-item .check-val {
+        margin-left: auto; font-size: 11.5px; font-weight: 700;
+        color: var(--text-muted); font-variant-numeric: tabular-nums;
+        max-width: 52%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .check-item.ok .check-dot { border-color: var(--ok-fg); color: var(--ok-fg); }
+    .check-item.ok .check-dot .ico { display: block; }
+    .check-item.ok .check-name { color: var(--text-primary); }
+    .check-item.ok .check-val { color: var(--text-primary); }
+    .check-item.fail .check-dot { border-color: var(--danger-fg); color: var(--danger-fg); }
+    .check-item.fail .check-dot .ico { display: block; }
+    .check-item.fail .check-name { color: var(--text-primary); }
+    .check-item.fail .check-val { color: var(--danger-fg); }
+    /* 检查中：圆点转起来（形状线索，不只靠颜色） */
+    .check-item.busy .check-dot { border-color: var(--rc-ink); border-right-color: var(--border-field);
+        animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .check-foot {
+        display: flex; align-items: center; gap: 10px;
+        padding: 11px 16px 14px;
+    }
+    .check-target {
+        display: flex; align-items: center; gap: 6px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px; color: var(--text-muted);
+        min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .check-target .ico { color: inherit; }
+    .check-foot .btn { margin-left: auto; }
+
+    /* ============================================================
+       侧轨 · 添加预览（复用服务器行的视觉：机架色条 + 名称 + 徽标 + meta）
+       ============================================================ */
+    .preview-box { padding: 12px 14px 14px; }
+    .srv-row {
+        display: grid; grid-template-columns: 4px minmax(0, 1fr);
+        gap: 11px; align-items: start;
+        padding: 11px 12px; border-radius: 12px;
+        background: var(--bg-subtle);
+        border: 1px solid var(--border-card);
+    }
+    .srv-rack { width: 4px; height: 100%; min-height: 34px; border-radius: 999px; background: var(--rc); }
+    .srv-name {
+        display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+        font-size: 12.5px; font-weight: 700;
+    }
+    .srv-name .name-txt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .srv-meta {
+        margin-top: 5px; font-size: 11px; color: var(--text-secondary);
+        line-height: 1.6; word-break: break-all;
+    }
+    .srv-meta .sep { color: var(--border-field); margin: 0 5px; }
+    .badge {
+        display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px;
+        font-size: 10px; font-weight: 800; letter-spacing: 0.03em; white-space: nowrap;
+    }
+    .badge.idle { background: var(--idle-bg); color: var(--idle-fg); }
+    .badge.env { background: var(--warn-bg); color: var(--warn-fg); }
+
+    .sub-list { padding: 4px 14px 14px; }
+    .sub-item {
+        display: flex; align-items: center; gap: 9px;
+        padding: 8px 0; font-size: 11.5px; color: var(--text-secondary);
+    }
+    .sub-item + .sub-item { border-top: 1px solid var(--border-subtle); }
+    .sub-item .ico { color: var(--text-muted); }
+    .sub-item .sub-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600;
+        color: var(--text-primary); }
+    .sub-item .sub-ip { margin-left: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .panel-note {
+        margin: 0 14px 14px; padding: 9px 11px; border-radius: 10px;
+        background: var(--warn-bg); color: var(--warn-fg);
+        font-size: 11.5px; font-weight: 600; line-height: 1.6;
+        display: flex; gap: 7px; align-items: flex-start;
+    }
+    .panel-note .ico { color: inherit; margin-top: 1px; }
+    .panel-note.info { background: var(--idle-bg); color: var(--idle-fg); }
+
+    /* ============================================================
+       「?」气泡：fixed 共享层，挂 body 上 —— 贴在卡片里会被祖先的
+       overflow 裁掉（本工作区踩过一次，正文里飘的下拉被裁）。
+       ============================================================ */
+    .tip-layer {
+        position: fixed; z-index: 200; max-width: 268px;
+        padding: 9px 11px; border-radius: 10px;
+        background: var(--bg-card-solid); color: var(--text-secondary);
+        border: 1px solid var(--border-strong);
+        box-shadow: var(--shadow-card-hover);
+        font-size: 11.5px; line-height: 1.7; font-weight: 500;
+        pointer-events: none;
+    }
+
+    /* Toast */
+    .toast-wrap {
+        position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+        z-index: 300; display: flex; flex-direction: column; gap: 8px; align-items: center;
+        pointer-events: none;
+    }
+    .toast {
+        display: flex; align-items: center; gap: 8px;
+        padding: 9px 15px; border-radius: 999px;
+        background: var(--bg-card-solid); color: var(--text-primary);
+        border: 1px solid var(--border-strong);
+        box-shadow: var(--shadow-card-hover);
+        font-size: 12.5px; font-weight: 600;
+        animation: toastIn 0.22s ease;
+    }
+    .toast .ico { color: var(--rc-ink); }
+    .toast.warn .ico { color: var(--warn-fg); }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    /* ============================================================
+       响应式：先收侧轨（表单是主体），再收壳
+       ============================================================ */
+    @media (max-width: 1200px) {
+        .form-layout { grid-template-columns: minmax(0, 1fr); }
+        .side-col { flex-direction: row; flex-wrap: wrap; }
+        .side-col > .panel { flex: 1 1 320px; }
+    }
+    @media (max-width: 1024px) {
+        .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+        .sidebar {
+            position: fixed; left: 0; top: 0; bottom: 0; width: 232px; z-index: 120;
+            transform: translateX(-100%); transition: transform 0.25s ease;
+        }
+        body.drawer-open .sidebar { transform: none; }
+        .hamburger { display: flex; }
+        .main { padding: 20px 20px 0; }
+    }
+    @media (max-width: 720px) {
+        .frow { grid-template-columns: minmax(0, 1fr); }
+        .hero-mini-right .dirty-chip { display: none; }
+        .form-actions { flex-wrap: wrap; }
+        .actions-err { width: 100%; margin-right: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+    }
+</style>
+</head>
+<body>
+
+<div class="drawer-mask" id="drawerMask" onclick="toggleDrawer(false)"></div>
+
+<div class="app">
+
+    <!-- ==================== 侧栏 ==================== -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-title">全局层</div>
+        <div class="menu-item" role="button" tabindex="0"><span data-ico="dashboard" data-ico-size="15"></span>工作台</div>
+        <div class="menu-item" role="button" tabindex="0"><span data-ico="task" data-ico-size="15"></span>任务清单</div>
+        <div class="menu-item" role="button" tabindex="0"><span data-ico="calendar" data-ico-size="15"></span>日程</div>
+
+        <div class="sidebar-title">领域层</div>
+        <div class="menu-item" role="button" tabindex="0"><span data-ico="home" data-ico-size="15"></span>生活</div>
+        <div class="menu-item active" role="button" tabindex="0"><span data-ico="briefcase" data-ico-size="15"></span>工作</div>
+        <div class="menu-item" role="button" tabindex="0"><span data-ico="book" data-ico-size="15"></span>学习</div>
+
+        <div class="sidebar-title">执行层</div>
+        <div class="menu-item active" role="button" tabindex="0"><span data-ico="folder" data-ico-size="15"></span>项目</div>
+
+        <div class="sidebar-title">沉淀层</div>
+        <div class="menu-item" role="button" tabindex="0"><span data-ico="archive" data-ico-size="15"></span>知识库</div>
+
+        <div class="sidebar-title">支撑层</div>
+        <div class="menu-item" role="button" tabindex="0"><span data-ico="settings" data-ico-size="15"></span>设置</div>
+    </aside>
+
+    <!-- ==================== 顶栏 ==================== -->
+    <header class="topbar">
+        <button class="hamburger" id="hamburger" aria-label="打开导航菜单" aria-expanded="false"
+                onclick="toggleDrawer()"><span data-ico="menu" data-ico-size="16"></span></button>
+        <nav class="breadcrumb" aria-label="面包屑">
+            <a role="button" tabindex="0" onclick="toast('返回项目列表','info')">项目</a>
+            <span class="sep" aria-hidden="true">/</span>
+            <a role="button" tabindex="0" onclick="toast('返回项目详情','info')">支付系统重构</a>
+            <span class="sep" aria-hidden="true">/</span>
+            <a role="button" tabindex="0" onclick="goOps()">运维</a>
+            <span class="sep" aria-hidden="true">/</span>
+            <strong aria-current="page">添加服务器</strong>
+        </nav>
+        <div class="topbar-actions">
+            <button class="theme-toggle" id="themeToggle" aria-label="切换到深色主题" aria-pressed="false"
+                    onclick="toggleTheme()"><span id="themeIco" data-ico="moon" data-ico-size="17"></span></button>
+        </div>
+    </header>
+
+    <!-- ==================== 主区 ==================== -->
+    <main class="main">
+        <div class="detail">
+
+            <!-- ---------- 页头 ---------- -->
+            <div class="hero-mini">
+                <div class="hero-mini-left">
+                    <div class="hero-mini-back" role="button" tabindex="0" onclick="goOps()">
+                        <span data-ico="back" data-ico-size="14"></span>返回
+                    </div>
+                    <span class="hero-mini-tag">CORE</span>
+                    <h1 class="hero-mini-name">支付系统重构 · 添加服务器</h1>
+                </div>
+                <div class="hero-mini-right">
+                    <span class="dirty-chip" id="dirtyChip">
+                        <span data-ico="dot" data-ico-size="11"></span>未保存
+                    </span>
+                    <button class="btn btn-ghost btn-sm" onclick="goOps()">取消</button>
+                    <button class="btn btn-primary btn-sm" id="submitBtnTop" onclick="submitForm(false)">
+                        <span data-ico="plus" data-ico-size="14"></span><span class="btn-txt">添加服务器</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ---------- Tab 导航 ---------- -->
+            <div class="tabs-wrap">
+                <div class="tabs" role="tablist" aria-label="项目详情分区">
+                    <button class="tab" role="tab" onclick="toast('总览 Tab · 原型占位','info')">
+                        <span data-ico="dashboard" data-ico-size="14"></span>总览</button>
+                    <button class="tab" role="tab" onclick="toast('任务 Tab · 原型占位','info')">
+                        <span data-ico="task" data-ico-size="14"></span>任务 <span class="tab-count">5/8</span></button>
+                    <button class="tab" role="tab" onclick="toast('Bug Tab · 原型占位','info')">
+                        <span data-ico="bug" data-ico-size="14"></span>Bug <span class="tab-count">2</span></button>
+                    <button class="tab" role="tab" onclick="location.href='work_project_detail_document.html'">
+                        <span data-ico="doc" data-ico-size="14"></span>文档 <span class="tab-count">9</span></button>
+                    <button class="tab active" role="tab" aria-selected="true" onclick="toast('已在运维分区','info')">
+                        <span data-ico="rocket" data-ico-size="14"></span>运维 <span class="tab-count">2·3·4</span></button>
+                    <button class="tab" role="tab" onclick="toast('会议 Tab · 原型占位','info')">
+                        <span data-ico="calendar" data-ico-size="14"></span>会议 <span class="tab-count">2</span></button>
+                    <button class="tab" role="tab" onclick="toast('账户 Tab · 原型占位','info')">
+                        <span data-ico="key" data-ico-size="14"></span>账户 <span class="tab-count">8</span></button>
+                </div>
+            </div>
+
+            <!-- ---------- 两栏：表单 + 侧轨 ---------- -->
+            <div class="form-layout">
+
+                <!-- ============ 主列 ============ -->
+                <div class="form-col">
+                    <section class="panel" aria-labelledby="formTitle">
+                        <div class="panel-head">
+                            <span class="head-ico" aria-hidden="true"><span data-ico="server" data-ico-size="15"></span></span>
+                            <h2 class="panel-title" id="formTitle">服务器信息</h2>
+                            <div class="panel-head-right">
+                                <span class="fgroup-count" id="fillCount">必填 0 / 4</span>
+                            </div>
+                        </div>
+
+                        <div class="form-body">
+
+                            <!-- ===== 卡① 标识 ===== -->
+                            <div class="fgroup">
+                                <div class="fgroup-head">
+                                    <span class="fgroup-no" aria-hidden="true">1</span>
+                                    <label class="fgroup-title" for="fName">服务器标识</label>
+                                    <span class="field-req">必填</span>
+                                    <button class="field-help" type="button" aria-label="名称规则：环境-角色-序号，需与本项目已有服务器不重名" data-tip="建议写成「环境-角色-序号」，例如 prod-web-03。名称在项目内唯一，会作为服务器列表里的主标签。">?</button>
+                                    <span class="fgroup-count">唯一</span>
+                                </div>
+                                <div class="field-label">
+                                    <label for="fName">名称</label>
+                                </div>
+                                <input class="inp mono" id="fName" type="text" value="prod-web-03"
+                                       placeholder="prod-web-03" autocomplete="off" aria-describedby="errName" />
+                                <div class="field-err" id="errName" hidden>
+                                    <span data-ico="alert" data-ico-size="12"></span>名称已存在，本项目中已有 prod-web-01
+                                </div>
+                                <div style="margin-top: 12px;">
+                                    <div class="field-label">环境</div>
+                                    <div class="chip-row" role="radiogroup" aria-label="环境">
+                                        <button class="chip on" type="button" role="radio" aria-checked="true" data-env="prod" data-env-name="生产" onclick="pickEnv(this)"><span class="dot"></span>生产</button>
+                                        <button class="chip" type="button" role="radio" aria-checked="false" data-env="stage" data-env-name="预发" onclick="pickEnv(this)"><span class="dot"></span>预发</button>
+                                        <button class="chip" type="button" role="radio" aria-checked="false" data-env="test" data-env-name="测试" onclick="pickEnv(this)"><span class="dot"></span>测试</button>
+                                        <button class="chip" type="button" role="radio" aria-checked="false" data-env="local" data-env-name="本机" onclick="pickEnv(this)"><span class="dot"></span>本机</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ===== 卡② 地址 ===== -->
+                            <div class="fgroup">
+                                <div class="fgroup-head">
+                                    <span class="fgroup-no" aria-hidden="true">2</span>
+                                    <label class="fgroup-title" for="fHost">连接地址</label>
+                                    <span class="field-req">必填</span>
+                                    <button class="field-help" type="button" aria-label="支持 IPv4 与内网域名；同一网段已有服务器时会提示" data-tip="填公网 IPv4 或内网域名都可以。填写后会实时比对本项目已有服务器的网段，避免把同一台机器加两遍。">?</button>
+                                </div>
+                                <div class="frow">
+                                    <div>
+                                        <div class="field-label"><label for="fHost">主机地址</label></div>
+                                        <input class="inp mono" id="fHost" type="text" value="47.100.23.11"
+                                               placeholder="47.100.23.11 或 web-03.internal" autocomplete="off"
+                                               oninput="onHostInput()" aria-describedby="errHost" />
+                                    </div>
+                                    <div>
+                                        <div class="field-label"><label for="fPort">SSH 端口</label></div>
+                                        <input class="inp mono" id="fPort" type="text" value="22" placeholder="22"
+                                               inputmode="numeric" autocomplete="off" oninput="onHostInput()" />
+                                    </div>
+                                </div>
+                                <div class="field-err" id="errHost" hidden>
+                                    <span data-ico="alert" data-ico-size="12"></span>地址格式不正确
+                                </div>
+                            </div>
+
+                            <!-- ===== 卡③ 登录 ===== -->
+                            <div class="fgroup">
+                                <div class="fgroup-head">
+                                    <span class="fgroup-no" aria-hidden="true">3</span>
+                                    <span class="fgroup-title" id="loginTitle">登录方式</span>
+                                    <span class="field-req">必填</span>
+                                    <button class="field-help" type="button" aria-label="凭据只保存在本机，不会随配置同步" data-tip="凭据只保存在本机钥匙串 / 目录，不写进项目配置、不同步到其它设备。部署与日志页会用这里的身份去连。">?</button>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+                                    <div class="seg" role="radiogroup" aria-labelledby="loginTitle">
+                                        <button class="seg-item on" type="button" role="radio" aria-checked="true"
+                                                data-auth="key" onclick="pickAuth(this)"><span class="seg-dot"></span>密钥文件</button>
+                                        <button class="seg-item" type="button" role="radio" aria-checked="false"
+                                                data-auth="pwd" onclick="pickAuth(this)"><span class="seg-dot"></span>密码</button>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 190px;">
+                                        <div class="field-label" style="margin: 0;"><label for="fUser">登录用户</label></div>
+                                        <input class="inp mono" id="fUser" type="text" value="deploy" placeholder="deploy"
+                                               autocomplete="off" style="width: 120px;" />
+                                    </div>
+                                </div>
+
+                                <!-- 密钥文件（默认这一支） -->
+                                <div id="authKey" style="margin-top: 12px;">
+                                    <div class="field-label"><label for="fKeyPath">私钥路径</label></div>
+                                    <div class="inp-wrap">
+                                        <input class="inp mono" id="fKeyPath" type="text"
+                                               value="/Users/yangliu/.ssh/id_ed25519"
+                                               placeholder="~/.ssh/id_ed25519" autocomplete="off"
+                                               aria-describedby="errKey" />
+                                        <button class="field-act" type="button" onclick="toast('打开本机文件选择器','info')">
+                                            <span data-ico="file" data-ico-size="13"></span>选择文件
+                                        </button>
+                                    </div>
+                                    <div class="field-note" id="keyHint">ed25519 · 已在本机找到 · 未设密码短语</div>
+                                    <div class="field-err" id="errKey" hidden>
+                                        <span data-ico="alert" data-ico-size="12"></span>本机找不到这个文件
+                                    </div>
+                                </div>
+
+                                <!-- 密码 -->
+                                <div id="authPwd" hidden style="margin-top: 12px;">
+                                    <div class="field-label"><label for="fPwd">密码</label></div>
+                                    <div class="inp-wrap">
+                                        <input class="inp mono" id="fPwd" type="password" value=""
+                                               placeholder="登录密码" autocomplete="new-password" aria-describedby="errPwd" />
+                                        <button class="field-act" type="button" id="pwdToggle" onclick="togglePwd()">
+                                            <span data-ico="eye" data-ico-size="13"></span>显示
+                                        </button>
+                                    </div>
+                                    <div class="field-note">密码存在本机钥匙串，不进配置文件</div>
+                                    <div class="field-err" id="errPwd" hidden>
+                                        <span data-ico="alert" data-ico-size="12"></span>密码不能为空
+                                    </div>
+                                </div>
+
+                                <!-- ---------- 登录后提权 ----------
+                                     SSH 登录进来的身份往往不是 root（deploy 之类），
+                                     后面读系统信息、重启服务都要 root ⇒ 得在登录之后再 su - 一次。 -->
+                                <div class="esc-block">
+                                    <div class="esc-head">
+                                        <span class="esc-title" id="escTitle">登录后提权</span>
+                                        <button class="field-help" type="button"
+                                                aria-label="su - 要的是目标账户的密码，不是登录用户的密码"
+                                                data-tip="su - 认证的是目标账户，所以要填下面那个账户的密码，不是上面登录用户的密码。su - 没有免密等价物，同一次执行里每碰到一次都会重新问；sudo 的凭据在同一次执行内复用 15 分钟。登录用户是 root 时，su - 与 sudo 都免认证。">?</button>
+                                        <span class="esc-state" id="escState">
+                                            <span data-ico="alert" data-ico-size="11"></span><span id="escStateTxt">不会暂停</span>
+                                        </span>
+                                    </div>
+
+                                    <div class="esc-row">
+                                        <span class="esc-k">提权到</span>
+                                        <div class="chip-row" role="radiogroup" aria-labelledby="escTitle">
+                                            <button class="chip" type="button" role="radio" aria-checked="false" data-esc="none" onclick="pickEsc(this)"><span class="dot"></span>不需要</button>
+                                            <button class="chip on" type="button" role="radio" aria-checked="true" data-esc="root" onclick="pickEsc(this)"><span class="dot"></span>root</button>
+                                            <button class="chip" type="button" role="radio" aria-checked="false" data-esc="custom" onclick="pickEsc(this)"><span class="dot"></span>其他账户</button>
+                                        </div>
+                                        <input class="inp mono" id="fEscUser" type="text" value="" placeholder="账户名"
+                                               autocomplete="off" style="width: 132px;" hidden />
+                                    </div>
+
+                                    <div class="esc-row" id="escMethodRow">
+                                        <span class="esc-k">方式</span>
+                                        <div class="seg" role="radiogroup" aria-label="提权方式">
+                                            <button class="seg-item on" type="button" role="radio" aria-checked="true"
+                                                    data-method="su" onclick="pickEscMethod(this)"><span class="seg-dot"></span>su -</button>
+                                            <button class="seg-item" type="button" role="radio" aria-checked="false"
+                                                    data-method="sudo" onclick="pickEscMethod(this)"><span class="seg-dot"></span>sudo</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="esc-row" id="escPwdRow">
+                                        <span class="esc-k" id="escPwdLabel">root 密码</span>
+                                        <div class="inp-wrap">
+                                            <input class="inp mono" id="fEscPwd" type="password" value="Pay@2024-root"
+                                                   autocomplete="new-password" />
+                                            <button class="field-act" type="button" id="escPwdToggle" onclick="toggleEscPwd()">
+                                                <span data-ico="eye" data-ico-size="13"></span>显示
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="esc-suggest" id="escSuggest">
+                                        <span data-ico="terminal" data-ico-size="12"></span>
+                                        <span>免密等价物</span>
+                                        <code id="escSuggestCode">sudo -u root -n &lt;命令&gt;</code>
+                                        <button class="field-act" type="button" onclick="copySuggest()">
+                                            <span data-ico="file" data-ico-size="12"></span>复制
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ===== 卡④ 标签与备注 =====
+                                 原来这里还有一张「位置」（云厂商 + 区域），已整体删掉：
+                                 区域**没有任何地方消费它**（服务器列表那行 meta 是 IP · 云厂商 · 规格 · 系统）；
+                                 云厂商机器自己能报（DMI / 云元数据），和规格、系统走同一条路。
+                                 判据：一个值如果"不填也能加成功、且没有第二个消费者"，它就不该占一次必答交互。 -->
+                            <div class="fgroup">
+                                <div class="fgroup-head">
+                                    <span class="fgroup-no" aria-hidden="true">4</span>
+                                    <span class="fgroup-title" id="tagTitle">标签与备注</span>
+                                    <button class="field-help" type="button" aria-label="标签决定它在服务器列表里归到哪一组" data-tip="标签会当成服务器列表里的分组名，后续按标签筛选与批量部署都靠它。可以多选。">?</button>
+                                    <span class="fgroup-count" id="tagCount">已选 2</span>
+                                </div>
+                                <div class="chip-row" role="group" aria-labelledby="tagTitle">
+                                    <button class="chip chip-check on" type="button" aria-pressed="true" data-tag="Web" onclick="toggleTag(this)">
+                                        <span class="box"><span data-ico="check" data-ico-size="9"></span></span>Web</button>
+                                    <button class="chip chip-check on" type="button" aria-pressed="true" data-tag="API" onclick="toggleTag(this)">
+                                        <span class="box"><span data-ico="check" data-ico-size="9"></span></span>API</button>
+                                    <button class="chip chip-check" type="button" aria-pressed="false" data-tag="数据库" onclick="toggleTag(this)">
+                                        <span class="box"><span data-ico="check" data-ico-size="9"></span></span>数据库</button>
+                                    <button class="chip chip-check" type="button" aria-pressed="false" data-tag="缓存" onclick="toggleTag(this)">
+                                        <span class="box"><span data-ico="check" data-ico-size="9"></span></span>缓存</button>
+                                    <button class="chip chip-check" type="button" aria-pressed="false" data-tag="网关" onclick="toggleTag(this)">
+                                        <span class="box"><span data-ico="check" data-ico-size="9"></span></span>网关</button>
+                                    <button class="chip chip-check" type="button" aria-pressed="false" data-tag="监控" onclick="toggleTag(this)">
+                                        <span class="box"><span data-ico="check" data-ico-size="9"></span></span>监控</button>
+                                    <button class="group-add" type="button" id="tagAddBtn" onclick="openTagAdd()"
+                                            aria-label="新建标签" title="新建标签">
+                                        <span data-ico="plus" data-ico-size="12"></span>
+                                    </button>
+                                    <input class="group-add-input" id="tagAddInput" type="text" hidden
+                                           placeholder="标签名" maxlength="12" autocomplete="off" aria-label="新建标签名" />
+                                </div>
+                                <div style="margin-top: 12px;">
+                                    <div class="field-label"><label for="fNote">备注</label></div>
+                                    <textarea class="inp" id="fNote" placeholder="这台机器是干什么的">支付网关前置，Nginx + Node 18</textarea>
+                                </div>
+                            </div>
+
+                        </div>
+                    </section>
+
+                    <!-- ===== 底部动作行 ===== -->
+                    <div class="form-actions">
+                        <div class="actions-err" id="actionsErr" hidden>
+                            <span data-ico="alert" data-ico-size="13"></span><span id="actionsErrTxt">还有 0 项必填未填</span>
+                        </div>
+                        <button class="btn btn-quiet btn-sm" onclick="goOps()">取消</button>
+                        <button class="btn btn-ghost btn-sm" id="submitContinue" onclick="submitForm(true)">添加并继续</button>
+                        <button class="btn btn-primary" id="submitBtn" onclick="submitForm(false)">
+                            <span data-ico="plus" data-ico-size="15"></span><span class="btn-txt">添加服务器</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ============ 侧轨 ============ -->
+                <div class="side-col">
+
+                    <!-- 连接检查 -->
+                    <section class="panel" aria-labelledby="checkTitle">
+                        <div class="panel-head">
+                            <span class="head-ico" aria-hidden="true"><span data-ico="shield" data-ico-size="15"></span></span>
+                            <h2 class="panel-title" id="checkTitle">连接检查</h2>
+                        </div>
+                        <div class="check-list" id="checkList">
+                            <div class="check-item ok" data-check="dns">
+                                <span class="check-dot" aria-hidden="true"><span data-ico="check" data-ico-size="11"></span></span>
+                                <span class="check-name">地址解析</span>
+                                <span class="check-val">47.100.23.11</span>
+                            </div>
+                            <div class="check-item ok" data-check="port">
+                                <span class="check-dot" aria-hidden="true"><span data-ico="check" data-ico-size="11"></span></span>
+                                <span class="check-name">端口连通</span>
+                                <span class="check-val">:22 开放</span>
+                            </div>
+                            <div class="check-item ok" data-check="auth">
+                                <span class="check-dot" aria-hidden="true"><span data-ico="check" data-ico-size="11"></span></span>
+                                <span class="check-name">认证通过</span>
+                                <span class="check-val">deploy · ed25519</span>
+                            </div>
+                            <div class="check-item ok" data-check="esc">
+                                <span class="check-dot" aria-hidden="true"><span data-ico="check" data-ico-size="11"></span></span>
+                                <span class="check-name">提权通过</span>
+                                <span class="check-val" id="checkEscVal">su - root · 密码已存</span>
+                            </div>
+                            <div class="check-item ok" data-check="os">
+                                <span class="check-dot" aria-hidden="true"><span data-ico="check" data-ico-size="11"></span></span>
+                                <span class="check-name">系统识别</span>
+                                <span class="check-val" id="checkOsVal">Ubuntu 22.04 LTS · 4C8G</span>
+                            </div>
+                        </div>
+                        <div class="check-foot">
+                            <span class="check-target" id="checkTarget" title="deploy@47.100.23.11:22">
+                                <span data-ico="terminal" data-ico-size="12"></span>deploy@47.100.23.11:22
+                            </span>
+                            <button class="btn btn-ghost btn-sm" id="checkBtn" onclick="runCheck()">
+                                <span data-ico="refresh" data-ico-size="13"></span>重新检查
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- 添加预览 -->
+                    <section class="panel" aria-labelledby="pvTitle">
+                        <div class="panel-head">
+                            <span class="head-ico" aria-hidden="true"><span data-ico="eye" data-ico-size="15"></span></span>
+                            <h2 class="panel-title" id="pvTitle">添加后</h2>
+                        </div>
+                        <div class="preview-box">
+                            <div class="srv-row">
+                                <span class="srv-rack" id="pvRack" aria-hidden="true"></span>
+                                <div style="min-width: 0;">
+                                    <div class="srv-name">
+                                        <span class="name-txt" id="pvName">prod-web-03</span>
+                                        <span class="badge idle">待接入</span>
+                                        <span class="badge env" id="pvEnv">生产</span>
+                                    </div>
+                                    <div class="srv-meta">
+                                        <span id="pvHost">47.100.23.11</span><span class="sep">·</span><span id="pvVendor">阿里云</span>
+                                        <span class="sep">·</span><span id="pvSpec">4C8G</span>
+                                        <span class="sep">·</span><span id="pvOs">Ubuntu 22.04 LTS</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sub-list">
+                            <div class="sub-item">
+                                <span data-ico="key" data-ico-size="13"></span>
+                                <span class="sub-name" id="pvLoginUser">deploy</span>
+                                <span class="sub-ip" id="pvLogin">su - root</span>
+                            </div>
+                            <div class="sub-item">
+                                <span data-ico="folder" data-ico-size="13"></span>
+                                <span class="sub-name">支付系统重构</span>
+                                <span class="sub-ip" id="pvTags">Web · API</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 同网段已有 -->
+                    <section class="panel" aria-labelledby="netTitle">
+                        <div class="panel-head">
+                            <span class="head-ico" aria-hidden="true"><span data-ico="globe" data-ico-size="15"></span></span>
+                            <h2 class="panel-title" id="netTitle">同网段已有</h2>
+                            <div class="panel-head-right">
+                                <span class="fgroup-count" id="netCount">2 台</span>
+                            </div>
+                        </div>
+                        <div class="sub-list" style="padding-top: 10px;">
+                            <div class="sub-item" data-host="prod-web-01">
+                                <span data-ico="server" data-ico-size="13"></span>
+                                <span class="sub-name">prod-web-01</span>
+                                <span class="sub-ip">47.100.23.11</span>
+                            </div>
+                            <div class="sub-item" data-host="prod-db-01">
+                                <span data-ico="server" data-ico-size="13"></span>
+                                <span class="sub-name">prod-db-01</span>
+                                <span class="sub-ip">47.100.23.12</span>
+                            </div>
+                        </div>
+                        <div class="panel-note" id="netNote">
+                            <span data-ico="alert" data-ico-size="13"></span>
+                            <span id="netNoteTxt">47.100.23.11 已是 prod-web-01 的地址，继续添加会在列表里出现两台同地址的服务器。</span>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<div class="tip-layer" id="tipLayer" role="tooltip" hidden></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ============================================================================
+   图标：路径数据只留一份（静态标记写 data-ico，由 paintIcons 灌入）
+   ============================================================================ */
+const ICON = {
+    back: '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
+    dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    task: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="m8 12 2.5 2.5L16 9"/>',
+    bug: '<circle cx="12" cy="13" r="6"/><path d="M12 7V4M8 8 6 6M16 8l2-2M6 13H3M21 13h-3M8 18l-2 2M16 18l2 2"/>',
+    doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+    rocket: '<path d="M12 3c3.5 1.5 5.5 4.6 5.5 8.2L12 21l-5.5-9.8C6.5 7.6 8.5 4.5 12 3z"/><circle cx="12" cy="10" r="1.6"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8"/><path d="m16 7 3 3"/>',
+    home: '<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/>',
+    briefcase: '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"/><path d="M3 12h18"/>',
+    book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19h15"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    archive: '<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v10a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V9"/><path d="M10 13h4"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/>',
+    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    moon: '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    server: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+    shield: '<path d="M12 3l7 3v5.5c0 4.2-2.9 7.6-7 9.5-4.1-1.9-7-5.3-7-9.5V6z"/><path d="m9 12 2 2 4-4"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    check: '<path d="m4 12.5 5 5L20 6.5"/>',
+    alert: '<path d="M12 4.5 21 20H3z"/><path d="M12 10v4M12 17h.01"/>',
+    refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/>',
+    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+    eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="M4 4l16 16"/><path d="M9.9 5.9A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.1 4M6.4 8.1A16.9 16.9 0 0 0 2.5 12S6 18.5 12 18.5c1.1 0 2.1-.2 3-.6"/>',
+    terminal: '<path d="m5 8 4 4-4 4"/><path d="M12 16h7"/>',
+    dot: '<circle cx="12" cy="12" r="5"/>'
+};
+
+function svgIcon(name, size) {
+    const s = size || 16;
+    return '<svg class="ico" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none"'
+         + ' stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"'
+         + ' aria-hidden="true">' + (ICON[name] || '') + '</svg>';
+}
+
+/* 缓存记的必须是「灌的是哪一个」，不是「灌过没有」—— 后者让运行期改 data-ico 静默失效 */
+function paintIcons(root) {
+    (root || document).querySelectorAll('[data-ico]').forEach(function (el) {
+        const n = el.getAttribute('data-ico');
+        if (el.dataset.painted === n) return;
+        el.innerHTML = svgIcon(n, el.dataset.icoSize ? +el.dataset.icoSize : 16);
+        el.dataset.painted = n;
+    });
+}
+function setIcon(el, name) {
+    if (!el) return;
+    el.setAttribute('data-ico', name);
+    paintIcons(el.parentNode || document);
+}
+
+/* ============================================================================
+   主题：冷启动走 ?theme=dark（顺序类 bug 只在冷启动现形）
+   ============================================================================ */
+function applyTheme(dark) {
+    document.documentElement.classList.toggle('dark', dark);
+    const t = document.getElementById('themeIco');
+    if (t) {
+        t.setAttribute('data-ico', dark ? 'sun' : 'moon');
+        t.dataset.painted = '';
+        paintIcons(document);
+    }
+    const btn = document.getElementById('themeToggle');
+    if (btn) {
+        btn.setAttribute('aria-label', dark ? '切换到浅色主题' : '切换到深色主题');
+        btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+    }
+}
+function toggleTheme() {
+    applyTheme(!document.documentElement.classList.contains('dark'));
+}
+
+/* ============================================================================
+   Toast
+   ============================================================================ */
+function toast(msg, kind) {
+    const wrap = document.getElementById('toastWrap');
+    const el = document.createElement('div');
+    el.className = 'toast' + (kind === 'warn' ? ' warn' : '');
+    el.innerHTML = svgIcon(kind === 'warn' ? 'alert' : 'check', 14) + '<span></span>';
+    el.lastChild.textContent = msg;
+    wrap.appendChild(el);
+    setTimeout(function () { el.remove(); }, 2400);
+}
+
+/* ============================================================================
+   抽屉
+   ============================================================================ */
+function toggleDrawer(force) {
+    const open = typeof force === 'boolean' ? force : !document.body.classList.contains('drawer-open');
+    document.body.classList.toggle('drawer-open', open);
+    const h = document.getElementById('hamburger');
+    if (h) h.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+/* ============================================================================
+   「?」气泡：fixed 共享层，定位优先级 = 锚点下方 → 锚点上方
+   ============================================================================ */
+let tipFor = null;
+function showTip(btn) {
+    const layer = document.getElementById('tipLayer');
+    layer.textContent = btn.getAttribute('data-tip') || '';
+    layer.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    const r = btn.getBoundingClientRect();
+    const w = layer.offsetWidth, h = layer.offsetHeight;
+    let left = r.left + r.width / 2 - w / 2;
+    left = Math.max(12, Math.min(left, window.innerWidth - w - 12));
+    let top = r.bottom + 8;
+    if (top + h > window.innerHeight - 12) top = r.top - h - 8;
+    layer.style.left = left + 'px';
+    layer.style.top = top + 'px';
+    tipFor = btn;
+}
+function hideTip() {
+    const layer = document.getElementById('tipLayer');
+    layer.hidden = true;
+    if (tipFor) { tipFor.setAttribute('aria-expanded', 'false'); tipFor = null; }
+}
+
+/* ============================================================================
+   表单状态
+   ============================================================================ */
+/* 机器自己会报的事实（厂商 / 规格 / 系统）—— 不进表单，只出现在连接检查结果与「添加后」预览里。
+   让用户手抄一遍机器的配置，抄错了还要以机器为准，那个字段从一开始就不该存在。 */
+const HW = { vendor: '阿里云', spec: '4C8G', os: 'Ubuntu 22.04 LTS' };
+let authMode = 'key';
+let escTarget = 'root';    /* none | root | custom —— 提到哪个账户 */
+let escMethod = 'su';      /* su | sudo */
+let checking = false;
+
+/* ============================================================================
+   编辑模式：?host=prod-web-01
+   —— 同一张表承担「添加」与「编辑」：字段一模一样，只有标题/按钮/预览标题/返回落点/
+      网段提示这五处按模式换词换值。机器清单在这里留一份最小副本 ——
+      原型没有后端，这份数据就是"已经有哪几台"的事实源。
+   ============================================================================ */
+const HOSTS = {
+    'prod-web-01': {
+        host: '47.100.23.11', port: '22', user: 'deploy', env: 'prod', envName: '生产',
+        vendor: '阿里云', spec: '4C8G', os: 'Ubuntu 22.04 LTS',
+        tags: ['Web', 'API'], note: '支付网关前置，Nginx + Node 18'
+    },
+    'prod-db-01': {
+        host: '47.100.23.12', port: '22', user: 'deploy', env: 'prod', envName: '生产',
+        vendor: '阿里云', spec: '8C16G', os: 'Ubuntu 22.04 LTS',
+        tags: ['DB'], note: 'PostgreSQL 15 主库，每日 03:00 全量备份'
+    }
+};
+const EDIT_HOST = new URLSearchParams(location.search).get('host') || '';
+/* host 传了个表里没有的名字也不该变成死路：给一份空壳，让用户自己填 */
+const EDIT = EDIT_HOST ? Object.assign({ host: '', port: '22', user: 'root', env: 'prod', tags: [] }, HOSTS[EDIT_HOST], { name: EDIT_HOST }) : null;
+
+function goOps() { location.href = '工作-项目-项目详情-运维-index.html'; }
+
+/* 预填不是"把 input.value 写一遍"就完了：环境 / 标签是**选**出来的控件，
+   必须把对应那枚点亮；写着"添加"的三处文案也要换掉，否则编辑一份已有配置会被读成"再建一台" */
+function applyEdit() {
+    if (!EDIT) return;
+
+    document.getElementById('fName').value = EDIT.name;
+    document.getElementById('fHost').value = EDIT.host || '';
+    document.getElementById('fPort').value = EDIT.port || '22';
+    document.getElementById('fUser').value = EDIT.user || 'root';
+    document.getElementById('fNote').value = EDIT.note || '';
+
+    document.querySelectorAll('.chip[data-env]').forEach(function (b) {
+        const on = b.dataset.env === (EDIT.env || 'prod');
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+        if (on) document.getElementById('pvEnv').textContent = b.dataset.envName;
+    });
+    document.querySelectorAll('.chip[data-tag]').forEach(function (b) {
+        const on = (EDIT.tags || []).indexOf(b.dataset.tag) >= 0;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    syncTags();
+
+    /* 机器自己会报的事实也跟着这台机器走 —— 它们本来就不进表单，只在检查结果与预览里现身 */
+    if (EDIT.vendor) HW.vendor = EDIT.vendor;
+    if (EDIT.spec) HW.spec = EDIT.spec;
+    if (EDIT.os) HW.os = EDIT.os;
+
+    document.querySelector('.hero-mini-name').textContent = '支付系统重构 · 编辑服务器';
+    document.getElementById('pvTitle').textContent = '保存后';
+    [document.getElementById('submitBtn'), document.getElementById('submitBtnTop')].forEach(function (b) {
+        b.querySelector('.btn-txt').textContent = '保存修改';
+        setIcon(b.querySelector('[data-ico]'), 'check');
+    });
+    /* 「添加并继续」是"再建一台"的动作，编辑里没有对应语义 */
+    document.getElementById('submitContinue').hidden = true;
+
+    /* 同网段已有：把"自己"排除掉 —— 否则改自己的地址会被报成和自己撞了 */
+    const netPanel = document.querySelector('section[aria-labelledby="netTitle"]');
+    netPanel.querySelectorAll('.sub-item[data-host]').forEach(function (it) {
+        it.hidden = it.dataset.host === EDIT_HOST;
+    });
+    const rest = [].slice.call(netPanel.querySelectorAll('.sub-item[data-host]')).filter(function (it) { return !it.hidden; });
+    document.getElementById('netCount').textContent = rest.length + ' 台';
+}
+
+function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+function pickEnv(btn) {
+    document.querySelectorAll('.chip[data-env]').forEach(function (b) {
+        const on = b === btn;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    document.getElementById('pvEnv').textContent = btn.dataset.envName;
+    refresh();
+}
+function syncTags() {
+    const tags = [...document.querySelectorAll('.chip[data-tag].on')].map(function (b) { return b.dataset.tag; });
+    document.getElementById('tagCount').textContent = '已选 ' + tags.length;
+    document.getElementById('pvTags').textContent = tags.length ? tags.join(' · ') : '未打标签';
+}
+function toggleTag(btn) {
+    const on = !btn.classList.contains('on');
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    syncTags();
+    refresh();
+}
+
+/* ---------- 新建标签 ----------
+   ＋ 与输入框共用一个位置（缺省态是"选"，要新建才切成"填"）。
+   撞名就复用已有那枚并选中它 —— 自由文本不加这道闸，立刻会长出「Nginx / nginx / NGINX」三个标签。 */
+function openTagAdd() {
+    document.getElementById('tagAddBtn').hidden = true;
+    const inp = document.getElementById('tagAddInput');
+    inp.hidden = false;
+    inp.value = '';
+    inp.focus();
+}
+function closeTagAdd() {
+    const inp = document.getElementById('tagAddInput');
+    inp.hidden = true;
+    inp.value = '';
+    document.getElementById('tagAddBtn').hidden = false;
+}
+function commitTagAdd() {
+    const inp = document.getElementById('tagAddInput');
+    const name = inp.value.trim();
+    if (!name) { closeTagAdd(); return; }   /* 空着的新建输入框 = 取消，不报错、不拦提交 */
+    const existing = [...document.querySelectorAll('.chip[data-tag]')]
+        .find(function (b) { return b.dataset.tag === name; });
+    if (existing) {
+        if (!existing.classList.contains('on')) toggleTag(existing);
+        toast('已选中已有的「' + name + '」');
+    } else {
+        const chip = document.createElement('button');
+        chip.className = 'chip chip-check on';
+        chip.type = 'button';
+        chip.dataset.tag = name;
+        chip.setAttribute('aria-pressed', 'true');
+        chip.innerHTML = '<span class="box"><span data-ico="check" data-ico-size="9"></span></span>';
+        chip.appendChild(document.createTextNode(name));
+        chip.addEventListener('click', function () { toggleTag(chip); });
+        /* 新标签插在「＋」之前：新建入口是这一行的兜底位，永远排最后 */
+        inp.before(chip);
+        paintIcons(chip);
+        syncTags();
+        toast('已新增并选中「' + name + '」');
+    }
+    closeTagAdd();
+    refresh();
+}
+function pickAuth(btn) {
+    authMode = btn.dataset.auth;
+    document.querySelectorAll('.seg-item').forEach(function (b) {
+        const on = b === btn;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    document.getElementById('authKey').hidden = authMode !== 'key';
+    document.getElementById('authPwd').hidden = authMode !== 'pwd';
+    refresh();
+}
+
+function togglePwd() {
+    const inp = document.getElementById('fPwd');
+    const btn = document.getElementById('pwdToggle');
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    btn.lastChild.textContent = show ? '隐藏' : '显示';
+    setIcon(btn.firstElementChild, show ? 'eyeOff' : 'eye');
+}
+
+/* ---------- 登录后提权 ----------
+   su - 认证的是「目标账户」，所以要的是目标账户的密码（不是登录用户的）。
+   root 登录时 `su - 任意用户` 与 `sudo` 都免认证 —— 这条只作用于提权，不影响 ssh/psql 的对端认证。
+   `su -` 没有免密等价物，且同一次执行里每碰到一次都会重问（sudo 的凭据复用 15 分钟）
+   ⇒ 这里存下的密码解决的是"执行时不用停下来等人"，而不是"服务器上不需要授权"。 */
+function escUser() {
+    if (escTarget === 'none') return '';
+    if (escTarget === 'custom') return val('fEscUser');
+    return 'root';
+}
+function escFree() { return val('fUser') === 'root'; }
+function escNeedPwd() { return escTarget !== 'none' && !escFree(); }
+function escWillPause() { return escNeedPwd() && !val('fEscPwd'); }
+
+function pickEsc(btn) {
+    escTarget = btn.dataset.esc;
+    document.querySelectorAll('.chip[data-esc]').forEach(function (b) {
+        const on = b === btn;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    resetChecks();   /* 提权路径变了，既有结论作废 */
+    refresh();
+}
+function pickEscMethod(btn) {
+    escMethod = btn.dataset.method;
+    document.querySelectorAll('.seg-item[data-method]').forEach(function (b) {
+        const on = b === btn;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    resetChecks();
+    refresh();
+}
+function toggleEscPwd() {
+    const inp = document.getElementById('fEscPwd');
+    const btn = document.getElementById('escPwdToggle');
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    btn.lastChild.textContent = show ? '隐藏' : '显示';
+    setIcon(btn.firstElementChild, show ? 'eyeOff' : 'eye');
+}
+/* 只给建议写法让他照抄，不代改命令 —— 命令是他亲手写的 */
+function copySuggest() {
+    const txt = document.getElementById('escSuggestCode').textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        /* file:// 下没有剪贴板权限，reject 不处理会在控制台留一条 error */
+        navigator.clipboard.writeText(txt).catch(function () {});
+    }
+    toast('已复制：' + txt);
+}
+
+/* 地址一变，「连接检查」的既有结论就作废 —— 否则会出现"改了 IP 但四行还是绿的" */
+function onHostInput() {
+    resetChecks();
+    refresh();
+}
+
+function setCheck(name, state, value) {
+    const row = document.querySelector('.check-item[data-check="' + name + '"]');
+    if (!row) return;
+    row.classList.remove('ok', 'fail', 'busy');
+    if (state) row.classList.add(state);
+    if (value !== undefined) row.querySelector('.check-val').textContent = value;
+}
+
+function resetChecks() {
+    ['dns', 'port', 'auth', 'esc', 'os'].forEach(function (n) { setCheck(n, '', '—'); });
+}
+
+/* 必需项：名称 / 主机 / 登录用户 / 凭据 —— 计数与校验都只看这四项 */
+function credValue() {
+    return authMode === 'key' ? val('fKeyPath') : val('fPwd');
+}
+function requiredDone() {
+    let n = 0;
+    if (val('fName')) n++;
+    if (val('fHost')) n++;
+    if (val('fUser')) n++;
+    if (credValue()) n++;
+    return n;
+}
+
+/* 单一刷新点：预览、计数、网段提示三处表现全在这里刷，状态不留两个来源 */
+function refresh() {
+    const name = val('fName') || '（未命名）';
+    const host = val('fHost') || '（未填地址）';
+    const port = val('fPort') || '22';
+    const user = val('fUser') || 'root';
+    const envBtn = document.querySelector('.chip[data-env].on');
+    const isProd = envBtn && envBtn.dataset.env === 'prod';
+
+    document.getElementById('pvName').textContent = name;
+    document.getElementById('pvHost').textContent = host;
+    document.getElementById('pvVendor').textContent = HW.vendor;
+    document.getElementById('pvSpec').textContent = HW.spec;
+    document.getElementById('pvOs').textContent = HW.os;
+    /* 系统与规格在连接检查里报一次，顺带成为预览那一行的唯一来源 —— 两处同一个值 */
+    document.getElementById('checkOsVal').textContent = HW.os + ' · ' + HW.spec;
+    /* 机架色条跟着环境走：生产用运维绿，其余留中性灰 —— 颜色只说"这是哪一种"，不说"好不好" */
+    document.getElementById('pvRack').style.background = isProd ? 'var(--rc)' : 'var(--border-field)';
+
+    document.getElementById('fillCount').textContent = '必填 ' + requiredDone() + ' / 4';
+
+    const target = user + '@' + (val('fHost') || '—') + ':' + port
+        + (escTarget === 'none' ? '' : ' → ' + escMethod + ' - ' + escUser());
+    document.getElementById('checkTarget').textContent = user + '@' + (val('fHost') || '—') + ':' + port;
+    document.getElementById('checkTarget').title = target;
+
+    /* ---------- 提权区 ----------
+       登录用户是 root 时密码字段整体收起来（`su - 任意用户` 与 `sudo` 都免认证），
+       留着会让人以为"还要再填一个密码"。 */
+    const eu = escUser();
+    const needPwd = escNeedPwd();
+    document.getElementById('fEscUser').hidden = escTarget !== 'custom';
+    document.getElementById('escMethodRow').hidden = escTarget === 'none';
+    document.getElementById('escPwdRow').hidden = !needPwd;
+    document.getElementById('escSuggest').hidden = escTarget === 'none';
+    document.getElementById('escPwdLabel').textContent = (eu || '目标账户') + ' 密码';
+    document.getElementById('escSuggestCode').textContent = escMethod === 'su'
+        ? 'sudo -u ' + (eu || '<账户>') + ' -n <命令>'
+        : 'sudo -n <命令>';
+
+    /* 徽标只说"这一步执行时会不会停下来等人"，不说"接下来会怎样" */
+    const st = document.getElementById('escState');
+    let stTxt, stCls;
+    if (escTarget === 'none') { stTxt = '不需要'; stCls = 'idle'; }
+    else if (escFree()) { stTxt = 'root 登录 · 免认证'; stCls = ''; }
+    else if (escWillPause()) { stTxt = '执行时会暂停等你输入'; stCls = 'warn'; }
+    else { stTxt = '不会暂停'; stCls = ''; }
+    st.className = 'esc-state' + (stCls ? ' ' + stCls : '');
+    document.getElementById('escStateTxt').textContent = stTxt;
+
+    /* 连接检查那一行的值走同一套判据 —— 否则会出现"徽标说不会停、检查行说过不了" */
+    document.getElementById('checkEscVal').textContent =
+        escTarget === 'none' ? '不需要'
+            : escFree() ? 'root 登录 · 免认证'
+                : escMethod + ' - ' + eu + (escWillPause() ? ' · 待输入' : ' · 密码已存');
+
+    document.getElementById('pvLoginUser').textContent = user;
+    document.getElementById('pvLogin').textContent =
+        escTarget === 'none' ? '不提权' : escMethod + ' - ' + eu;
+
+    /* 同网段提示：地址与**别的**服务器重复时升级为警告 ——
+       编辑一份已有配置时要先把自己排除，否则改自己的地址也会被报成"和自己撞了" */
+    const note = document.getElementById('netNote');
+    const noteTxt = document.getElementById('netNoteTxt');
+    const dupName = Object.keys(HOSTS).find(function (k) {
+        return k !== EDIT_HOST && HOSTS[k].host === val('fHost');
+    });
+    const siblings = Object.keys(HOSTS).filter(function (k) { return k !== EDIT_HOST; }).length;
+    note.classList.toggle('info', !dupName);
+    noteTxt.textContent = dupName
+        ? val('fHost') + ' 已是 ' + dupName + ' 的地址，继续添加会在列表里出现两台同地址的服务器。'
+        : '47.100.23.0/24 网段内已有 ' + siblings + ' 台服务器，添加后可以和它一起批量部署。';
+}
+
+/* 连接检查：四行依次点亮，检查期间按钮锁住（形状线索 + 文案一起变） */
+function runCheck() {
+    if (checking) return;
+    checking = true;
+    const btn = document.getElementById('checkBtn');
+    btn.disabled = true;
+    btn.lastChild.textContent = '检查中';
+    resetChecks();
+
+    const host = val('fHost') || '—';
+    const port = val('fPort') || '22';
+    const user = val('fUser') || 'root';
+    const steps = [
+        ['dns', host],
+        ['port', ':' + port + ' 开放'],
+        ['auth', user + ' · ' + (authMode === 'key' ? 'ed25519' : '密码')],
+        ['esc', escTarget === 'none' ? '不需要'
+            : escFree() ? '免认证'
+                : escMethod + ' - ' + escUser() + (escWillPause() ? ' · 待输入' : ' · 密码已存')],
+        ['os', HW.os + ' · ' + HW.spec]
+    ];
+    let i = 0;
+    (function next() {
+        if (i > 0) setCheck(steps[i - 1][0], 'ok', steps[i - 1][1]);
+        if (i >= steps.length) {
+            checking = false;
+            btn.disabled = false;
+            btn.lastChild.textContent = '重新检查';
+            toast('连接检查通过 · 用时 0.8s');
+            return;
+        }
+        setCheck(steps[i][0], 'busy', '检查中');
+        i++;
+        setTimeout(next, 420);
+    })();
+}
+
+/* 校验每字段独立判断并一次全部标出（不用 else if 链） */
+function submitForm(again) {
+    const errs = [];
+    function mark(id, bad) {
+        const inp = document.getElementById(id);
+        const err = document.getElementById('err' + id.slice(1));
+        if (inp) inp.setAttribute('aria-invalid', bad ? 'true' : 'false');
+        if (err) err.hidden = !bad;
+        if (bad) errs.push(id);
+    }
+    mark('fName', !val('fName'));
+    mark('fHost', !val('fHost'));
+    mark('fUser', !val('fUser'));
+    if (authMode === 'key') mark('fKeyPath', !val('fKeyPath'));
+    else mark('fPwd', !val('fPwd'));
+
+    const box = document.getElementById('actionsErr');
+    if (errs.length) {
+        document.getElementById('actionsErrTxt').textContent = '还有 ' + errs.length + ' 项必填未填';
+        box.hidden = false;
+        toast('还有 ' + errs.length + ' 项必填未填', 'warn');
+        const first = document.getElementById(errs[0]);
+        if (first) first.focus();
+        return;
+    }
+    box.hidden = true;
+
+    if (again) {
+        toast('已添加「' + val('fName') + '」· 继续添加下一台');
+        document.getElementById('fName').value = '';
+        document.getElementById('fHost').value = '';
+        document.getElementById('fNote').value = '';
+        resetChecks();
+        refresh();
+        document.getElementById('fName').focus();
+    } else if (EDIT) {
+        toast('已保存对「' + val('fName') + '」的修改');
+        setTimeout(goOps, 900);   /* 编辑是一趟有去有回的流程，改完回列表，不用手动找返回 */
+    } else {
+        toast('已添加「' + val('fName') + '」· 生产组');
+    }
+}
+
+/* ============================================================================
+   初始化
+   ============================================================================ */
+(function init() {
+    const qs = new URLSearchParams(location.search);
+    applyTheme(qs.get('theme') === 'dark');   /* 只认显式参数，冷启动结果才可断言 */
+    paintIcons(document);
+    applyEdit();     /* 编辑模式：先把这台机器的值灌进表单，再让 refresh 从表单现算各处表现 */
+    refresh();
+
+    /* ? 气泡：事件委托，鼠标与键盘两条路都通 */
+    document.addEventListener('mouseover', function (e) {
+        const b = e.target.closest && e.target.closest('.field-help');
+        if (b) showTip(b);
+    });
+    document.addEventListener('mouseout', function (e) {
+        const b = e.target.closest && e.target.closest('.field-help');
+        if (b) hideTip();
+    });
+    document.addEventListener('focusin', function (e) {
+        const b = e.target.closest && e.target.closest('.field-help');
+        if (b) showTip(b);
+    });
+    document.addEventListener('focusout', function (e) {
+        const b = e.target.closest && e.target.closest('.field-help');
+        if (b) hideTip();
+    });
+    window.addEventListener('scroll', hideTip, true);
+    window.addEventListener('resize', hideTip);
+
+    /* 文本类字段：输入即刷新预览（预览只有一个真相源，见 refresh()） */
+    ['fName', 'fPort', 'fUser'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', refresh);
+    });
+    /* 登录用户决定"提权是否免认证" ⇒ 改它要连提权区与检查结论一起重算 */
+    document.getElementById('fUser').addEventListener('input', function () { resetChecks(); refresh(); });
+    /* 密码由有到无 ⇒ 徽标退回"待输入"，既有检查结论作废 */
+    document.getElementById('fEscPwd').addEventListener('input', function () {
+        if (!val('fEscPwd')) resetChecks();
+        refresh();
+    });
+    document.getElementById('fEscUser').addEventListener('input', refresh);
+
+    /* 新建标签：Enter 提交、Esc 只收起这一格、失焦提交（空的等于取消）。
+       Esc 必须 stopPropagation —— 否则文档级那个监听会顺手关掉别的东西。
+       提交后 input 会被 hidden，随之而来的 blur 靠 `!tagInp.hidden` 挡掉，不会重复建。 */
+    const tagInp = document.getElementById('tagAddInput');
+    tagInp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); commitTagAdd(); }
+        else if (e.key === 'Escape') { e.stopPropagation(); closeTagAdd(); }
+    });
+    tagInp.addEventListener('blur', function () { if (!tagInp.hidden) commitTagAdd(); });
+    ['fName', 'fHost', 'fUser', 'fKeyPath', 'fPwd'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', function () {
+            el.setAttribute('aria-invalid', 'false');
+            const err = document.getElementById('err' + id.slice(1));
+            if (err) err.hidden = true;
+        });
+    });
+})();
+</script>
+</body>
+</html>

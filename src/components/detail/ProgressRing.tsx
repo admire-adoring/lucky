@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { cn } from '../../lib/cn'
 
 /** 进度环周长（r=56） */
@@ -13,7 +13,6 @@ interface ProgressRingProps {
 }
 
 export function ProgressRing({ progress, tasksDone, tasksTotal, daysLeft, className }: ProgressRingProps) {
-  const gradientId = `ring-${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [offset, setOffset] = useState(CIRCUMFERENCE)
 
   // 挂载后再写入目标值，让 0.9s 的 stroke-dashoffset 过渡产生“环长出来”的效果
@@ -25,7 +24,7 @@ export function ProgressRing({ progress, tasksDone, tasksTotal, daysLeft, classN
   return (
     <div
       className={cn(
-        // 进度环是"嵌进玻璃里的一处凹槽"。注意不能用深色遮罩（bg-ink-50）做凹感：
+        // 进度环是"嵌进面里的一处凹槽"。注意不能用深色遮罩（bg-ink-50）做凹感：
         // 环下的「整体进度 / 任务完成」是 11.5px 的 ink-400，凹槽一深就会把它压到 2.8:1。
         // 改用"更薄的白 + 一道描边"表达内嵌，凹感来自描边而不是亮度差。
         'glass-soft flex flex-col items-center justify-center rounded-xl border border-line bg-surface-sunken p-5 text-center',
@@ -34,26 +33,22 @@ export function ProgressRing({ progress, tasksDone, tasksTotal, daysLeft, classN
     >
       <div className="relative h-[132px] w-[132px]">
         <svg viewBox="0 0 132 132" width="132" height="132" aria-hidden="true">
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#6366f1" />
-              <stop offset="1" stopColor="#7c3aed" />
-            </linearGradient>
-          </defs>
-          {/* 轨道色随底衬一起变：玻璃上不能用实色浅灰，否则环里会浮出一个灰圈 */}
+          {/* ⚠️ 2026-09-25 纯色化：这条弧原本是 `<linearGradient>`（#6366f1 → #7c3aed）。
+              改成一个实色 `--brand-solid`；弧长（strokeDashoffset）才是数据，
+              沿弧的色相推移不是。走 `style` 而不是表现属性 `stroke="var(--…)"`：
+              SVG 表现属性里的 `var()` 各引擎支持不一致，静默失败会让整条弧变黑。 */}
           <circle cx="66" cy="66" r="56" fill="none" stroke="rgba(17,20,28,.09)" strokeWidth="10" />
           <circle
             cx="66"
             cy="66"
             r="56"
             fill="none"
-            stroke={`url(#${gradientId})`}
             strokeWidth="10"
             strokeLinecap="round"
             strokeDasharray={CIRCUMFERENCE}
             strokeDashoffset={offset}
             transform="rotate(-90 66 66)"
-            style={{ transition: 'stroke-dashoffset .9s cubic-bezier(0,0,.2,1)' }}
+            style={{ stroke: 'var(--brand-solid)', transition: 'stroke-dashoffset .9s cubic-bezier(0,0,.2,1)' }}
           />
         </svg>
 

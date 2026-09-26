@@ -2,7 +2,7 @@
    ----------------------------------------------------------------------------
    配 `design/debug/shot-app.mjs --probe <本文件> --dump` 用。
 
-   验六件事，每一件都是"看代码看不出来、只有量计算值才知道"的：
+   验八件事，每一件都是"看代码看不出来、只有量计算值才知道"的：
 
    1. **色指针接上了没有**。本页不是九域之一，没有 `data-module`，所以内核 §4 那段
       强调色指针一条都匹配不到 —— 缺它的后果是 `--mw-m-main` **没有值**，
@@ -21,6 +21,10 @@
    6. **会话真的渲染出来了**（消息条数、思考卡、附件 chip）。
       这一条是"类名对不上"那类缺陷的兜底：DOM 里有类名不等于 CSS 给了样式，
       所以下面同时比 `background-color` 与 `border-radius` 的**非空**。
+   7. **顶栏九域导航还在**（这一页不能是导航死胡同）。
+   8. **默认关着的浮层真的关着**（`display:none`）。
+      漏过一次：生成器把两个弹窗的基础规则剪掉一截，它们就**常驻在侧栏文档流里**。
+      判据从样式表现推（谁是可切换浮层 / 关闭态该是什么），不写死类名。
 
    ⚠️ 与 probe-shell 同一批老坑，都沿用它的处置：
       · 读法锚在 **pre#PROBE 那个元素**上（注入脚本源码里就有 PROBE 字样）；
@@ -276,10 +280,78 @@
     out.info.navItems = document.querySelectorAll('.ai-root .nav-p-item').length
     if (out.info.navItems !== 9) out.fail.push('顶栏九域导航只有 ' + out.info.navItems + ' 项')
 
+    /* ---- 8 · 「关闭态的浮层要真的关着」----
+       这一条是补上来的：实测漏过一次 —— 生成器把
+       `.ai-root .rename-modal, .ai-root .confirm-modal` 这条基础规则**剪掉了一截**
+       （只剩 `confirm-modal`），于是 `display:none` 与 `position:fixed` 一起没了，
+       两个弹窗**常驻在侧栏的文档流里**、还把会话列表挤下去。
+       而当时所有探针都是绿的：前七条量的是色指针/栅格/表面/溢出/内容，
+       没有一条问过"这些默认关着的浮层现在是什么状态"。
+
+       ⚠️ **判据从样式表里现推，不写死类名**：
+          · 哪些是"可切换的浮层" → 选择器里出现 `.X.show` / `.X.open` 的 X；
+          · 关闭态该是什么样 → 该 X 自己的**基础规则**里写了 `display: none`。
+       两条都来自被检查的那份 CSS，所以断言与被测对象同源：
+       基础规则一旦被剪掉，这里**必然**报错（而不是"规则没了、期望值也没了"）。
+       ⚠️ 不能用"所有可切换的类都必须 display:none"这种更宽的写法 ——
+          `.thought-panel`（靠 opacity/transform 收）、`.thought-card.open`（在流里的展开卡）
+          都**不是** display 切换的，那样写会造出假阳性。
+          假阳性的探针比没有探针更消耗信任（本项目已有一条纪律）。 */
+    var toggled = {}
+    var hiddenByDefault = {}
+    try {
+      for (var si = 0; si < document.styleSheets.length; si++) {
+        var sheet = document.styleSheets[si]
+        var rules = sheet.cssRules || []
+        for (var ri = 0; ri < rules.length; ri++) {
+          var sel = rules[ri].selectorText
+          if (!sel) continue
+          var re = /\.([a-zA-Z][\w-]*)\.(?:show|open)\b/g
+          var m
+          while ((m = re.exec(sel))) toggled[m[1]] = true
+          /* 基础规则：选择器最后一段就是 `.X`（`.ai-root .rename-modal` 这种），
+             且它自己声明了 display:none */
+          for (var part of sel.split(',')) {
+            var last = part.trim().split(/[\s>+~]+/).pop()
+            if (/^\.[a-zA-Z][\w-]*$/.test(last) && (rules[ri].style.display === 'none')) {
+              hiddenByDefault[last.slice(1)] = true
+            }
+          }
+        }
+      }
+    } catch (e) {
+      out.info.toggledScan = '样式表不可读（跨域？）：' + String(e && e.message ? e.message : e)
+    }
+    var names = Object.keys(toggled).filter(function (n) { return hiddenByDefault[n] })
+    /* 兜底：上面那条依赖"基础规则还在" —— 而缺陷恰恰可能是它不在。
+       所以本页已知的三个浮层无条件各查一遍（名字写死在这里不算重复劳动：
+       它们同时是这条检查的自我验证 —— 若哪天扫描法失灵，这三个仍会报）。 */
+    ;['rename-modal', 'confirm-modal', 'voice-overlay', 'session-menu', 'search-box'].forEach(function (n) {
+      if (names.indexOf(n) < 0) names.push(n)
+    })
+    out.info.closedOverlays = {}
+    names.forEach(function (name) {
+      var el = document.querySelector('.ai-root .' + name)
+      /* 不在 DOM 里（另一个状态分支 / 本页没有这个浮层）→ 跳过，不算失败 */
+      if (!el) return
+      if (/(^|\s)(show|open)(\s|$)/.test(el.className)) return
+      var display = css(el, 'display')
+      out.info.closedOverlays[name] = display
+      if (display !== 'none') {
+        out.fail.push(
+          '.' + name + ' 是关闭态，display 却是 ' + display + ' → 它落在文档流里（基础规则多半被剪掉了）',
+        )
+      }
+    })
+
     return
   }
 
   function report(out) {
+    /* 两条通道都写：`<pre>` 是常规读法；**`<title>`** 是给"dump 被截断"兜底的
+       —— 本机 dump 上限约 6 万字节，而 `/pre` 追加在 body 末尾正好会被截掉。
+       `<title>` 在 `<head>` 里，序列化时排最前。详见 `read-probe.mjs`。 */
+    document.title = 'PROBE ' + JSON.stringify(out)
     var el = document.createElement('pre')
     el.id = 'PROBE'
     el.textContent = JSON.stringify(out, null, 1)

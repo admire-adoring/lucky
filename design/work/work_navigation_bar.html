@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>工作模块 · 导航栏 · 个人系统</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-page: #F7F8FA;
+            --bg-card: rgba(255,255,255,0.62);
+            --bg-sidebar: rgba(255,255,255,0.72);
+            --bg-topbar: rgba(255,255,255,0.72);
+            --border-card: rgba(255,255,255,0.7);
+            --border-subtle: rgba(15,23,42,0.07);
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --shadow-card: 0 4px 24px rgba(15,23,42,0.05);
+            --shadow-card-hover: 0 8px 32px rgba(15,23,42,0.10);
+            --blur-card: blur(24px) saturate(180%);
+            --blob-opacity: 0.38;
+            --blob-blur: 120px;
+
+            --a-work-1: #FDA4AF; --a-work-2: #FECDD3; --a-work-3: #FBCFE8;
+            --s-work: #E11D48;
+
+            --m1: var(--a-work-1);
+            --m2: var(--a-work-2);
+            --m3: var(--a-work-3);
+            --m-main: var(--s-work);
+        }
+
+        .dark {
+            --bg-page: #0A0F1C;
+            --bg-card: rgba(30,41,59,0.5);
+            --bg-sidebar: rgba(15,23,42,0.78);
+            --bg-topbar: rgba(15,23,42,0.78);
+            --border-card: rgba(255,255,255,0.08);
+            --border-subtle: rgba(255,255,255,0.06);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+            --shadow-card-hover: 0 8px 32px rgba(0,0,0,0.4);
+            --blur-card: blur(28px) saturate(160%);
+            --blob-opacity: 0.24;
+            --blob-blur: 140px;
+
+            --a-work-1: #BE123C; --a-work-2: #9F1239; --a-work-3: #881337;
+            --s-work: #FB7185;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: background 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        .aurora-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob {
+            position: absolute; border-radius: 50%;
+            filter: blur(var(--blob-blur));
+            opacity: var(--blob-opacity);
+            transition: opacity 0.5s ease, filter 0.5s ease, background 0.5s ease;
+            animation: drift 22s ease-in-out infinite alternate;
+        }
+        .blob-1 { width: 520px; height: 520px; top: -8%;  left: -8%;  background: var(--m1); }
+        .blob-2 { width: 480px; height: 480px; top: 24%;  right: -10%; background: var(--m2); animation-delay: -7s; }
+        .blob-3 { width: 560px; height: 560px; bottom: -16%; left: 30%; background: var(--m3); animation-delay: -14s; }
+
+        @keyframes drift {
+            from { transform: translate(0,0) scale(1); }
+            to   { transform: translate(36px,-28px) scale(1.08); }
+        }
+        @media (prefers-reduced-motion: reduce) { .blob { animation: none; } }
+
+        .app {
+            position: relative; z-index: 1;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            grid-template-rows: 56px 1fr;
+            grid-template-areas: "sidebar topbar" "sidebar main";
+            height: 100vh;
+        }
+
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-right: 1px solid var(--border-subtle);
+            padding: 16px 12px;
+            display: flex; flex-direction: column; gap: 2px;
+            overflow-y: auto;
+        }
+        .sidebar-title {
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 14px 12px 6px;
+        }
+        .menu-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 10px;
+            font-size: 14px; color: var(--text-secondary);
+            cursor: pointer; border-left: 3px solid transparent;
+            transition: all 0.18s ease; user-select: none;
+        }
+        .menu-item:hover { background: var(--border-subtle); color: var(--text-primary); }
+        .menu-item.active {
+            background: color-mix(in srgb, var(--m-main) 12%, transparent);
+            color: var(--m-main);
+            border-left-color: var(--m-main);
+            font-weight: 600;
+        }
+        .menu-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-main); flex-shrink: 0; }
+
+        .topbar {
+            grid-area: topbar;
+            background: var(--bg-topbar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; gap: 16px;
+        }
+        .breadcrumb { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+        .breadcrumb strong { color: var(--text-primary); font-weight: 600; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+        .btn {
+            border: none; border-radius: 10px;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.18s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary {
+            background: var(--m-main); color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 6px 20px color-mix(in srgb, var(--m-main) 45%, transparent);
+            transform: translateY(-1px);
+        }
+        .btn-ghost {
+            background: var(--bg-card); color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-main); }
+        /* 小号按钮：书架的「+ 新建项目」用（这一族按钮是本次随书架一起加的，
+           其余 7 份原型没有它 —— 所以要落在 work 的模块增量里，不能抬成共用内核）。 */
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+        .theme-toggle {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            cursor: pointer; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s ease;
+        }
+        .theme-toggle:hover { transform: scale(1.05); border-color: var(--m-main); }
+
+        .main {
+            grid-area: main;
+            /* 上内边距为 0：导航条是主区的第一个子元素且吸顶（见 .tabs），
+               它要正好贴住顶栏底边，所以这里不能留 24px。 */
+            padding: 0 24px 24px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+
+        /* ===== 顶部导航栏：工作模块的 12 个分区 =====
+           设计稿见 docs/设计验收/模块工作区/04-工作.png —— 一条独立的横向条，
+           激活项是 --m-main 实心药丸，其余是次级文字。
+           这里把它做成**吸顶玻璃条**：主区滚动时分区始终可达。
+           `top: 0` 之所以正好落在顶栏底边，靠的是 .main 上内边距被收成 0（见上）。
+           出血（margin 0 -24px）让它铺满主区整宽，与顶栏的分隔线等宽。 */
+        .tabs {
+            position: sticky; top: 0; z-index: 20;
+            margin: 0 -24px;
+            padding: 10px 24px;
+            display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+            background: var(--bg-topbar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .tab {
+            padding: 8px 16px; border-radius: 10px;
+            font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1.4;
+            color: var(--text-secondary);
+            background: transparent; border: none;
+            cursor: pointer; user-select: none;
+            white-space: nowrap;
+            transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .tab:hover { color: var(--text-primary); background: var(--border-subtle); }
+        .tab:focus-visible { outline: 2px solid var(--m-main); outline-offset: 2px; }
+        .tab.active {
+            background: var(--m-main); color: #fff; font-weight: 600;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+        .tab.active:hover { background: var(--m-main); color: #fff; }
+
+        /* 卡片里的分段控件 —— 2026-09-25 加。
+           复用同一套 .tabs / .tab（药丸形状与选中态一模一样），但把「页面级导航条」
+           那几条收掉：sticky / 通栏出血 / 顶栏底色 / 下边框。为什么必须收 ——
+           那几条是给"钉在主区顶部、与顶栏接成一条"的导航条写的；搬进一张卡片里，
+           sticky 会把它钉在滚动区顶部、负外边距会让它穿出卡片圆角。
+
+           ⚠️ 应用里那条 `.tabs`（内核 module-workspace.css 的 `.mw-root .tabs`）
+              **本来就没有这几条** —— 收进内核时它们被 8 份原型的共识（CORE_THRESHOLD=6）
+              筛掉了（只有本原型有 sticky 与出血）。所以这段是一次"原型向内核对齐"，
+              不是新增一条设计规则。当前唯一的消费者是「客户与联系人」的角色筛选。 */
+        .panel > .tabs {
+            position: static; z-index: auto;
+            margin: 0; padding: 6px; border-radius: 14px;
+            background: transparent;
+            backdrop-filter: none; -webkit-backdrop-filter: none;
+            border-bottom: none;
+        }
+
+        /* 角色筛选的隐藏态。粒度是**块**（section）不是人 ——
+           见「客户与联系人」面板顶部那段注释里的取舍。 */
+        .panel .role-hidden { display: none !important; }
+
+        .panel { display: none; flex-direction: column; gap: 20px; }
+        .panel.active { display: flex; }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-card);
+            padding: 20px;
+            transition: all 0.25s ease;
+        }
+        .card:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-2px); }
+        .card-title {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+        .stat { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+        .stat-desc { font-size: 13px; color: var(--text-secondary); }
+
+        .hero { padding: 24px; position: relative; overflow: hidden; }
+        .hero::before {
+            content: ""; position: absolute; top: -50%; right: -10%;
+            width: 280px; height: 280px; border-radius: 50%;
+            background: var(--m-main); opacity: 0.10;
+            filter: blur(60px);
+        }
+        .hero h1 { font-size: 22px; margin-bottom: 6px; font-weight: 700; }
+        .hero p { color: var(--text-secondary); font-size: 14px; }
+        .hero-meta { display: flex; gap: 20px; margin-top: 14px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); }
+        .hero-meta strong { color: var(--text-primary); }
+
+        .task-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 14px;
+        }
+        .task-item:last-child { border-bottom: none; }
+        .task-check {
+            width: 18px; height: 18px;
+            border-radius: 6px;
+            border: 1.5px solid var(--border-subtle);
+            flex-shrink: 0; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; color: #fff;
+            transition: all 0.18s ease;
+        }
+        .task-check.done { background: var(--m-main); border-color: var(--m-main); }
+        .task-text { flex: 1; cursor: pointer; }
+        .task-text.done { text-decoration: line-through; color: var(--text-muted); }
+        .task-tag {
+            font-size: 11px; padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--border-subtle);
+            color: var(--text-secondary);
+        }
+
+        .meeting-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .meeting-item:last-child { border-bottom: none; }
+        .meeting-time {
+            font-size: 13px; font-weight: 600;
+            color: var(--m-main);
+            min-width: 60px;
+        }
+        .meeting-info { flex: 1; }
+        .meeting-title { font-size: 14px; font-weight: 500; }
+        .meeting-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        .okr-item { margin-bottom: 16px; }
+        .okr-item:last-child { margin-bottom: 0; }
+        .okr-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+        .okr-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--border-subtle);
+            border-radius: 999px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; border-radius: 999px;
+            background: var(--m-main); opacity: 0.8;
+            transition: width 0.4s ease;
+        }
+        .progress-label {
+            display: flex; justify-content: space-between;
+            font-size: 12px; color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .doc-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .doc-item:hover { border-color: var(--m-main); transform: translateY(-1px); }
+        .doc-item:last-child { margin-bottom: 0; }
+        .doc-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--m-main) 14%, transparent);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .doc-info { flex: 1; }
+        .doc-name { font-size: 14px; font-weight: 500; }
+        .doc-meta { font-size: 12px; color: var(--text-muted); }
+
+        .contact-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .contact-item:last-child { border-bottom: none; }
+        .avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: color-mix(in srgb, var(--m-main) 14%, transparent);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 600;
+            flex-shrink: 0;
+        }
+        .contact-info { flex: 1; }
+        .contact-name { font-size: 14px; font-weight: 500; }
+        .contact-meta { font-size: 12px; color: var(--text-muted); }
+
+        .timesheet-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 14px;
+        }
+        .timesheet-row:last-child { border-bottom: none; }
+        .timesheet-value { font-weight: 600; color: var(--m-main); }
+
+        .review-block { margin-bottom: 16px; }
+        .review-block:last-child { margin-bottom: 0; }
+        .review-label {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.06em;
+            margin-bottom: 8px;
+        }
+        .review-list {
+            list-style: none;
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+        .review-list li::before {
+            content: "·";
+            color: var(--m-main);
+            font-weight: 700;
+            margin-right: 8px;
+        }
+
+        /* 客户资料 */
+        .client-card {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .client-card:hover { border-color: var(--m-main); transform: translateY(-1px); }
+        .client-card:last-child { margin-bottom: 0; }
+
+        .client-avatar {
+            width: 44px; height: 44px; border-radius: 12px;
+            background: color-mix(in srgb, var(--m-main) 16%, transparent);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .client-info { flex: 1; }
+        .client-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+        .client-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+        .client-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+        .client-tag {
+            font-size: 11px; padding: 2px 8px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--m-main) 12%, transparent);
+            color: var(--m-main);
+        }
+        .client-right { text-align: right; }
+        .client-amount {
+            font-size: 15px; font-weight: 700;
+            color: var(--m-main);
+            margin-bottom: 2px;
+        }
+        .client-status { font-size: 12px; color: var(--text-muted); }
+
+        /* 服务器 */
+        .server-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .server-item:last-child { border-bottom: none; }
+        .server-env {
+            font-size: 11px; font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: color-mix(in srgb, var(--m-main) 14%, transparent);
+            color: var(--m-main);
+            min-width: 44px; text-align: center;
+            flex-shrink: 0;
+        }
+        .server-info { flex: 1; }
+        .server-name { font-size: 14px; font-weight: 500; }
+        .server-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .server-status {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(16,185,129,0.14);
+            color: #059669;
+            font-weight: 500;
+        }
+        .dark .server-status { color: #6EE7B7; }
+
+        /* 部署 */
+        .deploy-status {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-weight: 500;
+        }
+        .deploy-status.success { background: rgba(16,185,129,0.14); color: #059669; }
+        .deploy-status.rollback { background: rgba(245,158,11,0.14); color: #D97706; }
+        .dark .deploy-status.success { color: #6EE7B7; }
+        .dark .deploy-status.rollback { color: #FCD34D; }
+
+        /* 弹窗 */
+        .modal-mask {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.35);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 100;
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-mask.open { display: flex; }
+
+        .modal {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(15,23,42,0.25);
+            width: 100%; max-width: 640px;
+            max-height: 88vh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .modal-title { font-size: 16px; font-weight: 700; }
+        .modal-close {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.18s ease;
+        }
+        .modal-close:hover { background: var(--border-subtle); color: var(--text-primary); }
+
+        .modal-body { padding: 22px; overflow-y: auto; }
+
+        .detail-section { margin-bottom: 20px; }
+        .detail-section:last-child { margin-bottom: 0; }
+        .detail-label {
+            font-size: 11px; font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+        .detail-row {
+            display: flex; justify-content: space-between;
+            font-size: 14px; padding: 6px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-row span:first-child { color: var(--text-muted); }
+        .detail-row span:last-child { color: var(--text-primary); font-weight: 500; }
+
+        .detail-list {
+            list-style: none; font-size: 14px;
+            color: var(--text-secondary); line-height: 1.9;
+        }
+        .detail-list li::before {
+            content: "·";
+            color: var(--m-main);
+            font-weight: 700; margin-right: 8px;
+        }
+
+        .recipe-hero {
+            height: 140px;
+            border-radius: 14px;
+            background: color-mix(in srgb, var(--m-main) 18%, transparent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 56px;
+            margin-bottom: 18px;
+        }
+
+        .form-actions {
+            display: flex; gap: 10px; justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .notice {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* ============================================================
+           项目书架（工作模块 · 「项目」分区）
+           ------------------------------------------------------------
+           · 这一族是本文件里**唯一**由「设计稿直接落进来」的样式，
+             不是从别的模块拷贝来的 —— 所以它只会进 work 的模块增量
+             （build-workspace-css.mjs 的 CORE_THRESHOLD 判定）。
+           · **行为不在这里**：飞入/飞出、弹窗内容只有一处实现 ——
+             `src/components/workspace/work/ProjectShelf.tsx`。
+             同一件事写两处必然分叉（同一个坑在 AI 助手的阶段计时上踩过）。
+             这里保留 `.fly-clone` / `.modal.entering|leaving` 是因为
+             **CSS 的唯一事实源是本文件**，样式归这里、时机归组件。
+           ============================================================ */
+
+        .bookshelf-wrap {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-card);
+            padding: 24px;
+        }
+        .bookshelf-head {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .shelf-group { margin-bottom: 26px; }
+        .shelf-group:last-child { margin-bottom: 0; }
+        .shelf-group-title {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 11px; font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.1em;
+            margin-bottom: 14px;
+        }
+        .shelf-group-title::after {
+            content: ""; flex: 1;
+            height: 1px; background: var(--border-subtle);
+        }
+        .shelf-count {
+            font-size: 10px; color: var(--text-muted);
+            font-weight: 500; letter-spacing: 0;
+            text-transform: none;
+        }
+        .grid-shelf {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 16px;
+        }
+
+        /* 精装书封面 */
+        .book-flat {
+            position: relative;
+            aspect-ratio: 5 / 7;
+            border-radius: 3px 7px 7px 3px;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.34, 1.4, 0.64, 1);
+            transform-origin: center bottom;
+            user-select: none;
+            box-shadow:
+                0 1px 0 rgba(0,0,0,0.08),
+                0 2px 0 rgba(0,0,0,0.06),
+                0 3px 0 rgba(0,0,0,0.05),
+                0 4px 10px rgba(15,23,42,0.18);
+        }
+        /* 布纹：45° 细斜线。压在封面上但对交互透明（z-index 3 + pointer-events:none）。 */
+        .book-flat::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                repeating-linear-gradient(45deg,
+                    rgba(255,255,255,0.035) 0px,
+                    rgba(255,255,255,0.035) 1px,
+                    transparent 1px,
+                    transparent 3px);
+            pointer-events: none;
+            z-index: 3;
+            border-radius: inherit;
+        }
+        .book-flat:hover {
+            transform: translateY(-6px) rotate(-1.2deg) scale(1.015);
+            box-shadow:
+                0 1px 0 rgba(0,0,0,0.1),
+                0 2px 0 rgba(0,0,0,0.08),
+                0 4px 0 rgba(0,0,0,0.06),
+                0 6px 0 rgba(0,0,0,0.05),
+                0 20px 40px rgba(15,23,42,0.25);
+        }
+        .dark .book-flat:hover {
+            box-shadow:
+                0 1px 0 rgba(0,0,0,0.3),
+                0 2px 0 rgba(0,0,0,0.25),
+                0 4px 0 rgba(0,0,0,0.2),
+                0 6px 0 rgba(0,0,0,0.15),
+                0 20px 40px rgba(0,0,0,0.65);
+        }
+        /* 已归档：降饱和 + 略暗。悬停时部分复原 —— 归档不等于不可读。 */
+        .book-flat.archived {
+            filter: saturate(0.5) brightness(0.9);
+            opacity: 0.85;
+        }
+        .book-flat.archived:hover {
+            filter: saturate(0.75) brightness(1);
+            opacity: 1;
+        }
+
+        .bf-cover {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        /* 书脊与折痕 —— 两片假光影，让平面矩形读成一本合上的书 */
+        .bf-spine {
+            position: absolute;
+            top: 0; bottom: 0; left: 0;
+            width: 14px;
+            background: linear-gradient(90deg,
+                rgba(0,0,0,0.42) 0%,
+                rgba(0,0,0,0.22) 40%,
+                rgba(0,0,0,0.06) 70%,
+                transparent 100%);
+            z-index: 2;
+        }
+        .bf-spine::after {
+            content: "";
+            position: absolute;
+            left: 3px; top: 8%; bottom: 8%;
+            width: 1px;
+            background: linear-gradient(180deg,
+                transparent 0%,
+                rgba(255,255,255,0.35) 25%,
+                rgba(255,255,255,0.35) 75%,
+                transparent 100%);
+        }
+        .bf-flap {
+            position: absolute;
+            top: 0; bottom: 0; left: 14px;
+            width: 3px;
+            background: linear-gradient(90deg,
+                rgba(0,0,0,0.18) 0%,
+                rgba(255,255,255,0.12) 50%,
+                transparent 100%);
+            z-index: 2;
+            pointer-events: none;
+        }
+        .bf-flap::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg,
+                rgba(255,255,255,0.15) 0%,
+                transparent 100%);
+            box-shadow: inset 1px 0 0 rgba(255,255,255,0.25);
+        }
+
+        /* 封面内框。四支样式对应应用里的 `Project.priority` 三档
+           （高=双线 core / 中=单线 bi / 低=虚线 perf；fe 备着未用，与 `.prio-P3` 同理）。 */
+        .bf-frame {
+            position: absolute;
+            inset: 14px 12px 14px 22px;
+            padding: 12px 12px 10px;
+            display: flex; flex-direction: column;
+            z-index: 4;
+        }
+        .bf-frame.frame-core { border: 1px solid rgba(255,255,255,0.28); }
+        .bf-frame.frame-core::before {
+            content: "";
+            position: absolute;
+            inset: 3px;
+            border: 1px solid rgba(255,255,255,0.14);
+            pointer-events: none;
+        }
+        .bf-frame.frame-fe { border: 1.5px dashed rgba(255,255,255,0.25); }
+        .bf-frame.frame-bi { border: 1px solid rgba(255,255,255,0.22); }
+        .bf-frame.frame-perf { border: 1px solid rgba(255,255,255,0.15); }
+
+        .bf-tag-row {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            margin-bottom: auto;
+        }
+        .bf-tag {
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+            color: rgba(255,255,255,0.88);
+            padding: 2px 6px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 2px;
+            text-transform: uppercase;
+        }
+        .bf-icon {
+            font-size: 18px;
+            opacity: 0.75;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+
+        .bf-title-block {
+            margin-bottom: auto;
+            padding-top: 6px;
+        }
+        .bf-title {
+            font-size: 15px;
+            font-weight: 800;
+            line-height: 1.3;
+            letter-spacing: 0.03em;
+            margin-bottom: 8px;
+            color: #F5E8D0;
+            text-shadow:
+                0 1px 0 rgba(255,255,255,0.4),
+                0 -1px 0 rgba(0,0,0,0.5),
+                0 2px 4px rgba(0,0,0,0.4),
+                0 0 12px rgba(255,215,150,0.2);
+        }
+        .bf-divider {
+            display: flex; align-items: center; gap: 5px;
+            margin-bottom: 6px;
+        }
+        .bf-divider::before,
+        .bf-divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.35);
+        }
+        .bf-divider span {
+            width: 4px; height: 4px;
+            background: rgba(255,255,255,0.55);
+            transform: rotate(45deg);
+            flex-shrink: 0;
+        }
+        .bf-subtitle {
+            font-size: 8px;
+            letter-spacing: 0.18em;
+            color: rgba(255,255,255,0.55);
+            text-transform: uppercase;
+            text-align: center;
+        }
+        .bf-publisher {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            font-size: 8px;
+            letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.55);
+            text-transform: uppercase;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+        }
+        .bf-progress-mini {
+            display: flex; align-items: center; gap: 5px;
+        }
+        .bf-progress-mini-bar {
+            width: 32px; height: 2px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .bf-progress-mini-fill {
+            height: 100%;
+            background: rgba(255,255,255,0.9);
+            border-radius: 999px;
+            display: block;
+        }
+        .bf-progress-mini-text {
+            font-weight: 700;
+            color: rgba(255,255,255,0.9);
+        }
+
+        /* 书签：由 `Project.daysLeft` 决定 —— 已逾期红、30 天内金、其余不挂。
+           这是封面上唯一的"时间压力"信号，所以它的判据写在数据那一侧。 */
+        .bf-bookmark {
+            position: absolute;
+            top: -3px;
+            right: 20px;
+            width: 12px;
+            height: 26px;
+            z-index: 5;
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .bf-bookmark.gold {
+            background: linear-gradient(180deg, #FFE78A 0%, #F5C842 45%, #C9A02E 100%);
+        }
+        .bf-bookmark.red {
+            background: linear-gradient(180deg, #FF6B6B 0%, #EF4444 45%, #A01F1F 100%);
+        }
+
+        /* 飞行克隆体：书 → 弹窗（以及关闭时的反向）。position:fixed + 只改
+           left/top/width/height/opacity/border-radius，四条位移属性共用一条
+           缓动曲线 —— 没有这条 transition，克隆体会"瞬移"而不是"飞"。 */
+        .fly-clone {
+            position: fixed;
+            z-index: 400;
+            pointer-events: none;
+            border-radius: 3px 7px 7px 3px;
+            overflow: hidden;
+            will-change: transform, opacity;
+            transition: none;
+            box-shadow: 0 30px 80px rgba(15,23,42,0.4);
+        }
+        .fly-clone.animating {
+            transition:
+                left 0.48s cubic-bezier(0.4, 0, 0.2, 1),
+                top 0.48s cubic-bezier(0.4, 0, 0.2, 1),
+                width 0.48s cubic-bezier(0.4, 0, 0.2, 1),
+                height 0.48s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.4s ease,
+                border-radius 0.4s ease;
+        }
+        .dark .fly-clone {
+            box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+        }
+
+        /* 弹窗进出场。基础规则（.modal-mask / .modal / …）在「弹窗」那一节，
+           这里只补两帧动画与标题上的色点。 */
+        .modal.entering {
+            animation: modalIn 0.4s cubic-bezier(0.34,1.4,0.64,1) 0.18s both;
+        }
+        .modal.leaving {
+            animation: modalOut 0.32s cubic-bezier(0.4, 0, 0.2, 1) both;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.92) translateY(12px); }
+            to { opacity: 1; transform: none; }
+        }
+        @keyframes modalOut {
+            from { opacity: 1; transform: none; }
+            to { opacity: 0; transform: scale(0.94) translateY(8px); }
+        }
+        /* 标题前的项目色点。颜色由组件内联给（background 与 color 同值），
+           外圈用 currentColor 取淡 —— 一处改色、两处跟着变。 */
+        .modal-title-dot {
+            display: inline-block;
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-right: 10px;
+            vertical-align: 1px;
+            box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 18%, transparent);
+        }
+
+        /* 空态（书架分组为空、关联文档为空时用） */
+        .empty-state {
+            text-align: center; padding: 24px;
+            color: var(--text-muted); font-size: 13px;
+        }
+
+        /* 标签胶囊（弹窗里的标签行） */
+        .tag-pill {
+            display: inline-block;
+            font-size: 11px; padding: 3px 10px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--m-main) 12%, transparent);
+            color: var(--m-main);
+            margin-right: 6px;
+        }
+
+        /* 可点行（弹窗里跳去关联对象） */
+        .link-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: var(--border-subtle);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            margin-bottom: 6px;
+        }
+        .link-row:hover { background: color-mix(in srgb, var(--m-main) 12%, transparent); color: var(--m-main); }
+        .link-row:last-child { margin-bottom: 0; }
+        .link-row .link-arrow { color: var(--text-muted); }
+        .link-row:hover .link-arrow { color: var(--m-main); }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        @media (max-width: 768px) {
+            .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+            .sidebar { display: none; }
+        }
+        /* 书架在窄屏收一档 —— 单独一个 @media 而不是并进上面那条：
+           并进去会让**整条壳的窄屏规则**从共用内核掉进 work 的增量（7 个模块各留一份副本）。 */
+        @media (max-width: 768px) {
+            .grid-shelf { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="aurora-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+</div>
+
+<div class="app">
+
+    <aside class="sidebar">
+        <div class="sidebar-title">全局层</div>
+        <div class="menu-item"><span class="menu-dot"></span>工作台</div>
+        <div class="menu-item"><span class="menu-dot"></span>任务清单</div>
+        <div class="menu-item"><span class="menu-dot"></span>日程</div>
+
+        <div class="sidebar-title">领域层</div>
+        <div class="menu-item"><span class="menu-dot"></span>生活</div>
+        <div class="menu-item active"><span class="menu-dot"></span>工作</div>
+        <div class="menu-item"><span class="menu-dot"></span>学习</div>
+
+        <div class="sidebar-title">执行层</div>
+        <div class="menu-item"><span class="menu-dot"></span>项目</div>
+
+        <div class="sidebar-title">沉淀层</div>
+        <div class="menu-item"><span class="menu-dot"></span>知识库</div>
+
+        <div class="sidebar-title">支撑层</div>
+        <div class="menu-item"><span class="menu-dot"></span>设置</div>
+    </aside>
+
+    <header class="topbar">
+        <div class="breadcrumb">工作 / <strong id="crumb">工作台</strong></div>
+        <div class="topbar-actions">
+            <button class="btn btn-ghost" id="quickAdd">+ 快速记录</button>
+            <button class="theme-toggle" id="themeToggle">🌙</button>
+        </div>
+    </header>
+
+    <main class="main">
+
+        <!-- ===== 顶部导航栏 =====
+             工作模块的分区。设计稿（04-工作.png）里它就是一条横向条：
+             激活项是 --m-main 实心药丸，其余是次级文字。
+             用 <button> 而不是 <div>：它是真的可点元素，键盘可达、有 aria-current。
+
+             ⚠️ 2026-09-25 分区 **12 → 7**。这不是"砍功能"，是合并 ——
+                每一项都收进了别处的全部内容，逐条对照表见
+                `src/pages/workspace/work/panels.tsx` 的文件头。并入关系：
+                  工作台        收了「本周会议」（今日会议本来就在）
+                  服务器        并入「部署记录 / 部署文档」
+                  文档索引      吸收「部署手册类」5 条
+                  客户与联系人  合并「客户资料 + 联系人」
+                  复盘          合并「周报复盘 + 工时 + OKR/KPI」
+                撤掉的 key：deploy / calendar / clients / okr / timesheet。
+
+             ⚠️ 药丸顺序 = `TABS` 的顺序，只有第一项是 `active` 缺省态。
+                这一条 `.tabs` 是**页面级导航条**（sticky + 负外边距通栏），
+                与「客户与联系人」里那条筛选用的 `.tabs` 不是同一种用法 ——
+                那边的收窄规则见 <style> 里 `.panel > .tabs` 那段。 -->
+        <nav class="tabs" id="tabs" aria-label="工作模块分区">
+            <button type="button" class="tab active" data-tab="dashboard" aria-current="page">工作台</button>
+            <button type="button" class="tab" data-tab="tasks">任务</button>
+            <button type="button" class="tab" data-tab="projects">项目</button>
+            <button type="button" class="tab" data-tab="servers">服务器</button>
+            <button type="button" class="tab" data-tab="docs">文档索引</button>
+            <button type="button" class="tab" data-tab="contacts">客户与联系人</button>
+            <button type="button" class="tab" data-tab="review">复盘</button>
+        </nav>
+
+        <!-- 工作台 -->
+        <div class="panel active" data-panel="dashboard">
+            <section class="card hero">
+                <h1>下午好，杨刘 👋</h1>
+                <p>今天是 2026-09-20 星期日，本周还有 1 天。</p>
+                <div class="hero-meta">
+                    <span>今日任务：<strong>3 / 8</strong></span>
+                    <span>今日会议：<strong>2 场</strong></span>
+                    <span>进行项目：<strong>4 个</strong></span>
+                    <span>本周工时：<strong>32h</strong></span>
+                </div>
+            </section>
+
+            <section class="grid-3">
+                <div class="card">
+                    <div class="card-title">今日任务</div>
+                    <div class="stat">3 / 8</div>
+                    <div class="stat-desc">2 个高优先级 · 1 个逾期</div>
+                    <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" style="width: 38%"></div></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">今日会议</div>
+                    <div class="stat">2</div>
+                    <div class="stat-desc">下一场 14:00 项目评审</div>
+                    <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" style="width: 40%"></div></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">本周工时</div>
+                    <div class="stat">32h</div>
+                    <div class="stat-desc">目标 40h · 80%</div>
+                    <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" style="width: 80%"></div></div>
+                </div>
+            </section>
+
+            <section class="grid-2">
+                <div class="card">
+                    <div class="card-title">今日任务</div>
+                    <div class="task-item">
+                        <div class="task-check done">✓</div>
+                        <div class="task-text done">修复登录页样式</div>
+                        <span class="task-tag">已完成</span>
+                    </div>
+                    <div class="task-item">
+                        <div class="task-check done">✓</div>
+                        <div class="task-text done">代码评审</div>
+                        <span class="task-tag">已完成</span>
+                    </div>
+                    <div class="task-item">
+                        <div class="task-check done">✓</div>
+                        <div class="task-text done">写日报</div>
+                        <span class="task-tag">已完成</span>
+                    </div>
+                    <div class="task-item">
+                        <div class="task-check"></div>
+                        <div class="task-text">准备项目评审</div>
+                        <span class="task-tag">进行中</span>
+                    </div>
+                    <div class="task-item">
+                        <div class="task-check"></div>
+                        <div class="task-text">更新接口文档</div>
+                        <span class="task-tag">待办</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">今日会议</div>
+                    <div class="meeting-item">
+                        <div class="meeting-time">10:00</div>
+                        <div class="meeting-info">
+                            <div class="meeting-title">每日站会</div>
+                            <div class="meeting-meta">30 分钟 · 线上</div>
+                        </div>
+                    </div>
+                    <div class="meeting-item">
+                        <div class="meeting-time">14:00</div>
+                        <div class="meeting-info">
+                            <div class="meeting-title">项目评审</div>
+                            <div class="meeting-meta">60 分钟 · 会议室 A</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 本周会议 —— 2026-09-25 从撤掉的 `calendar` 分区搬来。
+                     今日会议本来就在上面那张卡里，所以「工作台含今日会议」这条本来就成立；
+                     搬过来的是**它多出来的那一段**（本周其余三天），不搬就等于删功能。 -->
+                <div class="card">
+                    <div class="card-title">本周会议</div>
+                    <div class="meeting-item">
+                        <div class="meeting-time">周一</div>
+                        <div class="meeting-info">
+                            <div class="meeting-title">周会</div>
+                            <div class="meeting-meta">60 分钟</div>
+                        </div>
+                    </div>
+                    <div class="meeting-item">
+                        <div class="meeting-time">周三</div>
+                        <div class="meeting-info">
+                            <div class="meeting-title">技术分享</div>
+                            <div class="meeting-meta">90 分钟</div>
+                        </div>
+                    </div>
+                    <div class="meeting-item">
+                        <div class="meeting-time">周五</div>
+                        <div class="meeting-info">
+                            <div class="meeting-title">项目复盘</div>
+                            <div class="meeting-meta">60 分钟</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="grid-2">
+                <div class="card">
+                    <div class="card-title">进行中项目</div>
+                    <div class="doc-item">
+                        <div class="doc-icon">📦</div>
+                        <div class="doc-info">
+                            <div class="doc-name">支付系统重构</div>
+                            <div class="doc-meta">进度 62% · 截止 10-31</div>
+                        </div>
+                    </div>
+                    <div class="doc-item">
+                        <div class="doc-icon">📦</div>
+                        <div class="doc-info">
+                            <div class="doc-name">用户中心改版</div>
+                            <div class="doc-meta">进度 38% · 截止 11-15</div>
+                        </div>
+                    </div>
+                    <div class="doc-item">
+                        <div class="doc-icon">📦</div>
+                        <div class="doc-info">
+                            <div class="doc-name">数据看板</div>
+                            <div class="doc-meta">进度 80% · 截止 09-30</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">最近文档</div>
+                    <div class="doc-item">
+                        <div class="doc-icon">📄</div>
+                        <div class="doc-info">
+                            <div class="doc-name">支付系统重构方案</div>
+                            <div class="doc-meta">更新于昨天</div>
+                        </div>
+                    </div>
+                    <div class="doc-item">
+                        <div class="doc-icon">📘</div>
+                        <div class="doc-info">
+                            <div class="doc-name">接口设计规范</div>
+                            <div class="doc-meta">更新于 3 天前</div>
+                        </div>
+                    </div>
+                    <div class="doc-item">
+                        <div class="doc-icon">📝</div>
+                        <div class="doc-info">
+                            <div class="doc-name">周会纪要 09-18</div>
+                            <div class="doc-meta">更新于 2 天前</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 任务 -->
+        <div class="panel" data-panel="tasks">
+            <section class="card">
+                <div class="card-title">工作任务</div>
+                <div class="task-item">
+                    <div class="task-check done">✓</div>
+                    <div class="task-text done">修复登录页样式</div>
+                    <span class="task-tag">已完成</span>
+                </div>
+                <div class="task-item">
+                    <div class="task-check done">✓</div>
+                    <div class="task-text done">代码评审</div>
+                    <span class="task-tag">已完成</span>
+                </div>
+                <div class="task-item">
+                    <div class="task-check"></div>
+                    <div class="task-text">准备项目评审</div>
+                    <span class="task-tag">进行中</span>
+                </div>
+                <div class="task-item">
+                    <div class="task-check"></div>
+                    <div class="task-text">更新接口文档</div>
+                    <span class="task-tag">待办</span>
+                </div>
+                <div class="task-item">
+                    <div class="task-check"></div>
+                    <div class="task-text">优化首页加载速度</div>
+                    <span class="task-tag">待办</span>
+                </div>
+                <div class="task-item">
+                    <div class="task-check"></div>
+                    <div class="task-text">排查线上告警</div>
+                    <span class="task-tag">待办</span>
+                </div>
+            </section>
+        </div>
+
+        <!-- 项目：书架视图
+             ⚠️ 这一块的内容是**设计样本**（4 本，刻意覆盖两种分组、两种书框、金书签与已归档降饱和）。
+                应用里这本书架由**真实项目数据**渲染 —— 口径是 `scope=work`
+                （见 docs/模块设计.md §2「工作项目 = 调用项目模块，scope=work」），
+                渲染在 `src/components/workspace/work/ProjectShelf.tsx`。
+                所以这里出现"支付系统重构"这类名字是原型自己的样本，不是应用的数据源。 -->
+        <div class="panel" data-panel="projects">
+            <div class="bookshelf-wrap">
+                <div class="bookshelf-head">
+                    <div>
+                        <div class="card-title" style="margin:0;">我的书架</div>
+                        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
+                            4 个项目 · 3 进行中 · 1 已归档 · 点击书查看详情
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="alert('原型演示：新建项目')">+ 新建项目</button>
+                </div>
+
+                <div class="shelf-group">
+                    <div class="shelf-group-title">
+                        进行中
+                        <span class="shelf-count">3 本</span>
+                    </div>
+                    <div class="grid-shelf">
+                        <div class="book-flat" data-name="支付系统重构" data-progress="62" data-deadline="2026-10-31" data-tone="#C13A4E">
+                            <div class="bf-cover" style="background: linear-gradient(145deg, #C13A4E 0%, #8B1A2B 45%, #7F0E1F 100%);">
+                                <div class="bf-spine"></div>
+                                <div class="bf-flap"></div>
+                                <div class="bf-frame frame-core">
+                                    <div class="bf-tag-row">
+                                        <span class="bf-tag">CORE</span>
+                                        <span class="bf-icon">💳</span>
+                                    </div>
+                                    <div class="bf-title-block">
+                                        <div class="bf-title">支付系统重构</div>
+                                        <div class="bf-divider"><span></span></div>
+                                        <div class="bf-subtitle">PAYMENT REFACTOR</div>
+                                    </div>
+                                    <div class="bf-publisher">
+                                        <span>杨刘 · 2026</span>
+                                        <span class="bf-progress-mini">
+                                            <span class="bf-progress-mini-bar">
+                                                <span class="bf-progress-mini-fill" style="width:62%;"></span>
+                                            </span>
+                                            <span class="bf-progress-mini-text">62%</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="book-flat" data-name="用户中心改版" data-progress="38" data-deadline="2026-11-15" data-tone="#6B4EA8">
+                            <div class="bf-cover" style="background: linear-gradient(145deg, #6B4EA8 0%, #3B2E5A 45%, #2F224E 100%);">
+                                <div class="bf-spine"></div>
+                                <div class="bf-flap"></div>
+                                <div class="bf-frame frame-fe">
+                                    <div class="bf-tag-row">
+                                        <span class="bf-tag">FE</span>
+                                        <span class="bf-icon">👤</span>
+                                    </div>
+                                    <div class="bf-title-block">
+                                        <div class="bf-title">用户中心改版</div>
+                                        <div class="bf-divider"><span></span></div>
+                                        <div class="bf-subtitle">USER CENTER V2</div>
+                                    </div>
+                                    <div class="bf-publisher">
+                                        <span>杨刘 · 2026</span>
+                                        <span class="bf-progress-mini">
+                                            <span class="bf-progress-mini-bar">
+                                                <span class="bf-progress-mini-fill" style="width:38%;"></span>
+                                            </span>
+                                            <span class="bf-progress-mini-text">38%</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="book-flat" data-name="数据看板" data-progress="80" data-deadline="2026-09-30" data-tone="#0E7490">
+                            <div class="bf-cover" style="background: linear-gradient(145deg, #0E7490 0%, #0B3A4A 45%, #002E3E 100%);">
+                                <div class="bf-bookmark gold"></div>
+                                <div class="bf-spine"></div>
+                                <div class="bf-flap"></div>
+                                <div class="bf-frame frame-bi">
+                                    <div class="bf-tag-row">
+                                        <span class="bf-tag">BI</span>
+                                        <span class="bf-icon">📊</span>
+                                    </div>
+                                    <div class="bf-title-block">
+                                        <div class="bf-title">数据看板</div>
+                                        <div class="bf-divider"><span></span></div>
+                                        <div class="bf-subtitle">DATA BOARD</div>
+                                    </div>
+                                    <div class="bf-publisher">
+                                        <span>杨刘 · 2026</span>
+                                        <span class="bf-progress-mini">
+                                            <span class="bf-progress-mini-bar">
+                                                <span class="bf-progress-mini-fill" style="width:80%;"></span>
+                                            </span>
+                                            <span class="bf-progress-mini-text">80%</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="shelf-group">
+                    <div class="shelf-group-title">
+                        已归档
+                        <span class="shelf-count">1 本</span>
+                    </div>
+                    <div class="grid-shelf">
+                        <div class="book-flat archived" data-name="性能优化专项" data-progress="20" data-deadline="2026-12-15" data-tone="#4B5E75">
+                            <div class="bf-cover" style="background: linear-gradient(145deg, #4B5E75 0%, #2E3B4A 45%, #222F3E 100%);">
+                                <div class="bf-spine"></div>
+                                <div class="bf-flap"></div>
+                                <div class="bf-frame frame-perf">
+                                    <div class="bf-tag-row">
+                                        <span class="bf-tag">PERF</span>
+                                        <span class="bf-icon">⚡</span>
+                                    </div>
+                                    <div class="bf-title-block">
+                                        <div class="bf-title">性能优化专项</div>
+                                        <div class="bf-divider"><span></span></div>
+                                        <div class="bf-subtitle">PERFORMANCE</div>
+                                    </div>
+                                    <div class="bf-publisher">
+                                        <span>杨刘 · 2026</span>
+                                        <span class="bf-progress-mini">
+                                            <span class="bf-progress-mini-bar">
+                                                <span class="bf-progress-mini-fill" style="width:20%;"></span>
+                                            </span>
+                                            <span class="bf-progress-mini-text">20%</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 服务器 -->
+        <div class="panel" data-panel="servers">
+            <section class="grid-3">
+                <div class="card">
+                    <div class="card-title">服务器总数</div>
+                    <div class="stat">8</div>
+                    <div class="stat-desc">生产 3 · 测试 3 · 预发 2</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">运行中</div>
+                    <div class="stat" style="color:#10B981;">7</div>
+                    <div class="stat-desc">1 台已停止</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">即将到期</div>
+                    <div class="stat" style="color:#F59E0B;">1</div>
+                    <div class="stat-desc">30 天内</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">生产环境</div>
+                <div class="server-item">
+                    <div class="server-env">生产</div>
+                    <div class="server-info">
+                        <div class="server-name">prod-web-01</div>
+                        <div class="server-meta">47.100.x.x · 阿里云 · 4C8G · Ubuntu 22.04</div>
+                    </div>
+                    <span class="server-status">运行中</span>
+                </div>
+                <div class="server-item">
+                    <div class="server-env">生产</div>
+                    <div class="server-info">
+                        <div class="server-name">prod-db-01</div>
+                        <div class="server-meta">47.100.x.x · 阿里云 · 8C16G · Ubuntu 22.04</div>
+                    </div>
+                    <span class="server-status">运行中</span>
+                </div>
+                <div class="server-item">
+                    <div class="server-env">生产</div>
+                    <div class="server-info">
+                        <div class="server-name">prod-cache-01</div>
+                        <div class="server-meta">47.100.x.x · 阿里云 · 2C4G · Ubuntu 22.04</div>
+                    </div>
+                    <span class="server-status">运行中</span>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">测试环境</div>
+                <div class="server-item">
+                    <div class="server-env">测试</div>
+                    <div class="server-info">
+                        <div class="server-name">test-web-01</div>
+                        <div class="server-meta">10.0.1.x · 内网 · 2C4G · Ubuntu 22.04</div>
+                    </div>
+                    <span class="server-status">运行中</span>
+                </div>
+                <div class="server-item">
+                    <div class="server-env">测试</div>
+                    <div class="server-info">
+                        <div class="server-name">test-db-01</div>
+                        <div class="server-meta">10.0.1.x · 内网 · 4C8G · Ubuntu 22.04</div>
+                    </div>
+                    <span class="server-status">运行中</span>
+                </div>
+                <div class="server-item">
+                    <div class="server-env">测试</div>
+                    <div class="server-info">
+                        <div class="server-name">test-job-01</div>
+                        <div class="server-meta">10.0.1.x · 内网 · 2C4G · Ubuntu 22.04</div>
+                    </div>
+                    <span class="server-status">已停止</span>
+                </div>
+            </section>
+
+            <!-- ↓ 2026-09-25 从撤掉的 `deploy` 分区整段搬来（用户口径：服务器并入部署记录、部署文档）。
+                 顺序是刻意的：**清单 → 记录 → 文档 → 边界** —— 这一页的主语始终是「机器」，
+                 部署只是发生在机器上的事；插在服务器清单中间会让主语跳来跳去。 -->
+            <section class="card">
+                <div class="card-title">部署记录</div>
+                <div class="timesheet-row">
+                    <span>2026-09-20 · v2.3.1</span>
+                    <span class="deploy-status success">成功</span>
+                </div>
+                <div class="timesheet-row">
+                    <span>2026-09-15 · v2.3.0</span>
+                    <span class="deploy-status success">成功</span>
+                </div>
+                <div class="timesheet-row">
+                    <span>2026-09-10 · v2.2.9</span>
+                    <span class="deploy-status rollback">回滚</span>
+                </div>
+                <div class="timesheet-row">
+                    <span>2026-09-05 · v2.2.8</span>
+                    <span class="deploy-status success">成功</span>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">部署文档</div>
+                <div class="doc-item">
+                    <div class="doc-icon">🚀</div>
+                    <div class="doc-info">
+                        <div class="doc-name">生产环境部署手册</div>
+                        <div class="doc-meta">部署 · 生产 · v2.3 · 更新于昨天</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">🔙</div>
+                    <div class="doc-info">
+                        <div class="doc-name">回滚流程</div>
+                        <div class="doc-meta">回滚 · 生产 · v1.2 · 更新于 3 天前</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">⚙️</div>
+                    <div class="doc-info">
+                        <div class="doc-name">环境变量配置</div>
+                        <div class="doc-meta">配置 · 生产 · v1.0 · 更新于 1 周前</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">✅</div>
+                    <div class="doc-info">
+                        <div class="doc-name">发布检查清单</div>
+                        <div class="doc-meta">检查清单 · 生产 · v1.1 · 更新于 2 天前</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">📜</div>
+                    <div class="doc-info">
+                        <div class="doc-name">部署脚本 deploy.sh</div>
+                        <div class="doc-meta">脚本 · 生产 · v1.4 · 更新于 5 天前</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title" style="color:var(--m-main);">安全与边界</div>
+                <div class="notice">
+                    密码、密钥不存明文，只存引用；生产 IP 脱敏；敏感信息走公司密钥管理工具。
+                </div>
+                <div class="notice">
+                    部署文档正文留在公司 Wiki，个人系统只存索引、链接、脱敏摘要；服务器和部署按项目走。
+                </div>
+            </section>
+        </div>
+
+        <!-- ============================================================================
+             2026-09-25 移除的两个面板：`deploy`（部署）与 `calendar`（日历会议）
+             ----------------------------------------------------------------------------
+             它们**不是被删掉**，是被搬进别的分区了，所以留一条指路 ——
+             免得下次有人在原型里又看到 `data-panel="deploy"` 就当成"漏迁的分区"补回来：
+
+               deploy   → 部署记录 · 部署文档 → 上面那一页（服务器）
+                          其中「部署手册类」5 条另在「文档索引」里出现 ——
+                          那是**用户要的两处**：一处是运维现场用的清单，一处是全站文档的可检索入口。
+               calendar → 今日会议（原本就已在工作台里）＋ 本周会议 → 工作台
+
+             一并撤掉的 key：deploy / calendar / clients / okr / timesheet（共 5 个，分区 12 → 7）。
+             ============================================================================ -->
+
+        <!-- 文档索引 -->
+        <div class="panel" data-panel="docs">
+            <section class="card">
+                <div class="card-title">文档索引</div>
+                <div class="doc-item">
+                    <div class="doc-icon">📄</div>
+                    <div class="doc-info">
+                        <div class="doc-name">支付系统重构方案</div>
+                        <div class="doc-meta">Wiki · 更新于昨天</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">📘</div>
+                    <div class="doc-info">
+                        <div class="doc-name">接口设计规范</div>
+                        <div class="doc-meta">Wiki · 更新于 3 天前</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">📝</div>
+                    <div class="doc-info">
+                        <div class="doc-name">周会纪要 09-18</div>
+                        <div class="doc-meta">会议纪要 · 更新于 2 天前</div>
+                    </div>
+                </div>
+                <!-- ↓ 部署手册类 —— 2026-09-25 吸收自撤掉的 `deploy` 分区。
+                     与「服务器」那一页里的同一批文档**不是重复登记**：那边是运维现场要用的清单，
+                     这边是全站文档的可检索入口（用户两条口径都写了）。元信息前缀保留「部署」这一档。 -->
+                <div class="doc-item">
+                    <div class="doc-icon">🚀</div>
+                    <div class="doc-info">
+                        <div class="doc-name">生产环境部署手册</div>
+                        <div class="doc-meta">部署 · 生产 · v2.3 · 更新于昨天</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">🔙</div>
+                    <div class="doc-info">
+                        <div class="doc-name">回滚流程</div>
+                        <div class="doc-meta">部署 · 生产 · v1.2 · 更新于 3 天前</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">⚙️</div>
+                    <div class="doc-info">
+                        <div class="doc-name">环境变量配置</div>
+                        <div class="doc-meta">部署 · 配置 · v1.0 · 更新于 1 周前</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">✅</div>
+                    <div class="doc-info">
+                        <div class="doc-name">发布检查清单</div>
+                        <div class="doc-meta">部署 · 检查清单 · v1.1 · 更新于 2 天前</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">📜</div>
+                    <div class="doc-info">
+                        <div class="doc-name">部署脚本 deploy.sh</div>
+                        <div class="doc-meta">部署 · 脚本 · v1.4 · 更新于 5 天前</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">🔗</div>
+                    <div class="doc-info">
+                        <div class="doc-name">GitLab 仓库</div>
+                        <div class="doc-meta">外部链接</div>
+                    </div>
+                </div>
+            </section>
+            <section class="card">
+                <div class="card-title" style="color:var(--m-main);">注意</div>
+                <div class="notice">
+                    工作文档正文留在公司工具，个人系统只存索引、链接、脱敏摘要。
+                </div>
+            </section>
+        </div>
+
+        <!-- 客户与联系人 —— 2026-09-25 由「客户资料 + 联系人」两个分区合并为一个 `contacts`。
+             沿用旧 key `contacts` 是有意的：它保住 `/work/contacts` 这条地址。
+             筛选器复用顶部那条 `.tabs` / `.tab`（不新造药丸类名），只把导航条那两条
+             （sticky / 负外边距通栏）收掉 —— 见 <style> 里 `.panel > .tabs` 那段。
+             ⚠️ 筛选的粒度是**块**不是**人**：这一页只有客户 / 团队两类角色，点「客户」就藏起
+                团队联系人。没做"按人头隐藏"——那需要每条记录上一个"相关性"字段，而现有数据里
+                没有这个字段，硬编一个筛选维度就是造数据（应用里那份手写组件的取舍与此一致）。 -->
+        <div class="panel" data-panel="contacts">
+            <nav class="tabs" id="roleFilter" aria-label="按角色筛选">
+                <button type="button" class="tab active" data-filter="all">全部</button>
+                <button type="button" class="tab" data-filter="client">客户</button>
+                <button type="button" class="tab" data-filter="team">团队</button>
+            </nav>
+
+            <section class="grid-3" data-role="client">
+                <div class="card">
+                    <div class="card-title">客户数</div>
+                    <div class="stat">8</div>
+                    <div class="stat-desc">本周新增 2 个</div>
+                    <div class="progress-bar" style="margin-top:8px;">
+                        <div class="progress-fill" style="width: 60%"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">资料文件</div>
+                    <div class="stat">126</div>
+                    <div class="stat-desc">Excel 48 · MD 32 · PDF 26</div>
+                    <div class="progress-bar" style="margin-top:8px;">
+                        <div class="progress-fill" style="width: 72%"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">待整理</div>
+                    <div class="stat">5</div>
+                    <div class="stat-desc">未归类 / 未解读</div>
+                    <div class="progress-bar" style="margin-top:8px;">
+                        <div class="progress-fill" style="width: 30%"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" data-role="client">
+                <div class="card-title">客户资料库</div>
+
+                <div class="client-card" onclick="openClient('星辰科技')">
+                    <div class="client-avatar">星</div>
+                    <div class="client-info">
+                        <div class="client-name">星辰科技</div>
+                        <div class="client-meta">32 个文件 · 最近更新 2 小时前</div>
+                        <div class="client-tags">
+                            <span class="client-tag">需求 12</span>
+                            <span class="client-tag">数据 8</span>
+                            <span class="client-tag">原型 6</span>
+                        </div>
+                    </div>
+                    <div class="client-right">
+                        <div class="client-amount">32</div>
+                        <div class="client-status">文件</div>
+                    </div>
+                </div>
+
+                <div class="client-card" onclick="openClient('云启网络')">
+                    <div class="client-avatar">云</div>
+                    <div class="client-info">
+                        <div class="client-name">云启网络</div>
+                        <div class="client-meta">18 个文件 · 最近更新 昨天</div>
+                        <div class="client-tags">
+                            <span class="client-tag">需求 8</span>
+                            <span class="client-tag">参考 5</span>
+                        </div>
+                    </div>
+                    <div class="client-right">
+                        <div class="client-amount">18</div>
+                        <div class="client-status">文件</div>
+                    </div>
+                </div>
+
+                <div class="client-card" onclick="openClient('蓝海数据')">
+                    <div class="client-avatar">蓝</div>
+                    <div class="client-info">
+                        <div class="client-name">蓝海数据</div>
+                        <div class="client-meta">46 个文件 · 最近更新 3 天前</div>
+                        <div class="client-tags">
+                            <span class="client-tag">数据 24</span>
+                            <span class="client-tag">合同 4</span>
+                        </div>
+                    </div>
+                    <div class="client-right">
+                        <div class="client-amount">46</div>
+                        <div class="client-status">文件</div>
+                    </div>
+                </div>
+
+                <div class="client-card" onclick="openClient('微光传媒')">
+                    <div class="client-avatar">微</div>
+                    <div class="client-info">
+                        <div class="client-name">微光传媒</div>
+                        <div class="client-meta">12 个文件 · 最近更新 5 天前</div>
+                        <div class="client-tags">
+                            <span class="client-tag">需求 6</span>
+                            <span class="client-tag">原型 4</span>
+                        </div>
+                    </div>
+                    <div class="client-right">
+                        <div class="client-amount">12</div>
+                        <div class="client-status">文件</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" data-role="client">
+                <div class="card-title">最近资料</div>
+                <div class="doc-item">
+                    <div class="doc-icon">📊</div>
+                    <div class="doc-info">
+                        <div class="doc-name">需求清单 v3.xlsx</div>
+                        <div class="doc-meta">星辰科技 · 2 小时前 · 1.2 MB</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">📄</div>
+                    <div class="doc-info">
+                        <div class="doc-name">接口说明.md</div>
+                        <div class="doc-meta">云启网络 · 昨天 · 24 KB</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">📕</div>
+                    <div class="doc-info">
+                        <div class="doc-name">数据字典.pdf</div>
+                        <div class="doc-meta">蓝海数据 · 3 天前 · 3.4 MB</div>
+                    </div>
+                </div>
+                <div class="doc-item">
+                    <div class="doc-icon">🖼️</div>
+                    <div class="doc-info">
+                        <div class="doc-name">首页原型.png</div>
+                        <div class="doc-meta">微光传媒 · 5 天前 · 860 KB</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" data-role="team">
+                <div class="card-title">联系人</div>
+                <div class="contact-item">
+                    <div class="avatar">张</div>
+                    <div class="contact-info">
+                        <div class="contact-name">张工</div>
+                        <div class="contact-meta">技术负责人</div>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <div class="avatar">李</div>
+                    <div class="contact-info">
+                        <div class="contact-name">李工</div>
+                        <div class="contact-meta">前端同事</div>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <div class="avatar">王</div>
+                    <div class="contact-info">
+                        <div class="contact-name">王产品</div>
+                        <div class="contact-meta">产品经理</div>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <div class="avatar">赵</div>
+                    <div class="contact-info">
+                        <div class="contact-name">赵测试</div>
+                        <div class="contact-meta">测试同事</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 复盘 —— 2026-09-25 由「周报复盘 + 工时 + OKR/KPI」三个分区合并为一个 `review`。
+             口径：**先量后述** —— 工时与 OKR 是可核对的数字，放前面；文字复盘是主观归纳，放最后。
+             ⚠️ 三个分区的内容原样搬来，一个数字没改（含「目标 40h / 本周 32h」这类对不上的地方，
+                那是原设计样本的口径）。唯一新增的标记是「文字复盘」那行 card-title ——
+                原来它是页面里唯一的卡片，没标题也不突兀；现在一页四张卡，只有它没标题会像漏了头。 -->
+        <div class="panel" data-panel="review">
+            <section class="grid-3">
+                <div class="card">
+                    <div class="card-title">本周工时</div>
+                    <div class="stat">32h</div>
+                    <div class="stat-desc">目标 40h</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">本月工时</div>
+                    <div class="stat">142h</div>
+                    <div class="stat-desc">平均 8h / 天</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">加班</div>
+                    <div class="stat">6h</div>
+                    <div class="stat-desc">本月</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">2026 Q3 OKR</div>
+
+                <div class="okr-item">
+                    <div class="okr-title">O1：提升系统稳定性</div>
+                    <div class="okr-desc">KR1：线上故障数下降 50%</div>
+                    <div class="progress-bar"><div class="progress-fill" style="width: 70%"></div></div>
+                    <div class="progress-label"><span>70%</span><span>目标 50% 下降</span></div>
+                </div>
+
+                <div class="okr-item">
+                    <div class="okr-title">O2：交付支付系统重构</div>
+                    <div class="okr-desc">KR1：完成核心链路重构</div>
+                    <div class="progress-bar"><div class="progress-fill" style="width: 62%"></div></div>
+                    <div class="progress-label"><span>62%</span><span>截止 10-31</span></div>
+                </div>
+
+                <div class="okr-item">
+                    <div class="okr-title">O3：提升团队效率</div>
+                    <div class="okr-desc">KR1：CI 构建时间缩短 40%</div>
+                    <div class="progress-bar"><div class="progress-fill" style="width: 45%"></div></div>
+                    <div class="progress-label"><span>45%</span><span>目标 40% 缩短</span></div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">本周工时明细</div>
+                <div class="timesheet-row">
+                    <span>支付系统重构</span>
+                    <span class="timesheet-value">14h</span>
+                </div>
+                <div class="timesheet-row">
+                    <span>用户中心改版</span>
+                    <span class="timesheet-value">8h</span>
+                </div>
+                <div class="timesheet-row">
+                    <span>数据看板</span>
+                    <span class="timesheet-value">5h</span>
+                </div>
+                <div class="timesheet-row">
+                    <span>会议</span>
+                    <span class="timesheet-value">3h</span>
+                </div>
+                <div class="timesheet-row">
+                    <span>代码评审</span>
+                    <span class="timesheet-value">2h</span>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">文字复盘</div>
+                <div class="review-block">
+                    <div class="review-label">本周完成</div>
+                    <ul class="review-list">
+                        <li>完成支付系统重构方案评审</li>
+                        <li>修复登录页样式问题</li>
+                        <li>完成 3 次代码评审</li>
+                        <li>更新接口设计规范</li>
+                    </ul>
+                </div>
+                <div class="review-block">
+                    <div class="review-label">下周计划</div>
+                    <ul class="review-list">
+                        <li>支付系统核心链路重构</li>
+                        <li>用户中心改版接口联调</li>
+                        <li>数据看板验收</li>
+                    </ul>
+                </div>
+                <div class="review-block">
+                    <div class="review-label">问题与阻塞</div>
+                    <ul class="review-list">
+                        <li>支付系统依赖第三方接口，联调延迟</li>
+                        <li>用户中心改版需求有变更</li>
+                    </ul>
+                </div>
+                <div class="review-block">
+                    <div class="review-label">经验沉淀</div>
+                    <ul class="review-list">
+                        <li>重构前先做接口梳理，减少返工</li>
+                        <li>代码评审提前介入，效果更好</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+    </main>
+</div>
+
+<!-- 弹窗 -->
+<div class="modal-mask" id="modalMask">
+    <div class="modal">
+        <div class="modal-head">
+            <div class="modal-title" id="modalTitle">详情</div>
+            <div class="modal-close" onclick="closeModal()">✕</div>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+
+<script>
+    // ========== 顶部导航栏：分区切换 ==========
+    // 只做四件事：高亮、面板显隐、面包屑与文档标题、把主区滚回顶部。
+    // 「激活项滚进视野」交给 scrollIntoView({block:'nearest'}) —— 宽屏下是空操作，
+    // 窄屏换行时才有用，不必额外写测量代码。
+    const crumbEl = document.getElementById('crumb');
+    // ⚠️ 选择器收紧成 `#tabs .tab`（2026-09-25）：从这一版起「客户与联系人」里那条
+    //    角色筛选也用 .tabs / .tab（同一个组件）。全页选 `.tab` 会把那三颗药丸一起吃进来 ——
+    //    它们没有 data-tab，selectTab 会提前 return，看着"没事"，
+    //    但每次点筛选都白跑一趟，而且**下一个人给筛选项加语义时就会踩到**。
+    const tabEls = Array.from(document.querySelectorAll('#tabs .tab'));
+    const mainEl = document.querySelector('.main');
+
+    function selectTab(key, smooth) {
+        const tab = tabEls.find(t => t.dataset.tab === key);
+        if (!tab) return;
+        tabEls.forEach(t => {
+            const on = t === tab;
+            t.classList.toggle('active', on);
+            if (on) t.setAttribute('aria-current', 'page');
+            else t.removeAttribute('aria-current');
+        });
+        document.querySelectorAll('.panel').forEach(p => {
+            p.classList.toggle('active', p.dataset.panel === key);
+        });
+        const label = tab.textContent.trim();
+        if (crumbEl) crumbEl.textContent = label;
+        document.title = `${label} · 工作模块 · 个人系统`;
+        tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        if (mainEl) mainEl.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+    }
+
+    tabEls.forEach(tab => {
+        tab.addEventListener('click', () => selectTab(tab.dataset.tab, true));
+    });
+    // 首帧对齐一次：面包屑/标题与导航栏的高亮从同一处事实源来（避免两处各写一份）
+    // ⚠️ 同样要 `#tabs` 限定：筛选那颗 `全部` 也带 `.tab.active`，无限定就变成"谁在前面算谁"
+    //    （今天恰好是导航条在前，明天改一下面板顺序就翻车）。
+    selectTab(document.querySelector('#tabs .tab.active')?.dataset.tab ?? 'dashboard', false);
+
+    // ========== 角色筛选（客户与联系人）==========
+    // 与上面那条分区切换是**两件事**：分区切的是 `.panel`，这里切的是 panel **内部的块**。
+    // 分开写而不是合成一个 selectTab：两者的目标集合不同（`.panel` vs `[data-role]`），
+    // 硬合成一个函数就得在里面判"这次该切谁"，反而更容易错。
+    // 应用里这一条是 React 的条件渲染（元素直接不渲染），不是 display:none ——
+    // 原型用类名表达状态是这个仓库的通例（.active / .open / .done 都是），
+    // 迁到应用时那一步由 `ClientsContacts.tsx` 的 useState 完成。
+    const roleFilter = document.getElementById('roleFilter');
+    if (roleFilter) {
+        const roleTabs = Array.from(roleFilter.querySelectorAll('.tab'));
+        const roleBlocks = Array.from(document.querySelectorAll('.panel[data-panel="contacts"] [data-role]'));
+        const applyRole = (role) => {
+            roleTabs.forEach(t => t.classList.toggle('active', t.dataset.filter === role));
+            roleBlocks.forEach(b => {
+                b.classList.toggle('role-hidden', role !== 'all' && b.dataset.role !== role);
+            });
+        };
+        roleTabs.forEach(t => t.addEventListener('click', () => applyRole(t.dataset.filter)));
+        applyRole('all');
+    }
+
+    // ========== 任务勾选 ==========
+    document.querySelectorAll('.task-check').forEach(check => {
+        check.addEventListener('click', (e) => {
+            e.stopPropagation();
+            check.classList.toggle('done');
+            check.textContent = check.classList.contains('done') ? '✓' : '';
+            const text = check.parentElement.querySelector('.task-text');
+            if (text) text.classList.toggle('done');
+        });
+    });
+
+    // ========== 快速记录 ==========
+    document.getElementById('quickAdd').addEventListener('click', () => {
+        alert('原型演示：快速记录');
+    });
+
+    // ========== 主题切换 ==========
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        themeToggle.textContent = '☀️';
+    }
+    themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        themeToggle.textContent = isDark ? '☀️' : '🌙';
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+
+    // ========== 弹窗 ==========
+    const modalMask = document.getElementById('modalMask');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+
+    function openModal(title, html) {
+        modalTitle.textContent = title;
+        modalBody.innerHTML = html;
+        modalMask.classList.add('open');
+    }
+    function closeModal() {
+        modalMask.classList.remove('open');
+    }
+    modalMask.addEventListener('click', (e) => {
+        if (e.target === modalMask) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+    });
+
+    // ========== 客户资料详情 ==========
+    function openClient(name) {
+        const data = {
+            '星辰科技': {
+                avatar: '星',
+                meta: '32 个文件 · 最近更新 2 小时前',
+                contact: '张总 · CTO',
+                projects: ['支付系统重构', '用户中心改版'],
+                files: [
+                    { icon: '📊', name: '需求清单 v3.xlsx', meta: 'Excel · 2 小时前 · 1.2 MB', tag: '需求' },
+                    { icon: '📄', name: '接口说明.md', meta: 'MD · 昨天 · 24 KB', tag: '需求' },
+                    { icon: '📕', name: '支付流程.pdf', meta: 'PDF · 3 天前 · 2.1 MB', tag: '参考' },
+                    { icon: '🖼️', name: '原型图.png', meta: '图片 · 5 天前 · 1.4 MB', tag: '原型' }
+                ],
+                versions: [
+                    '需求清单 v3.xlsx · 2026-09-20',
+                    '需求清单 v2.xlsx · 2026-09-15',
+                    '需求清单 v1.xlsx · 2026-09-10'
+                ],
+                notes: [
+                    '需求以 v3 为准，v1/v2 已废弃',
+                    '接口说明待确认鉴权方式'
+                ]
+            },
+            '云启网络': {
+                avatar: '云',
+                meta: '18 个文件 · 最近更新 昨天',
+                contact: '王总 · CEO',
+                projects: ['用户中心改版'],
+                files: [
+                    { icon: '📄', name: '接口说明.md', meta: 'MD · 昨天 · 24 KB', tag: '需求' },
+                    { icon: '📊', name: '字段对照表.xlsx', meta: 'Excel · 3 天前 · 320 KB', tag: '数据' },
+                    { icon: '📕', name: '参考方案.pdf', meta: 'PDF · 5 天前 · 1.8 MB', tag: '参考' }
+                ],
+                versions: [],
+                notes: ['接口鉴权方式待确认']
+            },
+            '蓝海数据': {
+                avatar: '蓝',
+                meta: '46 个文件 · 最近更新 3 天前',
+                contact: '赵总 · 数据总监',
+                projects: ['数据看板'],
+                files: [
+                    { icon: '📕', name: '数据字典.pdf', meta: 'PDF · 3 天前 · 3.4 MB', tag: '数据' },
+                    { icon: '📊', name: '指标口径.xlsx', meta: 'Excel · 5 天前 · 680 KB', tag: '数据' },
+                    { icon: '📄', name: '验收标准.md', meta: 'MD · 1 周前 · 12 KB', tag: '合同' }
+                ],
+                versions: [],
+                notes: ['数据字典已确认，指标口径待复核']
+            },
+            '微光传媒': {
+                avatar: '微',
+                meta: '12 个文件 · 最近更新 5 天前',
+                contact: '刘经理 · 市场',
+                projects: [],
+                files: [
+                    { icon: '🖼️', name: '首页原型.png', meta: '图片 · 5 天前 · 860 KB', tag: '原型' },
+                    { icon: '📄', name: '需求说明.md', meta: 'MD · 1 周前 · 18 KB', tag: '需求' }
+                ],
+                versions: [],
+                notes: ['需求待进一步沟通']
+            }
+        };
+        const d = data[name];
+        if (!d) return;
+
+        openModal(name + ' · 客户资料', `
+      <div class="recipe-hero">${d.avatar}</div>
+
+      <div class="detail-section">
+        <div class="detail-label">客户信息</div>
+        <div class="detail-row"><span>资料概况</span><span>${d.meta}</span></div>
+        <div class="detail-row"><span>对接人</span><span>${d.contact}</span></div>
+        <div class="detail-row"><span>关联项目</span><span>${d.projects.join(' / ') || '无'}</span></div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-label">资料文件</div>
+        ${d.files.map(f => `
+          <div class="doc-item">
+            <div class="doc-icon">${f.icon}</div>
+            <div class="doc-info">
+              <div class="doc-name">${f.name}</div>
+              <div class="doc-meta">${f.meta}</div>
+            </div>
+            <span class="client-tag">${f.tag}</span>
+          </div>
+        `).join('')}
+      </div>
+
+      ${d.versions.length ? `
+      <div class="detail-section">
+        <div class="detail-label">版本记录</div>
+        <ul class="detail-list">
+          ${d.versions.map(v => `<li>${v}</li>`).join('')}
+        </ul>
+      </div>` : ''}
+
+      ${d.notes.length ? `
+      <div class="detail-section">
+        <div class="detail-label">备注</div>
+        <ul class="detail-list">
+          ${d.notes.map(n => `<li>${n}</li>`).join('')}
+        </ul>
+      </div>` : ''}
+
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button class="btn btn-ghost" onclick="alert('原型演示：上传资料')">+ 上传资料</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：关联项目')">关联项目</button>
+      </div>
+    `);
+    }
+    // ========== 项目书架：飞出 / 飞回（版式演示） ==========
+    // 只演示版式与动画时机 —— **弹窗正文不在这里**：应用按真实项目数据渲染，
+    // 见 src/components/workspace/work/ProjectShelf.tsx。
+    // ⚠️ 这一段刻意既不写 `function openXxx(`、也不在
+    //    `getElementById(…).addEventListener('click', …)` 里调 openModal(…)：
+    //    gen-workspace-pages.mjs 用这两条特征认「要迁移的弹窗」，认到了会往
+    //    panels.tsx 里塞一个假的 —— 而这一块面板是手写的（见 MANUAL_PANELS）。
+    (function () {
+        const box = modalMask.querySelector('.modal');
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let busy = false;
+        let current = null;   // 当前打开的那本书：反向飞回要用它的矩形
+
+        /** 克隆一本书，从 from 移到 to。`fadeOut` 为真 = 飞向弹窗（淡出），否则飞回书（淡入）。 */
+        function spawn(book, from, to, fadeOut) {
+            const clone = book.cloneNode(true);
+            clone.classList.add('fly-clone');
+            clone.style.transformOrigin = 'top left';
+            clone.style.left = from.left + 'px';
+            clone.style.top = from.top + 'px';
+            clone.style.width = from.width + 'px';
+            clone.style.height = from.height + 'px';
+            clone.style.opacity = fadeOut ? '1' : '0.9';
+            clone.style.borderRadius = fadeOut ? '3px 7px 7px 3px' : '20px';
+            document.body.appendChild(clone);
+            // 双 rAF：让"起点矩形"先真正上一帧。只等一帧的话，两条样式可能落在同一帧里，
+            // 浏览器视为"没有变化"→ 克隆体瞬移而不是飞。
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                clone.classList.add('animating');
+                clone.style.left = to.left + 'px';
+                clone.style.top = to.top + 'px';
+                clone.style.width = to.width + 'px';
+                clone.style.height = to.height + 'px';
+                clone.style.opacity = fadeOut ? '0' : '1';
+                clone.style.borderRadius = fadeOut ? '20px' : '3px 7px 7px 3px';
+            }));
+            return clone;
+        }
+
+        function fill(book) {
+            const progress = Number(book.dataset.progress || 0);
+            const deadline = book.dataset.deadline || '—';
+            const tone = book.dataset.tone || '#C13A4E';
+            modalTitle.innerHTML =
+                '<span class="modal-title-dot" style="background:' + tone + ';color:' + tone + ';"></span>' +
+                (book.dataset.name || '');
+            modalBody.innerHTML =
+                '<div class="detail-section">' +
+                    '<div class="detail-label">项目概况</div>' +
+                    '<div class="detail-row"><span>截止日期</span><span>' + deadline + '</span></div>' +
+                    '<div class="detail-row"><span>当前进度</span><span>' + progress + '%</span></div>' +
+                '</div>' +
+                '<div class="detail-section">' +
+                    '<div class="detail-label">说明</div>' +
+                    '<div class="notice">这份原型只演示<b>版式与动画时机</b>。弹窗正文（项目概况 / 项目描述 / 风险 / 关键节点 / 关联文档）由应用按<b>真实项目数据</b>渲染 —— 见 src/components/workspace/work/ProjectShelf.tsx。</div>' +
+                '</div>' +
+                '<div class="detail-section">' +
+                    '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>' +
+                    '<div class="progress-label"><span>' + progress + '%</span><span>截止 ' + deadline + '</span></div>' +
+                '</div>' +
+                '<div class="form-actions"><button class="btn btn-ghost" onclick="closeShelf()">关闭</button></div>';
+        }
+
+        function showCard(book) {
+            busy = true;
+            current = book;
+            fill(book);
+            modalMask.classList.add('open');
+            box.classList.remove('entering', 'leaving');
+            if (reduced) {
+                box.style.visibility = 'visible';
+                busy = false;
+                return;
+            }
+            // 先"占位但不可见"地量一次弹窗的最终矩形 —— 克隆体要飞向它
+            box.style.visibility = 'hidden';
+            const to = box.getBoundingClientRect();
+            const clone = spawn(book, book.getBoundingClientRect(), to, true);
+            setTimeout(() => { box.style.visibility = 'visible'; box.classList.add('entering'); }, 260);
+            setTimeout(() => { clone.remove(); busy = false; }, 520);
+        }
+
+        /** 关闭（带反向飞出）。弹窗里那颗「关闭」按钮与遮罩/ESC 都走它。 */
+        function closeShelf() {
+            if (!current) { closeModal(); return; }
+            const book = current;
+            current = null;
+            box.classList.remove('entering');
+            if (reduced) { box.classList.remove('leaving'); closeModal(); return; }
+            busy = true;
+            box.classList.add('leaving');
+            const clone = spawn(book, box.getBoundingClientRect(), book.getBoundingClientRect(), false);
+            setTimeout(() => {
+                clone.remove();
+                closeModal();
+                box.classList.remove('leaving');
+                busy = false;
+            }, 480);
+        }
+        window.closeShelf = closeShelf;
+
+        document.addEventListener('click', (e) => {
+            const book = e.target.closest('.book-flat');
+            if (!book || busy) return;
+            showCard(book);
+        });
+        /* 原型原有的"点遮罩 / ESC 关闭"只会 remove('open')，于是反向飞出不会发生。
+           这两条在**捕获阶段**截住它们（捕获先于冒泡，stopPropagation 之后原来的监听收不到）。 */
+        document.addEventListener('click', (e) => {
+            if (!current || e.target !== modalMask) return;
+            e.stopPropagation();
+            closeShelf();
+        }, true);
+        document.addEventListener('keydown', (e) => {
+            if (!current || e.key !== 'Escape') return;
+            e.stopPropagation();
+            closeShelf();
+        }, true);
+    })();
+</script>
+</body>
+</html>

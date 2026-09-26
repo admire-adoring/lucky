@@ -3,6 +3,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { IconSprite } from './components/icons/IconSprite'
 import { ToastHost } from './components/ui/ToastHost'
+import { AiDrawerHost } from './components/ai-drawer/AiDrawerHost'
 import { queryClient } from './lib/query-client'
 import { CalendarWorkspace } from './pages/workspace/CalendarWorkspace'
 import { KnowledgeWorkspace } from './pages/workspace/KnowledgeWorkspace'
@@ -11,6 +12,9 @@ import { LifeWorkspace } from './pages/workspace/LifeWorkspace'
 import { ProjectsWorkspace } from './pages/workspace/ProjectsWorkspace'
 import { SettingsWorkspace } from './pages/workspace/SettingsWorkspace'
 import { TasksWorkspace } from './pages/workspace/TasksWorkspace'
+import { LogViewerPage } from './pages/workspace/LogViewerPage'
+import { DeployViewerPage } from './pages/workspace/DeployViewerPage'
+import { WorkProjectDetailPage } from './pages/workspace/WorkProjectDetailPage'
 import { WorkWorkspace } from './pages/workspace/WorkWorkspace'
 import { AiAssistantPage } from './pages/AiAssistantPage'
 import { LoginPage } from './pages/LoginPage'
@@ -28,6 +32,23 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function EntryRedirect() {
   const user = useAuthStore((state) => state.user)
   return <Navigate to={user ? '/' : '/login'} replace />
+}
+
+/**
+ * 登录之后才挂的**应用级附加层**：AI 助手抽屉 + 阶段计时（后者由前者一起渲染）。
+ *
+ * ⚠️ 位置：`<Routes>` **之外**。用户的要求是「每个页面都可以弹出侧边栏」——
+ *    挂在页面里要走通三处壳（工作区壳 / 工作台 / 项目列表），漏一处就是
+ *    "那一页点了没反应"且不报错；挂在路由之外由**构造**保证每页都有。
+ *    详细的取舍写在 `components/ai-drawer/AiDrawerHost.tsx`。
+ *
+ * ⚠️ 为什么在这里判登录态：抽屉要读登录态里的称呼（头像上的字）。
+ *    未登录时全站只有登录页，挂上去会多出一个"登录页背后藏着助手"的状态 ——
+ *    而且它会去读一个空 user。判据与 `RequireAuth` 同一条。
+ */
+function AuthedExtras() {
+  const user = useAuthStore((state) => state.user)
+  return user ? <AiDrawerHost /> : null
 }
 
 /**
@@ -60,6 +81,46 @@ const WORKSPACE_ROUTES: { path: string; element: ReactNode }[] = [
   { path: '/life/:tab', element: <LifeWorkspace /> },
   { path: '/work', element: <WorkWorkspace /> },
   { path: '/work/:tab', element: <WorkWorkspace /> },
+  /**
+   * 工作模块内打开的项目详情：`/work/projects/:id` 与 `/work/projects/:id/:tab`。
+   *
+   * ⚠️ 为什么有这两条：在工作模块的「项目」分区里点开一个抽屉，**不跳去独立的项目模块**
+   *    （`/projects/:id`），详情就在工作模块内打开 —— 环仍是工作模块的 7 个分区、
+   *    高亮停在「项目」上。正文与数据与 `/projects/:id` 是**同一份组件**
+   *    （`components/workspace/project-detail/ProjectDetail.tsx`），差别只有壳。
+   *
+   * ⚠️ 与 `/work/:tab` 不冲突：那一条是两段（`/work/projects` 落进去、给抽屉网格），
+   *    这两条是三段与四段。React Router 按特异性排序，段数不同本来也不会互相抢。
+   */
+  { path: '/work/projects/:id', element: <WorkProjectDetailPage /> },
+  { path: '/work/projects/:id/:tab', element: <WorkProjectDetailPage /> },
+  /**
+   * 日志查看器：`/logs/:id`。
+   *
+   * ⚠️ **它不在任何模块下**，也不套 `WorkspaceLayout` —— 原型就是一个
+   *    `window.open` 出来的独立窗口（自带标题栏、服务器分段、刷新与关闭，
+   *    而且没有任何模块导航）。套进模块外壳会同时多出侧栏环与顶栏，与它自己那条 bar 重复。
+   *    所以它只借两样东西：`mw-root` 的令牌 + `data-module="work"` 的强调色。
+   *    **窗框由页面自己补**（`components/shell/MacWindow`：红黄绿三颗 / 拖动 / 最小化 /
+   *    全屏），因为"独立窗口"这一层语义只有页面自己知道 —— 路由表只负责把它挂到一段
+   *    自己的地址上。
+   *
+   * ⚠️ 路径**刻意不挂在 `/work/projects/:id/logs`**：那会是四段，
+   *    与 `/work/projects/:id/:tab` **同形**（靠"静态段优先于动态段"才能分对，
+   *    一旦有人把 tab 名写成 logs 就撞车）。两段路径没有这个歧义。
+   */
+  { path: '/logs/:id', element: <LogViewerPage /> },
+  /**
+   * 部署查看器：`/deploy/:id`。
+   *
+   * ⚠️ 与 `/logs/:id` 是**同一形态的第二条**：原型也是 `window.open` 出来的独立窗口
+   *    （运维页 →「打开部署面板」），所以它同样不套 `WorkspaceLayout`、只借
+   *    `mw-root` 的令牌 + `data-module="work"` 的强调色，窗框由页面自己补（`MacWindow`）。
+   *
+   * ⚠️ 同样是**两段路径**，不挂在 `/work/projects/:id/deploy` —— 那会与
+   *    `/work/projects/:id/:tab` 同形，一旦有人把 tab 名写成 deploy 就撞车。
+   */
+  { path: '/deploy/:id', element: <DeployViewerPage /> },
   { path: '/learning', element: <LearningWorkspace /> },
   { path: '/learning/:tab', element: <LearningWorkspace /> },
   { path: '/knowledge', element: <KnowledgeWorkspace /> },
@@ -74,6 +135,11 @@ const WORKSPACE_ROUTES: { path: string; element: ReactNode }[] = [
    * 把任务 / 里程碑 / 文档 / 动态按该项目派生，8 个项目打开是 8 份内容。
    * （上一轮没换，正是因为当时那一版的内容还写死在原型的数据里：
    *   换过去会让每个项目长得一样，同时丢掉一页可用功能。）
+   *
+   * ⚠️ 2026-09-25（第三轮）这两条**不再是详情唯一的地址**：同一页还挂在
+   *    `/work/projects/:id`（工作模块内打开，见上面那两条）。正文与数据是同一份组件
+   *    （`components/workspace/project-detail/ProjectDetail.tsx`），只有壳不同。
+   *    改详情内容时改那一个文件，两处同时生效。
    *
    * ⚠️ 路由顺序：`/projects/:id` 与 `/projects/:id/:tab` 是两条不同的路径，
    * 不冲突；而 `/projects`（列表）也是独立的一条。React Router 按特异性排序，
@@ -132,6 +198,8 @@ export function App() {
           ))}
           <Route path="*" element={<EntryRedirect />} />
         </Routes>
+        {/* AI 助手抽屉（应用级，每个页面都能弹）。放在 `<Routes>` 之外是有意的 —— 见上面 AuthedExtras */}
+        <AuthedExtras />
         <ToastHost />
       </HashRouter>
     </QueryClientProvider>

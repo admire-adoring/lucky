@@ -1,0 +1,12 @@
+work_index  工作模块原型
+work_workbench 工作模块 工作台
+work_navigation_bar 工作模块 导航栏
+work_document_index 工作模块 文档索引
+work_project  工作模块 项目
+work_project_v1 工作模块 项目（书架版，⛔ 已被 v2 取代）
+work_project_v2 工作模块 项目（抽屉版，✅ 已落地）
+work_product-detail 项目详情（折叠 Hero + 下划线 Tab 栏，✅ 已落地）
+work_project_detail_document 项目详情 · 文档分区（子类栏 + 搜索/排序 + 书墙·列表双视图 + 弹窗，✅ 已落地）
+工作-项目-项目详情-运维-index 项目详情 · 运维分区（KPI 条 + 服务器负载/五子分区 + 发布会话，✅ 已落地）
+工作-项目-项目详情-运维-日志-index 项目详情 · 运维 · 日志（**整窗页面** `/logs/:id`，✅ 已落地）
+工作-项目-项目详情-运维-部署-index 项目详情 · 运维 · 部署（独立窗口：文件来源二选一——从本机选择 / 绑定本地路径（自动查本机，有就直接用），上传到指定路径 + 执行启动命令，配置可增删改；命令可标「需人工输入」，执行到那一步会暂停等填，✅ 已落地）

@@ -19,8 +19,10 @@ import './styles/index.css'
  *    只有 desktop 才把页面做成透明 + 自绘圆角；浏览器里保持不透明方角，
  *    否则预览与审计截图的四角会是空洞，反而看不出真问题。
  *
- * 主题（`data-theme` / `data-glass`）走同一个入口、同一个理由：首帧必须就位。
+ * 主题（`data-theme`）走同一个入口、同一个理由：首帧必须就位。
  * 区别是它**允许**被 React 事后改（顶栏有切换按钮），见 stores/theme-store.ts。
+ * ⚠️ 原来这里还并列着一个 `data-glass`（玻璃档位）。纯色化之后那个维度没有可调的东西了，
+ * 连同 `GlassPreset` / `applyGlass()` 一起删掉（理由见 `lib/theme.ts` 文件头）。
  */
 document.documentElement.dataset.platform = PLATFORM
 document.documentElement.dataset.shell = isDesktopShell() ? 'desktop' : 'browser'

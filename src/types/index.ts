@@ -135,12 +135,34 @@ export interface Milestone {
   detail: string
 }
 
+/**
+ * 文档种类 —— 文档列表页（`design/work/work_project_detail_document.html`）的**子类轴**。
+ *
+ * ⚠️ 与 `DocumentItem.source`（腾讯文档 / 语雀 / …）是两件不同的事：
+ *    `source` = 这篇东西**存在哪儿**，`kind` = 它**是什么**。
+ *    列表页左边的子类栏筛的是后者，所以两者都留在数据上，谁也别替谁。
+ *    7 个取值与原型 `TYPE_MAP` 一一对应，顺序也照它（栏里的次序由 `DOC_KINDS` 给）。
+ */
+export type DocKind = 'plan' | 'design' | 'api' | 'test' | 'spec' | 'research' | 'ref'
+
 export interface DocumentItem {
   id: string
   name: string
+  /** 种类（子类轴）。来源是**内容池里声明的**，不是按哈希轮转出来的，见 `content-pool.ts` */
+  kind: DocKind
+  /** 存在的工具（腾讯文档 / 语雀 / Git 仓库 / 本地 Markdown） */
   source: string
   summary: string
+  /** 给人读的「多久没更新」。由 `updatedHours` 算（`docUpdatedText()`），不单独维护 */
   updatedAt: string
+  /**
+   * 距上次更新多少小时 —— **排序与"是不是新文档"用的是它**。
+   * ⚠️ 留着它而不是再加一个 `isNew` 布尔：那个布尔是 `hours < 24` 的复制品，
+   *    两个字段迟早会有一个忘了改。判据写在 `DocLibrary` 的 `isNew()`。
+   */
+  updatedHours: number
+  /** 负责人。取项目负责人轮转，与 `buildActivity` / `buildMeetings` 同一条口径 */
+  author: string
 }
 
 export interface ActivityItem {

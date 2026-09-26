@@ -15,13 +15,23 @@ const NAV_ITEM_BASE =
 
 /**
  * 激活/非激活两套完整色板：避免同属性工具类互相覆盖（Tailwind 不按类名顺序裁决）。
- * 激活态从原来的近黑实心改为品牌渐变玻璃 —— 近黑实心块与玻璃拟态是相冲的语汇。
- * 渐变的两个端点取的是 600/700 级（#4f46e5 → #6d28d9）而不是 400 级：
- * 实测 400 级渐变最亮处白字只有 4.17:1，600 级之后稳定在 6:1 以上。
+ * 激活态的底：**品牌实底 + 白字**。
+ * ⚠️ 原来这里是一道 135° 的品牌渐变（#4f46e5 → #6d28d9；再早是近黑实心），
+ * 2026-09-25 纯色化时落成一个实色 `--brand-solid`（#6264EF，见 design-tokens.css）。
+ *
+ * ⚠️ 为什么不取"白字对比度更高"的那一端（#4f46e5 是 6.3:1，比 #6264EF 的 4.58:1 更宽）：
+ * 因为这一支同时要满足**两个**方向上的约束，而它们夹出了一个窗口 ——
+ *   · 对白字：Y ≤ 0.1833（4.5:1）→ 这是**上界**，越深越好；
+ *   · 对暗色主题下的卡面（#171f32，Y=0.0144）：实底自身要能与卡面断开 ≥3:1 ⇒ Y ≥ 0.169
+ *     → 这是**下界**，越深越糟（Y=0.1170 的 #4f46e5 只有 2.59:1，实底会糊进卡面）。
+ * 可行窗口只有 0.169~0.1833 这么窄 —— 这正是 Prism 那套 `--brand-a` 被"反解"出来的
+ * 全部原因（见 prism.css §3），#6264EF（Y=0.1793）落在窗口里。
+ * ⇒ 侧面那个"深一点更好"的直觉只对了一半：它守白字、砸边界。
+ * 附带的好处是四处（侧栏 logo / 顶栏头像 / "AI"按钮 / 这条激活项）用同一个蓝。
  */
 const NAV_ITEM_IDLE = 'font-medium text-ink-600 hover:bg-ink-50 hover:text-ink-900'
 const NAV_ITEM_ACTIVE =
-  'bg-[linear-gradient(135deg,rgba(79,70,229,.96)_0%,rgba(109,40,217,.94)_100%)] font-semibold text-white shadow-[0_10px_24px_rgba(79,70,229,.26)] hover:bg-[linear-gradient(135deg,rgba(79,70,229,.96)_0%,rgba(109,40,217,.94)_100%)] hover:text-white'
+  'bg-[color:var(--brand-solid)] font-semibold text-white shadow-[0_10px_24px_rgba(79,70,229,.26)] hover:bg-[color:var(--brand-solid)] hover:text-white'
 
 export function Sidebar() {
   const location = useLocation()
@@ -38,15 +48,16 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        // 玻璃厚度取"常规"档（bg-surface α.70）而不是 raised 档：
-        // raised 的 α.84 会把背后极光几乎全部盖掉，实测侧栏中心落到 245,248,250 ≈ 中性灰，
-        // 侧栏就退化成一块白板。薄一档之后背后那条全高色带才透得上来
-        // （实测侧栏中心 236,236,250，B 通道比 R 高 14，是一层看得见的靛蓝）。
+        // ⚠️ 这里原来写着"玻璃厚度取常规档（α.70）而不是 raised 档（α.84）"——
+        // 那是在调**半透明度**。2026-09-25 纯色化后 `bg-surface` 是实色（#FFFFFF / #111827），
+        // α 这个话题整个消失，侧栏就是"一块实色的柱子 + 右侧一条分隔线"。
         'glass-bar z-30 flex w-[248px] shrink-0 flex-col border-r border-line bg-surface max-[1024px]:w-[236px]',
         // 窗口左上 / 左下两个角由它承担（自己声明，不靠外层裁剪"借"来）
         'shell-frame-left',
-        // 顶部镜面反光：玻璃拟态里用来交代"这片材质有厚度"，纯装饰
-        'bg-[linear-gradient(180deg,rgba(255,255,255,.2)_0%,rgba(255,255,255,0)_32%)]',
+        // ⚠️ 这里原本还挂着一条"顶部镜面反光"的白色渐变
+        // （`bg-[linear-gradient(180deg,rgba(255,255,255,.2),transparent_32%)]`），
+        // 用途是"交代这片材质有厚度"。实底上它只会把侧栏上半截洗淡一点点 ——
+        // 一个没有对象的视觉效果，删。
         'max-[860px]:fixed max-[860px]:inset-y-0 max-[860px]:left-0 max-[860px]:h-full max-[860px]:shadow-xl',
         'max-[860px]:transition-transform max-[860px]:duration-[220ms] max-[860px]:ease-out',
         sidebarOpen ? 'max-[860px]:translate-x-0' : 'max-[860px]:-translate-x-full',

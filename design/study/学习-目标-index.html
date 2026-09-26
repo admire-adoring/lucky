@@ -1,0 +1,3397 @@
+<!--
+  ===========================================================================
+  Jarvis · 个人系统 —— 「学习 · 目标」分区界面原型（Design Prototype）
+  ---------------------------------------------------------------------------
+  这一页只承载 9 个分区里的**目标**那一个，用来把目标分区的版式与信息密度
+  单独看清楚。外壳（顶栏胶囊 / 超级菜单 / 圆盘侧栏 / 主题 / 命令面板）与
+  令牌层原样取自 `study_index.html` —— 同一份壳、同一套色，只有内容区换掉。
+
+  目标对象的字段只有两个状态量：**期限 · 完成度**，其余全是引用。
+    · 概览条 + 4 格 KPI：先给「还剩几天 / 落后几个 / 缺支撑几个」
+    · 主列：目标卡（徽标 → 验收口径 → 完成度 vs 时间进度 → 关键结果 → 支撑来源 → 动作）
+    · 右栏：到期时间轴 · 对齐检查（目标 ← 资料/题库/练习/笔记）· 状态分布 · 归属与口径
+  关键结果里带「由 XX 推算」的格子是自动的（题库掌握度 / 练习记录 / 项目进度），
+  手填的只有「完成过几件事」这种系统算不出来的项 —— 手填的进度一定会撒谎。
+
+  其余 8 个分区：导航保留，点进内容区会落到一张「该分区不在本页」的占位卡，
+  不假装跳过去。它们的内容在 `study_index.html` 里。
+  ===========================================================================
+-->
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>学习 · 目标 · 个人系统</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        /* ============================================================
+           令牌层 · 纯色（无半透明材质、无渐变底衬、无毛玻璃）
+           ============================================================ */
+        :root {
+            --bg-page: #F4F5F7;
+            --bg-sidebar: #FFFFFF;
+            --bg-float: #FFFFFF;
+            --bg-card: #FFFFFF;
+            --bg-subtle: #F7F8FA;
+            --bg-hover: #EDF0F4;
+            --bg-inset: #E9EBF0;
+
+            --border-subtle: #E7EAF0;
+            --border-strong: #D3D8E0;
+
+            --text-primary: #0F172A;
+            /* 原 #64748B / #94A3B8 在浅底上仅 4.5:1 / 2.4:1，达不到 AA */
+            --text-secondary: #4A5A72;
+            --text-muted: #5B6A82;
+
+            /* 域色（学习 · 紫）
+               --m-main 只用于图形（圆点 / 描边 / 图标）：对白底 3.45:1，过 3:1 图形门槛；
+               --m-ink  用于浅底上的强调「文字」：对白底 6.34:1，过 4.5:1；
+               --m-fill 用于强调「实底」：白字压它 6.34:1，一处保证所有实心块的字都够。 */
+            --m-main: #D946EF;
+            --m-ink: #A21CAF;
+            --m-fill: #A21CAF;
+            --m-fill-hover: #86198F;
+            --m-soft: #FAE8FE;
+            --m-line: #F0C8F8;
+            --ink-on-accent: #FFFFFF;
+
+            --ok-soft: #E9F7EF;
+            --ok-text: #157A45;
+
+            --shadow-card: 0 1px 2px rgba(15,23,42,0.05);
+            --shadow-float: 0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04);
+            --shadow-1: 0 1px 2px rgba(15,23,42,0.05);
+            --shadow-2: 0 1px 3px rgba(15,23,42,0.06), 0 8px 20px -8px rgba(15,23,42,0.12);
+            --shadow-3: 0 24px 60px -16px rgba(15,23,42,0.28);
+
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+
+            /* 内容层别名：面板沿用上轮的纯色样式，只把取色源指向导航令牌 */
+            --bg-surface: var(--bg-card);
+            --border: var(--border-subtle);
+            --accent: var(--m-fill);
+            --accent-hover: var(--m-fill-hover);
+            --accent-text: var(--m-ink);
+            --accent-soft: var(--m-soft);
+            --accent-border: var(--m-line);
+
+            --content-max: 1360px;
+
+            --gap-page: 16px;
+            /* 侧栏宽：实测下限 210px（再窄时槽面板里的四字按钮会折行），240 留 30px 余量 */
+            --sidebar-w: 240px;
+            --sidebar-w-collapsed: 64px;
+        }
+
+        .dark {
+            --bg-page: #0A0F1C;
+            --bg-sidebar: #111827;
+            --bg-float: #111827;
+            --bg-card: #171F32;
+            --bg-subtle: #131A2A;
+            --bg-hover: #1E2739;
+            --bg-inset: #232D42;
+
+            --border-subtle: #232D42;
+            --border-strong: #333F58;
+
+            --text-primary: #F1F5F9;
+            --text-secondary: #A9B6C9;
+            --text-muted: #93A2B8;
+
+            --m-main: #E879F9;
+            --m-ink: #E879F9;
+            --m-fill: #E879F9;
+            --m-fill-hover: #F0ABFC;
+            --m-soft: #2C1035;
+            --m-line: #4A1F58;
+            --ink-on-accent: #12061A;
+
+            --ok-soft: #16291F;
+            --ok-text: #6FD79C;
+
+            --shadow-card: 0 1px 2px rgba(0,0,0,0.4);
+            --shadow-float: 0 2px 6px rgba(0,0,0,0.45);
+            --shadow-1: 0 1px 2px rgba(0,0,0,0.4);
+            --shadow-2: 0 2px 8px rgba(0,0,0,0.5);
+            --shadow-3: 0 24px 60px -16px rgba(0,0,0,0.7);
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            transition: background 0.4s ease, color 0.35s ease;
+        }
+        button { font-family: inherit; }
+        :focus-visible { outline: 2px solid var(--m-main); outline-offset: 2px; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .sidebar.collapsed .rail { animation: none; }
+            .radial__item { animation: none !important; }
+        }
+
+        /* ============================================================
+           骨架
+           ============================================================ */
+        .app {
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 68px 1fr;
+            grid-template-columns: var(--sidebar-w) 1fr;
+            grid-template-areas:
+                "topbar topbar"
+                "sidebar main";
+            gap: var(--gap-page);
+            padding: var(--gap-page);
+            transition: grid-template-columns 0.32s cubic-bezier(0.4,0,0.2,1);
+        }
+        .app.sidebar-collapsed { grid-template-columns: var(--sidebar-w-collapsed) 1fr; }
+
+        /* ============================================================
+           顶栏
+           ============================================================ */
+        .topbar-wrap {
+            grid-area: topbar;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none; min-width: 0;
+            /* 超级菜单要浮到侧栏（z-index: 30）与内容卡之上 */
+            position: relative; z-index: 40;
+        }
+        .topbar {
+            pointer-events: auto;
+            position: relative;
+            display: flex; align-items: center; gap: 10px;
+            width: 100%; min-width: 0;
+            padding: 10px 12px 10px 14px;
+            background: var(--bg-float);
+            border: 1px solid var(--border-subtle);
+            border-radius: 999px;
+            box-shadow: var(--shadow-float);
+            transition: background 0.4s ease;
+        }
+        /* 顶栏两端必须与「侧栏左沿 / 正文右沿」严格对齐 ⇒ 不设 max-width */
+
+        .logo-mark {
+            width: 36px; height: 36px; flex-shrink: 0;
+            border-radius: 50%;
+            background: var(--m-fill); color: var(--ink-on-accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; font-weight: 800; letter-spacing: -0.5px;
+            cursor: pointer;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .logo-mark:hover { transform: rotate(-8deg) scale(1.08); }
+
+        .divider-v { width: 1px; height: 22px; flex-shrink: 0; margin: 0 2px; background: var(--border-subtle); }
+
+        .nav-primary {
+            display: flex; align-items: center; gap: 1px;
+            flex: 1; min-width: 0; height: 40px;
+            overflow-x: auto; scrollbar-width: none;
+        }
+        .nav-primary::-webkit-scrollbar { display: none; }
+
+        .nav-p-item {
+            position: relative; flex-shrink: 0;
+            display: flex; align-items: center; gap: 7px;
+            height: 36px; padding: 0 12px;
+            border-radius: 999px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer; user-select: none; white-space: nowrap;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+        .nav-p-item:hover { color: var(--text-primary); background: var(--bg-hover); }
+        .nav-p-item.active { color: var(--ink-on-accent); background: var(--m-fill); font-weight: 600; }
+        .nav-p-item.mega-on { color: var(--text-primary); background: var(--bg-hover); }
+        .nav-p-icon {
+            width: 15px; height: 15px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .nav-p-icon svg { width: 15px; height: 15px; stroke-width: 2; }
+        .nav-p-item:hover .nav-p-icon { transform: scale(1.15); }
+
+        .nav-p-badge {
+            font-size: 10px; font-weight: 700; line-height: 1.5;
+            padding: 1px 6px; border-radius: 999px;
+            background: var(--m-soft); color: var(--m-ink);
+        }
+        .nav-p-badge.warn { background: #FDE8E8; color: #B91C1C; }
+        /* 实底胶囊上的徽标：半透明白底压白字只有 3.82:1，10px 属小字要 4.5:1 ⇒ 换实白底 + 深字 */
+        .nav-p-item.active .nav-p-badge { background: #FFFFFF; color: #0B1220; }
+        .nav-p-item.active .nav-p-badge.warn { color: #B91C1C; }
+        .dark .nav-p-badge.warn { background: #3A1A1E; color: #FCA5A5; }
+
+        /* ---------- 超级菜单（二级下拉）----------
+           面板挂在 .topbar 上（它已是 position: relative），**不能**放进 .nav-primary：
+           后者 overflow-x: auto ⇒ 计算出的 overflow-y 也是 auto，面板会被裁。 */
+        .mega {
+            position: absolute;
+            top: calc(100% + 4px); left: 0; z-index: 50;
+            width: max-content; max-width: calc(100vw - 40px);
+            padding: 12px;
+            background: var(--bg-float);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            box-shadow: var(--shadow-3);
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transform: translateY(-4px);
+            transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+        }
+        /* 4px 缝的「桥」：面板与顶栏之间不能有死区，否则指针横跨会触发 mouseleave */
+        .mega::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; height: 6px; }
+        .mega.is-open { opacity: 1; visibility: visible; transform: translateY(0); pointer-events: auto; }
+
+        .mega-head {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 18px; margin-bottom: 10px; padding: 0 2px;
+        }
+        .mh-title { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); }
+        .mh-all {
+            border: none; background: none; padding: 0; cursor: pointer;
+            font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--m-ink);
+        }
+        .mh-all:hover { text-decoration: underline; }
+
+        .mega-grid { display: grid; grid-template-columns: repeat(var(--cols, 3), 116px); gap: 2px; }
+        .mega-item {
+            display: flex; align-items: center; gap: 7px;
+            padding: 6px 8px; border-radius: 8px;
+            border: none; background: none; cursor: pointer; text-align: left;
+            font-family: inherit; font-size: 12.5px; font-weight: 500;
+            color: var(--text-primary); white-space: nowrap;
+        }
+        .mega-item:hover { background: var(--bg-hover); }
+        .mega-item.is-current { background: var(--m-soft); color: var(--m-ink); font-weight: 600; }
+        .mi-icon { width: 15px; height: 15px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+        .mega-item.is-current .mi-icon { color: var(--m-main); }
+        .mi-icon svg { width: 15px; height: 15px; stroke-width: 2; }
+
+        .topbar-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .icon-btn {
+            width: 34px; height: 34px; flex-shrink: 0;
+            border-radius: 50%; border: none; background: transparent;
+            color: var(--text-secondary); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+            transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+        .icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); transform: translateY(-1px); }
+        .icon-btn svg { width: 17px; height: 17px; stroke-width: 1.9; }
+        .icon-btn .dot {
+            position: absolute; top: 7px; right: 7px;
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #EF4444; border: 1.5px solid var(--bg-float);
+        }
+        .icon-btn.ai { background: var(--m-fill); color: var(--ink-on-accent); }
+        .icon-btn.ai:hover { transform: translateY(-1px) scale(1.05); }
+
+        .avatar {
+            width: 32px; height: 32px; flex-shrink: 0;
+            border-radius: 50%; margin-left: 4px;
+            background: var(--m-fill); color: var(--ink-on-accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; cursor: pointer; position: relative;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .avatar:hover { transform: scale(1.1); }
+        .avatar::after {
+            content: ""; position: absolute; right: -1px; bottom: -1px;
+            width: 9px; height: 9px; border-radius: 50%;
+            background: #10B981; border: 2px solid var(--bg-float);
+        }
+
+        /* ============================================================
+           侧栏
+           ============================================================ */
+        .sidebar-wrap {
+            grid-area: sidebar;
+            display: flex; overflow: hidden;
+            min-width: 0; position: relative;
+            /* 收起态的悬停提示要浮到内容卡之上 */
+            z-index: 30;
+        }
+        .app.sidebar-collapsed .sidebar-wrap { overflow: visible; }
+
+        .sidebar {
+            width: 100%;
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            box-shadow: var(--shadow-float);
+            display: flex; flex-direction: column;
+            overflow: hidden; position: relative;
+            transition: background 0.4s ease;
+        }
+        .sidebar.collapsed { overflow: visible; }
+
+        .sidebar-head { padding: 14px 16px 0; flex-shrink: 0; }
+        .sidebar.collapsed .sidebar-head { padding: 12px 12px 0; }
+
+        .sidebar-title {
+            display: flex; align-items: center; gap: 7px;
+            font-size: 14px; font-weight: 800; letter-spacing: -0.3px;
+            margin-bottom: 3px; white-space: nowrap;
+        }
+        .sidebar-title .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--m-main); flex-shrink: 0;
+        }
+        /* 品牌色交给左边的 .dot，文字用实色 —— 渐变裁切文字（background-clip:text）
+           的对比度无法用「前景透明化」量出来，等于留了个永久不可验证的元素 */
+        .sidebar-title .name { color: var(--text-primary); }
+        .sidebar-subtitle {
+            font-size: 11.5px; color: var(--text-muted);
+            margin-left: 13px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+        }
+        .sidebar.collapsed .sidebar-title,
+        .sidebar.collapsed .sidebar-subtitle { opacity: 0; overflow: hidden; height: 0; margin: 0; }
+
+        /* ---------- 展开态：圆盘 ---------- */
+        .radial-stage {
+            flex-shrink: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 2px; position: relative;
+            margin-top: 1px; padding: 0 0 2px;
+            transition: opacity 0.2s ease, margin 0.3s ease, padding 0.3s ease, height 0.3s ease;
+        }
+        .sidebar.collapsed .radial-stage { opacity: 0; overflow: hidden; height: 0; margin: 0; padding: 0; }
+
+        /* --r / --icon / --dial 由 JS 按项数写入（见 radiusFor / iconFor）：
+           「项数少 ⇒ 盘小、刻度少」——尺寸本身携带信息。
+           容器边长 = 2×(环半径 + 半个图标 + 10px 呼吸)，10px 同时留给选中项向外咬合。
+           ⚠️ 容器 ≤ 218px（侧栏 240 − 描边）；n=8 时容器 169px，两侧各余 ~34px。 */
+        .radial {
+            --r: 62px;
+            --icon: 34px;
+            --dial: 51px;
+            position: relative; flex-shrink: 0;
+            width: calc(2 * (var(--r) + var(--icon) / 2 + 10px));
+            height: calc(2 * (var(--r) + var(--icon) / 2 + 10px));
+        }
+        .hub-ripple {
+            position: absolute; left: 50%; top: 50%;
+            width: var(--dial); height: var(--dial);
+            margin-left: calc(var(--dial) / -2); margin-top: calc(var(--dial) / -2);
+            border-radius: 999px; border: 1.5px solid var(--m-main);
+            opacity: 0; pointer-events: none; z-index: 10;
+        }
+        .hub-door {
+            position: absolute; left: 50%; top: 50%;
+            width: var(--dial); height: var(--dial);
+            transform: translate(-50%, -50%);
+            border-radius: 999px;
+            appearance: none; border: 0; padding: 0; margin: 0;
+            background: none; color: inherit; font: inherit;
+            cursor: pointer; z-index: 5;
+        }
+        .hub-dial {
+            position: absolute; inset: 0; border-radius: 999px;
+            background: var(--m-soft);
+            border: 1px solid var(--m-line);
+            transition: background 0.24s ease, border-color 0.24s ease;
+        }
+        .hub-door:hover .hub-dial { background: var(--m-line); border-color: var(--m-main); }
+
+        /* 分段刻度弧：停靠点由 JS 生成（段数 = 该模块的分区数，已过的段填强调色）。
+           未填充的几格是纯装饰（总数由图标本身可见），不适用 3:1 图形门槛。 */
+        .hub-arc {
+            position: absolute; inset: 0; border-radius: 999px;
+            background: conic-gradient(from 0deg, var(--arcs, var(--border-strong) 0deg 360deg));
+            -webkit-mask: radial-gradient(closest-side, transparent 90%, #000 96%);
+            mask: radial-gradient(closest-side, transparent 90%, #000 96%);
+        }
+        .hub-compass { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0.85; }
+        .hub-compass__petals path {
+            fill: var(--m-soft); stroke: var(--m-line);
+            stroke-width: 0.9; stroke-dasharray: 1.5 1.2;
+            stroke-linecap: round; stroke-linejoin: round;
+        }
+        .hub-compass__star { transform-box: view-box; transform-origin: 50% 50%; transform: rotate(var(--na, 0deg)); }
+        .hub-compass__star path {
+            fill: var(--m-soft); stroke: var(--m-main);
+            stroke-width: 0.9; stroke-dasharray: 1.4 1.2;
+            stroke-linecap: round; stroke-linejoin: round;
+        }
+        .hub-compass__star path.is-main { fill: var(--m-line); stroke: var(--m-fill); stroke-width: 1.1; }
+
+        .hub-back {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .hub-back svg { width: 19px; height: 19px; color: var(--m-ink); stroke-width: 2.4; }
+        .radial.is-nested .hub-compass { opacity: 0; }
+        .radial.is-nested .hub-back { opacity: 1; }
+
+        .radial__item {
+            position: absolute; left: 50%; top: 50%;
+            width: var(--icon, 34px); height: var(--icon, 34px);
+            border-radius: 999px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--text-secondary);
+            background: transparent; border: 1px solid transparent;
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--r)) rotate(calc(-1 * var(--a)));
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 2;
+        }
+        .radial__item.enter-from-center {
+            animation: ring-in 0.5s cubic-bezier(0.16, 0.9, 0.3, 1) backwards;
+            animation-delay: calc(var(--i) * 35ms);
+        }
+        @keyframes ring-in {
+            from { opacity: 0; transform: translate(-50%, -50%) rotate(var(--a)) translateX(0px) rotate(calc(-1 * var(--a))) scale(0.4); }
+        }
+        .radial__item.enter-from-center-strong {
+            animation: ring-in-strong 0.6s cubic-bezier(0.16, 0.9, 0.3, 1) backwards;
+            animation-delay: calc(var(--i) * 45ms);
+        }
+        @keyframes ring-in-strong {
+            from { opacity: 0; transform: translate(-50%, -50%) rotate(var(--a)) translateX(0px) rotate(calc(-1 * var(--a))) scale(0.2); }
+            50% { opacity: 1; }
+            to { opacity: 1; }
+        }
+        /* 名称退场后，悬停反馈要扛起「这是哪个」的全部提示 —— 底色 + 描边 + 放大一起上 */
+        .radial__item:hover {
+            color: var(--m-ink);
+            background: var(--m-soft);
+            border-color: var(--m-main);
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(calc(var(--r) + 3px)) rotate(calc(-1 * var(--a))) scale(1.16);
+        }
+        .radial__item.active {
+            color: var(--ink-on-accent);
+            background: var(--m-fill);
+            border-color: var(--m-fill);
+            /* 沿半径向外咬合 5px：让「当前项」从盘面里探出来，而不只是一块颜色 */
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(calc(var(--r) + 5px)) rotate(calc(-1 * var(--a))) scale(1.15);
+        }
+        .radial__item.active::after {
+            content: ''; position: absolute; inset: -1px;
+            border-radius: inherit; border: 1.2px solid var(--m-main);
+            animation: sel-pulse 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes sel-pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            70%, 100% { transform: scale(1.5); opacity: 0; }
+        }
+        /* 字形占比 0.54：按钮直径决定「能不能放得下」，这个比例决定「看起来多大」 */
+        .radial__item svg { width: calc(var(--icon, 34px) * 0.54); height: calc(var(--icon, 34px) * 0.54); flex-shrink: 0; }
+        /* 有子分区的标记：底部小圆点 */
+        .radial__item[data-has-children="true"]::before {
+            content: ''; position: absolute; bottom: -1px; left: 50%;
+            transform: translateX(-50%);
+            width: 4px; height: 4px; border-radius: 999px;
+            background: var(--m-main); z-index: 3;
+        }
+        .radial__item.active[data-has-children="true"]::before { background: var(--ink-on-accent); }
+
+        /* 名称条：位置固定在圆盘正下方。不用「沿角度外推的气泡」——
+           那是极坐标定位，长名字在最左/最右必然与图标叠或被侧栏裁。固定一条，永远居中。 */
+        .radial-caption {
+            flex-shrink: 0; max-width: 100%; min-height: 20px;
+            padding: 2px 12px; border-radius: 999px;
+            font-size: 12px; font-weight: 700; letter-spacing: -0.2px;
+            color: var(--m-ink); background: var(--m-soft);
+            border: 1px solid var(--m-line);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
+            opacity: 0; transform: translateY(-3px);
+            transition: opacity 0.16s ease, transform 0.16s ease;
+        }
+        .radial-caption.is-on { opacity: 1; transform: translateY(0); }
+
+        /* ---------- 收起态：平铺图标列 ---------- */
+        .rail {
+            display: none; flex: 1; min-height: 0;
+            flex-direction: column; align-items: center; justify-content: flex-start;
+            gap: 2px; padding: 4px 0 6px;
+        }
+        .sidebar.collapsed .rail { display: flex; animation: rail-in 0.28s ease; }
+        /* 纯透明度过渡：不动 rect，几何验收时不会被入场动画污染数值 */
+        @keyframes rail-in { from { opacity: 0; } to { opacity: 1; } }
+
+        .rail__item {
+            position: relative; width: 100%; flex: 1 1 auto;
+            min-height: 34px; max-height: 44px;
+            display: flex; align-items: center; justify-content: center;
+            border: 0; padding: 0; margin: 0;
+            background: none; color: var(--text-secondary);
+            font: inherit; cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        /* 激活指示条贴侧栏内沿，不用左侧 padding 位移，避免整列抖动 */
+        .rail__item::before {
+            content: ''; position: absolute; left: 0; top: 50%;
+            width: 3px; height: 0; border-radius: 0 3px 3px 0;
+            background: var(--m-main); transform: translateY(-50%);
+            transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .rail__item.active { color: var(--m-ink); }
+        .rail__item.active::before { height: 20px; }
+        .rail__btn {
+            position: relative; width: 34px; height: 34px; border-radius: 11px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid transparent;
+            transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .rail__btn svg { width: 17px; height: 17px; }
+        .rail__item:hover .rail__btn {
+            color: var(--text-primary); background: var(--bg-hover);
+            border-color: var(--border-subtle); transform: scale(1.08);
+        }
+        .rail__item.active .rail__btn { color: var(--m-ink); background: var(--m-soft); border-color: var(--m-line); }
+        .rail__item[data-has-children="true"] .rail__btn::after {
+            content: ''; position: absolute; right: 4px; bottom: 4px;
+            width: 4px; height: 4px; border-radius: 50%; background: var(--m-main);
+        }
+        .rail__back .rail__btn { color: var(--text-muted); }
+        .rail__back:hover .rail__btn { color: var(--m-ink); }
+        /* 提示浮到侧栏之外：依赖 .sidebar.collapsed { overflow: visible } */
+        .rail__tip {
+            position: absolute; left: calc(100% + 6px); top: 50%;
+            transform: translateY(-50%) translateX(-5px);
+            padding: 5px 10px; border-radius: 9px;
+            background: var(--bg-float); border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-float);
+            font-size: 12px; font-weight: 600; color: var(--text-primary);
+            white-space: nowrap; opacity: 0; pointer-events: none; z-index: 200;
+            transition: opacity 0.16s ease, transform 0.16s ease;
+        }
+        .rail__item:hover .rail__tip { opacity: 1; transform: translateY(-50%) translateX(0); }
+
+        /* 矮窗口：靠压缩图标节奏容纳，而不是给 .rail 加滚动（加滚动会裁掉浮出侧栏的提示） */
+        @media (max-height: 720px) {
+            .rail__item { min-height: 28px; max-height: 34px; }
+            .rail__item.active::before { height: 16px; }
+            .rail__btn { width: 28px; height: 28px; border-radius: 9px; }
+            .rail__btn svg { width: 15px; height: 15px; }
+        }
+
+        /* ---------- 可切换槽 ---------- */
+        .sidebar-slot {
+            flex: 1; min-height: 0;
+            display: flex; flex-direction: column;
+            border-top: 1px solid var(--border-subtle);
+            margin-top: 2px;
+        }
+        .sidebar.collapsed .sidebar-slot { display: none; }
+        .slot-tabs {
+            display: flex; align-items: center; gap: 2px;
+            padding: 8px 10px 6px; flex-shrink: 0;
+            overflow-x: auto; scrollbar-width: none;
+        }
+        .slot-tabs::-webkit-scrollbar { display: none; }
+        .slot-tab {
+            flex-shrink: 0; padding: 4px 10px; border-radius: 999px;
+            font-size: 11.5px; font-weight: 600; color: var(--text-muted);
+            cursor: pointer; user-select: none; white-space: nowrap;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .slot-tab:hover { color: var(--text-primary); background: var(--bg-hover); }
+        .slot-tab.active { color: var(--m-ink); background: var(--m-soft); }
+
+        .slot-body {
+            flex: 1; min-height: 0; overflow-y: auto;
+            padding: 0 14px 14px;
+        }
+        .slot-body::-webkit-scrollbar { width: 4px; }
+        .slot-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
+        .slot-body:hover::-webkit-scrollbar-thumb { background: var(--border-strong); }
+
+        .slot-panel { display: none; }
+        .slot-panel.active { display: block; animation: slot-in 0.25s ease backwards; }
+        @keyframes slot-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        .recent-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px; margin: 0 -8px; border-radius: 8px;
+            font-size: 12.5px; color: var(--text-secondary); cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease, padding 0.15s ease;
+        }
+        .recent-item:hover { background: var(--bg-hover); color: var(--text-primary); padding-left: 12px; }
+        .recent-icon {
+            width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
+            background: var(--m-soft); color: var(--m-ink);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .recent-icon svg { width: 11px; height: 11px; }
+        .recent-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .recent-time { font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+        .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .quick-btn {
+            display: flex; align-items: center; gap: 6px; width: 100%;
+            padding: 8px 10px; border-radius: 8px;
+            border: 1px solid var(--border-subtle); background: transparent;
+            color: var(--text-secondary); font-size: 11.5px; font-weight: 600;
+            cursor: pointer; text-align: left;
+            transition: all 0.15s ease;
+        }
+        .quick-btn:hover { border-color: var(--m-main); color: var(--m-ink); background: var(--m-soft); }
+        .quick-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+        .kpi-list { display: flex; flex-direction: column; gap: 4px; }
+        .kpi-item {
+            display: flex; align-items: baseline; gap: 6px;
+            padding: 8px 0; border-bottom: 1px solid var(--border-subtle);
+        }
+        .kpi-item:last-child { border-bottom: none; }
+        .kpi-label { font-size: 11.5px; color: var(--text-muted); flex: 1; }
+        .kpi-value { font-size: 14px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .kpi-value.accent { color: var(--m-ink); }
+
+        .ai-chat { display: flex; flex-direction: column; gap: 8px; }
+        .ai-msg { padding: 8px 10px; border-radius: 10px; font-size: 11.5px; line-height: 1.6; }
+        .ai-msg.bot { background: var(--bg-hover); color: var(--text-secondary); border-top-left-radius: 3px; }
+        .ai-msg.user { background: var(--m-soft); color: var(--m-ink); border-top-right-radius: 3px; align-self: flex-end; max-width: 85%; }
+        .ai-input {
+            display: flex; align-items: center; gap: 4px; margin-top: 6px;
+            padding: 4px 4px 4px 10px; border-radius: 999px;
+            border: 1px solid var(--border-subtle); background: var(--bg-subtle);
+        }
+        .ai-input input {
+            flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+            font-size: 11.5px; color: var(--text-primary); font-family: inherit;
+        }
+        .ai-input input::placeholder { color: var(--text-muted); }
+        .ai-send {
+            width: 24px; height: 24px; flex-shrink: 0; border-radius: 999px; border: none;
+            background: var(--m-fill); color: var(--ink-on-accent);
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .ai-send svg { width: 12px; height: 12px; }
+
+        .sidebar-foot { padding: 8px 14px 14px; flex-shrink: 0; }
+        .collapse-btn {
+            width: 100%; padding: 8px; border-radius: 9px;
+            border: 1px solid var(--border-subtle); background: transparent;
+            color: var(--text-secondary); font-size: 11.5px; font-weight: 500;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: all 0.18s ease;
+        }
+        .collapse-btn:hover { border-color: var(--m-main); color: var(--m-ink); background: var(--m-soft); }
+        .collapse-btn svg { width: 12px; height: 12px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .sidebar.collapsed .collapse-btn svg { transform: rotate(180deg); }
+        .sidebar.collapsed .collapse-text { display: none; }
+
+        /* ============================================================
+           主内容（面板 = 圆盘上的 8 个分区）
+           ============================================================ */
+        .main-wrap { grid-area: main; overflow: hidden; display: flex; min-width: 0; }
+        .main {
+            flex: 1; min-width: 0;
+            overflow-y: auto;
+            padding: 20px 22px 32px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            box-shadow: var(--shadow-float);
+            transition: background 0.4s ease;
+        }
+        .main::-webkit-scrollbar { width: 8px; }
+        .main::-webkit-scrollbar-track { background: transparent; }
+        .main::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+        /* 面包屑只给**上级**：末段（当前分区）交给侧栏标题 + 面板大标题，避免同词重复 */
+        .page-path {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+        .page-path .crumb {
+            padding: 2px 8px; border-radius: 999px;
+            background: var(--bg-hover); border: 1px solid var(--border-subtle);
+        }
+        .page-path .crumb.current { background: var(--m-soft); color: var(--m-ink); border-color: var(--m-line); font-weight: 600; }
+        .page-path .sep { color: var(--text-muted); opacity: 0.7; }
+
+        .panel { display: none; flex-direction: column; gap: 16px; }
+        .panel.active { display: flex; }
+
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-1);
+            padding: 18px 20px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-2); }
+
+        .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+        .card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); letter-spacing: 0.02em; }
+        .card-hint { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+
+        .hero {
+            background: var(--accent-soft);
+            border-color: var(--accent-border);
+            border-left: 3px solid var(--accent);
+            padding: 22px 24px 20px;
+        }
+        .hero:hover { border-color: var(--accent-border); }
+        .hero-eyebrow {
+            font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--accent-text); margin-bottom: 8px;
+        }
+        .hero h1 { font-size: 21px; font-weight: 700; line-height: 1.35; margin-bottom: 6px; }
+        .hero p { color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+        .hero-meta {
+            display: flex; flex-wrap: wrap; gap: 10px;
+            margin-top: 16px; padding-top: 16px;
+            border-top: 1px solid var(--accent-border);
+        }
+        .metric {
+            display: flex; align-items: baseline; gap: 6px;
+            padding: 5px 12px; border-radius: 999px;
+            background: var(--bg-surface); border: 1px solid var(--accent-border);
+        }
+        .metric em { font-style: normal; font-size: 12px; color: var(--text-muted); }
+        .metric b { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+
+        .progress-bar { height: 5px; background: var(--bg-inset); border-radius: 999px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 999px; background: var(--accent); transition: width 0.4s ease; }
+
+        .resource-item {
+            padding: 14px; border-radius: var(--radius);
+            border: 1px solid var(--border); background: var(--bg-surface);
+            margin-bottom: 10px; cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .resource-item:hover { border-color: var(--accent); background: var(--bg-subtle); }
+        .resource-item:last-child { margin-bottom: 0; }
+        .resource-pct { font-size: 13px; font-weight: 700; color: var(--accent-text); flex-shrink: 0; }
+        .resource-tag {
+            font-size: 11px; padding: 2px 9px; border-radius: 999px;
+            background: var(--accent-soft); color: var(--accent-text);
+            border: 1px solid var(--accent-border);
+        }
+        .doc-icon {
+            width: 34px; height: 34px; border-radius: var(--radius-sm); flex-shrink: 0;
+            background: var(--accent-soft); color: var(--accent-text);
+            border: 1px solid var(--accent-border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px;
+        }
+
+        /* ---------- 筛选 chip（状态筛：值从卡片自身的 state 派生，不在别处再存一遍） ---------- */
+        .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .filter-chip {
+            font-size: 12px; padding: 5px 12px; border-radius: 999px;
+            background: var(--bg-subtle); color: var(--text-secondary);
+            border: 1px solid var(--border); cursor: pointer; user-select: none;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+        .filter-chip:hover { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-border); }
+        .filter-chip.active { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-border); font-weight: 600; }
+        .plan-check {
+            width: 18px; height: 18px; flex-shrink: 0;
+            border-radius: 6px;
+            border: 1.5px solid var(--border-strong);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; color: var(--bg-card);
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .plan-check.done { background: var(--accent); border-color: var(--accent); }
+        .plan-text { flex: 1; min-width: 0; }
+        .plan-text.done { text-decoration: line-through; color: var(--text-muted); }
+
+        .skill-gap {
+            font-size: 11.5px; color: var(--text-muted); flex-shrink: 0;
+            font-variant-numeric: tabular-nums;
+        }
+        .skill-gap.warn { color: var(--accent-text); font-weight: 600; }
+        .proj-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px; border-radius: var(--radius);
+            border: 1px solid var(--border);
+            margin-bottom: 8px; cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .proj-row:hover { border-color: var(--accent); background: var(--bg-subtle); }
+        .proj-row:last-child { margin-bottom: 0; }
+        .proj-main { flex: 1; min-width: 0; }
+        .proj-name { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+        .proj-meta { font-size: 12px; color: var(--text-muted); }
+        .proj-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+        .proj-pct { font-size: 13px; font-weight: 700; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+        .proj-bar { display: block; width: 72px; height: 5px; border-radius: 999px; background: var(--bg-inset); overflow: hidden; }
+        .proj-fill { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+        .proj-empty { font-size: 13px; color: var(--text-muted); padding: 6px 0; }
+
+        /* ============================================================
+           弹窗
+           ============================================================ */
+        .modal-mask {
+            position: fixed; inset: 0; z-index: 900;
+            background: rgba(14,16,20,0.55);
+            display: none; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-mask.open { display: flex; }
+        .modal {
+            width: 100%; max-width: 640px; max-height: 86vh;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-3);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .modal-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);
+        }
+        .modal-title { font-size: 15.5px; font-weight: 700; }
+        .modal-close {
+            width: 30px; height: 30px; border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--text-secondary);
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .modal-body { padding: 20px; overflow-y: auto; }
+
+        .detail-section { margin-bottom: 20px; }
+        .detail-section:last-child { margin-bottom: 0; }
+        .detail-label {
+            font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+            color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;
+        }
+        .detail-list { list-style: none; font-size: 14px; color: var(--text-secondary); line-height: 1.9; }
+        .detail-list li::before { content: "·"; color: var(--m-ink); font-weight: 700; margin-right: 8px; }
+        .detail-text { font-size: 14px; color: var(--text-secondary); line-height: 1.8; }
+
+        .btn {
+            padding: 9px 15px; border-radius: 10px;
+            border: 1px solid transparent; cursor: pointer;
+            font-size: 12.5px; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: all 0.18s ease;
+        }
+        .btn-primary { background: var(--m-fill); color: var(--ink-on-accent); }
+        .btn-primary:hover { background: var(--m-fill-hover); }
+        .btn-ghost { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-subtle); }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-ink); }
+
+        .form-actions {
+            display: flex; gap: 10px; justify-content: flex-end;
+            margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-subtle);
+        }
+
+        /* ============================================================
+           命令面板
+           ============================================================ */
+        .cmd-mask {
+            position: fixed; inset: 0; z-index: 1000;
+            background: rgba(15,23,42,0.5);
+            display: none; align-items: flex-start; justify-content: center;
+            padding: 110px 20px 20px;
+            animation: fadeIn 0.2s ease;
+        }
+        .cmd-mask.open { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .cmd-panel {
+            width: 100%; max-width: 560px;
+            background: var(--bg-float);
+            border: 1px solid var(--border-subtle);
+            border-radius: 18px;
+            box-shadow: var(--shadow-3);
+            overflow: hidden;
+            animation: cmdIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes cmdIn {
+            from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .cmd-input {
+            width: 100%; padding: 18px 20px;
+            border: none; outline: none; background: transparent;
+            color: var(--text-primary); font-size: 15px; font-family: inherit;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .cmd-input::placeholder { color: var(--text-muted); }
+        .cmd-list { max-height: 340px; overflow-y: auto; padding: 8px; }
+        .cmd-group {
+            font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--text-muted); padding: 8px 12px 4px;
+        }
+        .cmd-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 12px; border-radius: 10px;
+            font-size: 13.5px; color: var(--text-secondary); cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .cmd-item:hover { background: var(--m-soft); color: var(--m-ink); }
+        .cmd-item-icon {
+            width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+            background: var(--bg-hover); color: var(--text-secondary);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .cmd-item-icon svg { width: 14px; height: 14px; stroke-width: 2; }
+        .cmd-item:hover .cmd-item-icon { color: var(--m-main); }
+        .cmd-item-text { flex: 1; }
+        .cmd-kbd {
+            font-size: 10.5px; padding: 2px 7px; border-radius: 5px;
+            background: var(--bg-hover); color: var(--text-secondary);
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        }
+        .dark .cmd-mask { background: rgba(3,7,18,0.66); }
+
+        /* ============================================================
+           响应式
+           ============================================================ */
+        @media (max-width: 1100px) { :root { --sidebar-w: 220px; } }
+        /* 全 label 需要 757px；导航可用宽 = 视口 − 319 ⇒ 理论下限 1076px。
+           取 1140 切换点，留 64px 余量：低于它只保留**当前项**的文字，其余收成图标 ——
+           而不是靠无滚动条的 overflow-x 静默把末位截掉。 */
+        @media (max-width: 1140px) {
+            .nav-p-item:not(.active) .nav-p-text { display: none; }
+            .nav-p-item { padding: 0 11px; }
+        }
+        @media (min-width: 1360px) {
+            .main {
+                padding-left: max(22px, calc((100% - var(--content-max)) / 2 + 22px));
+                padding-right: max(22px, calc((100% - var(--content-max)) / 2 + 22px));
+            }
+        }
+        @media (max-width: 900px) {
+            .app {
+                grid-template-columns: 1fr;
+                grid-template-areas: "topbar" "main";
+                grid-template-rows: 68px 1fr;
+                gap: 12px; padding: 12px;
+            }
+            .sidebar-wrap { display: none; }
+            .nav-p-item .nav-p-text { display: none; }
+            .nav-p-item { padding: 0 12px; }
+            .topbar { padding: 8px 10px 8px 12px; }
+            .topbar-right .icon-btn:not(.ai):not(#themeBtn) { display: none; }
+            .mega { left: 8px !important; right: 8px; width: auto; max-width: none; }
+            .mega-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 600px) {
+            .main { padding: 16px 14px 26px; }
+            .page-path { margin-bottom: 10px; }
+            .topbar .avatar { display: none; }
+        }
+
+        /* ============================================================
+           目标分区（本页新增）
+           一屏里同一件事只说一遍：
+             统计 → 只在 hero    还剩多久 → 只在横向时间条
+             支撑来源 → 只在卡上   对象规则 → 只在页脚一行
+           所以这里没有 KPI 卡组、没有右栏、没有状态分布卡、没有对齐检查卡。
+           类名前缀：goal- / kr- / g- / due-。
+           ============================================================ */
+        :root {
+            --warn-soft: #FDF1DE; --warn-text: #8A5200; --warn-line: #EFD6A9;
+            --danger-soft: #FCEBEA; --danger-text: #A81E12; --danger-line: #F2C7C3;
+            --danger-fill: #A81E12; --ink-on-danger: #FFFFFF;
+        }
+        .dark {
+            --warn-soft: #33260F; --warn-text: #EFC078; --warn-line: #4E3A17;
+            --danger-soft: #3A1A1E; --danger-text: #FCA5A5; --danger-line: #5A2A2F;
+            --danger-fill: #FCA5A5; --ink-on-danger: #3A1A1E;
+        }
+
+        /* ---------- 工具栏：状态筛选 + 计数 + 排序 ---------- */
+        .goal-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .goal-toolbar .filters { margin-bottom: 0; }
+        .goal-toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .sort-btn {
+            font-size: 12px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+            background: var(--bg-surface); color: var(--text-secondary);
+            border: 1px solid var(--border);
+            transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+        }
+        .sort-btn:hover { border-color: var(--accent-border); color: var(--accent-text); background: var(--accent-soft); }
+
+        /* ---------- 横向到期时间条（一条线串起所有期限，替掉整列右栏） ---------- */
+        .due-strip {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+            gap: 14px; padding: 16px 18px 14px;
+        }
+        .due-strip:hover { border-color: var(--border); box-shadow: var(--shadow-1); }
+        .due-node { position: relative; padding-top: 15px; min-width: 0; }
+        .due-node::before {
+            content: ''; position: absolute; top: 0; left: 0; right: -14px;
+            height: 2px; background: var(--border-subtle);
+        }
+        .due-node:last-child::before { right: 0; }
+        .due-node::after {
+            content: ''; position: absolute; top: -3px; left: 0;
+            width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong);
+        }
+        .due-node.soon::after { background: var(--warn-text); box-shadow: 0 0 0 3px var(--warn-soft); }
+        .due-node.over::after { background: var(--danger-text); box-shadow: 0 0 0 3px var(--danger-soft); }
+        .due-date { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+        .due-date.soon { color: var(--warn-text); }
+        .due-date.over { color: var(--danger-text); }
+        .due-name {
+            font-size: 12.5px; color: var(--text-secondary); line-height: 1.45;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .due-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+        /* ---------- 目标卡 ----------
+           左边缘留 3px 彩条位：普通卡透明，所以各种卡的内容起点仍然对齐。 */
+        .goal-card { padding: 15px 18px 13px 20px; border-left-width: 3px; border-left-color: transparent; }
+        .goal-card:hover { border-left-color: var(--border-strong); }
+        .goal-card.risk { border-left-color: var(--danger-text); }
+        .goal-card.risk:hover { border-left-color: var(--danger-text); }
+        .goal-card.done { border-left-color: var(--ok-text); }
+        .goal-card.done:hover { border-left-color: var(--ok-text); }
+        .goal-card.parked { border-left-color: var(--border-strong); }
+
+        .goal-head { display: flex; align-items: flex-start; gap: 12px; }
+        .goal-head-main { flex: 1; min-width: 0; }
+        .goal-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+        .g-badge {
+            font-size: 11px; font-weight: 600; line-height: 1.6;
+            padding: 1px 9px; border-radius: 999px; border: 1px solid transparent;
+        }
+        .g-badge.active { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-border); }
+        .g-badge.done { background: var(--ok-soft); color: var(--ok-text); }
+        .g-badge.parked { background: var(--bg-hover); color: var(--text-secondary); border-color: var(--border); }
+        .g-badge.risk { background: var(--danger-soft); color: var(--danger-text); border-color: var(--danger-line); }
+        .goal-name { font-size: 15.5px; font-weight: 600; line-height: 1.45; color: var(--text-primary); }
+        .goal-side { flex-shrink: 0; text-align: right; }
+        .goal-due { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .goal-due.soon { color: var(--warn-text); }
+        .goal-due.mute { color: var(--text-muted); }
+        .goal-due-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+
+        /* 验收口径：目标唯一的正文（不写做法，只写怎么算达成），用一条细竖线代替灰底块 */
+        .goal-crit {
+            margin-top: 7px; padding-left: 9px;
+            border-left: 2px solid var(--border-subtle);
+            font-size: 12.5px; line-height: 1.62; color: var(--text-secondary);
+        }
+        .goal-crit b { font-weight: 600; color: var(--text-muted); margin-right: 5px; }
+
+        .goal-prog { margin: 12px 0 10px; }
+        .goal-prog-meta {
+            display: flex; align-items: baseline; gap: 8px; margin-top: 6px;
+            font-size: 12px; color: var(--text-muted);
+        }
+        .goal-prog-meta b { font-size: 14px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .goal-prog-meta .late { color: var(--danger-text); font-weight: 600; }
+        .goal-prog-meta .ahead { color: var(--ok-text); }
+        .progress-fill.danger { background: var(--danger-text); }
+
+        /* ---------- 关键结果 ---------- */
+        .kr-title {
+            display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+            font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+        .kr-list { margin-bottom: 11px; }
+        .kr-item { display: flex; align-items: center; gap: 9px; padding: 4px 0; font-size: 13px; }
+        .kr-check {
+            width: 16px; height: 16px; flex-shrink: 0; border-radius: 5px;
+            border: 1.5px solid var(--border-strong);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 9px; line-height: 1; color: var(--ink-on-accent);
+            cursor: pointer; user-select: none;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .kr-check.on { background: var(--accent); border-color: var(--accent); }
+        .kr-check.doing { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn-text); cursor: default; }
+        .kr-text { flex: 1; min-width: 0; color: var(--text-secondary); line-height: 1.5; }
+        .kr-text.on { color: var(--text-muted); text-decoration: line-through; }
+        .kr-val { flex-shrink: 0; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .kr-val.warn { color: var(--warn-text); font-weight: 600; }
+
+        /* ---------- 卡脚：支撑来源（左） + 动作（右），合成一行 ---------- */
+        .goal-foot {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding-top: 10px; border-top: 1px solid var(--border-subtle);
+        }
+        .goal-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+        .g-link {
+            font-size: 11.5px; padding: 3px 10px; border-radius: 999px; cursor: pointer;
+            background: var(--bg-subtle); color: var(--text-secondary); border: 1px solid var(--border);
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+        .g-link:hover { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-border); }
+        .g-link.miss { background: var(--warn-soft); color: var(--warn-text); border-color: var(--warn-line); }
+        .g-link.miss:hover { background: var(--warn-soft); color: var(--warn-text); border-color: var(--warn-text); }
+        .goal-acts { display: flex; gap: 6px; flex-shrink: 0; }
+        .goal-btn {
+            font-size: 12px; padding: 5px 11px; border-radius: 8px; cursor: pointer;
+            background: var(--bg-surface); color: var(--text-secondary);
+            border: 1px solid var(--border);
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+        .goal-btn:hover { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-border); }
+        .goal-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--ink-on-accent); font-weight: 600; }
+        .goal-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--ink-on-accent); }
+        .goal-btn.more { padding: 5px 9px; letter-spacing: 1.5px; line-height: 1; }
+
+        /* ---------- 收场的目标（已完成 / 已搁置）：两行，不占版面 ---------- */
+        .goal-card.mini { padding: 13px 18px 12px 20px; }
+        .goal-card.mini .goal-name {
+            font-size: 14.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        .goal-card.mini .goal-due { font-size: 14.5px; }
+        .mini-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 9px; }
+        .mini-note { font-size: 12px; color: var(--text-muted); line-height: 1.6; min-width: 0; }
+
+        /* ---------- 页脚一行：对象归属与规则（不做成卡） ---------- */
+        .page-foot-note {
+            font-size: 12px; line-height: 1.7; color: var(--text-muted);
+            padding: 2px 2px 0;
+        }
+        .page-foot-note b { color: var(--text-secondary); font-weight: 600; }
+
+        /* ---------- 待处理清单（hero 上「落后于时间 / 缺支撑」两个数是入口） ---------- */
+        .metric.clickable { cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+        .metric.clickable:hover { border-color: var(--accent); background: var(--accent-soft); }
+        .todo-item {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 12px 0; border-bottom: 1px solid var(--border-subtle);
+        }
+        .todo-item:first-child { padding-top: 0; }
+        .todo-item:last-child { padding-bottom: 0; border-bottom: none; }
+        .todo-main { flex: 1; min-width: 0; }
+        .todo-name { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; }
+        .todo-why { font-size: 12px; color: var(--text-muted); line-height: 1.65; }
+        .todo-why b { color: var(--text-secondary); font-weight: 600; }
+
+        /* ---------- 目标表单（新建 / 编辑共用同一份，字段 = 对象字段） ---------- */
+        .gform { display: flex; flex-direction: column; gap: 16px; }
+        .gf-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .gf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .gf-label {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; font-weight: 600; color: var(--text-primary);
+        }
+        .gf-req {
+            font-size: 10.5px; font-weight: 600; line-height: 1.6;
+            color: var(--text-muted); background: var(--bg-hover);
+            padding: 0 6px; border-radius: 999px;
+        }
+        .gf-input {
+            width: 100%; min-width: 0; font-family: inherit;
+            font-size: 13.5px; color: var(--text-primary);
+            background: var(--bg-subtle); border: 1px solid var(--border);
+            border-radius: 9px; padding: 8px 11px; outline: none;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .gf-input:focus { border-color: var(--accent); background: var(--bg-surface); }
+        textarea.gf-input { resize: vertical; line-height: 1.6; }
+        .gf-help { font-size: 11.5px; color: var(--text-muted); line-height: 1.55; }
+        .gf-krs { display: flex; flex-direction: column; gap: 8px; }
+        .gf-kr { display: grid; grid-template-columns: minmax(0, 1fr) 136px 30px; gap: 8px; align-items: center; }
+        .gf-del {
+            width: 30px; height: 32px; border-radius: 8px; cursor: pointer; line-height: 1;
+            background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+            font-size: 12px;
+        }
+        .gf-del:hover { border-color: var(--danger-line); color: var(--danger-text); background: var(--danger-soft); }
+        .gf-add {
+            align-self: flex-start; font-size: 12px; cursor: pointer;
+            padding: 5px 11px; border-radius: 8px;
+            background: var(--bg-surface); color: var(--text-secondary);
+            border: 1px dashed var(--border-strong);
+        }
+        .gf-add:hover { border-style: solid; border-color: var(--accent-border); color: var(--accent-text); background: var(--accent-soft); }
+        .g-link.on { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-border); font-weight: 600; }
+        .gf-note {
+            font-size: 12px; line-height: 1.7; color: var(--text-secondary);
+            background: var(--accent-soft); border: 1px solid var(--accent-border);
+            border-radius: 10px; padding: 11px 13px;
+        }
+        .gf-note b { color: var(--accent-text); font-weight: 600; }
+        @media (max-width: 640px) {
+            .gf-row { grid-template-columns: 1fr; }
+            .gf-kr { grid-template-columns: minmax(0, 1fr) 112px 30px; }
+        }
+
+        @media (max-width: 720px) {
+            .goal-foot { flex-direction: column; align-items: flex-start; }
+            .mini-foot { flex-direction: column; align-items: flex-start; }
+        }
+
+        /* ============================================================
+           增删改查要用的件：列表容器 / 空状态 / 提示条（配撤销） / 表单校验 / 危险按钮
+           ============================================================ */
+        .goal-list { display: flex; flex-direction: column; gap: 16px; }
+
+        /* ---------- 空状态：筛选后没结果、或列表被删空，都要有出口 ---------- */
+        .empty-card { text-align: center; padding: 34px 20px 30px; }
+        .empty-title { font-size: 14.5px; font-weight: 600; margin-bottom: 7px; }
+        .empty-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.7; margin-bottom: 15px; }
+        .empty-acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+        /* ---------- 提示条：删除 / 保存后的回执，删除必配撤销 ---------- */
+        .toast-wrap {
+            position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+            z-index: 950; display: flex; flex-direction: column; gap: 8px; align-items: center;
+            pointer-events: none;
+        }
+        .toast {
+            display: flex; align-items: center; gap: 12px;
+            padding: 9px 10px 9px 16px; border-radius: 12px;
+            background: var(--bg-float); border: 1px solid var(--border-strong);
+            box-shadow: var(--shadow-3);
+            font-size: 13px; color: var(--text-primary);
+            pointer-events: auto;
+        }
+        .toast-btn {
+            flex-shrink: 0; font-size: 12px; font-weight: 600; cursor: pointer;
+            padding: 4px 10px; border-radius: 8px;
+            background: var(--accent-soft); color: var(--accent-text);
+            border: 1px solid var(--accent-border);
+        }
+        .toast-btn:hover { background: var(--accent); color: var(--ink-on-accent); border-color: var(--accent); }
+
+        /* ---------- 危险按钮（删除） ---------- */
+        .btn-danger { background: var(--danger-fill); color: var(--ink-on-danger); font-weight: 600; }
+        .btn-danger:hover { filter: brightness(0.92); }
+
+        /* ---------- 表单校验：就地提示，不弹 alert ---------- */
+        .gf-err { font-size: 11.5px; font-weight: 600; color: var(--danger-text); }
+        .gf-input.invalid { border-color: var(--danger-fill); background: var(--danger-soft); }
+
+        /* ---------- 时间条为空、支撑区一个都没挂 ---------- */
+        .due-empty { grid-column: 1 / -1; font-size: 12.5px; color: var(--text-muted); padding-top: 4px; }
+        .goal-links .none { font-size: 12px; color: var(--text-muted); }
+
+        /* ---------- 占位面板：本页只承载「目标」，其余分区给一句诚实的说明 ---------- */
+        .placeholder-note {
+            font-size: 13.5px; color: var(--text-secondary); line-height: 1.75;
+        }
+        .placeholder-note code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12.5px; padding: 1px 6px; border-radius: 6px;
+            background: var(--bg-hover); color: var(--accent-text);
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+    <!-- ========== 顶栏 ========== -->
+    <div class="topbar-wrap">
+        <div class="topbar">
+            <div class="logo-mark" onclick="openCmd()" title="个人系统 · ⌘K">学</div>
+            <div class="divider-v"></div>
+
+            <nav class="nav-primary" id="navPrimary" aria-label="一级模块"></nav>
+
+            <!-- 超级菜单面板：挂在 .topbar 上（不能放进 .nav-primary，会被裁） -->
+            <div class="mega" id="mega" aria-label="二级导航"></div>
+
+            <div class="topbar-right">
+                <button class="icon-btn" title="新建笔记" id="quickAdd">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                </button>
+                <button class="icon-btn" title="搜索 ⌘K" onclick="openCmd()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+                <button class="icon-btn" title="通知" onclick="alert('原型演示：通知')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <span class="dot"></span>
+                </button>
+                <button class="icon-btn" id="themeBtn" title="切换主题">
+                    <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+                <button class="icon-btn ai" title="AI 助手" onclick="alert('原型演示：AI 助手')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"></path>
+                    </svg>
+                </button>
+                <div class="avatar" title="杨刘" onclick="alert('原型演示：用户菜单')">杨</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 侧栏 ========== -->
+    <div class="sidebar-wrap">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-head">
+                <div class="sidebar-title">
+                    <span class="dot"></span>
+                    <span class="name" id="sidebarTitle">学习</span>
+                </div>
+                <div class="sidebar-subtitle" id="sidebarSubtitle">新技术 + 面试准备</div>
+            </div>
+
+            <!-- 圆盘（展开态） -->
+            <div class="radial-stage">
+                <div class="radial" id="moduleRing" role="group" aria-label="环形导航">
+                    <i class="hub-ripple" aria-hidden="true"></i>
+
+                    <button type="button" class="hub-door" data-hub-door aria-label="进入 / 返回">
+                        <span class="hub-dial" aria-hidden="true">
+                            <i class="hub-arc" data-hub-arc></i>
+                            <svg class="hub-compass" viewBox="0 0 100 100" aria-hidden="true">
+                                <g class="hub-compass__petals">
+                                    <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(0 50 50)"/>
+                                    <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(45 50 50)"/>
+                                    <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(90 50 50)"/>
+                                    <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(135 50 50)"/>
+                                    <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(180 50 50)"/>
+                                    <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(225 50 50)"/>
+                                    <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(270 50 50)"/>
+                                    <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(315 50 50)"/>
+                                </g>
+                                <g class="hub-compass__star">
+                                    <path class="is-main" d="M50 50 L46.4 50 L50 26 L53.6 50 Z"/>
+                                    <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(90 50 50)"/>
+                                    <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(180 50 50)"/>
+                                    <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(270 50 50)"/>
+                                    <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(45 50 50)"/>
+                                    <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(135 50 50)"/>
+                                    <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(225 50 50)"/>
+                                    <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(315 50 50)"/>
+                                </g>
+                            </svg>
+                            <span class="hub-back" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M19 12H5"></path>
+                                    <path d="m12 19-7-7 7-7"></path>
+                                </svg>
+                            </span>
+                        </span>
+                    </button>
+
+                    <div data-radial-items></div>
+                </div>
+
+                <!-- 名称条：悬停/聚焦图标时才出现 -->
+                <div class="radial-caption" id="ringCaption" aria-hidden="true"></div>
+            </div>
+
+            <!-- 平铺图标列（收起态）：与圆盘同源，只是换一种排列 -->
+            <div class="rail" id="moduleRail" role="navigation" aria-label="分区快捷导航"></div>
+
+            <!-- 可切换的槽 -->
+            <div class="sidebar-slot">
+                <div class="slot-tabs" id="slotTabs">
+                    <div class="slot-tab active" data-slot="recent">最近</div>
+                    <div class="slot-tab" data-slot="quick">快捷</div>
+                    <div class="slot-tab" data-slot="kpi">KPI</div>
+                    <div class="slot-tab" data-slot="ai">AI</div>
+                </div>
+
+                <div class="slot-body">
+                    <div class="slot-panel active" data-panel="recent">
+                        <div class="recent-item" onclick="openNote('React 19 新特性')">
+                            <span class="recent-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
+                            <span class="recent-text">React 19 新特性</span>
+                            <span class="recent-time">2h</span>
+                        </div>
+                        <div class="recent-item" onclick="openNote('Vite 构建优化记录')">
+                            <span class="recent-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
+                            <span class="recent-text">Vite 构建优化记录</span>
+                            <span class="recent-time">昨天</span>
+                        </div>
+                        <div class="recent-item" onclick="openQuestion('HTTP/2 多路复用与 HTTP/1.1 的队头阻塞')">
+                            <span class="recent-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-2.9 2.4-2.9 4"/><line x1="12" y1="17.5" x2="12.01" y2="17.5"/></svg></span>
+                            <span class="recent-text">网络 · HTTP/2 多路复用</span>
+                            <span class="recent-time">3 天</span>
+                        </div>
+                        <div class="recent-item" onclick="openResource('React 19 官方文档')">
+                            <span class="recent-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l10 5 10-5-10-5z"/><path d="M2 20l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+                            <span class="recent-text">React 19 官方文档</span>
+                            <span class="recent-time">昨天</span>
+                        </div>
+                    </div>
+
+                    <div class="slot-panel" data-panel="quick">
+                        <div class="quick-grid">
+                            <button class="quick-btn" onclick="alert('原型演示：新建笔记')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                新建笔记
+                            </button>
+                            <button class="quick-btn" onclick="alert('原型演示：添加资料')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                添加资料
+                            </button>
+                            <button class="quick-btn" onclick="alert('原型演示：录入题目')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-2.9 2.4-2.9 4"/><line x1="12" y1="17.5" x2="12.01" y2="17.5"/></svg>
+                                录入题目
+                            </button>
+                            <button class="quick-btn" onclick="alert('原型演示：新建复习卡')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                                复习卡
+                            </button>
+                            <button class="quick-btn" onclick="jumpTo('skills')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                                能力地图
+                            </button>
+                            <button class="quick-btn" onclick="alert('原型演示：AI 助手')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"/></svg>
+                                AI 助手
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="slot-panel" data-panel="kpi">
+                        <div class="kpi-list">
+                            <div class="kpi-item"><span class="kpi-label">本周学习</span><span class="kpi-value accent">8.5h</span></div>
+                            <div class="kpi-item"><span class="kpi-label">今日已投入</span><span class="kpi-value">1.5h</span></div>
+                            <div class="kpi-item"><span class="kpi-label">待复习</span><span class="kpi-value accent">12</span></div>
+                            <div class="kpi-item"><span class="kpi-label">题库掌握</span><span class="kpi-value">68%</span></div>
+                            <div class="kpi-item"><span class="kpi-label">薄弱题</span><span class="kpi-value">38</span></div>
+                            <div class="kpi-item"><span class="kpi-label">在学资料</span><span class="kpi-value">4</span></div>
+                        </div>
+                    </div>
+
+                    <div class="slot-panel" data-panel="ai">
+                        <div class="ai-chat">
+                            <div class="ai-msg bot">本周已学 8.5h；题库掌握 68%，薄弱 38 道（网络与系统设计最弱）。今天有 5 条复习到期。</div>
+                            <div class="ai-msg user">先排复习</div>
+                            <div class="ai-msg bot">按间隔排序：TypeScript 泛型约束（14 天）先做；之后连做 8 道网络题，那一块正确率现在只有 40%。</div>
+                        </div>
+                        <div class="ai-input">
+                            <input type="text" placeholder="问点什么…" />
+                            <button class="ai-send" onclick="alert('原型演示：向 AI 提问')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-foot">
+                <button class="collapse-btn" id="collapseBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span class="collapse-text">收起侧栏</span>
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ========== 主内容 ========== -->
+    <div class="main-wrap">
+        <main class="main">
+            <div class="page-path" id="pagePath"></div>
+
+            <!-- 学习目标（本页承载的唯一分区）—— 卡片由数据渲染，这里只留骨架 -->
+            <div class="panel active" data-panel="goals">
+
+                <section class="card hero">
+                    <div class="hero-eyebrow">学习模块 · 目标</div>
+                    <h1 id="heroTitle">—</h1>
+                    <p id="heroSub"></p>
+                    <div class="hero-meta" id="heroMeta"></div>
+                </section>
+
+                <!-- 到期时间条：由 JS 从「进行中 + 有期限」的目标渲染 -->
+                <section class="card due-strip" id="dueStrip"></section>
+
+                <div class="goal-toolbar">
+                    <!-- 筛选条由 JS 渲染：「已归档」在没有归档项时整条不出现 -->
+                    <div class="filters" id="goalFilters"></div>
+                    <div class="goal-toolbar-right">
+                        <button class="sort-btn" id="sortBtn" onclick="cycleSort()">排序：截止最近 ›</button>
+                        <button class="goal-btn primary" onclick="openGoalForm()">+ 新建目标</button>
+                    </div>
+                </div>
+
+                <div class="goal-list" id="goalList"></div>
+
+                <p class="page-foot-note">
+                    目标只存两样状态量：<b>期限 · 完成度</b>，其余全是引用。新建时只填 目标 / 期限 / 验收口径 / 关键结果，<b>完成度和状态都不用填</b> —— 完成度 = 关键结果的平均达成度，状态由 期限 + 完成度 派生，支撑来源则由关键结果的「来源」自动汇总。与「项目」的分界是「有没有人等它」；「技能」记现状与缺口，是目标的输入。已完成的目标写 1 条复盘后归档，搁置的目标必须写复活条件。
+                </p>
+            </div>
+            <!-- 占位面板：本页只承载「目标」分区，其余分区保留导航但不在此页展开 -->
+            <div class="panel" data-panel="__other">
+                <section class="card">
+                    <div class="card-head">
+                        <div class="card-title">该分区不在本页</div>
+                        <span class="card-hint">本页只承载「目标」</span>
+                    </div>
+                    <p class="placeholder-note">
+                        这是「学习 · 目标」分区的独立原型页，9 个分区的导航与外壳（顶栏胶囊、超级菜单、圆盘侧栏）与模块主页
+                        <code>study_index.html</code> 同源，只有内容区换成了目标分区的完整界面。<br>
+                        其余 8 个分区（概览 / 技能 / 资料 / 题库 / 笔记 / 复习 / 练习 / 项目）请回模块主页查看 ——
+                        在那边点侧栏圆盘上对应的图标即可。
+                    </p>
+                </section>
+            </div>
+
+        </main>
+    </div>
+
+</div>
+
+<!-- 弹窗 -->
+<div class="modal-mask" id="modalMask">
+    <div class="modal">
+        <div class="modal-head">
+            <div class="modal-title" id="modalTitle">详情</div>
+            <div class="modal-close" onclick="closeModal()">✕</div>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+
+<!-- 提示条（删除 / 保存的回执，带撤销） -->
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+<!-- 命令面板 -->
+<div class="cmd-mask" id="cmdMask" onclick="if(event.target===this)closeCmd()">
+    <div class="cmd-panel">
+        <input class="cmd-input" id="cmdInput" placeholder="跳转分区、切换模块… 或输入命令" />
+        <div class="cmd-list" id="cmdList"></div>
+    </div>
+</div>
+
+<script>
+    /* ============================================================
+       数据：一级模块 → 二级分区
+       本原型只承载「学习」模块的内容；其余模块保留导航结构与二级清单，
+       点击时只做演示反馈（要进内容需要各自的模块原型）。
+       ============================================================ */
+    const HOME_MODULE = 'learning';
+
+    const primaryConfig = {
+        dashboard: {
+            name: '工作台', subtitle: '今日概览',
+            items: [
+                { key: 'overview', label: '今日概览', icon: 'grid' },
+                { key: 'briefing', label: 'AI 简报', icon: 'sparkle' },
+                { key: 'activity', label: '最近活动', icon: 'activity' }
+            ]
+        },
+        tasks: {
+            name: '任务', subtitle: '跨领域任务中心',
+            items: [
+                { key: 'all', label: '全部', icon: 'list' },
+                { key: 'today', label: '今日', icon: 'sun' },
+                { key: 'inbox', label: '收件箱', icon: 'inbox' },
+                { key: 'board', label: '看板', icon: 'kanban' },
+                { key: 'matrix', label: '四象限', icon: 'matrix' },
+                { key: 'calendar', label: '日历', icon: 'calendar' }
+            ]
+        },
+        calendar: {
+            name: '日程', subtitle: '统一时间轴',
+            items: [
+                { key: 'month', label: '月视图', icon: 'calendar' },
+                { key: 'week', label: '周视图', icon: 'calendar' },
+                { key: 'day', label: '日视图', icon: 'calendar' },
+                { key: 'agenda', label: '议程', icon: 'list' },
+                { key: 'life', label: '生活日历', icon: 'leaf' },
+                { key: 'work', label: '工作日历', icon: 'briefcase' },
+                { key: 'milestone', label: '里程碑', icon: 'flag' }
+            ]
+        },
+        life: {
+            name: '生活', subtitle: '个人生活管理',
+            items: [
+                { key: 'overview', label: '概览', icon: 'grid' },
+                { key: 'habits', label: '习惯', icon: 'check' },
+                { key: 'health', label: '健康', icon: 'heart' },
+                { key: 'fitness', label: '运动', icon: 'run' },
+                { key: 'recipes', label: '食谱', icon: 'food' },
+                { key: 'finance', label: '财务', icon: 'wallet' },
+                { key: 'journal', label: '日记', icon: 'pen' },
+                { key: 'pets', label: '宠物', icon: 'paw' },
+                { key: 'family', label: '家庭', icon: 'home' }
+            ]
+        },
+        work: {
+            name: '工作', subtitle: '职业工作管理',
+            items: [
+                { key: 'dashboard', label: '工作台', icon: 'grid' },
+                { key: 'tasks', label: '任务', icon: 'list' },
+                { key: 'projects', label: '项目', icon: 'project' },
+                { key: 'meeting', label: '会议', icon: 'calendar' },
+                { key: 'clients', label: '客户', icon: 'folder' },
+                { key: 'docs', label: '文档', icon: 'file' },
+                { key: 'servers', label: '服务器', icon: 'server' },
+                { key: 'deploy', label: '部署', icon: 'rocket' },
+                { key: 'contacts', label: '联系人', icon: 'users' },
+                { key: 'okr', label: 'OKR', icon: 'target' },
+                { key: 'timesheet', label: '工时', icon: 'clock' },
+                { key: 'review', label: '周报', icon: 'refresh' }
+            ]
+        },
+        /* 本页承载的模块：9 个分区与内容区的 9 个面板一一对应（item.key 即 data-panel）。
+           顺序 = 闭环顺序：看清现状 → 定方向 → 摸家底 → 输入 → 存题 → 加工 → 记忆 → 动手 → 沉淀
+           没有「输出」分区：这是个人自用的系统，不面向发布。
+           "一个主题的最终答案"由「笔记」的主题级（成熟度顶端）承担，往上再升就是顶层「知识库」。 */
+        learning: {
+            name: '学习', subtitle: '新技术 + 面试准备',
+            items: [
+                { key: 'dashboard', label: '概览', icon: 'grid',
+                    children: [
+                        { key: 'dash-today', label: '今日', icon: 'sun' },
+                        { key: 'dash-week', label: '本周', icon: 'calendar' },
+                        { key: 'dash-ai', label: 'AI 简报', icon: 'sparkle' }
+                    ] },
+                { key: 'goals', label: '目标', icon: 'target',
+                    children: [
+                        { key: 'goal-active', label: '进行中', icon: 'play' },
+                        { key: 'goal-done', label: '已完成', icon: 'check' },
+                        { key: 'goal-parked', label: '已搁置', icon: 'archive' }
+                    ] },
+                { key: 'skills', label: '技能', icon: 'sparkle',
+                    children: [
+                        { key: 'skill-tree', label: '技能树', icon: 'graph' },
+                        { key: 'skill-gap', label: '缺口', icon: 'alert' },
+                        { key: 'skill-review', label: '自评', icon: 'star' }
+                    ] },
+                { key: 'resources', label: '资料', icon: 'folder',
+                    children: [
+                        { key: 'res-book', label: '书', icon: 'book' },
+                        { key: 'res-course', label: '课程', icon: 'play' },
+                        { key: 'res-doc', label: '文档', icon: 'file' },
+                        { key: 'res-video', label: '视频', icon: 'video' },
+                        { key: 'res-article', label: '文章', icon: 'link' }
+                    ] },
+                /* 卡片只有一个家：面试题 + 从笔记生成的卡都在这里，按「来源」筛。
+                   到期排程在「复习」，本分区只管卡片全集与掌握度。 */
+                { key: 'questions', label: '题库', icon: 'quiz',
+                    children: [
+                        { key: 'q-all', label: '全部', icon: 'list' },
+                        { key: 'q-interview', label: '面试', icon: 'quiz' },
+                        { key: 'q-note', label: '笔记卡', icon: 'pen' },
+                        { key: 'q-weak', label: '薄弱', icon: 'alert', count: 38 },
+                        { key: 'q-mastered', label: '已掌握', icon: 'check' }
+                    ] },
+                /* 笔记里不再有「闪卡」：卡片类（问→答、可翻面自评）统一归「题库」，
+                   这里只放加工过程与成品，二级按成熟度递进。 */
+                { key: 'notes', label: '笔记', icon: 'pen',
+                    children: [
+                        { key: 'note-fleeting', label: '速记', icon: 'clock' },
+                        { key: 'note-literature', label: '文献', icon: 'book' },
+                        { key: 'note-permanent', label: '永久', icon: 'star' },
+                        { key: 'note-topic', label: '主题', icon: 'folder' }
+                    ] },
+                { key: 'review', label: '复习', icon: 'refresh',
+                    children: [
+                        { key: 'rev-today', label: '今日到期', icon: 'clock', count: 5 },
+                        { key: 'rev-week', label: '本周', icon: 'calendar', count: 12 },
+                        { key: 'rev-weak', label: '薄弱项', icon: 'alert' }
+                    ] },
+                { key: 'practice', label: '练习', icon: 'code',
+                    children: [
+                        { key: 'practice-code', label: '代码', icon: 'code' },
+                        { key: 'practice-whiteboard', label: '白板', icon: 'pen' },
+                        { key: 'practice-write', label: '写作', icon: 'send' }
+                    ] },
+                /* 项目：对象与字段归顶层「项目」模块，本分区只挂同一份 UI（筛「域 = 学习」） */
+                { key: 'projects', label: '项目', icon: 'project',
+                    children: [
+                        { key: 'proj-active', label: '进行中', icon: 'play' },
+                        { key: 'proj-done', label: '已完成', icon: 'check' },
+                        { key: 'proj-archived', label: '已归档', icon: 'archive' }
+                    ] }
+            ]
+        },
+        projects: {
+            name: '项目', subtitle: '统一执行层',
+            items: [
+                { key: 'all', label: '全部', icon: 'grid' },
+                { key: 'life', label: '生活', icon: 'leaf' },
+                { key: 'work', label: '工作', icon: 'briefcase' },
+                { key: 'learning', label: '学习', icon: 'book' }
+            ]
+        },
+        knowledge: {
+            name: '知识库', subtitle: '长期知识沉淀',
+            items: [
+                { key: 'notes', label: '笔记', icon: 'file' },
+                { key: 'topics', label: '主题', icon: 'folder' },
+                { key: 'tags', label: '标签', icon: 'tag' },
+                { key: 'graph', label: '图谱', icon: 'graph' },
+                { key: 'favorites', label: '收藏', icon: 'star' },
+                { key: 'archive', label: '归档', icon: 'archive' }
+            ]
+        },
+        settings: {
+            name: '设置', subtitle: '全局配置中心',
+            items: [
+                { key: 'account', label: '账户', icon: 'user' },
+                { key: 'modules', label: '模块', icon: 'grid' },
+                { key: 'appearance', label: '外观', icon: 'palette' },
+                { key: 'notifications', label: '通知', icon: 'bell' },
+                { key: 'shortcuts', label: '快捷键', icon: 'keyboard' },
+                { key: 'data', label: '数据', icon: 'database' },
+                { key: 'integrations', label: '集成', icon: 'link' },
+                { key: 'ai', label: 'AI', icon: 'sparkle' },
+                { key: 'privacy', label: '隐私', icon: 'shield' }
+            ]
+        }
+    };
+
+    /* 顶栏一级顺序 + 徽标（徽标是全局待办口径，与模块内容无关） */
+    const primaryOrder = [
+        { key: 'dashboard' },
+        { key: 'tasks', badge: '5' },
+        { key: 'calendar' },
+        { key: 'life' },
+        { key: 'work', badge: '2', warn: true },
+        { key: 'learning' },
+        { key: 'projects', badge: '4' },
+        { key: 'knowledge' },
+        { key: 'settings' }
+    ];
+    const primaryIcon = {
+        dashboard: 'grid', tasks: 'check', calendar: 'calendar', life: 'leaf',
+        work: 'briefcase', learning: 'book', projects: 'project',
+        knowledge: 'file', settings: 'target'
+    };
+
+    const icons = {
+        grid: '<rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect>',
+        list: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>',
+        sun: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>',
+        inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>',
+        kanban: '<rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line>',
+        matrix: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect>',
+        calendar: '<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+        leaf: '<path d="M3 12l2-2 4 4 7-7 3 3"></path><path d="M3 21h18"></path>',
+        briefcase: '<rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>',
+        book: '<path d="M2 4l10 5 10-5-10-5z"></path><path d="M2 20l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path>',
+        check: '<polyline points="20 6 9 17 4 12"></polyline>',
+        target: '<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>',
+        heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>',
+        run: '<circle cx="13" cy="4" r="2"></circle><path d="M4 17l5-5 3 3 5-7"></path><path d="M13 12v8"></path>',
+        food: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"></path>',
+        wallet: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>',
+        pen: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>',
+        paw: '<circle cx="11" cy="4" r="2"></circle><circle cx="18" cy="8" r="2"></circle><circle cx="20" cy="16" r="2"></circle><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10z"></path>',
+        home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
+        project: '<path d="M3 7l9-4 9 4-9 4-9-4z"></path><path d="M3 12l9 4 9-4"></path><path d="M3 17l9 4 9-4"></path>',
+        folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>',
+        file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>',
+        server: '<rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line>',
+        rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>',
+        users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+        clock: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
+        refresh: '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>',
+        sparkle: '<path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"></path>',
+        play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>',
+        video: '<polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2"></rect>',
+        code: '<polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline>',
+        quiz: '<circle cx="12" cy="12" r="10"></circle><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-2.9 2.4-2.9 4"></path><line x1="12" y1="17.5" x2="12.01" y2="17.5"></line>',
+        tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line>',
+        graph: '<circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="12" cy="18" r="3"></circle><line x1="8.5" y1="7.5" x2="10.5" y2="16.5"></line><line x1="15.5" y1="7.5" x2="13.5" y2="16.5"></line>',
+        star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>',
+        archive: '<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>',
+        user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>',
+        palette: '<circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path>',
+        bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>',
+        keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"></rect><line x1="6" y1="10" x2="6" y2="10"></line><line x1="10" y1="10" x2="10" y2="10"></line><line x1="14" y1="10" x2="14" y2="10"></line><line x1="18" y1="10" x2="18" y2="10"></line><line x1="8" y1="14" x2="16" y2="14"></line>',
+        database: '<ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>',
+        link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
+        shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>',
+        info: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>',
+        activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
+        alert: '<path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path>',
+        flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line>',
+        send: '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>',
+        chevronLeft: '<polyline points="15 18 9 12 15 6"></polyline>'
+    };
+    function iconSvg(name) {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${icons[name] || icons.grid}</svg>`;
+    }
+
+    /* ============ 状态 ============ */
+    let currentPrimary = HOME_MODULE;
+    let ringLevel = 'level2';
+    let currentItemIdx = 1;   /* 学习 · 目标（第 2 项） */
+    let currentChildIdx = 0;
+    let parentItem = null;
+    const START = -90;
+
+    const ringEl = document.getElementById('moduleRing');
+    const radialItemsWrap = ringEl.querySelector('[data-radial-items]');
+    const arcEl = ringEl.querySelector('[data-hub-arc]');
+    const ripple = ringEl.querySelector('.hub-ripple');
+    const hubDoor = ringEl.querySelector('[data-hub-door]');
+    const railEl = document.getElementById('moduleRail');
+    const sidebarEl = document.getElementById('sidebar');
+    const subtitleEl = document.getElementById('sidebarSubtitle');
+    const captionEl = document.getElementById('ringCaption');
+    const pagePathEl = document.getElementById('pagePath');
+    const app = document.getElementById('app');
+
+    /* 环半径随项数变：项少时收小。「8 个分区 ⇒ 盘铺到 169px；3 个 ⇒ 收成 136px」。
+       下界 52 由「中心门半径 + 图标半径 + 7px 缝」反推（25.5 + 17 + 7 = 49.5）。 */
+    const R_MIN = 52, R_MAX = 74;
+    const radiusFor = n => Math.max(R_MIN, Math.min(R_MAX, Math.round(44 / (2 * Math.sin(Math.PI / n)))));
+
+    /* 图标直径也按项数收：n 大时相邻弦长短，不收就会在「选中 1.15 + 悬停 1.16」的相邻一对上
+       边缘相切、看成一块。目标：最坏一对仍留 ≥3px 净距 ⇒ 上限 = (弦长 − 3) / 1.155。
+       ⚠️ ICON_MAX 与 CSS 的 --icon 初值、R_MIN 是联动的三件套。 */
+    const ICON_MAX = 36;
+    const iconFor = (n, R) => Math.max(24, Math.min(ICON_MAX, Math.floor((2 * R * Math.sin(Math.PI / n) - 3) / 1.155)));
+
+    /* 分段刻度：每段对应一个分区，已过的段填强调色、未到的留一格淡痕。
+       于是弧不是「进度条」，而是「共几格 / 走到第几格」的读数。 */
+    function arcStops(n, activeIdx) {
+        const step = 360 / n, gap = Math.min(6, step * 0.22), out = [];
+        for (let i = 0; i < n; i++) {
+            const a = i * step, b = a + step - gap;
+            out.push(`${i <= activeIdx ? 'var(--m-main)' : 'var(--border-strong)'} ${a.toFixed(2)}deg ${b.toFixed(2)}deg`);
+            out.push(`transparent ${b.toFixed(2)}deg ${(a + step).toFixed(2)}deg`);
+        }
+        return out.join(', ');
+    }
+
+    /* 名称条只有显隐两种状态，不参与布局：显隐用 opacity + translateY，不改任何元素的 rect */
+    function showCaption(text) {
+        if (captionEl.textContent === text && captionEl.classList.contains('is-on')) return;
+        captionEl.textContent = text;
+        captionEl.classList.add('is-on');
+    }
+    function hideCaption() { captionEl.classList.remove('is-on'); }
+
+    /* ============ 顶栏一级 ============ */
+    function renderPrimaryNav() {
+        const nav = document.getElementById('navPrimary');
+        nav.innerHTML = primaryOrder.map(m => {
+            const cfg = primaryConfig[m.key];
+            const badge = m.badge ? `<span class="nav-p-badge${m.warn ? ' warn' : ''}">${m.badge}</span>` : '';
+            return `<div class="nav-p-item${m.key === currentPrimary ? ' active' : ''}"
+                         data-module="${m.key}" tabindex="0" role="button"
+                         aria-haspopup="true" aria-expanded="false"
+                         title="${cfg.name} · ${cfg.subtitle}">
+                        <span class="nav-p-icon">${iconSvg(primaryIcon[m.key])}</span>
+                        <span class="nav-p-text">${cfg.name}</span>${badge}
+                    </div>`;
+        }).join('');
+
+        nav.querySelectorAll('.nav-p-item').forEach(el => {
+            el.addEventListener('mouseenter', () => { if (window.innerWidth > 900) openMega(el.dataset.module, el); });
+            el.addEventListener('focus', () => openMega(el.dataset.module, el));
+            el.addEventListener('click', () => {
+                switchPrimary(el.dataset.module);
+                /* 面板接着开：宽屏是「跟随新模块重建」，窄屏（没有 hover）是唯一的展开入口。
+                   不做 toggle —— 关闭交给点外部 / Esc / 鼠标移开，行为更可预测。 */
+                openMega(el.dataset.module, el);
+            });
+        });
+    }
+
+    function switchPrimary(key) {
+        const cfg = primaryConfig[key];
+        if (!cfg) return;
+        if (megaMod) closeMega();
+
+        if (key !== HOME_MODULE) {
+            /* 本原型只承载「学习」的内容：其余模块保留导航，点击只做演示反馈 */
+            alert(`原型演示：切换到「${cfg.name}」模块（需该模块的原型承载内容）`);
+            return;
+        }
+        currentPrimary = key;
+        document.querySelectorAll('.nav-p-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.module === key);
+            el.setAttribute('aria-expanded', 'false');
+        });
+        renderRing(cfg, false);
+        activatePanel(cfg.items[currentItemIdx].key);
+    }
+
+    /* ============ 渲染圆盘 ============ */
+    function renderRing(cfg, animate) {
+        const list = ringLevel === 'level2' ? cfg.items : (parentItem.children || []);
+        const n = list.length;
+        const step = 360 / n;
+        const activeIdx = ringLevel === 'level2' ? currentItemIdx : currentChildIdx;
+
+        const R = radiusFor(n), iconPx = iconFor(n, R);
+        ringEl.style.setProperty('--r', R + 'px');
+        ringEl.style.setProperty('--icon', iconPx + 'px');
+        if (arcEl) arcEl.style.setProperty('--arcs', arcStops(n, activeIdx));
+
+        radialItemsWrap.innerHTML = list.map((item, i) => {
+            const isActive = i === activeIdx;
+            const hasChildren = !!(item.children && item.children.length);
+            const anim = animate ? (ringLevel === 'level3' ? 'enter-from-center-strong' : 'enter-from-center') : '';
+            return `<button type="button"
+                        class="radial__item ${isActive ? 'active' : ''} ${anim}"
+                        style="--a:${START + step * i}deg; --i:${i}"
+                        data-idx="${i}" data-key="${item.key}"
+                        data-has-children="${hasChildren}"
+                        aria-label="${item.label}" aria-current="${isActive ? 'true' : 'false'}">
+                        ${iconSvg(item.icon)}
+                    </button>`;
+        }).join('');
+
+        /* 名称条是「固定位置」的：悬停哪个就把哪个的名字写到圆盘下方 */
+        let stillHovered = false;
+        radialItemsWrap.querySelectorAll('[data-idx]').forEach(btn => {
+            const i = parseInt(btn.dataset.idx, 10);
+            const label = list[i].label;
+            btn.addEventListener('click', () => handleRingClick(i, cfg));
+            btn.addEventListener('mouseenter', () => showCaption(label));
+            btn.addEventListener('focus', () => showCaption(label));
+            btn.addEventListener('mouseleave', hideCaption);
+            btn.addEventListener('blur', hideCaption);
+            /* 重渲染后鼠标可能还停在原地（元素已换新），补一次，免得名称条闪没 */
+            if (btn.matches(':hover')) { showCaption(label); stillHovered = true; }
+        });
+        if (!stillHovered) hideCaption();
+
+        ringEl.classList.toggle('is-nested', ringLevel === 'level3');
+
+        /* 头部副标题跟着「当前所在分区」走，比固定写死的 tagline 更有用 */
+        subtitleEl.textContent = (list[activeIdx] && list[activeIdx].label) || cfg.subtitle;
+
+        renderRail(cfg, list, activeIdx);
+        renderPath(cfg);
+
+        hubDoor.setAttribute('aria-label', ringLevel === 'level3'
+            ? '返回上一级'
+            : '进入 ' + (cfg.items[currentItemIdx] ? cfg.items[currentItemIdx].label : ''));
+        pointTo(START + step * activeIdx);
+    }
+
+    /* ============ 收起态：平铺图标列 ============ */
+    /* 与圆盘共用同一份 list / activeIdx / 点击处理器，收起只是换一种排列，
+       所以「展开时看到的内容」和「收起时看到的内容」永远不会不一致。 */
+    function renderRail(cfg, list, activeIdx) {
+        let html = '';
+        if (ringLevel === 'level3') {
+            html += `<button type="button" class="rail__item rail__back" data-back="1" aria-label="返回上一级">
+                        <span class="rail__btn">${iconSvg('chevronLeft')}</span>
+                        <span class="rail__tip">返回 ${parentItem ? parentItem.label : ''}</span>
+                    </button>`;
+        }
+        list.forEach((item, i) => {
+            const hasChildren = !!(item.children && item.children.length);
+            const isActive = i === activeIdx;
+            html += `<button type="button" class="rail__item ${isActive ? 'active' : ''}"
+                        data-idx="${i}" data-has-children="${hasChildren}"
+                        aria-label="${item.label}" aria-current="${isActive ? 'true' : 'false'}">
+                        <span class="rail__btn">${iconSvg(item.icon)}</span>
+                        <span class="rail__tip">${item.label}</span>
+                    </button>`;
+        });
+        railEl.innerHTML = html;
+
+        railEl.querySelectorAll('[data-idx]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const i = parseInt(btn.dataset.idx, 10);
+                const item = list[i];
+                /* 收起态看不到中心门，所以「点当前项」也要能下钻；
+                   展开态这个动作由中心门承担。 */
+                if (ringLevel === 'level2' && i === activeIdx && item && item.children && item.children.length) {
+                    enterLevel3(item);
+                    return;
+                }
+                handleRingClick(i, cfg);
+            });
+        });
+        const backBtn = railEl.querySelector('[data-back]');
+        if (backBtn) backBtn.addEventListener('click', backToLevel2);
+    }
+
+    /* ============ 点圆盘上的项 ============ */
+    /* 与 v5 的差异：这里圆盘承载的是**内容分区**（相当于原来的页签），
+       所以点一个带子分区的分区时**不自动下钻**——先切内容，下钻交给中心门或再次点击当前项。
+       否则「目标 / 资料 / 笔记 / 复习 / 项目」一被点到就会把 9 个分区换成 3~5 个子项。 */
+    function handleRingClick(i, cfg) {
+        if (ringLevel === 'level2') {
+            const item = cfg.items[i];
+            if (i === currentItemIdx) {
+                if (item.children && item.children.length) enterLevel3(item);
+                return;
+            }
+            currentItemIdx = i;
+            renderRing(cfg, false);
+            activatePanel(item.key);
+        } else {
+            if (i === currentChildIdx) return;
+            currentChildIdx = i;
+            renderRing(cfg, false);
+            renderPath(cfg);
+        }
+    }
+
+    /* ============ 进入 / 返回三级 ============ */
+    function enterLevel3(item) {
+        parentItem = item;
+        ringLevel = 'level3';
+        currentChildIdx = 0;
+        if (ripple && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            ripple.animate(
+                [{ transform: 'scale(0.4)', opacity: 0.7 }, { transform: 'scale(2.6)', opacity: 0 }],
+                { duration: 700, easing: 'cubic-bezier(0.16, 0.9, 0.3, 1)' }
+            );
+        }
+        renderRing(primaryConfig[currentPrimary], true);
+    }
+
+    function backToLevel2() {
+        if (ringLevel !== 'level3') return;
+        ringLevel = 'level2';
+        parentItem = null;
+        renderRing(primaryConfig[currentPrimary], true);
+    }
+
+    /* 中心门：二级进三级 / 三级返回 */
+    hubDoor.addEventListener('click', () => {
+        if (ringLevel === 'level3') { backToLevel2(); return; }
+        const cfg = primaryConfig[currentPrimary];
+        const item = cfg.items[currentItemIdx];
+        if (item && item.children && item.children.length) enterLevel3(item);
+    });
+
+    /* ============ 指针（中心罗盘） ============ */
+    let needleAngle = START + 90;
+    function pointTo(deg) {
+        const target = deg + 90;
+        const delta = ((target - needleAngle + 540) % 360) - 180;
+        needleAngle += delta;
+        sidebarEl.style.setProperty('--na', needleAngle + 'deg');
+    }
+
+    /* ============ 内容：分区 ⇄ 面板 ============ */
+    function activatePanel(key) {
+        const panels = document.querySelectorAll('.panel');
+        let hit = false;
+        panels.forEach(p => {
+            const on = p.dataset.panel === key;
+            p.classList.toggle('active', on);
+            if (on) hit = true;
+        });
+        /* 本页只承载「目标」：其余分区落到占位卡，而不是悄悄显示第一个面板 */
+        if (!hit) {
+            const ph = document.querySelector('[data-panel="__other"]');
+            if (ph) ph.classList.add('active');
+        }
+        document.querySelector('.main').scrollTop = 0;
+        renderPath(primaryConfig[currentPrimary]);
+    }
+
+    /* 面包屑只给**上级**：末段（当前分区/子项）交给侧栏标题与面板内的大标题，
+       避免同一个词在一屏里出现两次。 */
+    function renderPath(cfg) {
+        const item = cfg.items[currentItemIdx];
+        const parts = [{ text: cfg.name }];
+        if (ringLevel === 'level3' && parentItem) {
+            parts.push({ text: parentItem.label, back: true });
+            const child = parentItem.children[currentChildIdx];
+            parts.push({ text: child ? child.label : '', current: true });
+        } else if (item) {
+            parts.push({ text: item.label, current: true });
+        }
+        pagePathEl.innerHTML = parts.map((p, i) => {
+            const sep = i > 0 ? '<span class="sep">/</span>' : '';
+            const cls = 'crumb' + (p.current ? ' current' : '');
+            const act = p.back ? ' data-back="1" role="button" tabindex="0"' : '';
+            return `${sep}<span class="${cls}"${act}>${p.text}</span>`;
+        }).join('');
+        const back = pagePathEl.querySelector('[data-back]');
+        if (back) back.addEventListener('click', backToLevel2);
+    }
+
+    /* ============ 槽切换 ============ */
+    document.querySelectorAll('.slot-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.slot-tab').forEach(t => t.classList.toggle('active', t === tab));
+            document.querySelectorAll('.slot-panel').forEach(p => {
+                p.classList.toggle('active', p.dataset.panel === tab.dataset.slot);
+            });
+        });
+    });
+
+    /* ============ 超级菜单（顶栏二级下拉）============
+       存在的理由不是「更好看」：≤900 时侧栏整块隐藏 ⇒ 二级完全够不到，
+       这个面板补的就是这个缺口。
+       ≥900：悬停展开（指针进面板不会关 —— 面板是 .topbar 的后代，mouseleave 不触发）；
+       ≤900：点击展开，面板整条全宽（没有 hover 可言）。 */
+    const megaEl = document.getElementById('mega');
+    const topbarEl = document.querySelector('.topbar');
+    let navItemEls = [];
+    let megaMod = null;
+    let megaTimer = null;
+
+    const megaCols = n => (n <= 4 ? 2 : 3);
+
+    function megaHtml(mod) {
+        const cfg = primaryConfig[mod];
+        const body = cfg.items.map((it, i) => {
+            const cur = currentPrimary === mod && ringLevel === 'level2' && currentItemIdx === i;
+            return `<button type="button" class="mega-item${cur ? ' is-current' : ''}" data-idx="${i}"${cur ? ' aria-current="true"' : ''}>
+                        <span class="mi-icon">${iconSvg(it.icon)}</span>${it.label}
+                    </button>`;
+        }).join('');
+        const hint = mod === HOME_MODULE ? '本页内容' : '演示';
+        return `<div class="mega-head">
+                    <span class="mh-title">${cfg.name} · 二级 ${cfg.items.length} 项 · ${hint}</span>
+                    <button type="button" class="mh-all" data-all="1">全部 ›</button>
+                </div>
+                <div class="mega-grid" style="--cols:${megaCols(cfg.items.length)}">${body}</div>`;
+    }
+
+    /* 与触发项居中对齐，再夹进顶栏范围内（末项「设置」的天然位置会越出右边界） */
+    function positionMega(anchorEl) {
+        const tb = topbarEl.getBoundingClientRect();
+        const a = anchorEl.getBoundingClientRect();
+        const w = megaEl.offsetWidth;
+        const left = a.left - tb.left + a.width / 2 - w / 2;
+        megaEl.style.left = Math.round(Math.max(8, Math.min(left, tb.width - w - 8))) + 'px';
+    }
+
+    function openMega(mod, anchorEl) {
+        clearTimeout(megaTimer);
+        megaMod = mod;
+        megaEl.innerHTML = megaHtml(mod);
+        positionMega(anchorEl);              /* 先量宽再定位 */
+        megaEl.classList.add('is-open');
+        navItemEls.forEach(el => {
+            const on = el.dataset.module === mod;
+            el.classList.toggle('mega-on', on);
+            el.setAttribute('aria-expanded', String(on));
+        });
+        megaEl.querySelectorAll('.mega-item').forEach(btn => {
+            btn.addEventListener('click', () => { gotoLevel2(mod, parseInt(btn.dataset.idx, 10)); });
+        });
+        const all = megaEl.querySelector('[data-all]');
+        if (all) all.addEventListener('click', () => { gotoLevel2(mod, 0); });
+    }
+
+    function closeMega() {
+        clearTimeout(megaTimer);
+        megaMod = null;
+        megaEl.classList.remove('is-open');
+        navItemEls.forEach(el => {
+            el.classList.remove('mega-on');
+            el.setAttribute('aria-expanded', 'false');
+        });
+    }
+    const scheduleCloseMega = () => { clearTimeout(megaTimer); megaTimer = setTimeout(closeMega, 180); };
+
+    /* 直达某个二级：不走 handleRingClick —— 它对「当前项」是 no-op，会把这次点击吞掉 */
+    function gotoLevel2(mod, idx) {
+        const cfg = primaryConfig[mod];
+        if (!cfg) return;
+        if (mod !== HOME_MODULE) {
+            closeMega();
+            alert(`原型演示：进入「${cfg.name} / ${cfg.items[idx].label}」（需该模块的原型承载内容）`);
+            return;
+        }
+        ringLevel = 'level2';
+        parentItem = null;
+        currentItemIdx = idx;
+        currentChildIdx = 0;
+        closeMega();
+        renderRing(cfg, true);
+        activatePanel(cfg.items[idx].key);
+    }
+
+    /* 供侧栏「快捷」等入口跳分区 */
+    function jumpTo(key) {
+        const cfg = primaryConfig[currentPrimary];
+        const i = cfg.items.findIndex(it => it.key === key);
+        if (i < 0) return;
+        gotoLevel2(currentPrimary, i);
+    }
+
+    /* 面板是 .topbar 的后代 ⇒ 指针移进面板不会触发 mouseleave，不需要「桥接」逻辑 */
+    topbarEl.addEventListener('mouseleave', () => { if (megaMod) scheduleCloseMega(); });
+    megaEl.addEventListener('mouseenter', () => clearTimeout(megaTimer));
+    document.addEventListener('click', e => { if (megaMod && !topbarEl.contains(e.target)) closeMega(); });
+    window.addEventListener('resize', () => { if (megaMod) closeMega(); });
+
+    /* ============ 折叠 ============ */
+    const collapseBtn = document.getElementById('collapseBtn');
+    collapseBtn.addEventListener('click', () => {
+        const collapsed = sidebarEl.classList.toggle('collapsed');
+        app.classList.toggle('sidebar-collapsed', collapsed);
+        collapseBtn.title = collapsed ? '展开侧栏' : '收起侧栏';
+        collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+        /* 收起会把圆盘整块收掉，名称条要一起复位，否则展开后会留个过期名字 */
+        if (collapsed) hideCaption();
+    });
+
+    /* ============ 主题 ============ */
+    const themeBtn = document.getElementById('themeBtn');
+    const themeIcon = document.getElementById('themeIcon');
+    const SUN = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+    const MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+
+    function readTheme() {
+        try {
+            const q = new URLSearchParams(location.search).get('theme');
+            if (q === 'dark' || q === 'light') return q;
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark' || saved === 'light') return saved;
+        } catch (e) { /* file:// 下 localStorage 可能不可用 */ }
+        return 'light';
+    }
+    function setTheme(mode) {
+        document.documentElement.classList.toggle('dark', mode === 'dark');
+        themeIcon.innerHTML = mode === 'dark' ? SUN : MOON;
+    }
+    themeBtn.addEventListener('click', () => {
+        const isDark = !document.documentElement.classList.contains('dark');
+        setTheme(isDark ? 'dark' : 'light');
+        try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) {}
+    });
+
+    /* ============ 键盘 ============ */
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+
+        if (e.key === 'Escape') {
+            if (megaMod) { closeMega(); return; }
+            if (document.getElementById('modalMask').classList.contains('open')) { closeModal(); return; }
+            if (ringLevel === 'level3') { e.preventDefault(); backToLevel2(); }
+            return;
+        }
+        if (e.key === 'Backspace' && ringLevel === 'level3') { e.preventDefault(); backToLevel2(); return; }
+
+        const cfg = primaryConfig[currentPrimary];
+        const list = ringLevel === 'level2' ? cfg.items : (parentItem ? parentItem.children : []);
+
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            const dir = e.key === 'ArrowRight' ? 1 : -1;
+            if (ringLevel === 'level2') {
+                currentItemIdx = (currentItemIdx + dir + list.length) % list.length;
+                renderRing(cfg, false);
+                activatePanel(cfg.items[currentItemIdx].key);
+            } else {
+                currentChildIdx = (currentChildIdx + dir + list.length) % list.length;
+                renderRing(cfg, false);
+            }
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (ringLevel === 'level3') { backToLevel2(); return; }
+            const item = cfg.items[currentItemIdx];
+            if (item && item.children && item.children.length) enterIntoOrBack(item);
+        }
+    });
+
+    /* 回车：当前分区有子项就下钻，没有就什么也不做（内容已经在了） */
+    function enterIntoOrBack(item) {
+        if (ringLevel === 'level2') enterLevel3(item);
+    }
+
+    /* ============ 命令面板 ============ */
+    const cmdMask = document.getElementById('cmdMask');
+    const cmdInput = document.getElementById('cmdInput');
+    const cmdList = document.getElementById('cmdList');
+
+    function buildCmdList() {
+        const cfg = primaryConfig[HOME_MODULE];
+        const sections = cfg.items.map((it, i) =>
+            `<div class="cmd-item" data-kind="section" data-idx="${i}">
+                <div class="cmd-item-icon">${iconSvg(it.icon)}</div>
+                <div class="cmd-item-text">${it.label}</div>
+                <span class="cmd-kbd">${i + 1}</span>
+            </div>`).join('');
+        const modules = primaryOrder.filter(m => m.key !== HOME_MODULE).map(m =>
+            `<div class="cmd-item" data-kind="module" data-mod="${m.key}">
+                <div class="cmd-item-icon">${iconSvg(primaryIcon[m.key])}</div>
+                <div class="cmd-item-text">${primaryConfig[m.key].name}</div>
+                <span class="cmd-kbd">模块</span>
+            </div>`).join('');
+        cmdList.innerHTML = `<div class="cmd-group">学习 · 分区</div>${sections}
+                             <div class="cmd-group">切换模块</div>${modules}`;
+
+        cmdList.querySelectorAll('.cmd-item').forEach(el => {
+            el.addEventListener('click', () => {
+                if (el.dataset.kind === 'section') gotoLevel2(HOME_MODULE, parseInt(el.dataset.idx, 10));
+                else { closeCmd(); alert(`原型演示：切换到「${primaryConfig[el.dataset.mod].name}」模块`); }
+            });
+        });
+    }
+    function openCmd() { cmdMask.classList.add('open'); cmdInput.value = ''; filterCmd(''); setTimeout(() => cmdInput.focus(), 50); }
+    function closeCmd() { cmdMask.classList.remove('open'); cmdInput.value = ''; }
+    function filterCmd(q) {
+        const kw = q.trim().toLowerCase();
+        cmdList.querySelectorAll('.cmd-item').forEach(el => {
+            const text = el.querySelector('.cmd-item-text').textContent.toLowerCase();
+            el.hidden = !!kw && !text.includes(kw);
+        });
+    }
+    cmdInput.addEventListener('input', () => filterCmd(cmdInput.value));
+    document.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            cmdMask.classList.contains('open') ? closeCmd() : openCmd();
+        }
+        if (e.key === 'Escape' && cmdMask.classList.contains('open')) closeCmd();
+    });
+
+    /* ============ 顶栏动作 ============ */
+    document.getElementById('quickAdd').addEventListener('click', () => {
+        alert('原型演示：新建笔记');
+    });
+
+    /* ============ 弹窗（内容区沿用原有的详情弹窗） ============ */
+    const modalMask = document.getElementById('modalMask');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+
+    function openModal(title, html) {
+        modalTitle.textContent = title;
+        modalBody.innerHTML = html;
+        modalMask.classList.add('open');
+    }
+    function closeModal() { modalMask.classList.remove('open'); }
+    modalMask.addEventListener('click', (e) => { if (e.target === modalMask) closeModal(); });
+
+    function openResource(title) {
+        openModal(title, `
+      <div class="detail-section">
+        <div class="detail-label">资源信息</div>
+        <ul class="detail-list">
+          <li>类型：文档 / 书 / 课程 / 文章</li>
+          <li>进度：45%</li>
+          <li>最近更新：昨天</li>
+          <li>关联技能：React / 前端</li>
+        </ul>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">关联笔记</div>
+        <ul class="detail-list">
+          <li>React 19 新特性</li>
+          <li>Vite 构建优化记录</li>
+        </ul>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：继续学习')">继续学习</button>
+      </div>
+    `);
+    }
+
+    /* ============================================================
+       跨模块共享视图：项目
+       项目对象与它的字段（域 / 来源 / 进度 / 里程碑 / 期限 / 仓库）全部归「项目」模块。
+       学习模块**不复制列表、不复制正文**，只挂同一份 UI：
+         同一个数据源 PROJECTS + 同一个渲染函数 renderProjectList + 同一个 openProject 详情，
+         壳与壳之间唯一的差别是传进去的 filter（等价于 React 版 hook 收的那个 basePath）。
+       项目模块的壳不在本原型里，所以此处只有一个挂载点；渲染函数从第一天起就是为挂两处写的。
+       ============================================================ */
+    const PROJECTS = [
+        {
+            id: 'p-todo', name: '跟教程写的 Todo App', domain: '学习', source: '练手',
+            progress: 70, milestone: 'CRUD + 本地存储已完成', due: '无期限（学完即可归档）',
+            repo: 'github.com/me/learn-todo', from: '来自练习 · 代码'
+        },
+        {
+            id: 'p-components', name: '仿写组件库 · 12 个组件', domain: '学习', source: '练手',
+            progress: 80, milestone: '剩余 Tooltip 与 Table', due: '无期限（学完即可归档）',
+            repo: 'github.com/me/ui-clone', from: '来自练习 · 代码'
+        },
+        {
+            id: 'p-portal', name: '客户门户改版', domain: '工作', source: '真实需求',
+            progress: 55, milestone: '视觉走查 → 灰度发布', due: '10-08（有验收方）',
+            repo: '内网 gitlab/portal', from: '来自工作模块'
+        }
+    ];
+
+    /* 唯一的一份渲染：数据 + 函数共用，只有 filter 由壳决定 */
+    function renderProjectList(el, filter) {
+        if (!el) return;
+        const list = PROJECTS.filter(filter);
+        el.innerHTML = list.length ? list.map(p => `
+            <div class="proj-row" onclick="openProject('${p.id}')">
+                <div class="doc-icon">${p.source === '练手' ? '🧪' : '📦'}</div>
+                <div class="proj-main">
+                    <div class="proj-name">${p.name}</div>
+                    <div class="proj-meta">域：${p.domain} · 来源：${p.source} · ${p.milestone}</div>
+                </div>
+                <div class="proj-right">
+                    <span class="proj-pct">${p.progress}%</span>
+                    <span class="proj-bar"><i class="proj-fill" style="width:${p.progress}%"></i></span>
+                </div>
+            </div>`).join('') : '<div class="proj-empty">该筛选下暂无项目</div>';
+    }
+
+    /* 唯一的详情：两个模块的入口打开的都是它 */
+    function openProject(id) {
+        const p = PROJECTS.find(x => x.id === id);
+        if (!p) return;
+        openModal(p.name, `
+      <div class="detail-section">
+        <div class="detail-label">项目信息（项目模块的同一份视图）</div>
+        <ul class="detail-list">
+          <li>归属域：${p.domain} · 来源：${p.source}</li>
+          <li>进度：${p.progress}% · 里程碑：${p.milestone}</li>
+          <li>期限：${p.due}</li>
+          <li>仓库：${p.repo} · ${p.from}</li>
+        </ul>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">学习侧的关联（不属于项目对象）</div>
+        <ul class="detail-list">
+          <li>关联练习：算法 · LeetCode 75 / 系统设计 · 短链服务</li>
+          <li>关联资料：React 19 官方文档</li>
+          <li>复盘笔记：${p.source === '练手' ? '练手项目复盘（1 条）' : '项目复盘（3 条）'}</li>
+        </ul>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">归档判据</div>
+        <div class="detail-text">学过的东西摘进笔记（成熟度走到主题级）之后，若这个项目不再被真实工作复用、也没有别人在用，就置为归档 —— 练手项目不该长期占着项目列表。</div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button class="btn btn-ghost" onclick="alert('原型演示：打开仓库')">打开仓库</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：跳到项目模块');closeModal()">在项目模块打开</button>
+      </div>
+    `);
+    }
+
+    /* ========== 题库详情（面试题：能靠记忆回答的那一类） ========== */
+    function openQuestion(title) {
+        openModal(title, `
+      <div class="detail-section">
+        <div class="detail-label">题干</div>
+        <div class="detail-text">${title}</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">答案要点</div>
+        <div class="detail-text">点击「显示答案」查看。答完后按「记住了 / 再背一次」记一次间隔重复，掌握度与到期时间由系统推算，不需要手填。</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">元数据</div>
+        <ul class="detail-list">
+          <li>技术栈 / 公司 / 难度：按这三维筛选</li>
+          <li>掌握度：85%（连续答对 3 次后自动置为已掌握）</li>
+          <li>下次到期：今天 · 间隔 3 天</li>
+          <li>关联资料：React 19 官方文档</li>
+        </ul>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button class="btn btn-ghost" onclick="alert('原型演示：显示答案')">显示答案</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：记住了');closeModal()">记住了</button>
+      </div>
+    `);
+    }
+
+    /* ========== 概览：今日计划的勾选（原型只改状态，不落库） ========== */
+    document.querySelectorAll('.plan-check').forEach(c => {
+        c.addEventListener('click', () => {
+            const done = c.classList.toggle('done');
+            c.setAttribute('aria-checked', String(done));
+            const text = c.nextElementSibling;
+            if (text && text.classList.contains('plan-text')) text.classList.toggle('done', done);
+        });
+    });
+
+    /* ========== 题库筛选（来源 + 掌握度）==========
+       两个筛选值都从卡片自身派生，不新增字段：
+         来源：标签里有没有「笔记卡」  掌握度：读 .resource-pct 的数字。
+       薄弱 / 已掌握的阈值也只写在这一处（60 / 85），与「复习」里的口径一致。 */
+    const WEAK_BELOW = 60, MASTERED_AT = 85;
+    function applyQuestionFilter(kind) {
+        const card = document.getElementById('qCard');
+        if (!card) return;
+        let shown = 0;
+        card.querySelectorAll('.resource-item').forEach(el => {
+            const pct = parseInt((el.querySelector('.resource-pct') || {}).textContent, 10) || 0;
+            const isNote = [...el.querySelectorAll('.resource-tag')].some(t => t.textContent.trim() === '笔记卡');
+            const ok =
+                kind === 'all' ? true :
+                kind === 'note' ? isNote :
+                kind === 'interview' ? !isNote :
+                kind === 'weak' ? pct < WEAK_BELOW :
+                pct >= MASTERED_AT;
+            el.hidden = !ok;
+            if (ok) shown++;
+        });
+        const counter = document.getElementById('qShown');
+        if (counter) counter.textContent = shown;
+    }
+    const qFilters = document.getElementById('qFilters');
+    if (qFilters) {
+        qFilters.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                qFilters.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c === chip));
+                applyQuestionFilter(chip.dataset.filter);
+            });
+        });
+        applyQuestionFilter('all');
+    }
+
+    function openNote(title) {
+        openModal(title, `
+      <div class="detail-section">
+        <div class="detail-label">笔记内容</div>
+        <div class="detail-text">这里是笔记正文，支持 Markdown、代码块、双链。</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">关联</div>
+        <ul class="detail-list">
+          <li>资源：React 19 官方文档</li>
+          <li>项目：个人系统前端</li>
+          <li>标签：React / 前端</li>
+        </ul>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：升级为知识库')">升级为知识库</button>
+      </div>
+    `);
+    }
+
+    function openReview(question) {
+        openModal('复习', `
+      <div class="detail-section">
+        <div class="detail-label">问题</div>
+        <div class="detail-text">${question}</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">答案</div>
+        <div class="detail-text">点击「显示答案」查看。</div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button class="btn btn-ghost" onclick="alert('原型演示：显示答案')">显示答案</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：记住了');closeModal()">记住了</button>
+      </div>
+    `);
+    }
+
+    function openPractice(title) {
+        openModal(title, `
+      <div class="detail-section">
+        <div class="detail-label">项目信息</div>
+        <ul class="detail-list">
+          <li>进度：55%</li>
+          <li>关联笔记：12 条</li>
+          <li>状态：进行中</li>
+        </ul>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：进入项目')">进入项目</button>
+      </div>
+    `);
+    }
+
+    /* ============================================================
+       目标分区（本页承载的唯一分区）· 数据驱动
+       原型里的「库」就是 state.goals：增 / 删 / 改 / 查全部走
+       「改数据 → render()」，与真实实现的差别只有「存在哪」。
+
+       派生量一律算出来，绝不存第二遍：
+         完成度 = 关键结果的平均达成度
+         时间进度 = (今天 − 开始) / (期限 − 开始)
+         落后 = 时间进度 − 完成度（负数 = 领先；≥10pt 才算真落后）
+         缺支撑 = 「来源 = 手填」且未达成的关键结果 —— 它在系统里没有自动来源
+       支撑来源不是独立字段：它就是关键结果里「来源」的汇总（所以永远不会和 KR 打架）。
+       ============================================================ */
+    /* 日期一律走本地零点：`new Date('2026-10-20')` 按 UTC 解析，
+       和本地零点混用会整整差一天（GMT+8 下「剩 25 天」会算成 26 天）。 */
+    const D = s => new Date(String(s).slice(0, 10) + 'T00:00:00');
+    const TODAY = D('2026-09-25');                   /* 原型固定「今天」，免得数字每天漂 */
+    const LATE_AT = 10;                              /* 落后 10pt 以内算正常波动，不算「落后」 */
+    const KR_SRC = ['手填', '资料进度', '题库掌握度', '练习记录', '项目进度'];
+    const SORTS = [{ k: 'due', label: '截止最近' }, { k: 'late', label: '落后最多' }];
+    /* 查的四个入口 = 四个状态 + 全部。「已归档」只在真的有归档项时出现（otherwise 每个新用户都看到一个 0） */
+    const FILTERS = [
+        { k: 'active', label: '进行中' },
+        { k: 'done', label: '已完成' },
+        { k: 'parked', label: '已搁置' },
+        { k: 'archived', label: '已归档', onlyIfAny: true },
+        { k: 'all', label: '全部' }
+    ];
+    const STATE_LABEL = { active: '进行中', done: '已完成', parked: '已搁置', archived: '已归档' };
+    /* 来源 → 它在哪个分区里（点支撑标签就跳过去） */
+    const SRC_SECTION = { 资料进度: '资料', 题库掌握度: '题库', 练习记录: '练习', 项目进度: '项目' };
+
+    const state = {
+        filter: 'active',
+        sort: 'due',
+        goals: [
+            {
+                id: 'g1', name: '秋招面试：300 题 + 3 家公司 offer', state: 'active',
+                skill: '网络 / 系统设计', start: '2026-08-01', due: '2026-10-20',
+                crit: '题库掌握度 ≥ 85%，系统设计能白板讲清 5 个案例，拿到 3 家 offer',
+                krs: [
+                    { text: '题库掌握度 ≥ 85%', src: '题库掌握度', val: '68%', prog: 68 },
+                    { text: '系统设计能白板讲清 5 个', src: '练习记录', val: '2 / 5', prog: 40 },
+                    { text: '完成 3 家公司面试', src: '手填', val: '0 / 3', prog: 0 }
+                ]
+            },
+            {
+                id: 'g2', name: '掌握 React 19 + Vite 工程化', state: 'active',
+                skill: 'React / 前端工程化', start: '2026-09-18', due: '2026-09-30',
+                crit: '能独立搭建并优化 React 19 项目：构建 ≤ 3s、首屏 LCP ≤ 1.5s、能讲清 RSC 的数据流',
+                krs: [
+                    { text: '读完 React 19 官方文档 · Server Components', src: '资料进度', val: '100%', prog: 100 },
+                    { text: '手写 1 个 Vite 插件（构建期注入）', src: '手填', val: '已做', prog: 100 },
+                    { text: '跑通一个 React 19 项目（含 Suspense 边界）', src: '项目进度', val: '25%', prog: 25 },
+                    { text: '写 3 条永久笔记（RSC / 预构建 / 缓存）', src: '练习记录', val: '1 / 3', prog: 33 }
+                ]
+            },
+            {
+                id: 'g3', name: '读完 3 本技术书', state: 'active',
+                skill: '计算机基础', start: '2026-05-01', due: '2026-12-31',
+                crit: '每本产出 ≥ 3 条永久笔记，能不看目录复述主线；只翻完不算达成',
+                krs: [
+                    { text: 'CSAPP · 读完 + 3 条永久笔记', src: '资料进度', val: '100%', prog: 100 },
+                    { text: '《重构》· 读完 + 3 条永久笔记', src: '资料进度', val: '第 4 章', prog: 40 },
+                    { text: '《设计模式》· 读完 + 3 条永久笔记', src: '资料进度', val: '未开始', prog: 0 }
+                ]
+            },
+            {
+                id: 'g4', name: '完成个人系统（9 模块 + 双模式）', state: 'active',
+                skill: '前端 / 产品设计', start: '2026-06-01', due: '2026-12-31',
+                crit: '9 个模块 + 双模式 + AI 能力可日常自用；不看代码能讲清每个模块的对象归属',
+                krs: [
+                    { text: '导航 v5 落地（顶栏胶囊 + 超级菜单 + 圆盘侧栏）', src: '手填', val: '已做', prog: 100 },
+                    { text: '9 个模块原型全部产出', src: '项目进度', val: '4 / 9', prog: 44 },
+                    { text: '双模式 + AI 能力接入', src: '手填', val: '未开始', prog: 0 }
+                ]
+            },
+            {
+                id: 'g5', name: '通过 AWS SAA 认证', state: 'done',
+                skill: '云计算', start: '2026-07-11', due: '2026-08-15', closed: '08-15 完成 · 用时 5 周',
+                crit: '模拟考 ≥ 80 分，正式考试一次通过（实际 842 / 1000）',
+                note: '复盘：把「先做模拟考再补章节」的顺序反了 —— 应该先扫一遍官方课程再刷题，能省两周。',
+                krs: [
+                    { text: '完成 6 章官方课程', src: '手填', val: '已做', prog: 100 },
+                    { text: '3 次模拟考 ≥ 80（最高 86）', src: '手填', val: '已做', prog: 100 },
+                    { text: '正式考试通过', src: '手填', val: '842 分', prog: 100 }
+                ]
+            },
+            {
+                id: 'g6', name: '学 Rust（所有权 + 异步）', state: 'parked',
+                skill: '系统编程', start: '2026-05-20', due: '', closed: '07-01 搁置',
+                crit: '能写一个 CLI 工具；先读懂所有权与生命周期',
+                note: '复活条件：秋招结束（10-20）且拿到 offer 后重新激活。搁置理由：与秋招优先级冲突。',
+                krs: [
+                    { text: '读完《Rust 程序设计语言》前 10 章', src: '资料进度', val: '6 / 10', prog: 60 },
+                    { text: '写一个 CLI 工具（读写文件 + 参数解析）', src: '手填', val: '未开始', prog: 0 }
+                ]
+            }
+        ]
+    };
+
+    /* ============ 派生量（只此一处算，页面各处都取它） ============ */
+    const pctOf = g => g.krs.length ? Math.round(g.krs.reduce((s, k) => s + k.prog, 0) / g.krs.length) : 0;
+    const doneKrs = g => g.krs.filter(k => k.prog >= 100).length;
+    const daysLeft = g => g.due ? Math.ceil((D(g.due) - TODAY) / 864e5) : null;
+    const timePct = g => {
+        if (!g.start || !g.due) return null;
+        const a = D(g.start), b = D(g.due);
+        return Math.round(Math.max(0, Math.min(1, (TODAY - a) / (b - a))) * 100);
+    };
+    const lateOf = g => { const t = timePct(g); return t === null ? null : t - pctOf(g); };
+    /* 「落后」的措辞只写这一处，卡片 / 回执 / 详情都取它 */
+    const lateTxt = v => v === null ? '未定期限' : v >= LATE_AT ? `落后 ${v}pt` : v > 0 ? `略落后 ${v}pt` : v < 0 ? `领先 ${-v}pt` : '齐平';
+    const isLate = g => (lateOf(g) || 0) >= LATE_AT;                 /* ≥10pt 才算真落后 */
+    const isOverdue = g => g.state === 'active' && daysLeft(g) !== null && daysLeft(g) < 0;
+    const isSoon = g => g.state === 'active' && daysLeft(g) !== null && daysLeft(g) >= 0 && daysLeft(g) <= 7;
+    /* 「缺支撑」= 还想不出自动来源、只能手填且还没达成的那几条 */
+    const handGap = g => g.krs.filter(k => k.src === '手填' && k.prog < 100).length;
+    /* 支撑来源 = 关键结果来源的汇总（去重，手填单独算） */
+    const autoSrcs = g => [...new Set(g.krs.filter(k => k.src !== '手填').map(k => k.src))];
+
+    /* ============ 渲染 ============ */
+    function render() { renderHero(); renderStrip(); renderToolbar(); renderList(); }
+
+    function renderHero() {
+        const act = state.goals.filter(g => g.state === 'active');
+        const late = act.filter(isLate);
+        const gap = act.filter(g => handGap(g) > 0);
+        const withDue = act.filter(g => daysLeft(g) !== null).sort((a, b) => daysLeft(a) - daysLeft(b));
+        const avg = act.length ? Math.round(act.reduce((s, g) => s + pctOf(g), 0) / act.length) : 0;
+
+        document.getElementById('heroTitle').textContent = !act.length
+            ? '现在没有进行中的目标'
+            : (withDue.length
+                ? `${act.length} 个进行中，最近一个还剩 ${Math.max(0, daysLeft(withDue[0]))} 天`
+                : `${act.length} 个进行中，都还没定期限`);
+
+        document.getElementById('heroSub').textContent =
+            `2026-09-25 周五 · 进行中的 ${act.length} 个平均完成 ${avg}% · 目标只管「方向 + 验收标准」，做法落在 技能 / 资料 / 题库 / 练习`;
+
+        const M = (label, num, act1, title) =>
+            `<span class="metric${act1 ? ' clickable' : ''}"${act1 ? ` onclick="${act1}"` : ''}${title ? ` title="${title}"` : ''}><em>${label}</em><b>${num}</b></span>`;
+        document.getElementById('heroMeta').innerHTML =
+            M('进行中', act.length, "pickFilter('active')") +
+            M('已完成', state.goals.filter(g => g.state === 'done').length, "pickFilter('done')") +
+            M('已搁置', state.goals.filter(g => g.state === 'parked').length, "pickFilter('parked')") +
+            M('落后于时间', late.length, late.length ? "openTodo('late')" : '', '看看是哪几个 / 该怎么处理') +
+            M('缺支撑', gap.length, gap.length ? "openTodo('gap')" : '', '看看缺在哪 / 怎么补');
+    }
+
+    function renderStrip() {
+        const list = state.goals
+            .filter(g => g.state === 'active' && g.due)
+            .sort((a, b) => D(a.due) - D(b.due));
+        const box = document.getElementById('dueStrip');
+        if (!list.length) { box.innerHTML = '<div class="due-empty">还没有带期限的进行中目标 —— 目标不设期限就不进「落后于时间」的计算。</div>'; return; }
+        box.innerHTML = list.map(g => {
+            const d = daysLeft(g), over = d < 0, soon = d >= 0 && d <= 7;
+            const cls = over ? 'over' : soon ? 'soon' : '';
+            return `<div class="due-node ${cls}">
+                <div class="due-date ${cls}">${g.due.slice(5)}</div>
+                <div class="due-name">${g.name}</div>
+                <div class="due-sub">${over ? '已逾期 ' + (-d) + ' 天' : '剩 ' + d + ' 天'} · ${pctOf(g)}%</div>
+            </div>`;
+        }).join('');
+    }
+
+    function renderToolbar() {
+        /* 筛选条也由数据渲染：计数永远和列表一致，「已归档」没有内容时整条不出现 */
+        const cnt = k => k === 'all' ? state.goals.length : state.goals.filter(g => g.state === k).length;
+        const shown = FILTERS.filter(f => !f.onlyIfAny || cnt(f.k) > 0);
+        if (!shown.some(f => f.k === state.filter)) state.filter = 'all';
+        document.getElementById('goalFilters').innerHTML = shown.map(f =>
+            `<span class="filter-chip${f.k === state.filter ? ' active' : ''}" onclick="pickFilter('${f.k}')">${f.label} <b>${cnt(f.k)}</b></span>`
+        ).join('');
+        const s = SORTS.find(x => x.k === state.sort);
+        document.getElementById('sortBtn').textContent = `排序：${s.label} ›`;
+    }
+
+    const passFilter = (g, f) =>
+        f === 'all' ? true : f === 'archived' ? g.state === 'archived' : g.state === f;
+
+    function sortGoals(list) {
+        const rank = g => g.state === 'active' ? 0 : 1;
+        return [...list].sort((a, b) => {
+            if (rank(a) !== rank(b)) return rank(a) - rank(b);
+            if (state.sort === 'late') {
+                const la = lateOf(a), lb = lateOf(b);
+                if (la === null) return 1;
+                if (lb === null) return -1;
+                return lb - la;
+            }
+            const da = a.due ? D(a.due).getTime() : Infinity;
+            const db = b.due ? D(b.due).getTime() : Infinity;
+            return da - db;
+        });
+    }
+
+    function renderList() {
+        const list = sortGoals(state.goals.filter(g => passFilter(g, state.filter)));
+        const box = document.getElementById('goalList');
+        if (!list.length) {
+            box.innerHTML = `<section class="card empty-card">
+                <div class="empty-title">${state.goals.length ? '这个筛选下没有目标' : '还没有目标'}</div>
+                <div class="empty-desc">${state.goals.length
+                    ? '换个筛选看看，或者直接新建一个。'
+                    : '目标是「要达到什么水平」，不是待办清单 —— 定的是方向与验收标准。'}</div>
+                <div class="empty-acts">
+                    ${state.goals.length ? `<button class="goal-btn" onclick="pickFilter('all')">看全部 ${state.goals.length} 个</button>` : ''}
+                    <button class="goal-btn primary" onclick="openGoalForm()">+ 新建目标</button>
+                </div>
+            </section>`;
+            return;
+        }
+        box.innerHTML = list.map(g => g.state === 'active' ? activeCard(g) : miniCard(g)).join('');
+    }
+
+    function krRow(g, k, i) {
+        const hand = k.src === '手填';
+        const done = k.prog >= 100;
+        const cls = hand ? (done ? 'on' : '') : 'doing';
+        const check = hand
+            ? `<span class="kr-check ${cls}" role="checkbox" aria-checked="${done}" onclick="toggleKr('${g.id}', ${i})" title="点一下就是达成 / 取消达成"></span>`
+            : `<span class="kr-check doing" title="由「${k.src}」推算，不手填">${done ? '✓' : '•'}</span>`;
+        return `<div class="kr-item">
+            ${check}
+            <span class="kr-text ${done ? 'on' : ''}">${k.text}</span>
+            <span class="kr-val ${done ? '' : 'warn'}">${hand ? (done ? '已做' : '未开始') : k.src + ' ' + k.val}</span>
+        </div>`;
+    }
+
+    function srcChips(g) {
+        const srcs = autoSrcs(g);
+        const hand = g.krs.filter(k => k.src === '手填').length;
+        const gap = handGap(g);
+        if (!g.krs.length) return '<span class="none">还没有关键结果</span>';
+        return srcs.map(s =>
+            `<span class="g-link" onclick="goSection('${SRC_SECTION[s]}')" title="来自「${s}」的关键结果">${s} · ${g.krs.filter(k => k.src === s).length} 条</span>`
+        ).join('') + (hand
+            ? gap
+                ? `<span class="g-link miss" onclick="openTodo('gap')" title="只能手填，系统里没有自动来源">缺支撑 · 手填 ${gap} 条</span>`
+                : `<span class="g-link" title="只能手填，但都已经做完了">手填 ${hand} 条 · 都已做</span>`
+            : '');
+    }
+
+    function activeCard(g) {
+        const p = pctOf(g), t = timePct(g), late = lateOf(g), d = daysLeft(g);
+        const over = d !== null && d < 0, soon = d !== null && d >= 0 && d <= 7;
+        const bad = late !== null && late >= LATE_AT, mild = late !== null && late > 0 && late < LATE_AT;
+        const lateText = late === null ? '未定期限，不算时间进度'
+            : late >= LATE_AT ? `时间已过 ${t}% · 落后 ${late}pt`
+                : late > 0 ? `时间已过 ${t}% · 略落后 ${late}pt`
+                    : late < 0 ? `时间已过 ${t}% · 领先 ${-late}pt` : `时间已过 ${t}% · 齐平`;
+        return `<section class="card goal-card${bad ? ' risk' : ''}" data-id="${g.id}">
+            <div class="goal-head">
+                <div class="goal-head-main">
+                    <div class="goal-badges">
+                        <span class="g-badge active">进行中</span>
+                        ${over ? '<span class="g-badge risk">已逾期</span>' : ''}
+                    </div>
+                    <div class="goal-name">${g.name}</div>
+                    <div class="goal-crit"><b>验收</b>${g.crit}</div>
+                </div>
+                <div class="goal-side">
+                    <div class="goal-due ${over ? 'over' : soon ? 'soon' : ''}">${g.due ? g.due.slice(5) : '无期限'}</div>
+                    <div class="goal-due-sub">${d === null ? '未定期限' : over ? `已逾期 ${-d} 天` : `剩 ${d} 天`}</div>
+                </div>
+            </div>
+            <div class="goal-prog">
+                <div class="progress-bar"><div class="progress-fill ${bad ? 'danger' : ''}" style="width: ${p}%"></div></div>
+                <div class="goal-prog-meta"><b>${p}%</b><span class="${bad ? 'late' : late !== null && late < 0 ? 'ahead' : ''}">${lateText}</span></div>
+            </div>
+            <div class="kr-title"><span>关键结果</span><span>${doneKrs(g)} / ${g.krs.length}</span></div>
+            <div class="kr-list">${g.krs.map((k, i) => krRow(g, k, i)).join('')}</div>
+            <div class="goal-foot">
+                <div class="goal-links">${srcChips(g)}</div>
+                <div class="goal-acts">
+                    <button class="goal-btn primary" onclick="planAction('${g.id}')">排今日动作</button>
+                    <button class="goal-btn more" onclick="openGoalMore('${g.id}')" title="编辑 / 顺延 / 搁置 / 删除">···</button>
+                </div>
+            </div>
+        </section>`;
+    }
+
+    function miniCard(g) {
+        const isDone = g.state === 'done';
+        const cls = isDone ? 'done' : 'parked';
+        /* 收场的目标：已完成可以归档（退场但留着），已搁置 / 已归档都可以恢复 */
+        const mainAct = isDone
+            ? `<button class="goal-btn" onclick="doArchive('${g.id}')">归档</button>`
+            : `<button class="goal-btn" onclick="openResume('${g.id}')">恢复</button>`;
+        return `<section class="card goal-card mini ${cls}" data-id="${g.id}">
+            <div class="goal-head">
+                <div class="goal-head-main">
+                    <div class="goal-name"><span class="g-badge ${cls}">${STATE_LABEL[g.state]}</span>${g.name}</div>
+                </div>
+                <div class="goal-side">
+                    <div class="goal-due mute">${pctOf(g)}%</div>
+                    <div class="goal-due-sub">${g.closed || ''}</div>
+                </div>
+            </div>
+            <div class="mini-foot">
+                <span class="mini-note">${g.note || '验收：' + g.crit}</span>
+                <div class="goal-acts">
+                    <button class="goal-btn" onclick="openGoal('${g.id}')">详情</button>
+                    ${mainAct}
+                    <button class="goal-btn more" onclick="openGoalMore('${g.id}')" title="编辑 / 删除">···</button>
+                </div>
+            </div>
+        </section>`;
+    }
+
+    /* ============ 查：筛选 / 排序 / 详情 ============ */
+    function pickFilter(f) {
+        state.filter = f;
+        renderToolbar();
+        renderList();
+        document.querySelector('.main').scrollTop = 0;
+    }
+    function cycleSort() {
+        const i = SORTS.findIndex(s => s.k === state.sort);
+        state.sort = SORTS[(i + 1) % SORTS.length].k;
+        renderToolbar();
+        renderList();
+    }
+    document.querySelectorAll('#goalFilters .filter-chip').forEach(c =>
+        c.addEventListener('click', () => pickFilter(c.dataset.goalFilter)));
+
+    function goSection(name) {
+        alert(`原型演示：跳到「${name}」分区\n（本页只承载「目标」分区的界面，其余分区在模块主页 study_index.html 里）`);
+    }
+    function planAction(id) {
+        const g = state.goals.find(x => x.id === id);
+        const next = g.krs.find(k => k.prog < 100);
+        alert(`原型演示：给「${g.name}」排 1 个今日动作\n下一步：${next ? next.text : '（关键结果都完成了，可以标记完成）'}`);
+    }
+
+    function openGoal(id) {
+        const g = state.goals.find(x => x.id === id);
+        if (!g) return;
+        const gap = handGap(g);
+        openModal(g.name, `
+      <div class="detail-section">
+        <div class="detail-label">目标对象（学习 · 目标）</div>
+        <ul class="detail-list">
+          <li>状态：${STATE_LABEL[g.state]}${g.closed ? '（' + g.closed + '）' : ''} · 完成度：${pctOf(g)}%</li>
+          <li>期限：${g.due || '未定期限'}${g.due ? '（' + (daysLeft(g) < 0 ? '已逾期 ' + (-daysLeft(g)) + ' 天' : '剩 ' + daysLeft(g) + ' 天') + '）' : ''}</li>
+          <li>时间进度：${timePct(g) === null ? '未定期限，不算' : timePct(g) + '%'}${lateOf(g) === null ? '' : lateOf(g) > 0 ? ' · 落后 ' + lateOf(g) + 'pt' : lateOf(g) < 0 ? ' · 领先 ' + (-lateOf(g)) + 'pt' : ' · 齐平'}</li>
+          <li>关联技能：${g.skill || '未关联'}</li>
+          <li>验收口径：${g.crit}</li>
+        </ul>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">关键结果 · ${doneKrs(g)} / ${g.krs.length} 达成（完成度就是它们的平均）</div>
+        <ul class="detail-list">
+          ${g.krs.map(k => `<li>${k.text} · <b>来源：${k.src}${k.src === '手填' ? '' : ' ' + k.val}</b> · 达成 ${k.prog}%</li>`).join('')}
+        </ul>
+        <div class="detail-text" style="font-size:12.5px;margin-top:8px;">来源不是「手填」的格子由对应分区推算，不用人维护；只剩「手填」的说明它在系统里没有自动来源。${gap ? ' 这个目标还有 <b>' + gap + ' 条</b>靠手填。' : ''}</div>
+      </div>
+      ${g.note ? `<div class="detail-section"><div class="detail-label">${g.state === 'done' ? '复盘' : g.state === 'parked' ? '复活条件' : '备注'}</div><div class="detail-text">${g.note}</div></div>` : ''}
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button class="btn btn-ghost" onclick="openGoalForm('${g.id}')">编辑</button>
+        <button class="btn btn-primary" onclick="planAction('${g.id}');closeModal()">排今日动作</button>
+      </div>
+    `);
+    }
+
+    /* ============ 增 / 改：同一份表单（新建与编辑只差预填和标题） ============ */
+    function krFormRow(text, src, val) {
+        return `<div class="gf-kr">
+            <input class="gf-input" name="krText" value="${text}" data-val="${val || ''}" placeholder="关键结果（怎么算达成）">
+            <select class="gf-input" name="krSrc" title="这条的达成度从哪来">
+                ${KR_SRC.map(o => `<option${o === src ? ' selected' : ''}>${o}</option>`).join('')}
+            </select>
+            <button class="gf-del" type="button" onclick="this.parentNode.remove()" title="删掉这条">✕</button>
+        </div>`;
+    }
+    function addKrRow() {
+        const box = document.getElementById('gfKrs');
+        if (box) box.insertAdjacentHTML('beforeend', krFormRow('', '手填', ''));
+    }
+    const dateOf = s => (String(s || '').match(/\d{4}-\d{2}-\d{2}/) || [''])[0];
+
+    function openGoalForm(id) {
+        const g = id ? state.goals.find(x => x.id === id) : null;
+        const krs = g ? g.krs : [{ text: '', src: '手填', val: '' }];
+        openModal(g ? `编辑目标 · ${g.name}` : '新建目标', `
+      <form class="gform" id="goalForm" onsubmit="return false;">
+        <div class="gf-field">
+          <label class="gf-label">目标 <span class="gf-req">必填</span></label>
+          <input class="gf-input" name="name" value="${g ? g.name : ''}" placeholder="要达到什么水平（写结果，不写做法）">
+          <div class="gf-err" data-err="name" hidden></div>
+        </div>
+        <div class="gf-row">
+          <div class="gf-field">
+            <label class="gf-label">期限 <span class="gf-req">必填</span></label>
+            <input class="gf-input" type="date" name="due" value="${g ? dateOf(g.due) : ''}">
+            <div class="gf-err" data-err="due" hidden></div>
+            <div class="gf-help">不设期限就不进「落后于时间」的计算</div>
+          </div>
+          <div class="gf-field">
+            <label class="gf-label">关联技能</label>
+            <select class="gf-input" name="skill">
+              ${['不关联', '网络 / 系统设计', 'React / 前端工程化', '算法与数据结构', '计算机基础', '云计算', '系统编程']
+                .map(s => `<option${g && (g.skill || '不关联') === s ? ' selected' : ''}>${s}</option>`).join('')}
+            </select>
+            <div class="gf-help">技能记现状与缺口，是目标的输入</div>
+          </div>
+        </div>
+        <div class="gf-field">
+          <label class="gf-label">验收口径 <span class="gf-req">必填</span></label>
+          <textarea class="gf-input" name="crit" rows="2" placeholder="怎么算达成">${g ? g.crit : ''}</textarea>
+          <div class="gf-err" data-err="crit" hidden></div>
+          <div class="gf-help">一句话说清「达成时长什么样」；不是任务清单</div>
+        </div>
+        <div class="gf-field">
+          <label class="gf-label">关键结果 <span class="gf-req">至少 1 条</span></label>
+          <div class="gf-krs" id="gfKrs">${krs.map(k => krFormRow(k.text, k.src, k.val)).join('')}</div>
+          <button class="gf-add" type="button" onclick="addKrRow()">+ 加一条关键结果</button>
+          <div class="gf-err" data-err="krs" hidden></div>
+          <div class="gf-help">来源选「手填」以外的，这条的达成度由对应分区推算，不用人维护</div>
+        </div>
+        <div class="gf-note">
+          <b>完成度、状态、支撑来源都不用填</b>：完成度 = 关键结果的平均达成度；状态由 期限 + 完成度 派生（未到期且未满 = 进行中）；支撑来源就是上面「来源」列的汇总。
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+          <button class="btn btn-primary" type="button" onclick="saveGoal('${g ? g.id : ''}')">${g ? '保存修改' : '保存并开始'}</button>
+        </div>
+      </form>
+    `);
+    }
+
+    function formErr(f, key, msg) {
+        const box = f.querySelector(`[data-err="${key}"]`);
+        if (box) { box.textContent = msg; box.hidden = !msg; }
+        const input = f.querySelector(`[name="${key}"]`);
+        if (input) input.classList.toggle('invalid', !!msg);
+    }
+
+    function saveGoal(id) {
+        const f = document.getElementById('goalForm');
+        /* 注意：不能用 f.name —— 那是表单元素自身的 name 属性，会盖掉同名的输入框 */
+        const val = k => { const el = f.querySelector(`[name="${k}"]`); return el ? el.value : ''; };
+        const name = val('name').trim();
+        const due = val('due');
+        const crit = val('crit').trim();
+        const rows = [...f.querySelectorAll('.gf-kr')].map(r => ({
+            text: r.querySelector('[name=krText]').value.trim(),
+            src: r.querySelector('[name=krSrc]').value,
+            val: r.querySelector('[name=krText]').dataset.val || ''
+        })).filter(k => k.text);
+
+        let bad = false;
+        formErr(f, 'name', name ? '' : '目标不能为空'); if (!name) bad = true;
+        formErr(f, 'due', due ? '' : '要有一个期限'); if (!due) bad = true;
+        formErr(f, 'crit', crit ? '' : '要写清怎么算达成'); if (!crit) bad = true;
+        formErr(f, 'krs', rows.length ? '' : '至少写 1 条关键结果'); if (!rows.length) bad = true;
+        if (bad) return;
+
+        if (id) {
+            const g = state.goals.find(x => x.id === id);
+            /* 达成度认「文字没改的那几条」——改了文案的按新条目重新算 */
+            const before = {}; g.krs.forEach(k => before[k.text] = { prog: k.prog, val: k.val });
+            const oldPct = pctOf(g), oldLate = lateOf(g);
+            g.name = name; g.due = due; g.crit = crit; g.skill = val('skill');
+            g.krs = rows.map(r => ({
+                text: r.text, src: r.src,
+                val: before[r.text] && before[r.text].val ? before[r.text].val : (r.src === '手填' ? '未开始' : '—'),
+                prog: r.src === '手填'
+                    ? (before[r.text] ? before[r.text].prog : 0)
+                    : (before[r.text] ? before[r.text].prog : 0)
+            }));
+            const chg = [];
+            if (pctOf(g) !== oldPct) chg.push(`完成度 ${oldPct}% → ${pctOf(g)}%`);
+            if (lateOf(g) !== oldLate && lateOf(g) !== null && oldLate !== null) chg.push(`${lateTxt(oldLate)} → ${lateTxt(lateOf(g))}`);
+            closeModal(); render();
+            toast(`已保存「${g.name}」` + (chg.length ? ' · ' + chg.join(' · ') : ''));
+            return;
+        }
+
+        const g = {
+            id: 'g' + Date.now(), name, state: 'active', skill: val('skill'),
+            start: '2026-09-25', due, crit,
+            krs: rows.map(r => ({ text: r.text, src: r.src, val: r.src === '手填' ? '未开始' : '—', prog: 0 }))
+        };
+        state.goals.unshift(g);
+        state.filter = 'active';
+        closeModal(); render();
+        toast(`已新建「${g.name}」`, '撤销', () => { state.goals = state.goals.filter(x => x.id !== g.id); render(); toast('已撤销新建'); });
+    }
+
+    /* 卡上勾关键结果：只有「手填」的能勾，勾完立刻重算完成度与落后 */
+    function toggleKr(id, i) {
+        const g = state.goals.find(x => x.id === id);
+        if (!g || g.krs[i].src !== '手填') return;
+        const k = g.krs[i];
+        k.prog = k.prog >= 100 ? 0 : 100;
+        k.val = k.prog >= 100 ? '已做' : '未开始';
+        render();
+    }
+
+    /* ============ 删：二次确认 + 撤销 ============ */
+    function openDelete(id) {
+        const g = state.goals.find(x => x.id === id);
+        if (!g) return;
+        const srcs = autoSrcs(g);
+        openModal('删除这个目标？', `
+      <div class="detail-section">
+        <div class="detail-label">只会删掉目标本身</div>
+        <div class="detail-text">「${g.name}」· 完成度 ${pctOf(g)}% · ${doneKrs(g)} / ${g.krs.length} 条关键结果达成</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">不会动的（它们各有各的家）</div>
+        <ul class="detail-list">
+          ${srcs.length ? srcs.map(s => `<li>${s} 里的记录 —— 归 ${SRC_SECTION[s]} 分区</li>`).join('') : '<li>没有挂靠任何分区的记录</li>'}
+          <li>迁移前请先想一下：是要删，还是该「搁置」（搁置会留下复活条件）</li>
+        </ul>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-ghost" onclick="openPark('${id}')">改为搁置</button>
+        <button class="btn btn-danger" onclick="doDelete('${id}')">确认删除</button>
+      </div>
+    `);
+    }
+    function doDelete(id) {
+        const i = state.goals.findIndex(g => g.id === id);
+        if (i < 0) return;
+        const [g] = state.goals.splice(i, 1);
+        closeModal(); render();
+        toast(`已删除「${g.name}」`, '撤销', () => { state.goals.splice(i, 0, g); render(); toast('已恢复'); });
+    }
+
+    /* 归档 = 从目标列表退场、记录仍留着。它是「删除」的正确替代：
+       收场的目标不该长期占着列表，但也不该被删掉。 */
+    function doArchive(id) {
+        const g = state.goals.find(x => x.id === id);
+        if (!g) return;
+        const from = g.state, fromClosed = g.closed;
+        g.state = 'archived'; g.closed = '09-25 归档';
+        render();
+        toast(`已归档「${g.name}」`, '撤销', () => { g.state = from; g.closed = fromClosed; render(); toast('已取消归档'); });
+    }
+
+    /* ============ 状态流转：每一步都带前置条件，不做一键切换 ============ */
+    function openExtend(id) {
+        const g = state.goals.find(x => x.id === id);
+        if (!g) return;
+        openModal(`顺延期限 · ${g.name}`, `
+      <div class="gf-field">
+        <label class="gf-label">新期限 <span class="gf-req">必填</span></label>
+        <input class="gf-input" type="date" name="due" id="exDue" value="${dateOf(g.due)}">
+        <div class="gf-err" data-err="due" hidden></div>
+      </div>
+      <div class="gf-field">
+        <label class="gf-label">顺延理由 <span class="gf-req">必填</span></label>
+        <textarea class="gf-input" rows="2" id="exWhy" placeholder="为什么顺延（一句就够）"></textarea>
+        <div class="gf-err" data-err="why" hidden></div>
+        <div class="gf-help">期限一动，「时间已过 %」与「落后多少」全部重算，所以理由要留下。</div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="doExtend('${g.id}')">确定顺延</button>
+      </div>
+    `);
+    }
+    function doExtend(id) {
+        const g = state.goals.find(x => x.id === id), body = document.getElementById('modalBody');
+        const due = document.getElementById('exDue').value;
+        const why = document.getElementById('exWhy').value.trim();
+        const mark = (k, msg) => { const b = body.querySelector(`[data-err="${k}"]`); if (b) { b.textContent = msg; b.hidden = !msg; } };
+        mark('due', due ? '' : '要填新期限'); mark('why', why ? '' : '写一句理由');
+        if (!due || !why) return;
+        const oldLate = lateOf(g);
+        g.due = due;
+        g.note = (g.note ? g.note + ' ' : '') + `顺延到 ${due}：${why}`;
+        closeModal(); render();
+        toast(`已顺延到 ${due}` + (lateOf(g) !== oldLate && lateOf(g) !== null && oldLate !== null ? ` · ${lateTxt(oldLate)} → ${lateTxt(lateOf(g))}` : ''));
+    }
+    function openPark(id) {
+        const g = state.goals.find(x => x.id === id);
+        if (!g) return;
+        openModal(`搁置 · ${g.name}`, `
+      <div class="gf-field">
+        <label class="gf-label">搁置理由 <span class="gf-req">必填</span></label>
+        <input class="gf-input" id="pkWhy" placeholder="为什么现在不做">
+        <div class="gf-err" data-err="why" hidden></div>
+      </div>
+      <div class="gf-field">
+        <label class="gf-label">复活条件 <span class="gf-req">必填</span></label>
+        <textarea class="gf-input" rows="2" id="pkWhen" placeholder="什么情况下重新捡起来（没有它就不许搁置）"></textarea>
+        <div class="gf-err" data-err="when" hidden></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="doPark('${g.id}')">搁置</button>
+      </div>
+    `);
+    }
+    function doPark(id) {
+        const g = state.goals.find(x => x.id === id), body = document.getElementById('modalBody');
+        const why = document.getElementById('pkWhy').value.trim();
+        const when = document.getElementById('pkWhen').value.trim();
+        const mark = (k, msg) => { const b = body.querySelector(`[data-err="${k}"]`); if (b) { b.textContent = msg; b.hidden = !msg; } };
+        mark('why', why ? '' : '写一句理由'); mark('when', when ? '' : '必须写复活条件');
+        if (!why || !when) return;
+        g.state = 'parked';
+        g.closed = '09-25 搁置';
+        g.note = `复活条件：${when}。搁置理由：${why}。`;
+        closeModal(); render();
+        toast(`已搁置「${g.name}」`, '撤销', () => { g.state = 'active'; g.closed = ''; g.note = ''; render(); toast('已恢复为进行中'); });
+    }
+    function openResume(id) {
+        const g = state.goals.find(x => x.id === id);
+        if (!g) return;
+        openModal(`恢复 · ${g.name}`, `
+      <div class="detail-section">
+        <div class="detail-label">复活条件</div>
+        <div class="detail-text">${g.note || '（没写）'}</div>
+      </div>
+      <div class="gf-field">
+        <label class="gf-label">补一个期限 <span class="gf-req">必填</span></label>
+        <input class="gf-input" type="date" id="rsDue" value="${dateOf(g.due)}">
+        <div class="gf-err" data-err="due" hidden></div>
+        <div class="gf-help">搁置期间没有期限，恢复时必须补一个 —— 否则它不进任何时间口径。</div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="doResume('${g.id}')">恢复为进行中</button>
+      </div>
+    `);
+    }
+    function doResume(id) {
+        const g = state.goals.find(x => x.id === id), body = document.getElementById('modalBody');
+        const due = document.getElementById('rsDue').value;
+        const b = body.querySelector('[data-err="due"]');
+        if (!due) { b.textContent = '必须补一个期限'; b.hidden = false; return; }
+        g.state = 'active'; g.due = due; g.closed = '';
+        g.start = g.start || '2026-09-25';
+        closeModal(); render();
+        toast(`已恢复「${g.name}」· 期限 ${due}`);
+    }
+    function openDone(id) {
+        const g = state.goals.find(x => x.id === id);
+        if (!g) return;
+        const notDone = g.krs.filter(k => k.prog < 100);
+        openModal(`标记完成 · ${g.name}`, `
+      <div class="detail-section">
+        <div class="detail-label">关键结果 ${doneKrs(g)} / ${g.krs.length}</div>
+        <ul class="detail-list">
+          ${notDone.length ? notDone.map(k => `<li>还没达成：${k.text}（${k.prog}%）</li>`).join('') : '<li>全部达成</li>'}
+        </ul>
+      </div>
+      <div class="gf-field">
+        <label class="gf-label">复盘 <span class="gf-req">必填</span></label>
+        <textarea class="gf-input" rows="3" id="dnNote" placeholder="当初的判断哪里错了 / 下次怎么做（一句话也行）"></textarea>
+        <div class="gf-err" data-err="note" hidden></div>
+        <div class="gf-help">没有复盘的完成不算完成 —— 它只是从列表里消失。</div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="doDone('${g.id}')">完成并收起</button>
+      </div>
+    `);
+    }
+    function doDone(id) {
+        const g = state.goals.find(x => x.id === id), body = document.getElementById('modalBody');
+        const note = document.getElementById('dnNote').value.trim();
+        const b = body.querySelector('[data-err="note"]');
+        if (!note) { b.textContent = '至少写一句'; b.hidden = false; return; }
+        g.state = 'done'; g.closed = '09-25 完成'; g.note = '复盘：' + note;
+        closeModal(); render();
+        toast(`已完成「${g.name}」`);
+    }
+
+    /* 「···」：卡上只留一个主操作，其余按 改内容 / 改时间 / 改状态 / 删除 四组 */
+    function openGoalMore(id) {
+        const g = state.goals.find(x => x.id === id);
+        if (!g) return;
+        const isActive = g.state === 'active', isDone = g.state === 'done';
+        openModal(`${g.name} · 更多`, `
+      <div class="detail-section">
+        <div class="detail-label">改内容</div>
+        <ul class="detail-list">
+          <li>改目标 / 验收口径 / 关联技能</li>
+          <li>加删关键结果（完成度就是它们的平均值，所以改这里就会动完成度）</li>
+        </ul>
+        <div class="empty-acts" style="justify-content:flex-start;margin-top:10px;">
+          <button class="goal-btn primary" onclick="openGoalForm('${g.id}')">编辑目标</button>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">改时间</div>
+        <ul class="detail-list">
+          <li>顺延期限（要写一句理由；期限一动，「还剩几天 / 落后多少」全部重算）</li>
+        </ul>
+        <div class="empty-acts" style="justify-content:flex-start;margin-top:10px;">
+          <button class="goal-btn" onclick="openExtend('${g.id}')">顺延期限</button>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">改状态</div>
+        <ul class="detail-list">
+          ${isDone ? '<li>已完成 → 归档：复盘已经写了，归档后从目标列表退场（记录留着，随时能翻）</li>'
+            : isActive ? '<li>进行中 → 已搁置：必须写「复活条件」，否则不许搁置</li><li>进行中 → 已完成：必须写 1 条复盘</li>'
+                : '<li>已搁置 / 已归档 → 进行中：恢复时必须补一个期限</li>'}
+        </ul>
+        <div class="empty-acts" style="justify-content:flex-start;margin-top:10px;">
+          ${isDone ? `<button class="goal-btn" onclick="doArchive('${g.id}')">归档</button>`
+            : isActive ? `<button class="goal-btn" onclick="openDone('${g.id}')">标记完成</button><button class="goal-btn" onclick="openPark('${g.id}')">搁置</button>`
+                : `<button class="goal-btn" onclick="openResume('${g.id}')">恢复为进行中</button>`}
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">删除</div>
+        <ul class="detail-list"><li>只删目标本身，不动它挂靠的资料 / 题库 / 练习记录；删错了可以撤销</li></ul>
+        <div class="empty-acts" style="justify-content:flex-start;margin-top:10px;">
+          <button class="goal-btn" style="color:var(--danger-text);border-color:var(--danger-line)" onclick="openDelete('${g.id}')">删除目标</button>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+      </div>
+    `);
+    }
+
+    /* ============ 待处理清单：hero 上的汇总量点开就是「接下来动哪一下」 ============ */
+    function openTodo(kind) {
+        const act = state.goals.filter(g => g.state === 'active');
+        const rows = kind === 'late'
+            ? act.filter(isLate).map(g => ({
+                name: g.name,
+                why: `时间已过 <b>${timePct(g)}%</b>、完成度 ${pctOf(g)}% —— 落后 <b>${lateOf(g)}pt</b>。${g.krs.filter(k => k.prog < 100).length} 条关键结果还没达成。`,
+                act: `<button class="goal-btn primary" onclick="planAction('${g.id}');closeModal()">排今日动作</button>`,
+                also: `<button class="goal-btn" onclick="openExtend('${g.id}')">顺延</button>`
+            }))
+            : act.filter(g => handGap(g) > 0).map(g => ({
+                name: g.name,
+                why: `有 <b>${handGap(g)} 条</b>关键结果只能手填：${g.krs.filter(k => k.src === '手填' && k.prog < 100).map(k => k.text).join('、')} —— 在系统里没有自动来源。`,
+                act: `<button class="goal-btn primary" onclick="openGoalForm('${g.id}')">改来源</button>`,
+                also: ``
+            }));
+        openModal(`${kind === 'late' ? '落后于时间' : '缺支撑'} · ${rows.length} 项`, `
+      ${rows.length ? rows.map(r => `<div class="todo-item">
+          <div class="todo-main">
+            <div class="todo-name">${r.name}</div>
+            <div class="todo-why">${r.why}</div>
+          </div>
+          <div class="goal-acts">${r.also}${r.act}</div>
+        </div>`).join('')
+            : '<div class="detail-text">没有需要处理的 —— 进行中的目标都不落后、也都有自动来源。</div>'}
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button class="btn btn-primary" onclick="alert('原型演示：把这些排进今天的计划');closeModal()">排进今日</button>
+      </div>
+    `);
+    }
+
+    /* ============ 提示条（删除 / 保存的回执，撤销按钮共用一处） ============ */
+    let toastTimer = null, undoFn = null;
+    function toast(msg, undoLabel, fn) {
+        undoFn = fn || null;
+        const wrap = document.getElementById('toastWrap');
+        wrap.innerHTML = `<div class="toast"><span>${msg}</span>${undoLabel ? `<button class="toast-btn" onclick="runUndo()">${undoLabel}</button>` : ''}</div>`;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { wrap.innerHTML = ''; undoFn = null; }, 7000);
+    }
+    function runUndo() {
+        const fn = undoFn; undoFn = null;
+        document.getElementById('toastWrap').innerHTML = '';
+        if (fn) fn();
+    }
+
+    render();
+    /* ============ 初始化 ============ */
+    setTheme(readTheme());
+    renderPrimaryNav();
+    navItemEls = [...document.querySelectorAll('.nav-p-item')];
+    buildCmdList();
+
+    /* 一级项补 title（窄屏只剩图标时作为悬停提示） */
+    navItemEls.forEach(el => el.setAttribute('title', primaryConfig[el.dataset.module].name));
+
+    collapseBtn.title = '收起侧栏';
+    collapseBtn.setAttribute('aria-expanded', 'true');
+
+    /* 共享视图挂载：学习模块只喂「域 = 学习」这个筛选，UI 与数据都来自项目模块。
+       换到项目模块的壳里，同一行代码只需换一个 filter —— 这就是「挂两处」的全部成本。 */
+    document.querySelectorAll('[data-mount]').forEach(el => {
+        if (el.dataset.mount === 'projects') renderProjectList(el, p => p.domain === '学习');
+    });
+
+    renderRing(primaryConfig[currentPrimary], false);
+    activatePanel('goals');
+</script>
+</body>
+</html>

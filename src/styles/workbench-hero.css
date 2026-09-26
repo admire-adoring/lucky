@@ -9,10 +9,16 @@
      而且会丢掉 @property 注册（`--accent` / `--na` / `--arc`）——
      没有它们，切换模块时环的色调与指针是"啪"地跳变而不是渐变过去。
 
-   与原型的**唯一差异**：`.rail-round--tile` 的底色从旧的
-   `--color-surface-raised`（旧玻璃令牌，rgba(255,255,255,.84)）改成 Prism 的面板槽位
-   `rgb(var(--g-panel-rgb) / var(--g-panel-a))`，否则助手栏里那一枚圆钮会带着
-   另一套材质体系进来（亮暗两个主题下都不对）。
+   与原型的差异（两轮，都要留住）：
+     · 第一轮：`.rail-round--tile` 的底色从旧的 `--color-surface-raised`
+       （旧玻璃令牌，rgba(255,255,255,.84)）改成 Prism 的面板槽位，理由是
+       另一套材质体系进来（亮暗两个主题下都不对）。
+     · 第二轮（2026-09-25 纯色化）：面板槽位 `rgb(var(--g-panel-rgb) / var(--g-panel-a))`
+       本身也**随玻璃删除了**，这一处改成 `--mw-bg-card`（实色卡面）。
+       ⚠️ 这一步必须做，不能只删令牌：`var()` 取不到时**整条声明被丢弃、不报错**，
+       那枚圆钮会变成完全透明（只剩图标和阴影）。
+       本项目已经因此吃过两次亏 —— 抽屉少带一个宿主类时丢了 21 条声明、
+       这一处会丢一条 background；两次都是"页面照常渲染、只是少点东西"。
 
    ⚠️ 依赖：Prism 的令牌（--s / --m-lt-* / --m-a* / --brand-a）与 prism.css §6 的
       颜色别名（--color-ink-* / --color-brand-*）。两者在 index.css 里都排在它前面。
@@ -105,23 +111,18 @@
           --na 0.52s cubic-bezier(0, 0, 0.2, 1);
       }
 
-      /* Hero 顶部那道光环带：颜色也跟着强调色走 ——
-         切换模块时"整块 Hero 换色"是这套系统里最容易被感知的一处变化，
-         而它只花了一个 var()。 */
-      .hero-band {
-        background:
-          linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--accent) 20%, transparent) 0%,
-            color-mix(in srgb, var(--accent) 8%, transparent) 46%,
-            transparent 100%
-          ),
-          radial-gradient(
-            70% 130% at 92% -6%,
-            color-mix(in srgb, var(--accent) 26%, transparent) 0%,
-            transparent 66%
-          );
-      }
+      /* ⚠️ 这里原本是一条 `.hero-band` 规则：Hero 顶部那道光环带，
+         两层渐变（180° 的域色罩 + 右上一个 70%×130% 的 radial 辉光），
+         作用是"切换模块时整块 Hero 换色"。
+
+         纯色化把它整条删掉，有**两条**各自独立的理由，任一条都足够：
+           ① 它是一层**没有任何元素的渐变罩色**（光环带 = 纯装饰，不承载信息，
+              判据是"这道渐变里有没有信息"）；
+           ② 它的类名在全仓**只出现在这条规则里** —— `src/**` 里没有任何
+              `.hero-band` 的挂载点（原型里那个 `<div class="hero-band">`
+              从没被搬进应用）。也就是说它**本来是条死规则**，只是恰好长得像活的。
+         第 ② 条顺带说明一件事：这条规则能在仓库里活这么久，是因为它"看着有用"
+         —— 只读 CSS 永远看不出一个类有没有挂载点。 */
 
       /* ===== 门：表盘 + 中心名 = 进入当前模块主页面的入口 =====
          位置就是中心。这里原来放的是表盘下方一枚实底胶囊（写着"进入工作主菜单"）——
@@ -186,25 +187,27 @@
       /* 指针方向的光边：**只在 hover / 键盘聚焦时亮**，且最亮那一点的角度 = 指针角度（--na）。
          平时不画 —— 表盘的边界一直是"只有光、没有线"（外边界交给花瓣花环），
          这圈线只在"门被点亮"的那一刻出现，于是它天然是"可以进去"的信号，而不是装饰。
-         ⚠️ **颜色必须取域色，不能取白**：表盘本身是一块浅色玻璃（accent 只染到 30%），
+         ⚠️ **颜色必须取域色，不能取白**：表盘本身是一块浅色底（accent 只染到 30%），
          白线压在上面**等于没画**（实测：把背景换成红色才看见那圈线，白的时候完全看不出）。
-         最亮那一点取 --accent-deep（不透明、够深，压得住浅底），其余按角度淡出。
-         ⚠️ 能用 --na 驱动的前提是它注册成了 <angle>（见文件头的 @property --na）：
-         没注册的自定义属性**不可插值**，锥形渐变的 from 会直接跳过去（针滑、光跳）。 */
+         最亮那一点取 --accent-deep（不透明、够深，压得住浅底）。
+
+         ⚠️ **2026-09-25 纯色化**：这条原来是 5 个停点的 `conic-gradient`，
+         作用有两个 —— ① 一道环；② **最亮那一点跟着指针角度转**（`from var(--na)`）。
+         纯色化之后只剩 ①：`background: var(--accent-deep)`，一整圈同样亮的实色环。
+         代价与理由都要说清楚：
+           · 丢的是"光边跟着针走"这层**动效**，不是信息 —— 指针本身就是 `--na` 的
+             另一个消费者（还在），方向仍然由针表达；
+           · 换来的是**可见性**。旧那条的中点停点只有 `accent 12%`（几乎透明），
+             5 个停点里有两个是"接近看不见"的 —— 一圈环上有两段是虚的，
+             它到底画没画出来，不同底衬下答案不同。实色环没有这个不确定性。
+         ⇒ 这是"用可预测换动感"的一次取舍，不是漏改。 */
       .hub-dial::before {
         content: '';
         position: absolute;
         inset: 0;
         border-radius: 999px;
         padding: 1.5px;
-        background: conic-gradient(
-          from var(--na, 0deg),
-          var(--accent-deep) 0deg,
-          color-mix(in srgb, var(--accent) 34%, transparent) 70deg,
-          color-mix(in srgb, var(--accent) 12%, transparent) 180deg,
-          color-mix(in srgb, var(--accent) 64%, transparent) 292deg,
-          var(--accent-deep) 360deg
-        );
+        background: var(--accent-deep);
         -webkit-mask:
           linear-gradient(#000 0 0) content-box,
           linear-gradient(#000 0 0);
@@ -222,13 +225,16 @@
         opacity: 1;
       }
       /* hover 的另一处呼应：表盘的边与投影加强一档。
-         结构必须与 .hub-dial 的常态 box-shadow **同形**（同样的三项、同样的顺序），
+         结构必须与 .hub-dial 的常态 box-shadow **同形**（同样的项数与顺序），
          否则过渡会在"两套不相干的阴影"之间插值，看起来像抖了一下。
          ⚠️ 加强也只能用素色 —— 这里原本是 accent 的彩色辉光，已随「不要渐变了」一并撤掉；
-            但仍要"看得出被指到了"，所以弱色取 `--mw-text-secondary`（亮 #64748B / 暗 #94A3B8）。 */
+            但仍要"看得出被指到了"，所以弱色取 `--mw-text-secondary`（亮 #64748B / 暗 #94A3B8）。
+         ⚠️ 纯色化：原来**两边**（这里与 `.hub-dial` 的常态）的第一项都是
+            `inset 0 1px 0 rgba(255,255,255,…)` 的贴顶高光，一并删掉。
+            ⇒ 从"3 项"变成"2 项"，**两处必须同时改** —— 这正上面那条"同形"的含义：
+            只删一处的话，过渡会在 3 项与 2 项之间插值，那才是真的抖动。 */
       .hub-door:hover:not(:disabled) .hub-dial {
         box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.62),
           0 0 0 1px color-mix(in srgb, var(--mw-text-secondary) 34%, transparent),
           0 16px 34px -16px rgba(15, 23, 42, 0.38);
       }
@@ -451,8 +457,10 @@
            所以补一层**素色**的细边与离地投影：它仍然是"正常的白色"，只是有一道边和一点浮起感。
            底色取 `--mw-bg-page`（亮 #FAFBFC / 暗 #0F172A）而不是写死 #fff —— 暗色下白盘是错的。 */
         background: var(--mw-bg-page);
+        /* ⚠️ 纯色化：原来的第一项是本条与 hover 那条共有的
+           `inset 0 1px 0 rgba(255,255,255,.5)` 贴顶高光，**两处一起删**（理由见 hover 那条）。
+           剩下的两项：细边（0 0 0 1px）+ 离地投影。 */
         box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.5),
           0 0 0 1px var(--mw-border-subtle),
           0 10px 26px -16px rgba(15, 23, 42, 0.3);
         /* 门的 hover 会把这一串换成"加强一档"的同形阴影（见 .hub-door:hover .hub-dial）——
@@ -532,7 +540,13 @@
       /* 进度弧：外沿一圈，长度 = 当前是第几个（9 个模块 → 每格 40°）。
          它把"第 i / 共 N"变成**视觉信息** —— 比在别处补一行"3 / 9"的文字便宜得多，
          ⚠️ 主刻度层已删，所以它现在是"第几格"的**唯一**读数（见上面「刻度层：已删」）。
-         --arc 由脚本写（每格 40°），注册成 <angle> 才能扫过去。 */
+         --arc 由脚本写（每格 40°），注册成 <angle> 才能扫过去。
+
+         ⚠️ **这一条是纯色化里唯一保留的 conic-gradient**，有意为之：
+         纯色口径删的是"不表达任何数据的渐变"，而这条弧的**长度本身就是数据**
+         （弧长 = 第几格），用 conic-gradient 画弧是 CSS 里最直接的做法；
+         改成一个实色圆环就等于把这个读数删掉了。
+         它也只用了 `--accent` 一支色、没有色相推移 —— 不是"渐变色的装饰"。 */
       .hub-arc {
         position: absolute;
         inset: 0;
@@ -605,14 +619,19 @@
         justify-content: center;
         border-radius: 999px;
         color: #fff;
-        /* 两层：上层是球体高光（光摆在左上 32%/26%），下层是色相。
-           色相取 src/data/derive.ts 的 avatarGradient(265)，与顶栏用户头像同源。 */
-        background:
-          radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 60%),
-          linear-gradient(135deg, hsl(265, 72%, 64%), hsl(235, 68%, 52%));
+        /* ⚠️ 2026-09-25 纯色化：这里原本是**两层**
+           —— 上层一颗贴在左上 32%/26% 的高光球（`radial-gradient` 白 34% → 透明），
+           下层是 `linear-gradient(135deg, hsl(265,72%,64%), hsl(235,68%,52%))` 的色相。
+           两层的用途都是"把它做成一颗粒子/球"，而现在它是一个**头像位**（里面是首字母）。
+           取原渐变两端的中点：`hsl(250, 70%, 58%)`（色相 265→235 的中点是 250）。
+           ⚠️ 那层高光**不是**"可以留着的阴影"：它是一个**假的球面镜面反射**，
+           实底上它只是一块洗不白的白斑。删。 */
+        background: hsl(250, 70%, 58%);
         /* 细白环 + 域色辉光 = 参考图里那颗球"浮"在卡片上的感觉。
-           ⚠️ 白环的 α 不能太小：实测 .42 时球的边界会糊进玻璃底衬，"球"就读成了
-           "一团印子"—— 它全靠这一圈把外缘切出来（放大 8 倍才看得出来）。 */
+           ⚠️ 白环的 α 不能太小：实测 .42 时球的边界会糊进底衬，"球"就读成了
+           "一团印子"—— 它全靠这一圈把外缘切出来（放大 8 倍才看得出来）。
+           ⚠️ 辉光那一段原本写的是"域色辉光"，但取的是写死的 `rgba(79,70,229,.6)` ——
+           域色一变它不会跟着动。本轮不动它（它是一条投影，不在"去渐变"的范围里）。 */
         box-shadow:
           inset 0 0 0 1px rgba(255, 255, 255, 0.58),
           0 6px 16px -6px rgba(79, 70, 229, 0.6);
@@ -665,36 +684,41 @@
       }
       /* 抬头那枚「新建对话」= 参考图右上的 sparkle 圆钮（白圆 + 品牌紫图标）。
          ⚠️ :hover 必须显式写回来：.rail-round:hover 的特异性与 --tile 相同，
-         不写的话悬停会把白底和紫图标一起冲掉。 */
+         不写的话悬停会把白底和紫图标一起冲掉。
+         ⚠️ 2026-09-25 纯色化：底色原本是 `rgb(var(--g-panel-rgb) / var(--g-panel-a))`
+         —— 那是**玻璃面板色 × 面板 α**，两个变量都已随玻璃删除。
+         留着它的后果是本轮最典型的一种：`var()` 取不到 ⇒ **整条 background 声明被丢弃**，
+         这枚圆钮会变成完全透明（只剩图标与阴影）。所以这里必须改成实色面：
+         `--mw-bg-card`（= 卡面，亮 #FFFFFF / 暗 #171F32）。
+         同时删掉 `inset 0 0 0 1px rgba(255,255,255,.7)` 那圈白描边 ——
+         它是给玻璃配的"口沿"，在白色卡面上本来就看不见。 */
       .rail-round--tile {
-        background: rgb(var(--g-panel-rgb) / var(--g-panel-a));
+        background: var(--mw-bg-card);
         color: var(--color-brand-600);
-        box-shadow:
-          inset 0 0 0 1px rgba(255, 255, 255, 0.7),
-          0 4px 10px -4px rgba(79, 70, 229, 0.38);
+        box-shadow: 0 4px 10px -4px rgba(79, 70, 229, 0.38);
       }
       .rail-round--tile:hover {
-        background: rgb(var(--g-panel-rgb) / var(--g-panel-a));
+        background: var(--mw-bg-card);
         color: var(--color-brand-600);
-        box-shadow:
-          inset 0 0 0 1px rgba(255, 255, 255, 0.9),
-          0 6px 14px -5px rgba(79, 70, 229, 0.52);
+        box-shadow: 0 6px 14px -5px rgba(79, 70, 229, 0.52);
       }
       /* 输入栏左端的附件：中性，不与右端抢 */
       .rail-round--soft:hover {
         background-color: var(--color-ink-50);
       }
       /* 输入栏右端的发送：整条栏里唯一的实底 —— 主行动只该有一个。
-         ⚠️ 渐变两端取 Prism 的 --brand-a / --brand-b（0.180 / 0.170）——
-         这两个数存在的**全部理由**就是"渐变两端都落进白字可行的那个窄窗口"。
-         直接拿强调色做渐变，中段一定会出现一段压白字只有 2~3:1 的区段。 */
+         ⚠️ 2026-09-25 纯色化：原来是 `linear-gradient(135deg, var(--brand-a), var(--brand-b))`。
+         原注释说"这两个数存在的**全部理由**就是'渐变两端都落进白字可行的那个窄窗口'"——
+         换成一个实色之后这条理由**变简单了**：只要**一个**数落进窗口即可。
+         取 `--brand-a`（= #6264EF，Y=0.1793，白字 4.58:1），
+         与 `--brand-solid` / `--grad-ai` 是同一个值 —— 三处"品牌实底"现在同色。 */
       .rail-round--send {
         color: #fff;
-        background: linear-gradient(135deg, var(--brand-a) 0%, var(--brand-b) 100%);
+        background: var(--brand-a);
         box-shadow: 0 6px 14px -2px color-mix(in srgb, var(--brand-a) 52%, transparent);
       }
       .rail-round--send:hover {
-        background: linear-gradient(135deg, var(--brand-a) 0%, var(--brand-b) 100%);
+        background: var(--brand-a);
         filter: brightness(1.06);
         color: #fff;
       }

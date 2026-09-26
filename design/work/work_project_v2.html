@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<!-- ============================================================================
+     工作模块 · 项目（**抽屉版**，v2）
+     ----------------------------------------------------------------------------
+     ✅ **已落地**。2026-09-25 替换掉 v1（书架版）成为 `/work/projects` 的界面，
+        实现在 `src/components/workspace/work/ProjectDrawers.tsx`，
+        样式在 `src/styles/module-workspace.css` 的 work 增量段（搜「项目抽屉」）。
+
+     ⚠️ 这个原型**只有亮色**（没有 `.dark` 块，主题开关也只换 emoji）。
+        应用是明暗双主题，那批材质的暗色变体是照这里的亮色值**补写**的 ——
+        改这里的材质记得两边一起看（判据写在应用那份 CSS 的段首）。
+
+     ⚠️ 落地时与原型有意不同的四处（配色改状态表 / 缩略用序号 / meta 换真字段 /
+        去掉飞行动画）逐条写在 `ProjectDrawers.tsx` 的文件头，别照这里"修正"回去。
+     ============================================================================ -->
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>工作模块 · 项目</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-page: #F7F8FA;
+            --bg-sidebar: rgba(255,255,255,0.72);
+            --bg-topbar: rgba(255,255,255,0.72);
+            --border-subtle: rgba(15,23,42,0.07);
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --blur-card: blur(28px) saturate(200%);
+            --blob-opacity: 0.42;
+            --blob-blur: 120px;
+
+            --a-work-1: #FDA4AF; --a-work-2: #FECDD3; --a-work-3: #FBCFE8;
+            --s-work: #E11D48;
+            --m1: var(--a-work-1); --m2: var(--a-work-2); --m3: var(--a-work-3);
+            --m-main: var(--s-work);
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "SF Pro Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            overflow-x: hidden;
+        }
+
+        /* 极光 */
+        .aurora-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob {
+            position: absolute; border-radius: 50%;
+            filter: blur(var(--blob-blur));
+            opacity: var(--blob-opacity);
+            animation: drift 22s ease-in-out infinite alternate;
+        }
+        .blob-1 { width: 600px; height: 600px; top: -12%;  left: -10%;  background: var(--m1); }
+        .blob-2 { width: 540px; height: 540px; top: 20%;  right: -14%; background: var(--m2); animation-delay: -7s; }
+        .blob-3 { width: 620px; height: 620px; bottom: -20%; left: 26%; background: var(--m3); animation-delay: -14s; }
+        @keyframes drift {
+            from { transform: translate(0,0) scale(1); }
+            to   { transform: translate(50px,-40px) scale(1.12); }
+        }
+
+        .app {
+            position: relative; z-index: 1;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            grid-template-rows: 56px 1fr;
+            grid-template-areas: "sidebar topbar" "sidebar main";
+            height: 100vh;
+        }
+
+        /* 侧栏 */
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-right: 1px solid var(--border-subtle);
+            padding: 16px 12px;
+            display: flex; flex-direction: column; gap: 2px;
+            overflow-y: auto;
+        }
+        .sidebar-title {
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 14px 12px 6px;
+        }
+        .menu-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 10px;
+            font-size: 14px; color: var(--text-secondary);
+            cursor: pointer; border-left: 3px solid transparent;
+            transition: all 0.18s ease; user-select: none;
+        }
+        .menu-item:hover { background: var(--border-subtle); color: var(--text-primary); }
+        .menu-item.active {
+            background: color-mix(in srgb, var(--m-main) 12%, transparent);
+            color: var(--m-main);
+            border-left-color: var(--m-main);
+            font-weight: 600;
+        }
+        .menu-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-main); flex-shrink: 0; }
+
+        /* 顶栏 */
+        .topbar {
+            grid-area: topbar;
+            background: var(--bg-topbar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; gap: 16px;
+        }
+        .breadcrumb { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+        .breadcrumb strong { color: var(--text-primary); font-weight: 600; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+        .btn {
+            border: none; border-radius: 10px;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.18s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: var(--m-main); color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 6px 20px color-mix(in srgb, var(--m-main) 50%, transparent);
+            transform: translateY(-1px);
+        }
+        .btn-ghost {
+            background: rgba(255,255,255,0.62); color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+            backdrop-filter: blur(12px);
+        }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-main); }
+        .theme-toggle {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: rgba(255,255,255,0.62);
+            backdrop-filter: blur(12px);
+            cursor: pointer; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s ease;
+        }
+        .theme-toggle:hover { transform: scale(1.05); border-color: var(--m-main); }
+
+        /* 主区 */
+        .main {
+            grid-area: main;
+            padding: 24px 28px 60px;
+            overflow-y: auto;
+        }
+
+        .tabs {
+            display: flex; gap: 4px; flex-wrap: wrap;
+            padding: 6px; border-radius: 14px;
+            margin-bottom: 24px;
+        }
+        .tab {
+            padding: 8px 16px; border-radius: 10px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer; user-select: none;
+            transition: all 0.18s ease;
+            white-space: nowrap;
+        }
+        .tab:hover { color: var(--text-primary); background: var(--border-subtle); }
+        .tab.active {
+            background: var(--m-main); color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent);
+        }
+
+        .page-head {
+            display: flex; align-items: flex-end; justify-content: space-between;
+            gap: 16px; flex-wrap: wrap;
+            margin-bottom: 32px;
+        }
+        .page-title { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+        .page-title .accent { color: var(--m-main); }
+        .page-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+        /* ============================================================
+           抽屉网格
+           ============================================================ */
+
+        .drawers {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        /* ---- 抽屉外框（内凹的柜体） ---- */
+        .drawer {
+            position: relative;
+            cursor: pointer;
+            border-radius: 16px;
+            padding: 8px;
+            background: linear-gradient(180deg,
+            rgba(15,23,42,0.06) 0%,
+            rgba(15,23,42,0.02) 100%);
+            box-shadow:
+                    inset 0 2px 6px rgba(15,23,42,0.08),
+                    inset 0 -1px 0 rgba(255,255,255,0.6),
+                    0 1px 2px rgba(15,23,42,0.04);
+            transition: background 0.4s ease, box-shadow 0.4s ease;
+            isolation: isolate;
+        }
+
+        .drawer:hover {
+            background: linear-gradient(180deg,
+            color-mix(in srgb, var(--c) 8%, rgba(15,23,42,0.06)) 0%,
+            color-mix(in srgb, var(--c) 4%, rgba(15,23,42,0.02)) 100%);
+            box-shadow:
+                    inset 0 2px 6px color-mix(in srgb, var(--c) 20%, rgba(15,23,42,0.08)),
+                    inset 0 -1px 0 rgba(255,255,255,0.7),
+                    0 1px 2px rgba(15,23,42,0.04),
+                    0 0 0 3px color-mix(in srgb, var(--c) 12%, transparent);
+        }
+
+        /* ---- 抽屉面（固定高度，不改变布局） ---- */
+        .drawer-face {
+            position: relative;
+            height: 152px;  /* 固定高度 */
+            border-radius: 12px;
+            background: linear-gradient(180deg,
+            color-mix(in srgb, var(--c) 8%, #FFFFFF) 0%,
+            color-mix(in srgb, var(--c) 14%, #FFFFFF) 100%);
+            border: 1px solid rgba(255,255,255,0.8);
+            box-shadow:
+                    0 2px 8px rgba(15,23,42,0.08),
+                    inset 0 1px 0 rgba(255,255,255,0.9),
+                    inset 0 -1px 0 rgba(15,23,42,0.04);
+            padding: 14px 16px 16px;
+            transition: transform 0.5s cubic-bezier(0.34, 1.4, 0.64, 1),
+            box-shadow 0.4s ease;
+            /* 内容用 absolute 定位，不占布局 */
+            overflow: hidden;
+        }
+
+        /* 抽屉面顶部高光 */
+        .drawer-face::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 40%;
+            background: linear-gradient(180deg,
+            rgba(255,255,255,0.5) 0%,
+            transparent 100%);
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        /* 悬停：抽屉面下移（transform 不重排） */
+        .drawer:hover .drawer-face {
+            transform: translateY(6px);
+            box-shadow:
+                    0 6px 20px rgba(15,23,42,0.15),
+                    inset 0 1px 0 rgba(255,255,255,0.95),
+                    inset 0 -1px 0 rgba(15,23,42,0.05),
+                    0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent);
+        }
+
+        /* ============================================================
+           抽屉面内容（全部 absolute，不改变布局）
+           ============================================================ */
+
+        /* ---- 把手：三个点，固定在顶部 ---- */
+        .drawer-handle {
+            position: absolute;
+            top: 14px;
+            left: 16px;
+            right: 16px;
+            height: 22px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            border-radius: 8px;
+            background: linear-gradient(180deg,
+            rgba(15,23,42,0.06) 0%,
+            rgba(15,23,42,0.02) 50%,
+            rgba(255,255,255,0.4) 100%);
+            box-shadow:
+                    inset 0 1px 2px rgba(15,23,42,0.08),
+                    inset 0 -1px 0 rgba(255,255,255,0.6);
+            z-index: 2;
+            transition: background 0.3s ease;
+        }
+
+        .drawer-handle span {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: linear-gradient(180deg,
+            color-mix(in srgb, var(--c) 60%, #64748B) 0%,
+            color-mix(in srgb, var(--c) 30%, #64748B) 100%);
+            box-shadow:
+                    inset 0 1px 0 rgba(255,255,255,0.4),
+                    0 1px 2px rgba(15,23,42,0.15);
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .drawer:hover .drawer-handle {
+            background: linear-gradient(180deg,
+            color-mix(in srgb, var(--c) 15%, rgba(15,23,42,0.06)) 0%,
+            color-mix(in srgb, var(--c) 8%, rgba(255,255,255,0.4)) 100%);
+        }
+
+        .drawer:hover .drawer-handle span {
+            background: linear-gradient(180deg,
+            color-mix(in srgb, var(--c) 90%, #FFFFFF) 0%,
+            var(--c) 100%);
+            box-shadow:
+                    inset 0 1px 0 rgba(255,255,255,0.5),
+                    0 1px 3px color-mix(in srgb, var(--c) 40%, transparent),
+                    0 0 8px color-mix(in srgb, var(--c) 30%, transparent);
+        }
+
+        /* ---- 项目名 + meta：绝对定位在底部 ---- */
+        .drawer-content {
+            position: absolute;
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            z-index: 2;
+        }
+
+        .drawer-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.25;
+            letter-spacing: -0.01em;
+            margin-bottom: 6px;
+        }
+
+        .drawer-meta {
+            font-size: 11.5px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .drawer-meta .meta-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--c);
+            box-shadow: 0 0 6px color-mix(in srgb, var(--c) 60%, transparent);
+        }
+
+        /* ---- 文档缩略：绝对定位在中间，悬停时浮现 ---- */
+        .drawer-preview {
+            position: absolute;
+            left: 16px;
+            right: 16px;
+            top: 52px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+            z-index: 1;
+
+            /* 默认：透明 + 缩小 + 略微下移 */
+            opacity: 0;
+            transform: translateY(6px) scale(0.9);
+            transform-origin: center bottom;
+
+            /* 只过渡 transform 和 opacity（不重排） */
+            transition:
+                    opacity 0.35s ease,
+                    transform 0.45s cubic-bezier(0.34, 1.4, 0.64, 1);
+        }
+
+        .drawer:hover .drawer-preview {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* 缩略书脊 */
+        .preview-book {
+            width: 28px;
+            height: 38px;
+            border-radius: 2px 5px 5px 2px;
+            background: linear-gradient(90deg,
+            color-mix(in srgb, var(--c) 70%, #000) 0%,
+            var(--c) 30%,
+            color-mix(in srgb, var(--c) 55%, #FFF) 70%,
+            color-mix(in srgb, var(--c) 70%, #000) 100%);
+            box-shadow:
+                    inset 1px 0 2px rgba(255,255,255,0.3),
+                    0 2px 5px rgba(15,23,42,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: rgba(255,255,255,0.95);
+            flex-shrink: 0;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        .preview-book::after {
+            content: "";
+            position: absolute;
+            top: 4px;
+            left: 3px;
+            width: 1px;
+            height: 30px;
+            background: rgba(255,255,255,0.35);
+            border-radius: 1px;
+        }
+
+        /* 悬停时轻微错位 */
+        .drawer:hover .preview-book:nth-child(1) { transform: rotate(-3deg); }
+        .drawer:hover .preview-book:nth-child(2) { transform: rotate(1deg) translateY(-2px); }
+        .drawer:hover .preview-book:nth-child(3) { transform: rotate(-1deg); }
+
+        .preview-more {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+            padding-left: 4px;
+            align-self: flex-end;
+            padding-bottom: 4px;
+        }
+
+        /* ============================================================
+           4 个主题色
+           ============================================================ */
+
+        .p-rose   { --c: #E11D48; }
+        .p-purple { --c: #8B5CF6; }
+        .p-cyan   { --c: #06B6D4; }
+        .p-slate  { --c: #64748B; }
+
+        /* 归档 */
+        .drawer.archived { opacity: 0.7; }
+        .drawer.archived:hover { opacity: 1; }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+
+        @media (max-width: 768px) {
+            .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+            .sidebar { display: none; }
+            .main { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="aurora-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+</div>
+
+<div class="app">
+
+    <aside class="sidebar">
+        <div class="sidebar-title">全局层</div>
+        <div class="menu-item"><span class="menu-dot"></span>工作台</div>
+        <div class="menu-item"><span class="menu-dot"></span>任务清单</div>
+        <div class="menu-item"><span class="menu-dot"></span>日程</div>
+
+        <div class="sidebar-title">领域层</div>
+        <div class="menu-item"><span class="menu-dot"></span>生活</div>
+        <div class="menu-item active"><span class="menu-dot"></span>工作</div>
+        <div class="menu-item"><span class="menu-dot"></span>学习</div>
+
+        <div class="sidebar-title">执行层</div>
+        <div class="menu-item active"><span class="menu-dot"></span>项目</div>
+
+        <div class="sidebar-title">沉淀层</div>
+        <div class="menu-item"><span class="menu-dot"></span>知识库</div>
+
+        <div class="sidebar-title">支撑层</div>
+        <div class="menu-item"><span class="menu-dot"></span>设置</div>
+    </aside>
+
+    <header class="topbar">
+        <div class="breadcrumb">工作 / <strong>项目</strong></div>
+        <div class="topbar-actions">
+            <button class="btn btn-ghost">排序</button>
+            <button class="btn btn-primary" onclick="alert('原型演示：新建项目')">+ 新建项目</button>
+            <button class="theme-toggle" id="themeToggle">🌙</button>
+        </div>
+    </header>
+
+    <main class="main">
+
+        <nav class="tabs">
+            <div class="tab">工作台</div>
+            <div class="tab">任务</div>
+            <div class="tab active">项目</div>
+            <div class="tab">服务器</div>
+            <div class="tab">文档索引</div>
+            <div class="tab">复盘</div>
+        </nav>
+
+        <div class="page-head">
+            <div>
+                <div class="page-title">我的<span class="accent">项目</span></div>
+                <div class="page-sub">4 个项目 · 3 进行中 · 1 已归档 · 悬停拉开抽屉看内容</div>
+            </div>
+        </div>
+
+        <div class="drawers" id="drawers"></div>
+
+    </main>
+</div>
+
+<script>
+    // ============================================================
+    // 数据
+    // ============================================================
+
+    const PROJECTS = [
+        {
+            name: '支付系统重构',
+            theme: 'p-rose',
+            owner: '杨刘',
+            resourceCount: 3,
+            archived: false,
+            docs: [
+                { icon: '📄' },
+                { icon: '📘' },
+                { icon: '📄' }
+            ]
+        },
+        {
+            name: '用户中心改版',
+            theme: 'p-purple',
+            owner: '杨刘',
+            resourceCount: 1,
+            archived: false,
+            docs: [
+                { icon: '📄' }
+            ]
+        },
+        {
+            name: '数据看板',
+            theme: 'p-cyan',
+            owner: '杨刘',
+            resourceCount: 1,
+            archived: false,
+            docs: [
+                { icon: '📘' }
+            ]
+        },
+        {
+            name: '性能优化专项',
+            theme: 'p-slate',
+            owner: '杨刘',
+            resourceCount: 0,
+            archived: true,
+            docs: []
+        }
+    ];
+
+    // ============================================================
+    // 渲染
+    // ============================================================
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function renderDrawers() {
+        const box = document.getElementById('drawers');
+
+        box.innerHTML = PROJECTS.map((p, i) => {
+            const previewBooks = p.docs.slice(0, 3).map(d => `
+            <div class="preview-book">${d.icon}</div>
+        `).join('');
+
+            const moreCount = p.docs.length > 3
+                ? `<span class="preview-more">+${p.docs.length - 3}</span>`
+                : '';
+
+            const previewHtml = p.docs.length ? `
+            <div class="drawer-preview">
+                ${previewBooks}
+                ${moreCount}
+            </div>
+        ` : '';
+
+            return `
+            <div class="drawer ${p.theme} ${p.archived ? 'archived' : ''}"
+                 onclick="openProject(${i})">
+
+                <div class="drawer-face">
+                    <div class="drawer-handle">
+                        <span></span><span></span><span></span>
+                    </div>
+
+                    ${previewHtml}
+
+                    <div class="drawer-content">
+                        <div class="drawer-name">${escapeHtml(p.name)}</div>
+                        <div class="drawer-meta">
+                            <span class="meta-dot"></span>
+                            <span>${escapeHtml(p.owner)}</span>
+                            <span>·</span>
+                            <span>${p.resourceCount} 个资源</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        `;
+        }).join('');
+    }
+
+    function openProject(i) {
+        const p = PROJECTS[i];
+        alert(`原型演示：打开项目「${p.name}」`);
+    }
+
+    // ============================================================
+    // 主题
+    // ============================================================
+
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.addEventListener('click', () => {
+        themeToggle.textContent = themeToggle.textContent === '🌙' ? '☀️' : '🌙';
+    });
+
+    // ============================================================
+    // 初始化
+    // ============================================================
+
+    renderDrawers();
+</script>
+</body>
+</html>

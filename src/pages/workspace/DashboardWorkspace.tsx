@@ -10,8 +10,8 @@ import { useProjects } from '../../hooks/use-projects'
 import { useModuleTab } from '../../hooks/use-module-tab'
 import { useWorkbenchStore } from '../../stores/workbench-store'
 import type { ActivityItem } from '../../types'
-import type { ModuleTab } from '../../data/workspace/types'
 import { MODULE_BASE_PATH } from '../../data/workspace/nav'
+import { DASHBOARD_TABS } from '../../data/workspace/tabs'
 
 /**
  * 工作台（`/home`）—— **与其余八域同一套外壳**。
@@ -55,11 +55,12 @@ import { MODULE_BASE_PATH } from '../../data/workspace/nav'
  *    实测过一次：`grep` 出来的 `.doc-meta` 只出现在 life/work/learning/projects 里。
  *    判据：**复用类名之前先确认那条规则的作用域**，别按名字像不像选。
  */
-const DASHBOARD_TABS: ModuleTab[] = [
-  { key: 'overview', label: '今日概览' },
-  { key: 'recent', label: '最近活动' },
-  { key: 'briefing', label: 'AI 简报' },
-]
+/* ⚠️ 这三个分区的定义**已搬到 `data/workspace/tabs.ts`**（`DASHBOARD_TABS`）——
+   顶栏超级菜单要列"任意模块"的二级，需要一张全局的 Tab 注册表（其余七域各有
+   `panels.tsx` 里的 `TABS`，工作台这一份原本只活在本文件里）。
+   留在这里会让注册表反向 import 本页面，形成
+   `ShellTopbar → tabs.ts → DashboardWorkspace → WorkspaceLayout → ShellTopbar` 的环。
+   改分区请改那边，别在这里补一份。 */
 
 /** 助手栏状态行的口径：与工作台摘要同源，不另算一套 */
 const RAIL_STATUS = `已接入 ${WORKBENCH_AGG.TASKS.total} 条任务`

@@ -1,0 +1,2662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jarvis · 个人系统</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* [hidden] 会被 author 的 display 覆盖，全局兜底 */
+        [hidden] { display: none !important; }
+
+        :root {
+            /* ===== 纯色令牌：没有半透明材质、没有渐变、没有毛玻璃 =====
+               层级靠「底色深浅 + 实描边」表达，不再靠透明度叠加。
+               浅色档：页 < 卡面 < 区块 < 悬停底（卡面比页亮，区块比卡面暗一档） */
+            --bg-page: #F4F5F7;
+            --bg-sidebar: #FFFFFF;
+            --bg-float: #FFFFFF;
+            --bg-card: #FFFFFF;
+            --bg-subtle: #F7F8FA;
+            --bg-hover: #EDF0F4;
+            --border-subtle: #E7EAF0;
+            --border-strong: #D3D8E0;
+            --border-card: #E7EAF0;
+            --text-primary: #0F172A;
+            /* 实测：原 #64748B / #94A3B8 在浅底上仅 4.5:1 / 2.4:1，达不到 AA */
+            --text-secondary: #4A5A72;
+            --text-muted: #5B6A82;
+            /* 实底（域色）上的字色：浅色用白，深色必须翻成深字 */
+            --ink-on-accent: #fff;
+            --shadow-card: 0 1px 2px rgba(15,23,42,0.05);
+            --shadow-float: 0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04);
+
+            --m1: #A5B4FC;
+            --m2: #C4B5FD;
+            --m3: #BAE6FD;
+            /* --m1/--m2/--m3 与 --m-glow 目前没有 CSS 消费者：
+               它们原本服务于弥散光斑层与泛光，改成纯色后这两者都已移除。
+               令牌与 applyColors 的写入保留（cfg.colors 的契约不变），换回玻璃拟态时直接可用。 */
+            --m-main: #6366F1;
+            --m-soft: rgba(99,102,241,0.10);
+            /* 压在浅底上的强调色「文字」：直接上 --m-main 实测仅 3.7:1（小字要 4.5:1） */
+            --m-ink: color-mix(in srgb, var(--m-main) 66%, var(--text-primary));
+            /* 强调色「实底」：所有实心块（主按钮 / 选中态 / logo）统一走它，一处保证对比度 */
+            --m-fill: color-mix(in srgb, var(--m-main) 86%, #0B1220);
+
+            --gap-page: 16px;
+            /* 侧栏宽。实测下限 210px —— 再窄 @205 时「快捷」面板里 4 字的
+               「新建任务」按钮会折成两行（四槽面板逐档扫出来的）。240 留了 30px 余量。 */
+            --sidebar-w: 240px;
+            --sidebar-w-collapsed: 64px;
+        }
+
+        .dark {
+            --bg-page: #0A0F1C;
+            --bg-sidebar: #111827;
+            --bg-float: #111827;
+            --bg-card: #171F32;
+            --bg-subtle: #131A2A;
+            --bg-hover: #1E2739;
+            --border-subtle: #232D42;
+            --border-strong: #333F58;
+            --border-card: #232D42;
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #8695AB;
+            --ink-on-accent: #0B1220;
+            --shadow-card: 0 1px 2px rgba(0,0,0,0.4);
+            --shadow-float: 0 2px 6px rgba(0,0,0,0.45);
+
+            --m1: #4F46E5;
+            --m2: #7C3AED;
+            --m3: #0EA5E9;
+            --m-main: #818CF8;
+            --m-soft: rgba(129,140,248,0.16);
+            --m-ink: color-mix(in srgb, var(--m-main) 66%, var(--text-primary));
+            /* 深色下域色被调亮，实底直接用 --m-main，字色翻成深色 */
+            --m-fill: var(--m-main);
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: background 0.45s ease, color 0.35s ease;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 弥散光斑层已移除：底衬改为纯色 --bg-page */
+        @media (prefers-reduced-motion: reduce) {
+            .sidebar.collapsed .rail { animation: none; }
+        }
+
+        /* 布局 */
+        .app {
+            position: relative; z-index: 1;
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 68px 1fr;
+            grid-template-columns: var(--sidebar-w) 1fr;
+            grid-template-areas:
+      "topbar topbar"
+      "sidebar main";
+            gap: var(--gap-page);
+            padding: var(--gap-page);
+            transition: grid-template-columns 0.32s cubic-bezier(0.4,0,0.2,1);
+        }
+        .app.sidebar-collapsed {
+            grid-template-columns: var(--sidebar-w-collapsed) 1fr;
+        }
+
+        /* ========== 顶栏 ========== */
+        .topbar-wrap {
+            grid-area: topbar;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none;
+            min-width: 0;
+        }
+
+        .topbar {
+            pointer-events: auto;
+            display: flex; align-items: center;
+            gap: 10px;
+            padding: 10px 12px 10px 14px;
+            background: var(--bg-float);
+            border: 1px solid var(--border-card);
+            border-radius: 999px;
+            box-shadow: var(--shadow-float);
+            width: 100%;
+            /* 不设 max-width：顶栏两端必须与下方「侧栏左沿 / 正文右沿」严格对齐。
+               曾写死 1400px —— 1440 视口错位 4px，1920 视口错位 244px（顶栏缩成居中长条，
+               而下面两栏铺满 1888px，整页像两套坐标系）。 */
+            transition: all 0.3s ease;
+            position: relative;
+            min-width: 0;
+        }
+
+
+        .logo-mark {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: var(--m-fill);
+            color: var(--ink-on-accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; font-weight: 800;
+            flex-shrink: 0;
+            letter-spacing: -0.5px;
+            cursor: pointer;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .logo-mark:hover { transform: rotate(-8deg) scale(1.08); }
+
+        .divider-v {
+            width: 1px; height: 22px;
+            background: var(--border-subtle);
+            flex-shrink: 0;
+            margin: 0 2px;
+        }
+
+        .nav-primary {
+            display: flex; align-items: center;
+            gap: 1px; flex: 1;
+            overflow-x: auto;
+            scrollbar-width: none;
+            height: 40px;
+            min-width: 0;
+        }
+        .nav-primary::-webkit-scrollbar { display: none; }
+
+        .nav-p-item {
+            position: relative;
+            display: flex; align-items: center; gap: 7px;
+            padding: 0 12px; height: 36px;
+            border-radius: 999px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap; user-select: none;
+            flex-shrink: 0;
+        }
+        .nav-p-item:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+        .nav-p-item.active {
+            color: var(--ink-on-accent);
+            background: var(--m-fill);
+            font-weight: 600;
+        }
+        .nav-p-icon {
+            width: 15px; height: 15px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .nav-p-icon svg { width: 15px; height: 15px; stroke-width: 2; }
+        .nav-p-item:hover .nav-p-icon { transform: scale(1.15); }
+
+        .nav-p-badge {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.25);
+            color: inherit;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+        .nav-p-item:not(.active) .nav-p-badge {
+            background: var(--m-soft);
+            color: var(--m-ink);
+        }
+        .nav-p-badge.warn {
+            background: rgba(239,68,68,0.14);
+            color: #B91C1C;
+        }
+        /* 实底胶囊上的徽标改成「实白底 + 深字」：半透明白底压白字实测只有 3.82:1，
+           而徽标字 10px 属小字，门槛是 4.5:1 */
+        .nav-p-item.active .nav-p-badge {
+            background: rgba(255,255,255,0.92);
+            color: #0B1220;
+        }
+        .nav-p-item.active .nav-p-badge.warn {
+            background: rgba(255,255,255,0.92);
+            color: #B91C1C;
+        }
+        .dark .nav-p-item:not(.active) .nav-p-badge.warn { color: #FCA5A5; }
+
+        .topbar-right {
+            display: flex; align-items: center; gap: 4px;
+            flex-shrink: 0;
+        }
+        .icon-btn {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .icon-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+        .icon-btn svg { width: 17px; height: 17px; stroke-width: 1.9; }
+        .icon-btn .dot {
+            position: absolute;
+            top: 7px; right: 7px;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #EF4444;
+            border: 1.5px solid var(--bg-float);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+            50%      { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+        }
+        .icon-btn.ai {
+            background: var(--m-fill);
+            color: var(--ink-on-accent);
+        }
+        .icon-btn.ai:hover { transform: translateY(-1px) scale(1.05); }
+
+        .avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--m-fill);
+            color: var(--ink-on-accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            margin-left: 4px;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .avatar:hover { transform: scale(1.1); }
+        .avatar::after {
+            content: "";
+            position: absolute;
+            right: -1px; bottom: -1px;
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: #10B981;
+            border: 2px solid var(--bg-float);
+        }
+
+        /* ========== 侧栏 ========== */
+        .sidebar-wrap {
+            grid-area: sidebar;
+            display: flex;
+            overflow: hidden;
+            min-width: 0;
+            position: relative;
+            /* 收起态的悬停提示要浮到主内容卡之上：.sidebar 是 relative 定位，
+               若不抬这一层，DOM 在后的主内容卡会盖住提示。 */
+            z-index: 30;
+        }
+        /* 收起态整列都不能裁：.sidebar 自己已放开，这一层不放开会把提示按列宽剪掉 */
+        .app.sidebar-collapsed .sidebar-wrap { overflow: visible; }
+
+        .sidebar {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-float);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            width: 100%;
+            transition: background 0.4s ease;
+            position: relative;
+        }
+        /* 收起态内部没有滚动内容，放开裁剪，好让图标列的悬停提示浮到侧栏之外 */
+        .sidebar.collapsed { overflow: visible; }
+
+        .sidebar-head {
+            padding: 14px 16px 0;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .sidebar.collapsed .sidebar-head { padding: 12px 12px 0; }
+
+        .sidebar-title {
+            font-size: 14px; font-weight: 800;
+            letter-spacing: -0.3px;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            transition: opacity 0.2s ease;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .sidebar-title .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--m-main);
+            flex-shrink: 0;
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+        }
+        /* 这里原来是渐变裁切文字（background-clip:text）。它的对比度无法用「前景透明化」量出来
+           —— 字形像素本身就取自背景渐变，透明化动不到它 —— 等于留了个永久不可验证的元素，
+           而它是 14px 小字。改成实色，品牌色交给左边的 .dot。 */
+        .sidebar-title .name {
+            color: var(--text-primary);
+            transition: color 0.4s ease;
+        }
+        .sidebar-subtitle {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            transition: opacity 0.2s ease;
+            margin-left: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .sidebar.collapsed .sidebar-title,
+        .sidebar.collapsed .sidebar-subtitle { opacity: 0; overflow: hidden; height: 0; margin: 0; }
+
+        /* ========== 展开态：圆盘 ========== */
+        .radial-stage {
+            flex-shrink: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 2px;
+            position: relative;
+            /* 上提贴住侧栏头。这个值 = 期望的视觉间距 − 容器自带的顶部空白。
+               容器顶部空白 = 容器半宽 −（环半径 + 咬合 5px + 半个图标）—— 图标一变大它就变小，
+               所以这个值**必须跟着图标尺寸重算**：图标 30px 时 −2px 刚好，图标 36px 时就贴脸了。 */
+            margin-top: 1px;
+            padding: 0 0 2px;
+            transition: opacity 0.2s ease, margin 0.3s ease, padding 0.3s ease, height 0.3s ease;
+        }
+        .sidebar.collapsed .radial-stage { opacity: 0; overflow: hidden; height: 0; margin: 0; padding: 0; }
+
+        .radial {
+            /* 三个值都由 JS 按项数写入（见 radiusFor / iconFor）：
+               --r 环半径 · --icon 图标直径 · --dial 中心门。
+               「项数少 ⇒ 盘小、刻度少」—— 尺寸本身携带信息，不再是一个固定大小的圈。
+               容器边长由「环半径 + 图标半径 + 10px 呼吸」推出；10px 同时要留给选中项的向外咬合。
+
+               ⚠️ 容器宽度是硬约束，不是可以随便长的：容器居中在 .sidebar 的内容盒里，
+                  侧栏 240 → 内容 238；≤1100px 断点侧栏收到 220 → 内容 218。
+                  即 **容器必须 ≤ 218**。当前最大值 201（n=11）／198（n=12），两侧各余 ~8.5px。
+                  想再放大图标，要么抬 R（吃余量），要么压这里的 10px 呼吸位（会挤掉咬合）。 */
+            --r: 74px;
+            --icon: 36px;
+            --dial: 53px;
+            position: relative;
+            width: calc(2 * (var(--r) + var(--icon) / 2 + 10px));
+            height: calc(2 * (var(--r) + var(--icon) / 2 + 10px));
+            flex-shrink: 0;
+            transition: opacity 0.2s ease;
+        }
+
+
+        .hub-ripple {
+            position: absolute; left: 50%; top: 50%;
+            width: var(--dial); height: var(--dial);
+            margin-left: calc(var(--dial) / -2);
+            margin-top: calc(var(--dial) / -2);
+            border-radius: 999px;
+            border: 1.5px solid var(--m-main);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hub-door {
+            position: absolute; left: 50%; top: 50%;
+            width: var(--dial); height: var(--dial);
+            transform: translate(-50%, -50%);
+            border-radius: 999px;
+            appearance: none; border: 0; padding: 0; margin: 0;
+            background: none; color: inherit; font: inherit;
+            cursor: pointer;
+            z-index: 5;
+        }
+        .hub-dial {
+            position: absolute; inset: 0;
+            border-radius: 999px;
+            background: var(--m-soft);
+            border: 1px solid color-mix(in srgb, var(--m-main) 32%, transparent);
+            transition: background 0.24s ease, border-color 0.24s ease;
+        }
+        .hub-door:hover .hub-dial {
+            background: color-mix(in srgb, var(--m-main) 20%, transparent);
+            border-color: color-mix(in srgb, var(--m-main) 58%, transparent);
+        }
+
+        /* 分段刻度弧：停靠点由 JS 生成（段数 = 该模块的分区数，已过的段用强调色填满）。
+           它是这个界面里「形状携带信息」的主要载体 —— 一眼能看出「共几格、走到第几格」。
+           ⚠️ 未填充的那几格是**纯装饰**（总数由图标本身可见），故不适用 3:1 的图形门槛。 */
+        .hub-arc {
+            position: absolute; inset: 0;
+            border-radius: 999px;
+            background: conic-gradient(from 0deg, var(--arcs, var(--m-main) 0deg 0deg, transparent 0deg 360deg));
+            -webkit-mask: radial-gradient(closest-side, transparent 90%, #000 96%);
+            mask: radial-gradient(closest-side, transparent 90%, #000 96%);
+        }
+
+        .hub-compass {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            opacity: 0.85;
+            transition: opacity 0.3s ease;
+        }
+        .hub-compass__petals path {
+            fill: color-mix(in srgb, var(--m-main) 10%, transparent);
+            stroke: color-mix(in srgb, var(--m-main) 55%, transparent);
+            stroke-width: 0.9;
+            stroke-dasharray: 1.5 1.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .hub-compass__star {
+            transform-box: view-box;
+            transform-origin: 50% 50%;
+            transform: rotate(var(--na, 0deg));
+            transition: opacity 0.3s ease;
+        }
+        .hub-compass__star path {
+            fill: color-mix(in srgb, var(--m-main) 16%, transparent);
+            stroke: color-mix(in srgb, var(--m-main) 70%, transparent);
+            stroke-width: 0.9;
+            stroke-dasharray: 1.4 1.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .hub-compass__star path.is-main {
+            fill: color-mix(in srgb, var(--m-main) 28%, transparent);
+            stroke: var(--m-main);
+            stroke-width: 1.1;
+        }
+
+        .hub-back {
+            position: absolute;
+            inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .hub-back svg { width: 19px; height: 19px; color: var(--m-main); stroke-width: 2.4; }
+        .radial.is-nested .hub-compass { opacity: 0; }
+        .radial.is-nested .hub-back { opacity: 1; }
+
+        /* 中心门不再放文字：名称统一由下方的 .radial-caption 承担（悬停才出现）。
+           "我在哪"由上方的 sidebar-subtitle 给，不在这里重复。 */
+
+        /* 环上的图标 */
+        .radial__item {
+            position: absolute;
+            left: 50%; top: 50%;
+            width: var(--icon, 36px); height: var(--icon, 36px);
+            border-radius: 999px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            background: transparent;
+            border: 1px solid transparent;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--r)) rotate(calc(-1 * var(--a)));
+            z-index: 2;
+        }
+
+        .radial__item.enter-from-center {
+            animation: ring-in 0.5s cubic-bezier(0.16, 0.9, 0.3, 1) backwards;
+            animation-delay: calc(var(--i) * 35ms);
+        }
+        @keyframes ring-in {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) rotate(var(--a)) translateX(0px) rotate(calc(-1 * var(--a))) scale(0.4);
+            }
+        }
+        .radial__item.enter-from-center-strong {
+            animation: ring-in-strong 0.6s cubic-bezier(0.16, 0.9, 0.3, 1) backwards;
+            animation-delay: calc(var(--i) * 45ms);
+        }
+        @keyframes ring-in-strong {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) rotate(var(--a)) translateX(0px) rotate(calc(-1 * var(--a))) scale(0.2);
+                filter: blur(4px);
+            }
+            50% { opacity: 1; filter: blur(0); }
+            to   { opacity: 1; filter: blur(0); }
+        }
+
+        /* 名称退场后，悬停反馈要扛起「这是哪个」的全部提示 —— 底色 + 描边 + 放大一起上 */
+        .radial__item:hover {
+            color: var(--m-main);
+            background: var(--m-soft);
+            border-color: color-mix(in srgb, var(--m-main) 34%, transparent);
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(calc(var(--r) + 3px)) rotate(calc(-1 * var(--a))) scale(1.16);
+        }
+        /* 实底加深一档：原 --m-main 上白字仅 4.47:1 */
+        .radial__item.active {
+            color: var(--ink-on-accent);
+            background: var(--m-fill);
+            border-color: var(--m-fill);
+            /* 沿半径向外咬合 5px —— 让「当前项」不只是一块颜色，而是真的从盘面里探出来 */
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(calc(var(--r) + 5px)) rotate(calc(-1 * var(--a))) scale(1.15);
+        }
+        .radial__item:focus-visible {
+            outline: 2px solid var(--m-main);
+            outline-offset: 2px;
+        }
+        .radial__item.active::after {
+            content: ''; position: absolute; inset: -1px;
+            border-radius: inherit;
+            border: 1.2px solid var(--m-main);
+            animation: sel-pulse 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes sel-pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            70%, 100% { transform: scale(1.5); opacity: 0; }
+        }
+        /* 字形占比 0.54：按钮直径决定「能不能放得下」，这个比例决定「看起来多大」。
+           纯色化后图标没有底色衬托，0.48 会让 36px 的按钮里只躺一个 17px 的字形，显得空。 */
+        .radial__item svg { width: calc(var(--icon, 36px) * 0.54); height: calc(var(--icon, 36px) * 0.54); flex-shrink: 0; }
+
+        /* 有子菜单的标记：底部小圆点 */
+        .radial__item[data-has-children="true"]::before {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px; height: 4px;
+            border-radius: 999px;
+            background: var(--m-main);
+            z-index: 3;
+            transition: all 0.2s ease;
+        }
+        .radial__item.active[data-has-children="true"]::before {
+            background: var(--ink-on-accent);
+            box-shadow: none;
+        }
+
+        /* 名称条：悬停/聚焦时出现，位置固定在圆盘正下方。
+           不用「沿角度外推的气泡」——那是极坐标定位，宽名字在最左/最右必然与图标叠或被侧栏裁，
+           而且每项方向不同，看起来就是"歪"的。固定一条，永远居中、永远放得下。 */
+        .radial-caption {
+            flex-shrink: 0;
+            max-width: 100%;
+            min-height: 20px;
+            padding: 2px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: -0.2px;
+            color: var(--m-ink);
+            background: var(--m-soft);
+            border: 1px solid color-mix(in srgb, var(--m-main) 22%, transparent);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(-3px);
+            transition: opacity 0.16s ease, transform 0.16s ease;
+        }
+        .radial-caption.is-on {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ========== 收起态：平铺图标列 ========== */
+        /* 与圆盘是同一份数据（当前模块的分区），两种形态互斥显示 */
+        .rail {
+            display: none;
+            flex: 1;
+            min-height: 0;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 2px;
+            padding: 4px 0 6px;
+        }
+        .sidebar.collapsed .rail { display: flex; animation: rail-in 0.28s ease; }
+        /* 纯透明度过渡：不动 rect，将来做几何验收时不会被入场动画污染数值 */
+        @keyframes rail-in { from { opacity: 0; } to { opacity: 1; } }
+
+        .rail__item {
+            position: relative;
+            width: 100%;
+            flex: 1 1 auto;
+            min-height: 34px;
+            max-height: 46px;
+            display: flex; align-items: center; justify-content: center;
+            border: 0; padding: 0; margin: 0;
+            background: none;
+            color: var(--text-secondary);
+            font: inherit;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        /* 激活指示条贴侧栏内沿，不用左侧 padding 位移，避免整列抖动 */
+        .rail__item::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 50%;
+            width: 3px; height: 0;
+            border-radius: 0 3px 3px 0;
+            background: var(--m-main);
+            transform: translateY(-50%);
+            transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .rail__item.active { color: var(--m-main); }
+        .rail__item.active::before { height: 20px; }
+
+        .rail__btn {
+            position: relative;
+            width: 34px; height: 34px;
+            border-radius: 11px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid transparent;
+            transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .rail__btn svg { width: 17px; height: 17px; }
+        .rail__item:hover .rail__btn {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+            border-color: var(--border-subtle);
+            transform: scale(1.08);
+        }
+        .rail__item.active .rail__btn {
+            color: var(--m-main);
+            background: var(--m-soft);
+            border-color: color-mix(in srgb, var(--m-main) 26%, transparent);
+        }
+        .rail__item[data-has-children="true"] .rail__btn::after {
+            content: '';
+            position: absolute;
+            right: 4px; bottom: 4px;
+            width: 4px; height: 4px;
+            border-radius: 50%;
+            background: var(--m-main);
+        }
+        .rail__back .rail__btn { color: var(--text-muted); }
+        .rail__back:hover .rail__btn { color: var(--m-main); }
+
+        /* 提示浮到侧栏之外：依赖 .sidebar.collapsed { overflow: visible } */
+        .rail__tip {
+            position: absolute;
+            left: calc(100% + 6px);
+            top: 50%;
+            transform: translateY(-50%) translateX(-5px);
+            padding: 5px 10px;
+            border-radius: 9px;
+            background: var(--bg-float);
+            border: 1px solid var(--border-card);
+            box-shadow: var(--shadow-float);
+            font-size: 12px; font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.16s ease, transform 0.16s ease;
+            z-index: 200;
+        }
+        .rail__item:hover .rail__tip {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0);
+        }
+
+        /* 矮窗口：靠压缩图标节奏容纳，而不是给 .rail 加滚动
+           （加滚动会裁掉浮出侧栏的悬停提示） */
+        @media (max-height: 720px) {
+            .rail__item { min-height: 28px; max-height: 34px; }
+            .rail__item.active::before { height: 16px; }
+            .rail__btn { width: 28px; height: 28px; border-radius: 9px; }
+            .rail__btn svg { width: 15px; height: 15px; }
+            .rail__item[data-has-children="true"] .rail__btn::after { right: 3px; bottom: 3px; }
+        }
+        @media (max-height: 620px) {
+            .rail__item { min-height: 24px; }
+            .rail__btn { width: 24px; height: 24px; border-radius: 8px; }
+            .rail__btn svg { width: 14px; height: 14px; }
+            .rail__item[data-has-children="true"] .rail__btn::after { right: 2px; bottom: 2px; }
+        }
+
+        /* ========== 可切换的槽 ========== */
+        .sidebar-slot {
+            flex: 1;
+            min-height: 0;
+            display: flex; flex-direction: column;
+            border-top: 1px solid var(--border-subtle);
+            margin-top: 2px;
+        }
+        .sidebar.collapsed .sidebar-slot { display: none; }
+
+        .slot-tabs {
+            display: flex; align-items: center;
+            gap: 2px;
+            padding: 8px 10px 6px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            flex-shrink: 0;
+        }
+        .slot-tabs::-webkit-scrollbar { display: none; }
+        .slot-tab {
+            flex-shrink: 0;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .slot-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+        .slot-tab.active {
+            color: var(--m-ink);
+            background: var(--m-soft);
+        }
+
+        .slot-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 0 14px 14px;
+        }
+        .slot-body::-webkit-scrollbar { width: 4px; }
+        .slot-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
+        .slot-body:hover::-webkit-scrollbar-thumb { background: var(--border-subtle); }
+
+        .slot-panel { display: none; }
+        .slot-panel.active { display: block; animation: slot-in 0.25s ease backwards; }
+        @keyframes slot-in {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 最近 */
+        .recent-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px;
+            margin: 0 -8px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .recent-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            padding-left: 12px;
+        }
+        .recent-icon {
+            width: 20px; height: 20px;
+            border-radius: 6px;
+            background: var(--m-soft);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .recent-icon svg { width: 11px; height: 11px; }
+        .recent-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .recent-time { font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; }
+
+        /* 快捷 */
+        .quick-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .quick-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 11.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: left;
+            width: 100%;
+        }
+        .quick-btn:hover {
+            border-color: var(--m-main);
+            color: var(--m-ink);
+            background: var(--m-soft);
+        }
+        .quick-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+        /* KPI */
+        .kpi-list { display: flex; flex-direction: column; gap: 4px; }
+        .kpi-item {
+            display: flex; align-items: baseline; gap: 6px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .kpi-item:last-child { border-bottom: none; }
+        .kpi-label { font-size: 11.5px; color: var(--text-muted); flex: 1; }
+        .kpi-value {
+            font-size: 14px; font-weight: 800;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+        .kpi-value.accent { color: var(--m-ink); }
+
+        /* AI */
+        .ai-chat { display: flex; flex-direction: column; gap: 8px; }
+        .ai-msg {
+            padding: 8px 10px;
+            border-radius: 10px;
+            font-size: 11.5px;
+            line-height: 1.6;
+        }
+        .ai-msg.bot {
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            border-top-left-radius: 3px;
+        }
+        .ai-msg.user {
+            background: var(--m-soft);
+            color: var(--m-ink);
+            border-top-right-radius: 3px;
+            align-self: flex-end;
+            max-width: 85%;
+        }
+        .ai-input {
+            display: flex; align-items: center; gap: 4px;
+            margin-top: 6px;
+            padding: 4px 4px 4px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-subtle);
+        }
+        .ai-input input {
+            flex: 1; min-width: 0;
+            border: none; outline: none; background: transparent;
+            font-size: 11.5px;
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+        .ai-input input::placeholder { color: var(--text-muted); }
+        .ai-send {
+            width: 24px; height: 24px;
+            border-radius: 999px;
+            border: none;
+            background: var(--m-main);
+            color: var(--ink-on-accent);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .ai-send svg { width: 12px; height: 12px; }
+
+        /* 侧栏底部 */
+        .sidebar-foot {
+            padding: 8px 14px 14px;
+            flex-shrink: 0;
+        }
+        .collapse-btn {
+            width: 100%;
+            padding: 8px;
+            border-radius: 9px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 11.5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .collapse-btn:hover {
+            border-color: var(--m-main);
+            color: var(--m-main);
+            background: var(--m-soft);
+        }
+        .collapse-btn svg {
+            width: 12px; height: 12px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sidebar.collapsed .collapse-btn svg { transform: rotate(180deg); }
+        .sidebar.collapsed .collapse-text { display: none; }
+
+        /* ========== 主内容 ========== */
+        .main-wrap { grid-area: main; overflow: hidden; display: flex; min-width: 0; }
+
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-float);
+            transition: background 0.4s ease, padding 0.3s ease;
+            min-width: 0;
+        }
+        .main::-webkit-scrollbar { width: 6px; }
+        .main::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+
+        /* 页头两行：① 大标题 + 页级动作   ② 上级路径 · 一句话上下文。
+           原来是三行（标题 / 面包屑 / 副标题）86px，且面包屑末段与大标题是**同一个词**
+           —— 因为面包屑挂在标题下方，"重复"读起来像错误而不是"路径 → 当前位置"的惯例。
+           现在面包屑只保留**上级**（模块 / 二级），末段交给大标题。 */
+        .page-header { margin-bottom: 18px; }
+        .page-title-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 16px; flex-wrap: wrap; margin-bottom: 9px;
+        }
+        .page-title {
+            font-size: 24px; font-weight: 800;
+            letter-spacing: -0.6px;
+            color: var(--text-primary);
+            transition: color 0.4s ease;
+        }
+        .page-meta { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; min-height: 23px; }
+        .meta-sep { color: var(--text-muted); font-size: 12px; }
+        .page-path {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .page-path:empty, .page-path:empty + .meta-sep { display: none; }
+        .page-path .crumb {
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-subtle);
+            cursor: default;
+            transition: all 0.15s ease;
+        }
+        .page-path .crumb[data-crumb-idx] { cursor: pointer; }
+        .page-path .crumb:hover { color: var(--m-main); border-color: var(--m-main); }
+        .page-path .crumb.current {
+            background: var(--m-soft);
+            color: var(--m-ink);
+            border-color: transparent;
+            font-weight: 600;
+            cursor: default;
+        }
+        .page-path .sep { color: var(--text-muted); opacity: 0.7; }
+        .page-subtitle { font-size: 13px; color: var(--text-secondary); min-width: 0; }
+        .page-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+        .btn {
+            padding: 9px 15px;
+            border-radius: 10px;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary {
+            background: var(--m-fill);
+            color: var(--ink-on-accent);
+        }
+        .btn-primary:hover { background: color-mix(in srgb, var(--m-main) 74%, #0B1220); }
+        .btn-ghost {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-main); }
+
+        /* 主内容骨架：<1080 单列；≥1080 拆成「主列 + 侧轨」。
+           主列 1.7fr / 侧轨 1fr —— 1440 下 683 / 402px。
+           侧轨存在的理由不是"好看"：原来一条列表行横跨 1076px、文字只占 78px，
+           而侧栏槽区又空着 51~74%；把次要信息挪到主区右侧，行宽回到 ~640px 的可读区间。 */
+        .main-body { display: block; }
+        .main-col { min-width: 0; }
+        .main-rail { min-width: 0; margin-top: 16px; }
+        /* C · 宽屏收口：1920 下行宽 960px、标题到右侧 chip 相距 803px。
+           给整条内容轴收口 —— 必须**同时作用于页头**，只收 .main-body 会让页头比内容宽、左沿错开。
+           ⚠️ 想靠调 grid-template-columns 的比例收口是无效的：实测 1.7fr→1.25fr 只让主列 986→870（-12%），
+              因为侧轨同时被撑大了。只有 max-width 才真的收得住。 */
+        .page-header, .main-body { max-width: 1360px; margin-left: auto; margin-right: auto; }
+        /* A · 窄档走两列：断点 1280 → 1080。
+           原来 <1280 时侧轨整块掉到主列下面，1100×900 要滚 471px（半成品状态）。
+           降断点后同一视口：内容高 782 = 可用高 782，**不滚**。代价是主列 482 / 行宽 456。 */
+        @media (min-width: 1080px) {
+            .main-body {
+                display: grid;
+                grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+                gap: 16px;
+                align-items: start;
+            }
+            .main-rail { margin-top: 0; }
+            /* 主列只有 ~683px，auto-fit 会排成 3 列、第 4 张卡片落单 ⇒ 锁成 2 列。
+               ⚠️ 必须写成 `.main-body .card-grid`（提高特异度）：这段媒体查询在基规则**之前**，
+                  同特异度下后面的 `.card-grid { grid-template-columns: repeat(auto-fit,…) }` 会胜出，
+                  覆盖静默失效 —— 第一次就踩了这个。 */
+            .main-body .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        .card-grid {
+            display: grid;
+            /* auto-fit：已知 4 项时永远铺满，不会出现 auto-fill 的末位落单 */
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+        .card {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 16px 18px;
+            transition: all 0.3s ease;
+            display: flex; flex-direction: column;
+            min-height: 104px;
+            animation: fadeUp 0.35s ease backwards;
+        }
+        .card:nth-child(1) { animation-delay: 0.03s; }
+        .card:nth-child(2) { animation-delay: 0.06s; }
+        .card:nth-child(3) { animation-delay: 0.09s; }
+        .card:nth-child(4) { animation-delay: 0.12s; }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: var(--border-strong);
+            background: var(--bg-card);
+            box-shadow: var(--shadow-card);
+        }
+        .card-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        .card-value {
+            font-size: 27px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 6px;
+            transition: color 0.3s ease;
+            line-height: 1;
+        }
+        .card:hover .card-value { color: var(--m-main); }
+        .card-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: auto;
+            padding-top: 6px;
+            line-height: 1.5;
+        }
+
+        .section {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+        .section:last-child { margin-bottom: 0; }
+        .section:hover { border-color: var(--border-strong); }
+        .section-title {
+            font-size: 13.5px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        /* 区块标题不再等于页面大标题（原来 sectionTitle.textContent = pageTitle.textContent，
+           于是同一个词在一屏里出现两次）。改成条数计数：它是新信息，且不与任何标题重复。 */
+        .section-count {
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+        .section-title .more {
+            font-size: 11.5px;
+            color: var(--m-ink);
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .section-title .more:hover { transform: translateX(3px); }
+
+        .list-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 8px;
+            margin: 0 -8px;
+            border-radius: 9px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border-subtle);
+            transition: background 0.2s ease, padding 0.2s ease;
+            cursor: pointer;
+        }
+        .list-item:last-child { border-bottom: none; }
+        .list-item:hover { background: var(--bg-card); padding-left: 12px; }
+        .list-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+        .list-item:hover .list-dot { transform: scale(1.4); }
+        .list-text { flex: 1; min-width: 0; }
+        /* 时间/状态统一做成 chip：比裸文字更易扫读，也让「逾期」有独立的语义色 */
+        .list-meta {
+            font-size: 11.5px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-subtle);
+            font-variant-numeric: tabular-nums;
+        }
+        .list-meta.warn {
+            color: #B91C1C;
+            background: rgba(239,68,68,0.10);
+            border-color: rgba(239,68,68,0.22);
+            font-weight: 600;
+        }
+        .dark .list-meta.warn { color: #FCA5A5; }
+
+        /* 命令面板 */
+        .cmd-mask {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.5);
+            z-index: 1000;
+            display: none;
+            align-items: flex-start; justify-content: center;
+            padding: 120px 20px 20px;
+            animation: fadeIn 0.2s ease;
+        }
+        .cmd-mask.open { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .cmd-panel {
+            width: 100%;
+            max-width: 560px;
+            background: var(--bg-float);
+            border: 1px solid var(--border-card);
+            border-radius: 18px;
+            box-shadow: var(--shadow-float);
+            overflow: hidden;
+            animation: cmdIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes cmdIn {
+            from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .cmd-input {
+            width: 100%;
+            padding: 18px 20px;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .cmd-input::placeholder { color: var(--text-muted); }
+        .cmd-list { max-height: 320px; overflow-y: auto; padding: 8px; }
+        .cmd-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .cmd-item:hover, .cmd-item.active {
+            background: var(--m-soft);
+            color: var(--m-ink);
+        }
+        .cmd-item-icon {
+            width: 28px; height: 28px;
+            border-radius: 8px;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .cmd-item-icon svg { width: 14px; height: 14px; stroke-width: 2; }
+        .cmd-item:hover .cmd-item-icon,
+        .cmd-item.active .cmd-item-icon { color: var(--m-main); }
+        .cmd-item-text { flex: 1; }
+        .cmd-kbd {
+            font-size: 10.5px;
+            padding: 2px 7px;
+            border-radius: 5px;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        }
+
+        .dark .cmd-mask { background: rgba(3,7,18,0.66); }
+
+        @media (max-width: 1100px) { :root { --sidebar-w: 220px; } }
+        /* 全label 需要 757px；导航可用宽 = 视口 − 319 ⇒ 理论下限 1076px。
+           取 1140 作为切换点，留 64px 余量：低于它只保留**当前项**的文字，
+           其余收成图标 —— 而不是靠无滚动条的 overflow-x 静默把末位截掉。 */
+        @media (max-width: 1140px) {
+            .nav-p-item:not(.active) .nav-p-text { display: none; }
+            .nav-p-item { padding: 0 11px; }
+        }
+
+        @media (max-width: 900px) {
+            .app {
+                grid-template-columns: 1fr;
+                grid-template-areas: "topbar" "main";
+                grid-template-rows: 68px 1fr;
+                gap: 12px;
+                padding: 12px;
+            }
+            .sidebar-wrap { display: none; }
+            .nav-p-item span:not(.nav-p-icon):not(.nav-p-badge) { display: none; }
+            .nav-p-item { padding: 0 12px; }
+            .topbar { padding: 8px 10px 8px 12px; }
+            .topbar-right .icon-btn:not(.ai):not(#themeBtn) { display: none; }
+        }
+        @media (max-width: 600px) {
+            .main { padding: 18px; }
+            .page-title { font-size: 20px; }
+            .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+            .card { padding: 14px 16px; min-height: 92px; }
+            .card-value { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+    <!-- ========== 顶栏 ========== -->
+    <div class="topbar-wrap">
+        <div class="topbar">
+            <div class="logo-mark" onclick="openCmd()">J</div>
+            <div class="divider-v"></div>
+
+            <nav class="nav-primary" id="navPrimary">
+                <div class="nav-p-item active" data-module="dashboard" onclick="switchPrimary('dashboard')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="9" rx="1.5"></rect>
+              <rect x="14" y="3" width="7" height="5" rx="1.5"></rect>
+              <rect x="14" y="12" width="7" height="9" rx="1.5"></rect>
+              <rect x="3" y="16" width="7" height="5" rx="1.5"></rect>
+            </svg>
+          </span>
+                    <span class="nav-p-text">工作台</span>
+                </div>
+                <div class="nav-p-item" data-module="tasks" onclick="switchPrimary('tasks')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">任务</span>
+                    <span class="nav-p-badge">5</span>
+                </div>
+                <div class="nav-p-item" data-module="calendar" onclick="switchPrimary('calendar')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </span>
+                    <span class="nav-p-text">日程</span>
+                </div>
+                <div class="nav-p-item" data-module="life" onclick="switchPrimary('life')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12l2-2 4 4 7-7 3 3"></path>
+              <path d="M3 21h18"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">生活</span>
+                </div>
+                <div class="nav-p-item" data-module="work" onclick="switchPrimary('work')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">工作</span>
+                    <span class="nav-p-badge warn">2</span>
+                </div>
+                <div class="nav-p-item" data-module="learning" onclick="switchPrimary('learning')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 4l10 5 10-5-10-5z"></path>
+              <path d="M2 20l10 5 10-5"></path>
+              <path d="M2 12l10 5 10-5"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">学习</span>
+                </div>
+                <div class="nav-p-item" data-module="projects" onclick="switchPrimary('projects')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7l9-4 9 4-9 4-9-4z"></path>
+              <path d="M3 12l9 4 9-4"></path>
+              <path d="M3 17l9 4 9-4"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">项目</span>
+                    <span class="nav-p-badge">4</span>
+                </div>
+                <div class="nav-p-item" data-module="knowledge" onclick="switchPrimary('knowledge')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">知识库</span>
+                </div>
+                <div class="nav-p-item" data-module="settings" onclick="switchPrimary('settings')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">设置</span>
+                </div>
+            </nav>
+
+            <div class="topbar-right">
+                <button class="icon-btn" title="搜索 ⌘K" onclick="openCmd()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+                <button class="icon-btn" title="通知" onclick="alert('原型演示：通知')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <span class="dot"></span>
+                </button>
+                <button class="icon-btn" id="themeBtn" title="切换主题">
+                    <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+                <button class="icon-btn ai" title="AI 助手 ⌘K" onclick="alert('原型演示：AI 助手')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"></path>
+                    </svg>
+                </button>
+                <div class="avatar" onclick="alert('原型演示：用户菜单')">杨</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 侧栏 ========== -->
+    <div class="sidebar-wrap">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-head">
+                <div class="sidebar-title">
+                    <span class="dot"></span>
+                    <span class="name" id="sidebarTitle">工作台</span>
+                </div>
+                <div class="sidebar-subtitle" id="sidebarSubtitle">今日概览</div>
+            </div>
+
+            <!-- 圆盘 -->
+            <div class="radial-stage">
+                <div class="radial" id="moduleRing" role="group" aria-label="环形导航">
+                    <i class="hub-ripple" aria-hidden="true"></i>
+
+                    <button type="button" class="hub-door" data-hub-door aria-label="进入 / 返回">
+            <span class="hub-dial" aria-hidden="true">
+              <i class="hub-arc" data-hub-arc></i>
+              <svg class="hub-compass" viewBox="0 0 100 100" aria-hidden="true">
+                <g class="hub-compass__petals">
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(0 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(30 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(60 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(90 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(120 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(150 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(180 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(210 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(240 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(270 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(300 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(330 50 50)"/>
+                </g>
+                <g class="hub-compass__star">
+                  <path class="is-main" d="M50 50 L46.4 50 L50 26 L53.6 50 Z" transform="rotate(0 50 50)"/>
+                  <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(90 50 50)"/>
+                  <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(180 50 50)"/>
+                  <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(270 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(45 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(135 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(225 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(315 50 50)"/>
+                </g>
+              </svg>
+              <span class="hub-back" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 12H5"></path>
+                  <path d="m12 19-7-7 7-7"></path>
+                </svg>
+              </span>
+            </span>
+                    </button>
+
+                    <div data-radial-items></div>
+                </div>
+
+                <!-- 名称条：悬停/聚焦图标时才出现 -->
+                <div class="radial-caption" id="ringCaption" aria-hidden="true"></div>
+            </div>
+
+            <!-- 平铺图标列（收起态）：与圆盘同源，只是换一种排列 -->
+            <div class="rail" id="moduleRail" role="navigation" aria-label="分区快捷导航"></div>
+
+            <!-- 可切换的槽 -->
+            <div class="sidebar-slot">
+                <div class="slot-tabs" id="slotTabs">
+                    <div class="slot-tab active" data-slot="recent">最近</div>
+                    <div class="slot-tab" data-slot="quick">快捷</div>
+                    <div class="slot-tab" data-slot="kpi">KPI</div>
+                    <div class="slot-tab" data-slot="ai">AI</div>
+                </div>
+
+                <div class="slot-body">
+                    <!-- 最近访问 -->
+                    <div class="slot-panel active" data-panel="recent">
+                        <div class="recent-item">
+              <span class="recent-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </span>
+                            <span class="recent-text">客户资料 · 需求</span>
+                            <span class="recent-time">2h</span>
+                        </div>
+                        <div class="recent-item">
+              <span class="recent-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+              </span>
+                            <span class="recent-text">会议 · 项目评审</span>
+                            <span class="recent-time">今天</span>
+                        </div>
+                        <div class="recent-item">
+              <span class="recent-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/></svg>
+              </span>
+                            <span class="recent-text">项目 · 支付系统重构</span>
+                            <span class="recent-time">昨天</span>
+                        </div>
+                        <div class="recent-item">
+              <span class="recent-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/></svg>
+              </span>
+                            <span class="recent-text">设置 · 模块管理</span>
+                            <span class="recent-time">3天</span>
+                        </div>
+                    </div>
+
+                    <!-- 快捷操作 -->
+                    <div class="slot-panel" data-panel="quick">
+                        <div class="quick-grid">
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                                新建任务
+                            </button>
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+                                新建日程
+                            </button>
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                新建笔记
+                            </button>
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>
+                                记一笔
+                            </button>
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                习惯打卡
+                            </button>
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"/></svg>
+                                AI 助手
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- KPI -->
+                    <div class="slot-panel" data-panel="kpi">
+                        <div class="kpi-list">
+                            <div class="kpi-item">
+                                <span class="kpi-label">任务完成</span>
+                                <span class="kpi-value accent">3 / 8</span>
+                            </div>
+                            <div class="kpi-item">
+                                <span class="kpi-label">今日会议</span>
+                                <span class="kpi-value">2</span>
+                            </div>
+                            <div class="kpi-item">
+                                <span class="kpi-label">进行项目</span>
+                                <span class="kpi-value">4</span>
+                            </div>
+                            <div class="kpi-item">
+                                <span class="kpi-label">本周学习</span>
+                                <span class="kpi-value accent">8.5h</span>
+                            </div>
+                            <div class="kpi-item">
+                                <span class="kpi-label">逾期任务</span>
+                                <span class="kpi-value">2</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI -->
+                    <div class="slot-panel" data-panel="ai">
+                        <div class="ai-chat">
+                            <div class="ai-msg bot">今天有 1 项风险、6 项待到期。要我先排今天的顺序吗？</div>
+                            <div class="ai-msg user">先看工作</div>
+                            <div class="ai-msg bot">工作域平均 42%，低于全域 17 个百分点。主要拖累是团队 OKR（12%）。</div>
+                        </div>
+                        <div class="ai-input">
+                            <input type="text" placeholder="问点什么…" />
+                            <button class="ai-send">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-foot">
+                <button class="collapse-btn" id="collapseBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span class="collapse-text">收起</span>
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ========== 主内容 ========== -->
+    <div class="main-wrap">
+        <main class="main">
+            <div class="page-header">
+                <div class="page-title-row">
+                    <h1 class="page-title" id="pageTitle">今日概览</h1>
+                    <div class="page-actions">
+                        <button class="btn btn-ghost" onclick="openCmd()">⌘K 搜索</button>
+                        <button class="btn btn-primary" onclick="alert('原型演示：新建')">+ 新建</button>
+                    </div>
+                </div>
+                <div class="page-meta">
+                    <div class="page-path" id="pagePath"></div>
+                    <span class="meta-sep" aria-hidden="true">·</span>
+                    <div class="page-subtitle" id="pageSubtitle">下午好，杨刘。今天有 3 个日程、5 个任务。</div>
+                </div>
+            </div>
+
+            <div class="main-body">
+            <div class="main-col">
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-label">今日任务</div>
+                    <div class="card-value">3 / 8</div>
+                    <div class="card-desc">2 个高优先级 · 2 个逾期</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">今日日程</div>
+                    <div class="card-value">3</div>
+                    <div class="card-desc">下一场 14:00 项目评审</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">进行项目</div>
+                    <div class="card-value">4</div>
+                    <div class="card-desc">2 个里程碑临近</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">本周学习</div>
+                    <div class="card-value">8.5h</div>
+                    <div class="card-desc">目标 10h · 85%</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    <span id="sectionTitle" class="section-count">7 项</span>
+                    <span class="more" onclick="alert('原型演示：查看全部')">查看全部 ›</span>
+                </div>
+                <div id="sectionList">
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#E11D48;"></span>
+                        <span class="list-text">准备项目评审</span>
+                        <span class="list-meta">14:00</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#E11D48;"></span>
+                        <span class="list-text">优化首页加载速度</span>
+                        <span class="list-meta warn">已逾期</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#10B981;"></span>
+                        <span class="list-text">买猫粮</span>
+                        <span class="list-meta warn">已逾期</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#D946EF;"></span>
+                        <span class="list-text">复习 React 19 笔记</span>
+                        <span class="list-meta">今天</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#E11D48;"></span>
+                        <span class="list-text">客户门户改版 · 视觉走查</span>
+                        <span class="list-meta">16:30</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#10B981;"></span>
+                        <span class="list-text">预约体检</span>
+                        <span class="list-meta">明天</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#E11D48;"></span>
+                        <span class="list-text">周报 · 第 38 周</span>
+                        <span class="list-meta">周五</span>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <aside class="main-rail">
+                <div class="section">
+                    <div class="section-title">
+                        <span>进行中的项目</span>
+                        <span class="more" onclick="alert('原型演示：查看全部项目')">全部 ›</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#E11D48;"></span>
+                        <span class="list-text">支付系统重构</span>
+                        <span class="list-meta">2 天</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#E11D48;"></span>
+                        <span class="list-text">数据看板 v2</span>
+                        <span class="list-meta">5 天</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#D946EF;"></span>
+                        <span class="list-text">客户门户改版</span>
+                        <span class="list-meta">本周</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#10B981;"></span>
+                        <span class="list-text">运维自动化</span>
+                        <span class="list-meta warn">已延期</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#D946EF;"></span>
+                        <span class="list-text">知识库升级</span>
+                        <span class="list-meta">下周</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">
+                        <span>最近活动</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#10B981;"></span>
+                        <span class="list-text">完成「准备项目评审」</span>
+                        <span class="list-meta">10:24</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#E11D48;"></span>
+                        <span class="list-text">更新里程碑 · 灰度发布</span>
+                        <span class="list-meta">09:40</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#D946EF;"></span>
+                        <span class="list-text">学习 40min · React 19</span>
+                        <span class="list-meta">昨天</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#10B981;"></span>
+                        <span class="list-text">新增任务「预约体检」</span>
+                        <span class="list-meta">昨天</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#E11D48;"></span>
+                        <span class="list-text">提交周报草稿</span>
+                        <span class="list-meta">周一</span>
+                    </div>
+                </div>
+            </aside>
+            </div>
+        </main>
+    </div>
+
+</div>
+
+<!-- 命令面板 -->
+<div class="cmd-mask" id="cmdMask" onclick="if(event.target===this)closeCmd()">
+    <div class="cmd-panel">
+        <input class="cmd-input" id="cmdInput" placeholder="搜索模块、任务、笔记... 或输入命令" />
+        <div class="cmd-list">
+            <div class="cmd-item active"><div class="cmd-item-icon" data-icon="grid"></div><div class="cmd-item-text">工作台</div><span class="cmd-kbd">G D</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon" data-icon="check"></div><div class="cmd-item-text">任务清单</div><span class="cmd-kbd">G T</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon" data-icon="calendar"></div><div class="cmd-item-text">日程</div><span class="cmd-kbd">G C</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon" data-icon="leaf"></div><div class="cmd-item-text">生活</div><span class="cmd-kbd">G L</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon" data-icon="briefcase"></div><div class="cmd-item-text">工作</div><span class="cmd-kbd">G W</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon" data-icon="book"></div><div class="cmd-item-text">学习</div><span class="cmd-kbd">G S</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon" data-icon="project"></div><div class="cmd-item-text">项目</div><span class="cmd-kbd">G P</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon" data-icon="file"></div><div class="cmd-item-text">知识库</div><span class="cmd-kbd">G K</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon" data-icon="user"></div><div class="cmd-item-text">设置</div><span class="cmd-kbd">G ,</span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ============================================================
+       数据：一级 → 二级 → 三级
+       ============================================================ */
+    const primaryConfig = {
+        dashboard: {
+            name: '工作台', subtitle: '今日概览',
+            desc: '下午好，杨刘。今天有 3 个日程、5 个任务。',
+            colors: {
+                light: { c1: '#A5B4FC', c2: '#C4B5FD', c3: '#BAE6FD', main: '#6366F1' },
+                dark:  { c1: '#4F46E5', c2: '#7C3AED', c3: '#0EA5E9', main: '#818CF8' }
+            },
+            items: [
+                { key: 'overview', label: '今日概览', icon: 'grid' },
+                { key: 'briefing', label: 'AI 简报', icon: 'sparkle' },
+                { key: 'activity', label: '最近活动', icon: 'activity' }
+            ]
+        },
+        tasks: {
+            name: '任务', subtitle: '跨领域任务中心',
+            desc: '统一管理生活、工作、学习任务。',
+            colors: {
+                light: { c1: '#FDE68A', c2: '#FED7AA', c3: '#FEF3C7', main: '#F59E0B' },
+                dark:  { c1: '#B45309', c2: '#C2410C', c3: '#92400E', main: '#FBBF24' }
+            },
+            items: [
+                { key: 'all', label: '全部', icon: 'list',
+                    children: [
+                        { key: 'all-life', label: '生活', icon: 'leaf', count: 8 },
+                        { key: 'all-work', label: '工作', icon: 'briefcase', count: 12 },
+                        { key: 'all-learn', label: '学习', icon: 'book', count: 4 }
+                    ] },
+                { key: 'today', label: '今日', icon: 'sun',
+                    children: [
+                        { key: 'today-overdue', label: '已逾期', icon: 'alert', count: 2 },
+                        { key: 'today-high', label: '高优先级', icon: 'flag', count: 3 },
+                        { key: 'today-rest', label: '其余', icon: 'list', count: 3 }
+                    ] },
+                { key: 'inbox', label: '收件箱', icon: 'inbox',
+                    children: [
+                        { key: 'inbox-new', label: '未整理', icon: 'list', count: 5 },
+                        { key: 'inbox-idea', label: '想法', icon: 'sparkle' },
+                        { key: 'inbox-ref', label: '参考', icon: 'file' }
+                    ] },
+                { key: 'board', label: '看板', icon: 'kanban',
+                    children: [
+                        { key: 'board-todo', label: '待办', icon: 'list', count: 12 },
+                        { key: 'board-doing', label: '进行中', icon: 'trend', count: 5 },
+                        { key: 'board-done', label: '已完成', icon: 'check', count: 7 }
+                    ] },
+                { key: 'matrix', label: '四象限', icon: 'matrix',
+                    children: [
+                        { key: 'mx-1', label: '重要紧急', icon: 'alert', count: 2 },
+                        { key: 'mx-2', label: '重要不紧急', icon: 'flag', count: 4 },
+                        { key: 'mx-3', label: '紧急不重要', icon: 'clock', count: 3 },
+                        { key: 'mx-4', label: '其余', icon: 'archive', count: 5 }
+                    ] },
+                { key: 'calendar', label: '日历', icon: 'calendar' }
+            ]
+        },
+        calendar: {
+            name: '日程', subtitle: '统一时间轴',
+            desc: '聚合生活、工作、学习、项目所有事件。',
+            colors: {
+                light: { c1: '#7DD3FC', c2: '#A5F3FC', c3: '#BAE6FD', main: '#0EA5E9' },
+                dark:  { c1: '#0284C7', c2: '#0E7490', c3: '#075985', main: '#38BDF8' }
+            },
+            items: [
+                { key: 'month', label: '月视图', icon: 'calendar' },
+                { key: 'week', label: '周视图', icon: 'calendar' },
+                { key: 'day', label: '日视图', icon: 'calendar' },
+                { key: 'agenda', label: '议程', icon: 'list',
+                    children: [
+                        { key: 'ag-today', label: '今天', icon: 'sun', count: 3 },
+                        { key: 'ag-tomorrow', label: '明天', icon: 'clock', count: 2 },
+                        { key: 'ag-week', label: '本周', icon: 'calendar', count: 9 }
+                    ] },
+                { key: 'life', label: '生活日历', icon: 'leaf' },
+                { key: 'work', label: '工作日历', icon: 'briefcase' },
+                { key: 'learning', label: '学习日历', icon: 'book' },
+                { key: 'milestone', label: '里程碑', icon: 'flag' }
+            ]
+        },
+        life: {
+            name: '生活', subtitle: '个人生活管理',
+            desc: '习惯、健康、财务、日记、宠物、食谱、运动。',
+            colors: {
+                light: { c1: '#86EFAC', c2: '#A7F3D0', c3: '#BBF7D0', main: '#10B981' },
+                dark:  { c1: '#059669', c2: '#047857', c3: '#065F46', main: '#34D399' }
+            },
+            items: [
+                { key: 'overview', label: '概览', icon: 'grid' },
+                { key: 'habits', label: '习惯', icon: 'check',
+                    children: [
+                        { key: 'habits-week', label: '本周', icon: 'calendar' },
+                        { key: 'habits-streak', label: '连续记录', icon: 'trend' },
+                        { key: 'habits-stats', label: '统计', icon: 'graph' }
+                    ] },
+                { key: 'health', label: '健康', icon: 'heart',
+                    children: [
+                        { key: 'health-weight', label: '体重', icon: 'trend' },
+                        { key: 'health-sleep', label: '睡眠', icon: 'clock' },
+                        { key: 'health-steps', label: '步数', icon: 'run' }
+                    ] },
+                { key: 'fitness', label: '运动', icon: 'run',
+                    children: [
+                        { key: 'fit-run', label: '跑步', icon: 'run' },
+                        { key: 'fit-bike', label: '骑行', icon: 'run' },
+                        { key: 'fit-strength', label: '力量', icon: 'heart' },
+                        { key: 'fit-yoga', label: '瑜伽', icon: 'heart' }
+                    ] },
+                { key: 'recipes', label: '食谱', icon: 'food',
+                    children: [
+                        { key: 'recipe-breakfast', label: '早餐', icon: 'sun' },
+                        { key: 'recipe-lunch', label: '午餐', icon: 'food' },
+                        { key: 'recipe-dinner', label: '晚餐', icon: 'food' }
+                    ] },
+                { key: 'finance', label: '财务', icon: 'wallet',
+                    children: [
+                        { key: 'fin-income', label: '收入', icon: 'trend' },
+                        { key: 'fin-expense', label: '支出', icon: 'wallet' },
+                        { key: 'fin-budget', label: '预算', icon: 'target' }
+                    ] },
+                { key: 'journal', label: '日记', icon: 'pen' },
+                { key: 'pets', label: '宠物', icon: 'paw',
+                    children: [
+                        { key: 'pet-profile', label: '档案', icon: 'paw' },
+                        { key: 'pet-health', label: '健康', icon: 'heart' },
+                        { key: 'pet-food', label: '饮食', icon: 'food' },
+                        { key: 'pet-cost', label: '支出', icon: 'wallet' }
+                    ] },
+                { key: 'family', label: '家庭', icon: 'home' }
+            ]
+        },
+        work: {
+            name: '工作', subtitle: '职业工作管理',
+            desc: '任务、项目、客户资料、服务器、部署。',
+            colors: {
+                light: { c1: '#FDA4AF', c2: '#FECDD3', c3: '#FBCFE8', main: '#E11D48' },
+                dark:  { c1: '#BE123C', c2: '#9F1239', c3: '#881337', main: '#FB7185' }
+            },
+            items: [
+                { key: 'dashboard', label: '工作台', icon: 'grid' },
+                { key: 'tasks', label: '任务', icon: 'list',
+                    children: [
+                        { key: 'wt-all', label: '全部', icon: 'list', count: 8 },
+                        { key: 'wt-today', label: '今日', icon: 'sun', count: 3 },
+                        { key: 'wt-overdue', label: '已逾期', icon: 'alert', count: 1 },
+                        { key: 'wt-done', label: '已完成', icon: 'check', count: 4 }
+                    ] },
+                { key: 'projects', label: '项目', icon: 'project',
+                    children: [
+                        { key: 'wp-active', label: '进行中', icon: 'play', count: 4 },
+                        { key: 'wp-risk', label: '风险', icon: 'alert', count: 1 },
+                        { key: 'wp-done', label: '已完成', icon: 'check', count: 8 }
+                    ] },
+                { key: 'calendar', label: '会议', icon: 'calendar' },
+                { key: 'clients', label: '客户', icon: 'folder',
+                    children: [
+                        { key: 'cl-requirement', label: '需求', icon: 'file', count: 12 },
+                        { key: 'cl-data', label: '数据', icon: 'database', count: 8 },
+                        { key: 'cl-prototype', label: '原型', icon: 'sparkle', count: 6 },
+                        { key: 'cl-reference', label: '参考', icon: 'link', count: 6 }
+                    ] },
+                { key: 'docs', label: '文档', icon: 'file',
+                    children: [
+                        { key: 'doc-wiki', label: 'Wiki', icon: 'file' },
+                        { key: 'doc-adr', label: 'ADR', icon: 'file' },
+                        { key: 'doc-meeting', label: '会议纪要', icon: 'pen' },
+                        { key: 'doc-link', label: '外部链接', icon: 'link' }
+                    ] },
+                { key: 'servers', label: '服务器', icon: 'server',
+                    children: [
+                        { key: 'srv-prod', label: '生产', icon: 'server', count: 3 },
+                        { key: 'srv-test', label: '测试', icon: 'server', count: 3 },
+                        { key: 'srv-staging', label: '预发', icon: 'server', count: 2 }
+                    ] },
+                { key: 'deploy', label: '部署', icon: 'rocket',
+                    children: [
+                        { key: 'dep-manual', label: '部署手册', icon: 'file' },
+                        { key: 'dep-rollback', label: '回滚', icon: 'refresh' },
+                        { key: 'dep-checklist', label: '检查清单', icon: 'check' },
+                        { key: 'dep-script', label: '部署脚本', icon: 'rocket' }
+                    ] },
+                { key: 'contacts', label: '联系人', icon: 'users' },
+                { key: 'okr', label: 'OKR', icon: 'target' },
+                { key: 'timesheet', label: '工时', icon: 'clock' },
+                { key: 'review', label: '周报', icon: 'refresh' }
+            ]
+        },
+        learning: {
+            name: '学习', subtitle: '个人学习成长',
+            desc: '目标、技能、资源、笔记、复习、实践。',
+            colors: {
+                light: { c1: '#F0ABFC', c2: '#E9D5FF', c3: '#FBCFE8', main: '#D946EF' },
+                dark:  { c1: '#A21CAF', c2: '#86198F', c3: '#701A75', main: '#E879F9' }
+            },
+            items: [
+                { key: 'dashboard', label: '概览', icon: 'grid' },
+                { key: 'goals', label: '目标', icon: 'target',
+                    children: [
+                        { key: 'goal-quarter', label: '季度目标', icon: 'flag' },
+                        { key: 'goal-year', label: '年度目标', icon: 'target' },
+                        { key: 'goal-done', label: '已完成', icon: 'check' }
+                    ] },
+                { key: 'skills', label: '技能', icon: 'sparkle' },
+                { key: 'resources', label: '资源', icon: 'folder',
+                    children: [
+                        { key: 'res-book', label: '书', icon: 'book' },
+                        { key: 'res-course', label: '课程', icon: 'play' },
+                        { key: 'res-doc', label: '文档', icon: 'file' },
+                        { key: 'res-video', label: '视频', icon: 'play' }
+                    ] },
+                { key: 'notes', label: '笔记', icon: 'pen',
+                    children: [
+                        { key: 'note-permanent', label: '永久', icon: 'star' },
+                        { key: 'note-literature', label: '文献', icon: 'book' },
+                        { key: 'note-flash', label: '闪卡', icon: 'sparkle' }
+                    ] },
+                { key: 'review', label: '复习', icon: 'refresh',
+                    children: [
+                        { key: 'rev-today', label: '今日到期', icon: 'clock', count: 5 },
+                        { key: 'rev-week', label: '本周', icon: 'calendar', count: 12 },
+                        { key: 'rev-all', label: '全部', icon: 'archive' }
+                    ] },
+                { key: 'practice', label: '实践', icon: 'project' },
+                { key: 'output', label: '输出', icon: 'send',
+                    children: [
+                        { key: 'out-blog', label: '博客', icon: 'pen' },
+                        { key: 'out-share', label: '分享', icon: 'send' },
+                        { key: 'out-os', label: '开源', icon: 'project' }
+                    ] }
+            ]
+        },
+        projects: {
+            name: '项目', subtitle: '统一执行层',
+            desc: '生活 / 工作 / 学习项目统一管理。',
+            colors: {
+                light: { c1: '#FDBA74', c2: '#FED7AA', c3: '#FDE68A', main: '#F97316' },
+                dark:  { c1: '#EA580C', c2: '#C2410C', c3: '#9A3412', main: '#FB923C' }
+            },
+            items: [
+                { key: 'all', label: '全部', icon: 'grid',
+                    children: [
+                        { key: 'all-active', label: '进行中', icon: 'play', count: 4 },
+                        { key: 'all-risk', label: '风险', icon: 'alert', count: 1 },
+                        { key: 'all-done', label: '已完成', icon: 'check', count: 8 }
+                    ] },
+                { key: 'life', label: '生活', icon: 'leaf' },
+                { key: 'work', label: '工作', icon: 'briefcase' },
+                { key: 'learning', label: '学习', icon: 'book' }
+            ]
+        },
+        knowledge: {
+            name: '知识库', subtitle: '长期知识沉淀',
+            desc: '永久笔记、主题索引、双链图谱。',
+            colors: {
+                light: { c1: '#99F6E4', c2: '#A7F3D0', c3: '#CCFBF1', main: '#14B8A6' },
+                dark:  { c1: '#14B8A6', c2: '#0F766E', c3: '#115E59', main: '#2DD4BF' }
+            },
+            items: [
+                { key: 'notes', label: '笔记', icon: 'file',
+                    children: [
+                        { key: 'n-all', label: '全部', icon: 'file', count: 286 },
+                        { key: 'n-star', label: '收藏', icon: 'star' },
+                        { key: 'n-recent', label: '最近', icon: 'clock' }
+                    ] },
+                { key: 'topics', label: '主题', icon: 'folder',
+                    children: [
+                        { key: 't-frontend', label: '前端', icon: 'sparkle', count: 42 },
+                        { key: 't-backend', label: '后端', icon: 'server', count: 36 },
+                        { key: 't-ui', label: 'UI', icon: 'palette', count: 28 },
+                        { key: 't-life', label: '生活', icon: 'leaf', count: 24 }
+                    ] },
+                { key: 'tags', label: '标签', icon: 'tag' },
+                { key: 'graph', label: '图谱', icon: 'graph' },
+                { key: 'favorites', label: '收藏', icon: 'star' },
+                { key: 'archive', label: '归档', icon: 'archive' }
+            ]
+        },
+        settings: {
+            name: '设置', subtitle: '全局配置中心',
+            desc: '账户、模块、主题、通知、数据、集成、AI。',
+            colors: {
+                light: { c1: '#B8C4D9', c2: '#C9D5E5', c3: '#DCE4F0', main: '#475569' },
+                dark:  { c1: '#5A6B82', c2: '#44546B', c3: '#2E3B52', main: '#A8B8CC' }
+            },
+            items: [
+                { key: 'account', label: '账户', icon: 'user' },
+                { key: 'modules', label: '模块', icon: 'grid',
+                    children: [
+                        { key: 'mod-life', label: '生活', icon: 'leaf' },
+                        { key: 'mod-work', label: '工作', icon: 'briefcase' },
+                        { key: 'mod-learn', label: '学习', icon: 'book' },
+                        { key: 'mod-knowledge', label: '知识库', icon: 'file' }
+                    ] },
+                { key: 'appearance', label: '外观', icon: 'palette' },
+                { key: 'notifications', label: '通知', icon: 'bell' },
+                { key: 'shortcuts', label: '快捷键', icon: 'keyboard' },
+                { key: 'data', label: '数据', icon: 'database' },
+                { key: 'integrations', label: '集成', icon: 'link' },
+                { key: 'ai', label: 'AI', icon: 'sparkle' },
+                { key: 'privacy', label: '隐私', icon: 'shield' }
+            ]
+        }
+    };
+
+    const icons = {
+        grid: '<rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect>',
+        list: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>',
+        sun: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>',
+        inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>',
+        kanban: '<rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line>',
+        matrix: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect>',
+        calendar: '<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+        leaf: '<path d="M3 12l2-2 4 4 7-7 3 3"></path><path d="M3 21h18"></path>',
+        briefcase: '<rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>',
+        book: '<path d="M2 4l10 5 10-5-10-5z"></path><path d="M2 20l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path>',
+        check: '<polyline points="20 6 9 17 4 12"></polyline>',
+        target: '<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>',
+        heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>',
+        run: '<circle cx="13" cy="4" r="2"></circle><path d="M4 17l5-5 3 3 5-7"></path><path d="M13 12v8"></path>',
+        food: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"></path>',
+        wallet: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>',
+        pen: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>',
+        paw: '<circle cx="11" cy="4" r="2"></circle><circle cx="18" cy="8" r="2"></circle><circle cx="20" cy="16" r="2"></circle><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10z"></path>',
+        home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
+        project: '<path d="M3 7l9-4 9 4-9 4-9-4z"></path><path d="M3 12l9 4 9-4"></path><path d="M3 17l9 4 9-4"></path>',
+        folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>',
+        file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>',
+        server: '<rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line>',
+        rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>',
+        users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+        clock: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
+        refresh: '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>',
+        sparkle: '<path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"></path>',
+        play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>',
+        tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line>',
+        graph: '<circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="12" cy="18" r="3"></circle><line x1="8.5" y1="7.5" x2="10.5" y2="16.5"></line><line x1="15.5" y1="7.5" x2="13.5" y2="16.5"></line>',
+        star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>',
+        archive: '<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>',
+        user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>',
+        palette: '<circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path>',
+        bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>',
+        keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"></rect><line x1="6" y1="10" x2="6" y2="10"></line><line x1="10" y1="10" x2="10" y2="10"></line><line x1="14" y1="10" x2="14" y2="10"></line><line x1="18" y1="10" x2="18" y2="10"></line><line x1="8" y1="14" x2="16" y2="14"></line>',
+        database: '<ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>',
+        link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
+        shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>',
+        info: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>',
+        activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
+        alert: '<path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path>',
+        flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line>',
+        send: '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>',
+        trend: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
+        chevronLeft: '<polyline points="15 18 9 12 15 6"></polyline>'
+    };
+
+    function iconSvg(name) {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${icons[name] || icons.grid}</svg>`;
+    }
+
+    /* ============ 状态 ============ */
+    let currentPrimary = 'dashboard';
+    let ringLevel = 'level2';
+    let currentItemIdx = 0;
+    let currentChildIdx = 0;
+    let parentItem = null;
+    const START = -90;
+
+    const ringEl = document.getElementById('moduleRing');
+    const radialItemsWrap = ringEl.querySelector('[data-radial-items]');
+    const arcEl = ringEl.querySelector('[data-hub-arc]');
+    const ripple = ringEl.querySelector('.hub-ripple');
+    const hubDoor = ringEl.querySelector('[data-hub-door]');
+    const railEl = document.getElementById('moduleRail');
+    const sidebarEl = document.getElementById('sidebar');
+    const subtitleEl = document.getElementById('sidebarSubtitle');
+    const captionEl = document.getElementById('ringCaption');
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /* 环半径随项数变：项少时收小。尺寸本身就是信息 ——
+       「工作台只有 3 个分区，盘就小；工作有 12 个，盘才铺满」。
+       下界 52 不是拍的：要容下中心门半径 + 图标半径 + 7px 缝（26.5 + 18 + 7 = 51.5）。
+       缝从 4px 提到 7px 是因为图标变大后同样的 4px 看着更挤 —— 缝要跟着图标比例走。
+       ⚠️ 图标变大后这个下界要跟着抬 —— 它由「中心门 + 图标」反推，不是独立常数。 */
+    const R_MIN = 52, R_MAX = 74;
+    function radiusFor(n) {
+        const chordT = 44;                      // 相邻两项的弦长目标
+        return Math.max(R_MIN, Math.min(R_MAX, Math.round(chordT / (2 * Math.sin(Math.PI / n)))));
+    }
+
+    /* 图标直径也要按项数收。n 大时相邻弦长短，不收就会在「选中 1.15 倍 + 悬停 1.16 倍」
+       的相邻一对上边缘相切、看成一块（实测不收时最坏净距只剩 0.2px）。
+       目标：最坏一对仍留 ≥3px 净距 ⇒ 上限 = (弦长 − 3) / 1.155，再夹到 [26, ICON_MAX]。
+       ⚠️ ICON_MAX 与 CSS 的 --icon 初值、还有 R_MIN 是**联动的三件套**：抬上限就要抬 R_MIN，
+          否则小项数时图标会贴到中心门上。上限还受容器宽度预算约束（见 .radial 注释）。 */
+    const ICON_MAX = 36;
+    function iconFor(n, R) {
+        const chord = 2 * R * Math.sin(Math.PI / n);
+        return Math.max(26, Math.min(ICON_MAX, Math.floor((chord - 3) / 1.155)));
+    }
+
+    /* 分段刻度：每段对应一个分区，已过的段填强调色、未到的留一格淡痕。
+       于是弧不再是"进度条"，而是"共几格 / 走到第几格"的读数。 */
+    function arcStops(n, activeIdx) {
+        const step = 360 / n;
+        const gap = Math.min(6, step * 0.22);
+        const out = [];
+        for (let i = 0; i < n; i++) {
+            const a = i * step, b = a + step - gap;
+            const color = i <= activeIdx
+                ? 'var(--m-main)'
+                : 'color-mix(in srgb, var(--text-primary) 14%, transparent)';
+            out.push(`${color} ${a.toFixed(2)}deg ${b.toFixed(2)}deg`);
+            out.push(`transparent ${b.toFixed(2)}deg ${(a + step).toFixed(2)}deg`);
+        }
+        return out.join(', ');
+    }
+
+    /* 名称条只有显隐两种状态，不参与布局：显隐用 opacity + translateY，任何时候都不改变其他元素的 rect */
+    function showCaption(text) {
+        if (!captionEl || captionEl.textContent === text && captionEl.classList.contains('is-on')) return;
+        captionEl.textContent = text;
+        captionEl.classList.add('is-on');
+    }
+    function hideCaption() {
+        if (captionEl) captionEl.classList.remove('is-on');
+    }
+
+    /* ============ 一级切换 ============ */
+    function switchPrimary(key) {
+        const cfg = primaryConfig[key];
+        if (!cfg) return;
+        currentPrimary = key;
+        ringLevel = 'level2';
+        currentItemIdx = 0;
+        currentChildIdx = 0;
+        parentItem = null;
+
+        document.querySelectorAll('.nav-p-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.module === key);
+        });
+
+        document.getElementById('sidebarTitle').textContent = cfg.name;
+        document.getElementById('sidebarSubtitle').textContent = cfg.subtitle;
+        document.getElementById('pageTitle').textContent = cfg.name;
+        document.getElementById('pageSubtitle').textContent = cfg.desc;
+
+        applyColors(cfg);
+        renderRing(cfg, false);
+        renderPage(cfg);
+    }
+
+    /* ============ 渲染环 ============ */
+    function renderRing(cfg, animate) {
+        let list;
+        if (ringLevel === 'level2') {
+            list = cfg.items;
+        } else {
+            list = parentItem.children || [];
+        }
+
+        const n = list.length;
+        const step = 360 / n;
+        const activeIdx = ringLevel === 'level2' ? currentItemIdx : currentChildIdx;
+
+        const R = radiusFor(n);
+        const iconPx = iconFor(n, R);
+        ringEl.style.setProperty('--r', R + 'px');
+        ringEl.style.setProperty('--icon', iconPx + 'px');
+        if (arcEl) arcEl.style.setProperty('--arcs', arcStops(n, activeIdx));
+
+        let html = '';
+        list.forEach((item, i) => {
+            const a = START + step * i;
+            const isActive = i === activeIdx;
+            const hasChildren = !!(item.children && item.children.length);
+
+            let animClass = '';
+            if (animate) {
+                animClass = ringLevel === 'level3' ? 'enter-from-center-strong' : 'enter-from-center';
+            }
+
+            html += `
+        <button type="button"
+          class="radial__item ${isActive ? 'active' : ''} ${animClass}"
+          style="--a:${a}deg; --i:${i}"
+          data-idx="${i}"
+          data-key="${item.key}"
+          data-has-children="${hasChildren}"
+          aria-label="${item.label}"
+          aria-current="${isActive ? 'true' : 'false'}">
+          ${iconSvg(item.icon)}
+        </button>
+      `;
+        });
+        radialItemsWrap.innerHTML = html;
+
+        /* 名称条是「固定位置」的：悬停哪个就把哪个的名字写到圆盘下方 */
+        let stillHovered = false;
+        radialItemsWrap.querySelectorAll('[data-idx]').forEach(btn => {
+            const i = parseInt(btn.dataset.idx, 10);
+            const label = list[i].label;
+            btn.addEventListener('click', () => handleRingClick(i, cfg));
+            btn.addEventListener('mouseenter', () => showCaption(label));
+            btn.addEventListener('focus', () => showCaption(label));
+            btn.addEventListener('mouseleave', hideCaption);
+            btn.addEventListener('blur', hideCaption);
+            /* 重渲染后鼠标可能还停在原地（元素已换新），补一次，免得名称条闪没 */
+            if (btn.matches(':hover')) { showCaption(label); stillHovered = true; }
+        });
+        if (!stillHovered) hideCaption();
+
+        ringEl.classList.toggle('is-nested', ringLevel === 'level3');
+
+        /* 头部副标题跟着「当前所在分区」走，比固定写在配置里的 tagline 更有用 */
+        if (subtitleEl) {
+            subtitleEl.textContent = (list[activeIdx] && list[activeIdx].label) || cfg.subtitle;
+            subtitleEl.title = cfg.desc;
+        }
+
+        renderRail(cfg, list, activeIdx);
+
+        if (ringLevel === 'level2') {
+            hubDoor.classList.remove('is-back');
+            hubDoor.setAttribute('aria-label', '进入 ' + cfg.items[currentItemIdx].label);
+        } else {
+            hubDoor.classList.add('is-back');
+            hubDoor.setAttribute('aria-label', '返回上一级');
+        }
+
+        pointTo(START + step * activeIdx);
+    }
+
+    /* ============ 收起态：平铺图标列 ============ */
+    /* 与圆盘共用同一份 list / activeIdx / 点击处理器，收起只是换一种排列，
+       所以「展开时看到的内容」和「收起时看到的内容」永远不会不一致。 */
+    function renderRail(cfg, list, activeIdx) {
+        let html = '';
+
+        if (ringLevel === 'level3') {
+            html += `
+        <button type="button" class="rail__item rail__back" data-back="1" aria-label="返回上一级">
+          <span class="rail__btn">${iconSvg('chevronLeft')}</span>
+          <span class="rail__tip">返回 ${parentItem ? parentItem.label : ''}</span>
+        </button>`;
+        }
+
+        list.forEach((item, i) => {
+            const hasChildren = !!(item.children && item.children.length);
+            const isActive = i === activeIdx;
+            html += `
+        <button type="button"
+          class="rail__item ${isActive ? 'active' : ''}"
+          data-idx="${i}"
+          data-has-children="${hasChildren}"
+          aria-label="${item.label}"
+          aria-current="${isActive ? 'true' : 'false'}">
+          <span class="rail__btn">${iconSvg(item.icon)}</span>
+          <span class="rail__tip">${item.label}</span>
+        </button>`;
+        });
+
+        railEl.innerHTML = html;
+
+        railEl.querySelectorAll('[data-idx]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const i = parseInt(btn.dataset.idx, 10);
+                const item = list[i];
+                /* 收起态看不到中心门，所以「点当前项」也要能下钻；
+                   展开态这个动作由中心门承担（handleRingClick 对当前项是 no-op）。 */
+                if (ringLevel === 'level2' && i === activeIdx && item && item.children && item.children.length) {
+                    enterLevel3(item);
+                    return;
+                }
+                handleRingClick(i, cfg);
+            });
+        });
+        const backBtn = railEl.querySelector('[data-back]');
+        if (backBtn) backBtn.addEventListener('click', backToLevel2);
+    }
+
+    /* ============ 点击环上的项 ============ */
+    function handleRingClick(i, cfg) {
+        if (ringLevel === 'level2') {
+            if (i === currentItemIdx) return;
+            currentItemIdx = i;
+            const item = cfg.items[i];
+            if (item.children && item.children.length) {
+                enterLevel3(item);
+            } else {
+                renderRing(cfg, false);
+                renderPage(cfg);
+            }
+        } else {
+            if (i === currentChildIdx) return;
+            currentChildIdx = i;
+            renderRing(cfg, false);
+            renderPage(cfg);
+        }
+    }
+
+    /* ============ 进入三级 ============ */
+    function enterLevel3(item) {
+        parentItem = item;
+        ringLevel = 'level3';
+        currentChildIdx = 0;
+        const cfg = primaryConfig[currentPrimary];
+
+        if (ripple && !reduce) {
+            ripple.animate(
+                [
+                    { transform: 'scale(0.4)', opacity: 0.7 },
+                    { transform: 'scale(2.6)', opacity: 0 }
+                ],
+                { duration: 700, easing: 'cubic-bezier(0.16, 0.9, 0.3, 1)' }
+            );
+        }
+
+        renderRing(cfg, true);
+        renderPage(cfg);
+    }
+
+    /* ============ 返回二级 ============ */
+    function backToLevel2() {
+        if (ringLevel !== 'level3') return;
+        ringLevel = 'level2';
+        parentItem = null;
+        const cfg = primaryConfig[currentPrimary];
+        renderRing(cfg, true);
+        renderPage(cfg);
+    }
+
+    /* ============ 中心门 ============ */
+    hubDoor.addEventListener('click', () => {
+        if (ringLevel === 'level3') {
+            backToLevel2();
+        } else {
+            const cfg = primaryConfig[currentPrimary];
+            const item = cfg.items[currentItemIdx];
+            if (item.children && item.children.length) {
+                enterLevel3(item);
+            } else {
+                renderPage(cfg);
+            }
+        }
+    });
+
+    /* ============ 指针 ============ */
+    let needleAngle = START + 90;
+    function pointTo(deg) {
+        const target = deg + 90;
+        const delta = ((target - needleAngle + 540) % 360) - 180;
+        needleAngle += delta;
+        if (sidebarEl) sidebarEl.style.setProperty('--na', needleAngle + 'deg');
+    }
+
+    /* ============ 主内容 ============ */
+    function renderPage(cfg) {
+        const pageTitle = document.getElementById('pageTitle');
+        const pagePath = document.getElementById('pagePath');
+        const pageSubtitle = document.getElementById('pageSubtitle');
+        const sectionTitle = document.getElementById('sectionTitle');
+        const sectionList = document.getElementById('sectionList');
+
+        /* 面包屑只给**上级**：末段（当前所在的二级/三级）交给页面大标题。
+           面包屑挂在标题下方，若末段与标题同词，读起来是"重复"而不是"路径 → 当前位置"的惯例。
+           二级：只剩模块名（标 current，表示"你在这个模块里"）；
+           三级：模块 / 二级（二级可点，回二级）。 */
+        let pathParts = [];
+        if (ringLevel === 'level3') {
+            pathParts = [
+                { text: cfg.name },
+                { text: parentItem.label, back: true }
+            ];
+            pageTitle.textContent = parentItem.children[currentChildIdx].label;
+        } else {
+            const item = cfg.items[currentItemIdx];
+            pathParts = [{ text: cfg.name, current: true }];
+            pageTitle.textContent = item.label;
+        }
+        /* 副标题一律用模块自己的 desc。三级原来拼的是「二级 · 三级」，与标题、面包屑三方重复 */
+        pageSubtitle.textContent = cfg.desc;
+
+        let pathHtml = '';
+        pathParts.forEach((p, i) => {
+            if (i > 0) pathHtml += `<span class="sep">/</span>`;
+            const cls = 'crumb' + (p.current ? ' current' : '');
+            const act = p.back ? ` data-crumb-idx="${i}"` : '';
+            pathHtml += `<span class="${cls}"${act}>${p.text}</span>`;
+        });
+        pagePath.innerHTML = pathHtml;
+
+        pagePath.querySelectorAll('[data-crumb-idx]').forEach(el => {
+            el.addEventListener('click', () => { if (ringLevel === 'level3') backToLevel2(); });
+        });
+
+        if (ringLevel === 'level3') {
+            const child = parentItem.children[currentChildIdx];
+            sectionList.innerHTML = `
+        <div class="list-item">
+          <span class="list-dot" style="background:var(--m-main);"></span>
+          <span class="list-text">${child.label} · 条目 1</span>
+          <span class="list-meta">今天</span>
+        </div>
+        <div class="list-item">
+          <span class="list-dot" style="background:var(--m-main);"></span>
+          <span class="list-text">${child.label} · 条目 2</span>
+          <span class="list-meta">昨天</span>
+        </div>
+        <div class="list-item">
+          <span class="list-dot" style="background:var(--m-main);"></span>
+          <span class="list-text">${child.label} · 条目 3</span>
+          <span class="list-meta">3 天前</span>
+        </div>
+      `;
+        }
+
+        /* 区块标题 = 条数。原先是 sectionTitle.textContent = pageTitle.textContent，
+           于是同一个词在一屏里出现两次（大标题 + 区块标题）。计数是新信息，且不重复。
+           必须放在列表生成之后 —— 它读的是 children.length。 */
+        sectionTitle.textContent = sectionList.children.length + ' 项';
+    }
+
+    /* ============ 颜色 ============ */
+    function applyColors(cfg) {
+        const isDark = document.documentElement.classList.contains('dark');
+        const c = isDark ? cfg.colors.dark : cfg.colors.light;
+        const root = document.documentElement;
+        root.style.setProperty('--m1', c.c1);
+        root.style.setProperty('--m2', c.c2);
+        root.style.setProperty('--m3', c.c3);
+        root.style.setProperty('--m-main', c.main);
+        root.style.setProperty('--m-soft', hexToRgba(c.main, isDark ? 0.16 : 0.10));
+        root.style.setProperty('--m-glow', hexToRgba(c.main, isDark ? 0.4 : 0.28));
+    }
+
+    function hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    /* ============ 槽切换 ============ */
+    document.querySelectorAll('.slot-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const key = tab.dataset.slot;
+            document.querySelectorAll('.slot-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelectorAll('.slot-panel').forEach(p => {
+                p.classList.toggle('active', p.dataset.panel === key);
+            });
+        });
+    });
+
+    /* ============ 折叠 ============ */
+    const app = document.getElementById('app');
+    const collapseBtn = document.getElementById('collapseBtn');
+    collapseBtn.addEventListener('click', () => {
+        const collapsed = sidebarEl.classList.toggle('collapsed');
+        app.classList.toggle('sidebar-collapsed', collapsed);
+        collapseBtn.title = collapsed ? '展开侧栏' : '收起侧栏';
+        collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+        /* 收起会把圆盘整块收掉，名称条要一起复位，否则展开后会留个过期名字 */
+        if (collapsed) hideCaption();
+    });
+
+    /* ============ 主题 ============ */
+    const themeBtn = document.getElementById('themeBtn');
+    const themeIcon = document.getElementById('themeIcon');
+    const SUN = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+    const MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+
+    function readTheme() {
+        const q = new URLSearchParams(location.search).get('theme');
+        if (q === 'dark' || q === 'light') return q;
+        try {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark' || saved === 'light') return saved;
+        } catch (e) { /* file:// 下可能不可用 */ }
+        return 'light';
+    }
+    function setTheme(mode) {
+        document.documentElement.classList.toggle('dark', mode === 'dark');
+        themeIcon.innerHTML = mode === 'dark' ? SUN : MOON;
+    }
+    themeBtn.addEventListener('click', () => {
+        const isDark = !document.documentElement.classList.contains('dark');
+        setTheme(isDark ? 'dark' : 'light');
+        try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) {}
+        applyColors(primaryConfig[currentPrimary]);
+    });
+
+    /* ============ 键盘 ============ */
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+
+        if (e.key === 'Escape' || e.key === 'Backspace') {
+            if (ringLevel === 'level3') {
+                e.preventDefault();
+                backToLevel2();
+            }
+            return;
+        }
+
+        const cfg = primaryConfig[currentPrimary];
+        const list = ringLevel === 'level2' ? cfg.items : (parentItem ? parentItem.children : []);
+
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            const dir = e.key === 'ArrowRight' ? 1 : -1;
+            if (ringLevel === 'level2') {
+                currentItemIdx = (currentItemIdx + dir + list.length) % list.length;
+                renderRing(cfg, false);
+                renderPage(cfg);
+            } else {
+                currentChildIdx = (currentChildIdx + dir + list.length) % list.length;
+                renderRing(cfg, false);
+                renderPage(cfg);
+            }
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (ringLevel === 'level3') {
+                backToLevel2();
+            } else {
+                const item = cfg.items[currentItemIdx];
+                if (item.children && item.children.length) enterLevel3(item);
+                else renderPage(cfg);
+            }
+        }
+    });
+
+    /* ============ 命令面板 ============ */
+    const cmdMask = document.getElementById('cmdMask');
+    const cmdInput = document.getElementById('cmdInput');
+    function openCmd() {
+        cmdMask.classList.add('open');
+        setTimeout(() => cmdInput.focus(), 50);
+    }
+    function closeCmd() {
+        cmdMask.classList.remove('open');
+        cmdInput.value = '';
+    }
+    document.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            cmdMask.classList.contains('open') ? closeCmd() : openCmd();
+        }
+        if (e.key === 'Escape' && cmdMask.classList.contains('open')) closeCmd();
+        if ((e.key === 'd' || e.key === 'D') && !e.metaKey && !e.ctrlKey && !cmdMask.classList.contains('open') && e.target.tagName !== 'INPUT') {
+            themeBtn.click();
+        }
+    });
+
+    /* ============ 初始化 ============ */
+    /* 主题：URL 参数优先于 localStorage（无头验收脚本只走 URL） */
+    setTheme(readTheme());
+
+    /* 命令面板的图标与侧栏同源，避免线性图标里混 emoji */
+    document.querySelectorAll('.cmd-item-icon[data-icon]').forEach(el => {
+        el.innerHTML = iconSvg(el.dataset.icon);
+    });
+
+    /* 窄屏（≤900）顶栏只留图标，补 title 作为悬停提示 */
+    document.querySelectorAll('.nav-p-item').forEach(el => {
+        const cfg = primaryConfig[el.dataset.module];
+        if (cfg) el.title = cfg.name;
+    });
+
+    collapseBtn.title = '收起侧栏';
+    collapseBtn.setAttribute('aria-expanded', 'true');
+
+    switchPrimary('dashboard');
+</script>
+</body>
+</html>

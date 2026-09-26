@@ -43,6 +43,10 @@ function SessionItem({
         <GlyphChat />
       </span>
       <span className="s-text">{session.title}</span>
+      {/* 生成中的会话挂一颗脉动小圆点（原型 `.s-dot`）。
+          有了它，"我切走了但那边还在生成"才看得出来 —— 而切走不丢正是
+          "生成中进消息数据"换来的能力，得让人看见。 */}
+      {session.messages.some((message) => message.generating) ? <span className="s-dot" /> : null}
       <span
         className={cn('s-more', menuActive && 'active')}
         title="更多"

@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>知识库模块 · 功能说明书</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* 与 knowledge_index.html 同一套纯色令牌（无渐变 / 无毛玻璃 / 无 color-mix） */
+        :root {
+            --bg-page: #F4F5F7;
+            --bg-card: #FFFFFF;
+            --bg-subtle: #F7F8FA;
+            --bg-hover: #EDF0F4;
+            --border-subtle: #E7EAF0;
+            --border-strong: #D3D8E0;
+            --text-primary: #0F172A;
+            --text-secondary: #4A5A72;
+            --text-muted: #5B6A82;
+            --m-main: #0D9488;
+            --m-ink: #0F766E;
+            --m-fill: #0F766E;
+            --m-soft: #E6F7F5;
+            --m-line: #CCEDE8;
+            --ink-on-accent: #FFFFFF;
+            --warn-soft: #FBEFD9;
+            --warn-ink: #8A5A0B;
+            --warn-line: #F2DDB6;
+            --shadow-card: 0 1px 2px rgba(15,23,42,0.05);
+        }
+
+        .dark {
+            --bg-page: #0A0F1C;
+            --bg-card: #171F32;
+            --bg-subtle: #131A2A;
+            --bg-hover: #1E2739;
+            --border-subtle: #232D42;
+            --border-strong: #333F58;
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #8695AB;
+            --m-main: #2DD4BF;
+            --m-ink: #7FE9DA;
+            --m-fill: #2DD4BF;
+            --m-soft: #14332F;
+            --m-line: #1F4A44;
+            --ink-on-accent: #06231F;
+            --warn-soft: #3A2A12;
+            --warn-ink: #F5CB86;
+            --warn-line: #55401F;
+            --shadow-card: 0 1px 2px rgba(0,0,0,0.4);
+        }
+
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 232px minmax(0, 1fr);
+            gap: 20px;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 20px;
+            align-items: start;
+        }
+
+        /* ===== 目录 ===== */
+        .toc {
+            position: sticky;
+            top: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: var(--shadow-card);
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        .toc-title { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+        .toc a {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 5px 9px;
+            border-radius: 8px;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .toc a:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .toc a.sub { padding-left: 20px; font-size: 12.5px; }
+        .toc .grp { font-size: 11px; font-weight: 700; color: var(--text-muted); margin: 12px 0 4px; padding-left: 9px; }
+
+        /* ===== 正文 ===== */
+        .main { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+
+        .hero {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--shadow-card);
+        }
+        .hero h1 { font-size: 23px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+        .hero p { color: var(--text-secondary); max-width: 660px; }
+        .hero-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+        .chip {
+            font-size: 12px; font-weight: 600;
+            padding: 4px 11px; border-radius: 999px;
+            background: var(--m-soft); color: var(--m-ink); border: 1px solid var(--m-line);
+        }
+        .chip.plain { background: var(--bg-hover); color: var(--text-secondary); border-color: var(--border-subtle); }
+        .chip.warn { background: var(--warn-soft); color: var(--warn-ink); border-color: var(--warn-line); }
+
+        .chapter {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 22px 24px;
+            box-shadow: var(--shadow-card);
+        }
+        .chapter > h2 {
+            font-size: 17px; font-weight: 800; letter-spacing: -0.3px;
+            margin-bottom: 6px;
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        }
+        .chapter > .lead { color: var(--text-secondary); font-size: 13.5px; margin-bottom: 18px; }
+        .chapter-no {
+            width: 24px; height: 24px; border-radius: 8px;
+            background: var(--m-soft); color: var(--m-ink);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 800;
+        }
+
+        .feat { border-top: 1px solid var(--border-subtle); padding-top: 16px; margin-top: 16px; }
+        .feat:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+        .feat-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .feat-no {
+            font-size: 11px; font-weight: 800; color: var(--m-ink);
+            background: var(--m-soft); border: 1px solid var(--m-line);
+            padding: 2px 8px; border-radius: 999px;
+        }
+        .feat-head h3 { font-size: 15px; font-weight: 700; }
+        .badge {
+            font-size: 11px; font-weight: 600;
+            padding: 2px 9px; border-radius: 999px;
+            background: var(--m-soft); color: var(--m-ink); border: 1px solid var(--m-line);
+        }
+        .badge.visual { background: var(--warn-soft); color: var(--warn-ink); border-color: var(--warn-line); }
+        .badge.demo { background: var(--bg-hover); color: var(--text-secondary); border-color: var(--border-subtle); }
+
+        .cells { display: grid; gap: 12px; }
+        .cells.two { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+        .cell {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 13px 15px;
+        }
+        .cell.warn { background: var(--warn-soft); border-color: var(--warn-line); }
+        .cell-label {
+            font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--text-muted); margin-bottom: 6px;
+        }
+        .cell.warn .cell-label { color: var(--warn-ink); }
+        .cell p { font-size: 13px; color: var(--text-secondary); }
+        .cell.warn p, .cell.warn li { color: var(--text-secondary); }
+        .cell ol, .cell ul { padding-left: 18px; font-size: 13px; color: var(--text-secondary); }
+        .cell li { margin-bottom: 4px; }
+        .cell li:last-child { margin-bottom: 0; }
+        .cell strong { color: var(--text-primary); font-weight: 600; }
+        code {
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            font-size: 12px;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-subtle);
+            border-radius: 5px;
+            padding: 1px 5px;
+            color: var(--text-primary);
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+        th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+        th { font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+        td { color: var(--text-secondary); }
+        td strong { color: var(--text-primary); font-weight: 600; }
+        tr:last-child td { border-bottom: none; }
+
+        .kbd {
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            font-size: 11.5px;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-subtle);
+            border-bottom-width: 2px;
+            border-radius: 5px;
+            padding: 1px 7px;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+
+        .topbar-doc {
+            position: sticky; top: 0; z-index: 10;
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            background: var(--bg-page);
+            padding: 12px 0 10px;
+        }
+        .topbar-doc .name { font-size: 13px; font-weight: 700; }
+        .theme-btn {
+            font-family: inherit; font-size: 12px; font-weight: 600;
+            padding: 7px 14px; border-radius: 999px;
+            background: var(--bg-card); color: var(--text-primary);
+            border: 1px solid var(--border-strong); cursor: pointer;
+        }
+        .theme-btn:hover { border-color: var(--m-main); color: var(--m-ink); }
+
+        .footer { text-align: center; font-size: 12px; color: var(--text-muted); padding: 10px 0 4px; }
+
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; padding: 14px; }
+            .toc { position: static; max-height: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="layout">
+
+    <nav class="toc">
+        <div class="toc-title">知识库功能说明书</div>
+        <a href="#c1">1 · 模块定位与模型</a>
+        <a href="#c2">2 · 全局外壳</a>
+        <a class="sub" href="#f3">3 顶栏模块胶囊</a>
+        <a class="sub" href="#f4">4 超级菜单</a>
+        <a class="sub" href="#f5">5 面包屑与页级动作</a>
+        <a class="sub" href="#f23">23 命令面板 ⌘K</a>
+        <a class="sub" href="#f24">24 键盘导航</a>
+        <a class="sub" href="#f25">25 主题切换</a>
+        <a href="#c3">3 · 圆盘侧栏</a>
+        <a class="sub" href="#f6">6 圆盘（分区导航）</a>
+        <a class="sub" href="#f7">7 中心门与刻度弧</a>
+        <a class="sub" href="#f8">8 悬停名称条</a>
+        <a class="sub" href="#f9">9 收起态图标列</a>
+        <a class="sub" href="#f10">10 侧栏头部</a>
+        <a class="sub" href="#f11">11–14 圆盘下方栏</a>
+        <a href="#c4">4 · 六个分区</a>
+        <a class="sub" href="#f15">15 笔记（主库）</a>
+        <a class="sub" href="#f16">16 收件箱</a>
+        <a class="sub" href="#f17">17 主题</a>
+        <a class="sub" href="#f18">18 标签</a>
+        <a class="sub" href="#f19">19 图谱</a>
+        <a class="sub" href="#f20">20 归档</a>
+        <a href="#c5">5 · 浮层与辅助区</a>
+        <a class="sub" href="#f2">2 成熟度三层</a>
+        <a class="sub" href="#f21">21 笔记详情弹窗</a>
+        <a class="sub" href="#f22">22 主题详情弹窗</a>
+        <a class="sub" href="#f26">26 右侧轨</a>
+        <a class="sub" href="#f27">27 新建与捕获动作</a>
+        <a href="#c6">6 · 原型边界与口径</a>
+    </nav>
+
+    <main class="main">
+
+        <div class="topbar-doc">
+            <span class="name">知识库模块 · 功能说明书</span>
+            <button class="theme-btn" id="themeBtn">切换深浅色</button>
+        </div>
+
+        <header class="hero">
+            <h1>知识库模块 · 功能说明书</h1>
+            <p>
+                这份说明对应原型 <code>knowledge_index.html</code>。逐项给出每个功能的<strong>作用</strong>、
+                <strong>适用场景</strong>、<strong>操作步骤</strong>与<strong>注意事项</strong>。
+                每条都标注状态：<span class="chip">已实现</span> 能在原型里真的点出结果；
+                <span class="chip warn">仅界面</span> 只有视觉，未接数据；
+                <span class="chip plain">演示提示</span> 点了会弹一句占位提示。
+            </p>
+            <div class="hero-meta">
+                <span class="chip">定位：沉淀库</span>
+                <span class="chip">6 个一级分区</span>
+                <span class="chip">27 项功能</span>
+                <span class="chip plain">纯色令牌 · 亮/暗双主题</span>
+                <span class="chip plain">单文件 HTML · 零依赖</span>
+            </div>
+        </header>
+
+        <!-- ================= 第 1 章 ================= -->
+        <section class="chapter" id="c1">
+            <h2><span class="chapter-no">1</span>模块定位与模型</h2>
+            <p class="lead">先定边界，再谈功能。这一章回答"什么内容该进知识库"，后面所有功能都是它的实现手段。</p>
+
+            <div class="feat" id="f1">
+                <div class="feat-head">
+                    <span class="feat-no">01</span>
+                    <h3>知识库 = 沉淀库（不是过程库）</h3>
+                    <span class="badge">定位</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell">
+                        <div class="cell-label">作用</div>
+                        <p>存放<strong>脱离来源仍然成立的结论、经验、产出</strong>，让其在三个月后还能被引用与检索。</p>
+                    </div>
+                    <div class="cell">
+                        <div class="cell-label">适用场景</div>
+                        <p>课程结课后仍要用的结论；项目结项后脱敏的通用经验；跨模块复用的一句话判断。</p>
+                    </div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">与「学习模块的笔记」的分界（分流三问，任一「是」→ 进知识库）</div>
+                        <ol>
+                            <li>删掉来源（课程结课 / 项目结项 / 书读完）后，它还成立吗？</li>
+                            <li>三个月后还会被引用吗？</li>
+                            <li>它回答的是「我知道什么」，而不是「我正在学什么」吗？</li>
+                        </ol>
+                    </div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>同一条笔记<strong>只能存在一处</strong>：两边各存一份就要两处维护，必然漂移。</li>
+                            <li>「复习 / 到期 / 闪卡」属于学习模块（状态绑在学习目标上），<strong>知识库不做 SRS</strong>，只保留无状态的「随机回顾」。</li>
+                            <li>「升级为永久笔记」这个动作属于学习模块；在知识库里对应的动作是<strong>归档</strong>（只进不出）。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f2">
+                <div class="feat-head">
+                    <span class="feat-no">02</span>
+                    <h3>成熟度三层：记录 / 加工 / 生产</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell">
+                        <div class="cell-label">作用</div>
+                        <p>把「漏 / 懵 / 调不出来」三个症状变成<strong>三个可数的指标</strong>，并让每条笔记自带成熟度。</p>
+                    </div>
+                    <div class="cell">
+                        <div class="cell-label">适用场景</div>
+                        <p>判断"我的库是不是健康的"；决定今天该整理收件箱还是该去补双链。</p>
+                    </div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">状态如何推导（不新增数据字段，由现有三个标记推出）</div>
+                        <table>
+                            <tr><th>状态</th><th>判据</th><th>落点</th></tr>
+                            <tr><td><strong>记录</strong></td><td>还在收件箱（未归类）</td><td>收件箱分区 · 5 条</td></tr>
+                            <tr><td><strong>加工</strong></td><td>已归类，但 0 条双链</td><td>笔记 · 未链接视图 · 12 条</td></tr>
+                            <tr><td><strong>生产</strong></td><td>有 ≥1 条双链 / 标记永久</td><td>笔记（永久 42）+ 图谱（双链 348）</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>三层<strong>不能做成三个分区</strong>：一条笔记会跨层，做成分区就违反「互斥」，菜单会出现两个正确答案。</li>
+                            <li>「加工」这一步的<strong>动作</strong>（费曼重写、渐进总结）属于学习 / 工作模块，知识库只显示加工<strong>结果</strong>（未链接 = 没走完）。</li>
+                            <li>归档行<strong>不标</strong>成熟度 —— 已冻结，标了反而误导。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 第 2 章 ================= -->
+        <section class="chapter" id="c2">
+            <h2><span class="chapter-no">2</span>全局外壳：随时可用的 6 项</h2>
+            <p class="lead">这些功能不属于任何分区，任何界面下都可操作。它们的共同职责是"让人在系统里定位与跳转"。</p>
+
+            <div class="feat" id="f3">
+                <div class="feat-head">
+                    <span class="feat-no">03</span>
+                    <h3>顶栏一级模块胶囊</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>9 个模块的总入口，当前模块用实底胶囊标出；标题带待办徽标（任务 5 / 工作 2 / 项目 4）。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>需要跨模块跳转，或想确认"我现在在哪个模块"。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>鼠标悬停胶囊 → 自动展开该模块的二级清单（超级菜单）。</li>
+                            <li>点「知识库」→ 回到本模块并把内容复位到「笔记」分区。</li>
+                            <li>点其他模块 → 弹出提示，不切换。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>只有知识库能承载内容；点其他模块<strong>不改选中态、不换色、不重建圆盘</strong>，避免顶栏指着一个没有内容的模块。</li>
+                            <li>≤1140px 时非当前项只留图标；≤900px 连侧栏一起隐藏，二级改从超级菜单进。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f4">
+                <div class="feat-head">
+                    <span class="feat-no">04</span>
+                    <h3>超级菜单（二级下拉）</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>列出当前模块的二级清单，并高亮"你正在哪一项"；是最快跳分区的方式。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>窄屏（侧栏已隐藏）时的唯一二级入口；也知道某模块下都有什么。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>悬停任一模块胶囊（≤900px 改为点击）→ 面板展开。</li>
+                            <li>点面板里的分区名 → 直达该分区并高亮。</li>
+                            <li>点「全部 ›」→ 跳到该模块的第一项。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>面板必须挂在顶栏容器上（导航条是横向滚动容器，放进去会被裁）。</li>
+                            <li>非本模块的条目点了只提示，不改变当前状态。</li>
+                            <li>面板位置会按触发项居中，并夹在顶栏范围内（末项「设置」不会越界）。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f5">
+                <div class="feat-head">
+                    <span class="feat-no">05</span>
+                    <h3>面包屑与页级动作</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>显示「知识库 / 分区（/ 视图）」路径，并给两级返回；右侧放两个页级动作。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>下钻到三级视图后想退回分区；或从任何地方快速搜 / 新建。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>点路径中<strong>非末段</strong>的 chip（如「笔记」）→ 返回二级。</li>
+                            <li>点 <code>⌘K 搜索</code> → 打开命令面板。</li>
+                            <li>点 <code>+ 新建笔记</code> → 目前弹演示提示。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>末段是当前项，<strong>不可点</strong>（点了什么也不该发生）。</li>
+                            <li>页面大标题<strong>不写在这里</strong>：分区内容自带标题，再写一遍同一个词会在一屏出现三次。</li>
+                            <li>路径下方那行是「义」（一句话说明），而侧栏头部给的是「量」（条数）——两处各说一件事。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f23">
+                <div class="feat-head">
+                    <span class="feat-no">23</span>
+                    <h3>命令面板 <span class="kbd">⌘K</span></h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>键盘直达任意分区、任意笔记视图，以及 8 个其他模块（提示用）。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>手不离键盘；或忘了某个分区叫什么名字时按名字搜。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>按 <span class="kbd">⌘K</span>（或点顶栏左上角 <code>J</code>、放大镜图标）打开面板。</li>
+                            <li>在「知识库 · 一级分区」组里选分区。</li>
+                            <li>在「知识库 · 笔记视图」组里直接进「收藏 3」这类视图（它不占圆盘，但必须可达）。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>视图选项会先切到「笔记」分区再切视图 —— 视图依附于分区，不能单独存在。</li>
+                            <li>面板里出现的每一条都必须能真跳到目标，否则不如不放。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f24">
+                <div class="feat-head">
+                    <span class="feat-no">24</span>
+                    <h3>键盘导航</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>不用鼠标走完整条导航链路：切分区、下钻、返回、关浮层。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>批量整理时反复在分区之间来回；无障碍操作。</p></div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">按键一览</div>
+                        <table>
+                            <tr><th>按键</th><th>行为</th></tr>
+                            <tr><td><span class="kbd">←</span> <span class="kbd">→</span></td><td>在圆盘上前后移动，<strong>同时切换内容</strong>（不需要再按一次确认）</td></tr>
+                            <tr><td><span class="kbd">Enter</span></td><td>二级：进入当前分区的下一层；三级：返回二级</td></tr>
+                            <tr><td><span class="kbd">Esc</span> / <span class="kbd">Backspace</span></td><td>三级 → 二级</td></tr>
+                            <tr><td><span class="kbd">Esc</span></td><td>关闭浮层（命令面板 → 笔记弹窗 → 超级菜单，按序各关一层）</td></tr>
+                            <tr><td><span class="kbd">⌘K</span></td><td>开关命令面板</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>焦点在输入框里时，方向键与 Esc <strong>让位给输入</strong>，不劫持。</li>
+                            <li>「Enter 下钻」只对有下一层的分区生效；对无下一层的分区，按了不会有任何变化（不假装有）。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f25">
+                <div class="feat-head">
+                    <span class="feat-no">25</span>
+                    <h3>深浅主题切换</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>整套令牌在亮 / 暗两套实色间切换，选择记忆在本地。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>夜间整理；给评审看两种底色下的可读性。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell"><div class="cell-label">操作步骤</div><ol><li>点顶栏月亮 / 太阳图标切换。</li><li>刷新后保持上次选择（也可用地址栏 <code>?theme=dark</code> 强制）。</li></ol></div>
+                    <div class="cell warn"><div class="cell-label">注意事项</div><ul><li>没有半透明材质、没有模糊、没有 <code>color-mix</code>：所有颜色都是成对的实色令牌，实测对比度分别达标（文字 ≥4.5:1，图形 ≥3:1）。</li></ul></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 第 3 章 ================= -->
+        <section class="chapter" id="c3">
+            <h2><span class="chapter-no">3</span>圆盘侧栏：定位与切换</h2>
+            <p class="lead">侧栏是知识库的"骨架"。展开态是圆盘，收起态是图标列，两者<strong>同一份数据</strong>，只是排列不同。</p>
+
+            <div class="feat" id="f6">
+                <div class="feat-head">
+                    <span class="feat-no">06</span>
+                    <h3>圆盘（分区导航）</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>6 个一级分区的唯一主入口。当前项会沿半径向外"咬合"5px 并带脉冲圈，一眼看出在哪一格。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>每次切分区；也是"我在库的哪个位置"最直观的读数。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>点环上任一图标 → <strong>只切换内容</strong>，不下钻。</li>
+                            <li>再点<strong>当前这一项</strong> → 下钻到它的视图（如「笔记」的四个视图）。</li>
+                            <li>悬停 → 图标放大并出底色，同时下方名称条显示"名称 · 计数"。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>6 个分区的顺序是「使用频率 × 任务类型」：日用在前（笔记 / 收件箱），周用居中（主题 / 标签），偶尔用在后（图谱 / 归档）。</li>
+                            <li>每个分区<strong>必须有自己的图标</strong>：圆盘上只剩图标，缺一个名字就会静默落回同一个兜底图形（6 项全一样）——原型里已加警告与断言防复发。</li>
+                            <li>环半径与图标尺寸由<strong>项数</strong>推导（6 项时 52px / 36px，容器 160px，上限 218px），加分区前先算，别只凭感觉塞。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f7">
+                <div class="feat-head">
+                    <span class="feat-no">07</span>
+                    <h3>中心门与分段刻度弧</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>中心门 = 进入当前分区的下一层 / 返回上一层；外圈刻度弧 = 「共几格、走到第几格」，已过的段填实色。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>想看某分区的视图清单（如"未链接的笔记"）；或确认自己在第几格。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>在二级点中心门 → 进入当前分区的视图层。</li>
+                            <li>在三级点中心门（或按 Esc）→ 返回二级。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>只有<strong>真有下一层</strong>的分区才显示底部小圆点，也才允许下钻：笔记（4 个视图）、收件箱（5 个状态）有；主题 / 标签 / 图谱 / 归档没有。</li>
+                            <li>刻度弧的未填充格是纯装饰，不承担对比度门槛；已填充格代表"走到第几格"，口径写在 <code>arcStops()</code> 里。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f8">
+                <div class="feat-head">
+                    <span class="feat-no">08</span>
+                    <h3>悬停名称条（带计数）</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>悬停图标时，在圆盘正下方显示「名称 · 计数」，解决"只有图标认不出"和"值不值得点"两个问题。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>不熟悉图标含义时；判断"收件箱现在堆了多少"。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell"><div class="cell-label">操作步骤</div><ol><li>把鼠标移到任一图标上（或用 Tab 聚焦）。</li><li>读名称条：如「收件箱 · 5」「笔记 · 286」。</li><li>移开即消失，不占布局。</li></ol></div>
+                    <div class="cell warn"><div class="cell-label">注意事项</div><ul><li>名称条固定在圆盘正下方一条，<strong>不做沿角度外推的气泡</strong>：极坐标定位必然让宽名字在最左 / 最右与图标叠压或被侧栏裁掉。</li><li>显隐只用透明度与位移，任何时候不改变其他元素的尺寸（否则会连累几何验收）。</li></ul></div>
+                </div>
+            </div>
+
+            <div class="feat" id="f9">
+                <div class="feat-head">
+                    <span class="feat-no">09</span>
+                    <h3>收起态图标列（rail）</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>侧栏收成 64px 后仍能切分区：图标竖向排列，悬停出带计数的提示，激活项左侧有指示条。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>屏幕窄、或正文需要更多横向空间时。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>点侧栏底部<strong>收起</strong>按钮 → 圆盘换成图标列。</li>
+                            <li>悬停图标看提示（含计数）。</li>
+                            <li>点<strong>当前项</strong>也能下钻 —— 收起态看不到中心门，所以这个动作必须在这里也能做。</li>
+                            <li>再点底部按钮展开。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>提示要浮到侧栏之外，因此这一层不能裁切；也<strong>不能给图标列加滚动</strong>（一加滚动就会把提示切掉）。矮窗口靠压缩图标节奏容纳。</li>
+                            <li>展开态与收起态共用同一份数据与点击逻辑，避免"两种形态看到的内容不一致"。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f10">
+                <div class="feat-head">
+                    <span class="feat-no">10</span>
+                    <h3>侧栏头部（模块名 + 量）</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>常显「知识库」+ 当前分区的<strong>量</strong>，如「286 条笔记 · 12 条未链接」「5 条待整理」。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>每天扫一眼就知道该不该整理；不用先点进分区。</p></div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>这里只给「量」，「义」（一句话说明）放在页头副标题 —— 两处各说一件事，否则侧栏、面包屑、副标题会同时出现"笔记"。</li>
+                            <li>收起态下头部整块隐藏，信息不丢（名称条与提示里都有）。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f11">
+                <div class="feat-head">
+                    <span class="feat-no">11–14</span>
+                    <h3>圆盘下方栏：今日 / 最近 / 快捷</h3>
+                    <span class="badge">已实现</span> <span class="badge visual">快捷按钮仅界面</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>圆盘下面三个 tab，各回答一个问题：<strong>现在该做什么</strong>（带计数，可点直达）、<strong>刚做过什么</strong>（浏览历史）、<strong>把东西收进来</strong>。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>打开知识库的第一眼（默认落在「今日」）；整理完收件箱后顺着"未链接"继续补双链。</p></div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">三个 tab 的内容与去处</div>
+                        <table>
+                            <tr><th>tab</th><th>内容</th><th>操作</th></tr>
+                            <tr><td><strong>今日</strong>（默认）</td><td>收件箱未整理 <strong>5</strong> / 未链接的笔记 <strong>12</strong> / 归档候选 <strong>37</strong></td><td>点一行 → 分别直达收件箱分区、笔记 · 未链接视图、归档分区（候选清单在那一屏）</td></tr>
+                            <tr><td><strong>最近</strong></td><td>4 条最近打开过的笔记（浏览历史）</td><td>点条目 → 打开笔记详情（<strong>浏览历史</strong>，与「最近编辑」视图不是一回事）</td></tr>
+                            <tr><td><strong>快捷</strong></td><td>新建笔记 / 新建主题 / 归类收件箱 / 随机回顾 / 导入剪藏 / AI 助手</td><td>点按钮 → 目前是演示提示</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li><strong>不放资产统计</strong>：KPI 数字在圆盘计数、侧栏头部、主区四卡已经出现三次，再放第四次就是噪音。原来那个「KPI 槽」因此被删（也顺手修掉了"主区与侧栏两套数字"的隐患）。</li>
+                            <li><strong>每个计数必须能点进去</strong>，否则它只是装饰（判据：可数且可达）。</li>
+                            <li>默认 tab 是「今日」而不是「最近」：这块的第一职责是提醒今天该处理的事。</li>
+                            <li>「今日」是<strong>今天该面对的三类待办</strong>的口径（收件箱 / 未链接 / 归档候选都是存量队列），不是"今天创建"或"今天到期"。若要按真实日期口径算，这三行得换成带时间范围的数字（如"今日新增 3 条待整理"）。</li>
+                            <li>tab 上这个「最近」= <strong>浏览历史</strong>（我刚打开过哪几条），与笔记分区里的「最近编辑」视图（内容最近被改过）不是一回事 —— 两个"最近"靠所在位置区分，不要当成同一个。</li>
+                            <li>切 tab 只切换本块内容，<strong>不改变"我在哪个分区"</strong>；侧栏收起时整块隐藏。</li>
+                            <li>标签改短后三个 tab 合计约 145px（侧栏内容宽 218px）：还能再放一个二字标签，四个字以上就会被挤到横向滚动。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 第 4 章 ================= -->
+        <section class="chapter" id="c4">
+            <h2><span class="chapter-no">4</span>六个分区：内容都放在这里</h2>
+            <p class="lead">分区的划分只有两种性质：<strong>内容归属</strong>（笔记 / 主题 / 标签）与<strong>流程状态</strong>（收件箱 / 归档）；图谱是唯一的关系视图分区。分区的"视图"一律不占圆盘。</p>
+
+            <h3>谁配有一层子菜单（圆盘三级）</h3>
+            <p>三条判据，<strong>全过才配</strong>：① 该分区的内容有一根"找东西前会先想的那一刀"，且这一刀下去 <strong>≥3 类</strong>；② 点下去<strong>内容真的换</strong>（不是只换高亮 / 面包屑）；③ <strong>每项可数</strong>。逐项判定：</p>
+            <div class="cells">
+                <div class="cell">
+                    <div class="cell-label">6 个分区的判定结果</div>
+                    <table>
+                        <tr><th>分区</th><th>那一刀是什么</th><th>类数</th><th>结果</th></tr>
+                        <tr><td>笔记</td><td>视图（全部 / 最近编辑 / 收藏 / 未链接）</td><td>4</td><td>✅ 有三级</td></tr>
+                        <tr><td>收件箱</td><td>为什么还没走完（未归类 / 待补全 / 待提炼 / 待判断）</td><td>5</td><td>✅ 有三级</td></tr>
+                        <tr><td>主题</td><td><strong>分组</strong>（技术 / 产品与系统 / 生活）</td><td>3</td><td>✅ 有三级</td></tr>
+                        <tr><td>标签</td><td><strong>治理状态</strong>（高频 / 沉睡 / 待合并）</td><td>4</td><td>✅ 有三级</td></tr>
+                        <tr><td>图谱</td><td><strong>看什么</strong>（局部图 / 全库统计 / 孤儿巡检 / 黑洞巡检）</td><td>4</td><td>✅ 有三级</td></tr>
+                        <tr><td>归档</td><td>阶段（已归档 / 候选清单）</td><td><strong>2</strong></td><td>❌ 不足 3 类，两块在面板里并列堆叠</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="cells" style="margin-top:12px;">
+                <div class="cell warn">
+                    <div class="cell-label">四条硬约束</div>
+                    <ul>
+                        <li><strong>三级项永远不能是"某一个具体对象"</strong>：主题有 42~上百个，把主题名塞进环上就废了 —— 所以主题的三级是<strong>分组</strong>，不是"某个主题"。同理，标签的三级是"状态"而不是 96 个标签名。</li>
+                        <li><strong>两种实现别混用</strong>：同一份数据的子集 → 行上 <code>data-*</code> + <code>row.hidden</code>（主题分组 / 标签状态 / 收件箱状态）；<strong>换一份内容</strong> → <code>.sub-view[data-view]</code> + <code>.active</code>（图谱的四种看法）。用错的症状是"点进去面板空白"。</li>
+                        <li>三级项数上限 <strong>7±2</strong>（圆盘几何上限约 10），超过就合并同类。</li>
+                        <li>离开分区时视图要<strong>复位</strong>，否则从"收件箱 · 待补全"切走再回来会停在过滤态，像丢了数据。<strong>⚠️ 复位值必须是该分区合法的视图名</strong>：图谱没有"全部"这个视图，复位值要落到默认的"局部图" —— 否则四个子视图会被一起关掉、面板全空（已踩过一次）。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="feat" id="f15">
+                <div class="feat-head">
+                    <span class="feat-no">15</span>
+                    <h3>笔记（主库）</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>库的主体（286 条）。四个视图都是<strong>同一列表上的筛选</strong>：全部 286 / 最近编辑 / 收藏 3 / 未链接 12。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>找一条已知笔记；看最近改了什么；专门找"该补双链"的那批。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>在筛选行点 <strong>全部 / 最近编辑 / 收藏 / 未链接</strong> 切换视图，右侧计数文案同步变化。</li>
+                            <li>或用圆盘：点「笔记」→ 再点一次 → 环上出现四个视图，选哪个列表就切到哪个（两处状态互相同步）。</li>
+                            <li>点任意笔记行 → 打开笔记详情。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li><strong>「收藏」是视图，不是分区</strong>：它原来是圆盘上的一个独立分区，同时又是"笔记"的子项 —— 同一概念出现两次，用户每次都要猜点哪个。降级后数据没丢，仍能一键切出。</li>
+                            <li>筛选行与圆盘三级<strong>必须同步</strong>，否则"收藏是视图"这句话在界面上就是假的。</li>
+                            <li>搜索框目前<strong>只是界面</strong>，输入不会真的过滤（见第 6 章占位清单）。真正可用的检索入口是 <span class="kbd">⌘K</span>。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f16">
+                <div class="feat-head">
+                    <span class="feat-no">16</span>
+                    <h3>收件箱（唯一捕获口）</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>所有新捕获先落这里（5 条），<strong>整理之后才进主库</strong>；三级按"为什么还没走完"过滤，行内直接处置。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>每天固定清一次收件箱；批量处理"待补全"这种同一类活。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>切到「收件箱」→ 看到全部 5 条（计数文案明说"未参与检索"）。</li>
+                            <li>用筛选行把它缩到一类：<strong>全部 / 未归类 1 / 待补全 2 / 待提炼 1 / 待判断 1</strong>（切到哪一类，计数文案就跟着变）。</li>
+                            <li>在行上点 <strong>归类到主题</strong> 或 <strong>退回来源</strong>。</li>
+                            <li>点行本身 → 打开详情，读"缺什么才进下一层"。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>未整理的笔记<strong>不参与检索</strong>，这条规则要写在界面上（已写进计数文案），否则用户会以为"存进去就能搜到"。</li>
+                            <li>行内按钮与"点整行开详情"是两件事：按钮必须阻止事件冒泡，否则点按钮会顺带弹出详情（已修，并写了断言防复发）。</li>
+                            <li>面板里的「整理规则（三问定去向）」是判定口径；"两周未动自动归档"是规则说明，原型不执行。</li>
+                            <li>筛选是<strong>按行上的状态过滤</strong>，不是把同一批行抄成 5 份 —— 状态是会变的行属性，抄多份必然出现两套真相。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f17">
+                <div class="feat-head">
+                    <span class="feat-no">17</span>
+                    <h3>主题（人工策展的容器 · 三级 = 分组）</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>全库 <strong>42 个主题</strong>、分 3 组；示例列出 9 个，各带笔记数（42 / 36 / 28 / 24 / 18 / 16 …）。主题是"能往里补充说明"的容器。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>沿一条主线读一批笔记；给刚整理的笔记找归属；主题多了以后先按组缩范围再看。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>切到「主题」→ 看到全部 9 个（计数文案：<em>全部 42 个 · 示例列出 9 个</em>）。</li>
+                            <li><strong>再点一次「主题」</strong>（或点圆盘中心门）→ 环上换成三级：<strong>全部 / 技术 17 / 产品与系统 12 / 生活 13</strong>。</li>
+                            <li>选「技术」→ 列表只剩 3 条，计数文案变成 <em>技术组 17 个 · 示例 3 个</em>，面包屑变 <strong>知识库 / 主题 / 技术</strong>。</li>
+                            <li>点某个主题 → 打开主题详情（说明 + 笔记列表）。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li><strong>三级是"分组"，不是"某个主题"</strong>：42 个（将来上百个）主题名塞进环上就废了 —— 一级圆盘只有 6~7 格。</li>
+                            <li><strong>只分一层</strong>：分组可以嵌套一层（父主题），但不再往下 —— 两级以上就会退化成第二个标签体系。</li>
+                            <li><strong>主题与标签的分界</strong>：能往里"补充说明"的是主题（人工策展、数量少、可嵌套双链）；只能回答"它属于哪类"的是标签（自发涌现、数量多、平铺）。</li>
+                            <li>分组是<strong>行属性</strong>（<code>data-group</code>），过滤靠 <code>hidden</code>，不复制行。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f18">
+                <div class="feat-head">
+                    <span class="feat-no">18</span>
+                    <h3>标签（自发涌现的属性 · 三级 = 治理状态）</h3>
+                    <span class="badge">已实现</span> <span class="badge visual">点标签本身未接筛选</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>全库 <strong>96 个标签</strong>，示例 19 个，<strong>字号代表使用频次</strong>。这个分区不负责浏览（浏览靠检索），它负责<strong>降熵</strong>。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>定期治理：清理再也不会用的、合并"同一个概念被起了三个名字"的。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>切到「标签」→ 19 个标签按字号显示频次。</li>
+                            <li><strong>再点一次「标签」</strong>→ 环上出现三级：<strong>全部 96 / 高频 23 / 沉睡 55 / 待合并 18</strong>。</li>
+                            <li>选「沉睡」→ 只剩 6 个（示例），它们是 <code>last_used_at</code> 超过 90 天的淘汰候选；选「待合并」→ 5 个疑似同义标签。</li>
+                            <li>点某个标签 → 目前只显示可点状态（未接筛选）。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>标签<strong>平铺、不做层级</strong>：一旦给标签建层级，它就和主题重复了。治理手段只有两个 —— <strong>合并</strong>（留一个名字、其余记 <code>alias_of</code>）与<strong>淘汰</strong>（<code>last_used_at</code> 太久没用）。</li>
+                            <li>三级给的是<strong>状态</strong>而不是标签名：96 个标签名塞不进圆盘，也不该塞。</li>
+                            <li>三个状态是<strong>互斥</strong>的（一个标签只落一档），所以计数加起来 = 96，可以在界面上对账。</li>
+                            <li>标签数量会持续增长，所以它<strong>不该进圆盘一级</strong>（圆盘项数按认知负荷定，上限约 7±2）—— 但它本身是 6 个分区之一，这没矛盾：进圆盘的是"标签"这个分区，不是 96 个标签。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f19">
+                <div class="feat-head">
+                    <span class="feat-no">19</span>
+                    <h3>图谱（关系视图 · 三级 = 看什么）</h3>
+                    <span class="badge">已实现</span> <span class="badge visual">图内节点点击未接</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>四种"看法"：<strong>局部图</strong>（以中心节点 1 跳）· <strong>全库统计</strong>（6 个数字）· <strong>孤儿巡检 12</strong> · <strong>黑洞巡检 3</strong>。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>沿关系走一段（局部图）；判断"整库链接够不够密"（统计）；专门收拾两类坏点（巡检）。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>切到「图谱」→ 默认<strong>局部图</strong>，读图例（实底 = 中心节点，描边 = 关联笔记，连线 = 双向链接）。</li>
+                            <li><strong>再点一次「图谱」</strong>→ 环上出现三级：<strong>局部图 / 全库统计 / 孤儿巡检 12 / 黑洞巡检 3</strong>。</li>
+                            <li>选「全库统计」→ 六个数字：286 笔记 / 348 双链 / 平均出链 1.2 / 零入链 12 / 孤儿 12 / 黑洞 3。</li>
+                            <li>选「孤儿巡检」或「黑洞巡检」→ 列出具体笔记，<strong>点一条能打开详情</strong>（详情里写明它为什么被命中）。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>这是<strong>唯一</strong>允许占分区的关系视图：它不是"同一列表的筛选"，而是另一种导航方式（沿关系走）。</li>
+                            <li><strong>上千条时只画局部</strong>：286 个节点同屏只剩一团毛线，全库层面只出统计。这也是把"图"和"统计"分成两级的根本原因。</li>
+                            <li>四种看法是<strong>四份内容</strong>（不是一份数据的四个子集），所以用 <code>.sub-view</code> 换块 —— 与主题 / 标签的 <code>hidden</code> 过滤是两套实现，别混。</li>
+                            <li>为避免"每次刷新图都不一样、标签叠字"，节点位置用固定百分比 + SVG 直线，不依赖力导向布局；连线用非缩放描边保持 1px。</li>
+                            <li>两个巡检的判据不同：<strong>孤儿</strong> = 入链和出链都为 0 且 >30 天；<strong>黑洞</strong> = 被引用 ≥3 次但出链为 0。前者是"没人知道它"，后者是"只进不出"。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f20">
+                <div class="feat-head">
+                    <span class="feat-no">20</span>
+                    <h3>归档（只读）</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>12 条已归档笔记 + <strong>37 条候选</strong>的归宿；<strong>用归档代替删除</strong>，保留历史且不打扰检索。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>判断一条笔记以后不会再用，但删了又不放心。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell"><div class="cell-label">操作步骤</div><ol><li>打开任意笔记详情 → 点 <strong>归档</strong>。</li><li>到「归档」分区 → 第一块是<strong>已归档</strong>，第二块是<strong>归档候选 37 条</strong>（12 个月无入链且无标签 24 + 收件箱 14 天未动 8 + 已被取代 5）。</li><li>候选区<strong>只列清单不自动执行</strong>；同一条被忽略 3 次就不再提示。</li></ol></div>
+                    <div class="cell warn"><div class="cell-label">注意事项</div><ul><li><strong>归档没有三级</strong>：它只有 2 类（已归档 / 候选），不足 3 类 —— 两块在面板里并列堆叠更省一次点击。这也是"不是每个分区都该有子菜单"的例证。</li><li>归档的笔记<strong>不参与检索与图谱</strong>；归档行也<strong>不标成熟度</strong>（已冻结，标了反而误导）。</li><li>知识库"只进不出"：笔记可以归档，但没有"删除"按钮。</li><li>候选是<strong>建议</strong>不是动作：自动归档等于自动把内容从检索里拿掉，必须留人工确认。</li></ul></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 第 5 章 ================= -->
+        <section class="chapter" id="c5">
+            <h2><span class="chapter-no">5</span>浮层、辅助区与动作</h2>
+            <p class="lead">这一层负责"看细节"与"接住人"。它们不改变分区，但决定了日常使用是否顺手。</p>
+
+            <div class="feat" id="f21">
+                <div class="feat-head">
+                    <span class="feat-no">21</span>
+                    <h3>笔记详情弹窗</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>一条笔记的完整口径，五段：<strong>成熟度（+差什么才进下一层）</strong> → 标签 → 内容 → 双向链接 → 最后更新；底部三个动作。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>决定"这条该不该补双链 / 该不该归类"；也用于收件箱条目的取舍判断。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell">
+                        <div class="cell-label">操作步骤</div>
+                        <ol>
+                            <li>点任意笔记行（含收件箱、右侧轨、侧栏「最近」里的条目）。</li>
+                            <li>先读第一段成熟度，例如"加工 —— 差 1 条入链才进生产层：建议链到「前端工程化」主题"。</li>
+                            <li>用底部动作：<strong>关闭 / 编辑</strong>（演示）<strong>/ 归档</strong>（演示）。</li>
+                            <li>关闭方式：点「关闭」、点弹窗外遮罩、按 <span class="kbd">Esc</span>。</li>
+                        </ol>
+                    </div>
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>成熟度<strong>放在第一段</strong>：对知识库来说"这条还差什么"比"正文是什么"更该先看到（正文反正要点开读）。</li>
+                            <li>这里<strong>没有</strong>「升级为永久笔记」按钮：永久笔记的归宿就是知识库，放在这里语义自相矛盾；该按钮属于学习模块。知识库的对应动作是归档。</li>
+                            <li>收件箱条目的成熟度是"记录"，缺口文案各不相同（缺归类 / 缺结论 / 缺提炼 / 缺判断）。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f22">
+                <div class="feat-head">
+                    <span class="feat-no">22</span>
+                    <h3>主题详情弹窗</h3>
+                    <span class="badge">已实现</span> <span class="badge visual">列表为占位</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>读一个主题的说明，看它下面的笔记列表，并从这里新建笔记。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>沿主线复习；把新笔记直接挂到某个主题下。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell"><div class="cell-label">操作步骤</div><ol><li>在「主题」分区或右侧轨「最近主题」里点某个主题。</li><li>读说明与列表；点「+ 新建笔记」或「关闭」。</li></ol></div>
+                    <div class="cell warn"><div class="cell-label">注意事项</div><ul><li>列表里的三条是占位示例（原型不接数据），不要据此判断主题的真实内容量。</li></ul></div>
+                </div>
+            </div>
+
+            <div class="feat" id="f26">
+                <div class="feat-head">
+                    <span class="feat-no">26</span>
+                    <h3>右侧轨（未链接的笔记 / 最近主题）</h3>
+                    <span class="badge">已实现</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>把"健康度指标"放在主列旁边常驻：未链接的笔记 12 条（可点开）+ 最近主题。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>补双链时按图索骥：照着一列把该挂主题的笔记一条条处理掉。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell"><div class="cell-label">操作步骤</div><ol><li>≥1080px 视口下自动成为右列；更窄时落到主列下方。</li><li>点「未链接的笔记」里的条目 → 打开笔记详情。</li></ol></div>
+                    <div class="cell warn"><div class="cell-label">注意事项</div><ul><li>它是<strong>指标，不是分区</strong>，所以不占圆盘；同一批数据在「笔记 · 未链接」视图里也能看到（两处同源，不要各写一份数字）。</li><li>原来这里放的是"待整理 5 条"——收件箱成为分区之后重复了，故换成未链接。</li></ul></div>
+                </div>
+            </div>
+
+            <div class="feat" id="f27">
+                <div class="feat-head">
+                    <span class="feat-no">27</span>
+                    <h3>新建与捕获动作</h3>
+                    <span class="badge demo">演示提示</span>
+                </div>
+                <div class="cells two">
+                    <div class="cell"><div class="cell-label">作用</div><p>页头「+ 新建笔记」，以及侧栏「快捷」里的：新建笔记 / 新建主题 / 归类收件箱 / 随机回顾 / 导入剪藏 / AI 助手。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>任何想"先把东西收下来"的时刻 —— 捕获的优先级高于归类。</p></div>
+                </div>
+                <div class="cells two" style="margin-top:12px;">
+                    <div class="cell"><div class="cell-label">操作步骤</div><ol><li>点页头「+ 新建笔记」（任何分区下都在）。</li><li>或点侧栏「快捷」里的按钮。</li></ol></div>
+                    <div class="cell warn"><div class="cell-label">注意事项</div><ul><li>原型里都只弹提示，未接表单。</li><li>设计约定：<strong>新建的落点是收件箱，不是主库</strong> —— 未整理的内容不该直接污染检索结果。这是约束，不是缺陷。</li></ul></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 第 6 章 ================= -->
+        <section class="chapter" id="c6">
+            <h2><span class="chapter-no">6</span>原型边界与数字口径</h2>
+            <p class="lead">把"已实现"和"只是界面"分清，并交代每个数字的来源 —— 避免把原型当产品，或把示例数据当真实口径。</p>
+
+            <div class="feat" id="f28">
+                <div class="feat-head">
+                    <span class="feat-no">28</span>
+                    <h3>只做了界面、还没接数据的部分</h3>
+                    <span class="badge visual">仅界面</span>
+                </div>
+                <div class="cells">
+                    <div class="cell">
+                        <div class="cell-label">占位清单</div>
+                        <table>
+                            <tr><th>位置</th><th>现状</th><th>落地时要做</th></tr>
+                            <tr><td>笔记筛选行上方的搜索框</td><td>可输入，不过滤</td><td>接全文检索（标题 / 正文 / 标签），并支持 <code>tag:</code> <code>topic:</code> 语法</td></tr>
+                            <tr><td>标签云点击</td><td>只有悬停态</td><td>点标签 → 切到「笔记」并按标签过滤</td></tr>
+                            <tr><td>图谱节点点击</td><td>只有悬停态</td><td>点节点 → 过滤出该概念的关联笔记</td></tr>
+                            <tr><td>新建 / 编辑 / 归档 / 快捷按钮</td><td>弹演示提示</td><td>接表单与写库；归档要真的从检索与图谱里摘掉</td></tr>
+                            <tr><td>顶栏 AI 按钮</td><td>弹演示提示（侧栏的 AI 槽已因重复而删除）</td><td>接检索增强问答（回答里带引用来源）</td></tr>
+                            <tr><td>主题详情里的笔记列表</td><td>三条占位</td><td>接该主题下的真实笔记，按更新时间倒序</td></tr>
+                            <tr><td>其他 8 个模块的二级条目</td><td>点了弹提示</td><td>各自的原型承载内容</td></tr>
+                            <tr><td>通知 / 头像</td><td>弹演示提示</td><td>独立功能，不属于知识库</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f29">
+                <div class="feat-head">
+                    <span class="feat-no">29</span>
+                    <h3>数字口径（每个数字从哪来）</h3>
+                    <span class="badge demo">示例数据</span>
+                </div>
+                <div class="cells">
+                    <div class="cell">
+                        <div class="cell-label">口径表</div>
+                        <table>
+                            <tr><th>数字</th><th>含义</th><th>出现在哪</th></tr>
+                            <tr><td><strong>286</strong></td><td>笔记总数（含永久笔记）</td><td>圆盘「笔记」计数、侧栏头部、视图计数、KPI 分母</td></tr>
+                            <tr><td><strong>42</strong></td><td>永久笔记数（标记常青、作为引用源）</td><td>KPI 卡、笔记头部提示</td></tr>
+                            <tr><td><strong>12</strong></td><td>未链接 / 无入链的笔记（加工层未走完）</td><td>KPI「懵」、未链接视图、右侧轨</td></tr>
+                            <tr><td><strong>274 / 286</strong></td><td>有入链、可被检索到的笔记 / 总数</td><td>KPI「调不出来」</td></tr>
+                            <tr><td><strong>5</strong></td><td>收件箱待整理（记录层未走完）</td><td>KPI「漏」、圆盘「收件箱」、槽 KPI</td></tr>
+                            <tr><td><strong>3</strong></td><td>收藏的笔记数</td><td>收藏视图、<span class="kbd">⌘K</span></td></tr>
+                            <tr><td><strong>348</strong></td><td>双向链接条数</td><td>圆盘「图谱」计数、侧面 KPI</td></tr>
+                            <tr><td><strong>42 / 96</strong></td><td>主题数 / 标签数</td><td>圆盘、主题与标签分区</td></tr>
+                            <tr><td><strong>12</strong>（归档）</td><td>已归档笔记数</td><td>圆盘「归档」、归档分区标题</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>全部是写死的示例数据，刷新即还原；不代表真实业务口径。</li>
+                            <li>同一个数字出现在多处时<strong>必须同口径</strong>：主区 KPI 卡 ↔ 圆盘计数 ↔ 侧栏头部「量」三处是一组。侧栏原本还有一个 KPI 槽，因与这三处重复已删除（删除前它曾与主区卡出现两套数字）。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feat" id="f30">
+                <div class="feat-head">
+                    <span class="feat-no">30</span>
+                    <h3>要改的时候改哪里</h3>
+                    <span class="badge demo">维护指引</span>
+                </div>
+                <div class="cells">
+                    <div class="cell">
+                        <div class="cell-label">三处入口</div>
+                        <table>
+                            <tr><th>想改什么</th><th>改哪里</th><th>连带检查</th></tr>
+                            <tr><td>分区集合 / 顺序 / 图标 / 计数 / 三级</td><td>JS 里的 <code>knowledgeSections</code> 数组</td><td>圆盘、收起态图标列、超级菜单、<span class="kbd">⌘K</span> 四处会同时变；图标名必须在 <code>icons</code> 表里</td></tr>
+                            <tr><td>某个分区的面板内容</td><td>HTML 里对应的 <code>.panel[data-panel="…"]</code></td><td><code>data-panel</code> 必须与分区配置里的 <code>panel</code> 一致</td></tr>
+                            <tr><td>成熟度徽标</td><td>JS 的 <code>NOTE_STAGE</code> 表 + <code>decorateStages()</code></td><td>不新增数据字段；归档行不标；收件箱统一为「记录」</td></tr>
+                            <tr><td>计数文案 / 数字</td><td>面板内的 <code>.section-count</code> / 卡片 / 下方栏的 <code>.todo-count</code></td><td>四处必须一起改：圆盘计数、侧栏头部「量」、主区 KPI 卡、下方栏「今日」计数</td></tr>
+                            <tr><td>某个分区的三级子菜单</td><td><code>knowledgeSections</code> 里该分区的 <code>children</code>（带 <code>view</code>）</td><td>三处一起改：① <code>children</code>；② JS 的 <code>setXxxView()</code> + 计数表；③ <code>syncSectionView()</code> 里那张 <code>APPLY</code> 表挂一笔。⚠️ <code>setSection()</code> 的复位值必须是<strong>合法视图名</strong>（图谱没有"全部"）</td></tr>
+                            <tr><td>主题分组 / 标签状态</td><td>行上的 <code>data-group</code> / <code>data-state</code></td><td>分组与状态的<strong>计数要加起来等于全库数</strong>（3 组 = 42；高频+沉睡+待合并 = 96），否则界面上对不上账</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="cells" style="margin-top:12px;">
+                    <div class="cell warn">
+                        <div class="cell-label">注意事项</div>
+                        <ul>
+                            <li>改完至少跑两类自检：<strong>结构</strong>（括号平衡、无非纯色写法、<code>var()</code> 无未定义）与<strong>交互</strong>（分区项数、视图切换、下钻返回、图标去重）。</li>
+                            <li>圆盘项数变化要<strong>重算几何</strong>：半径 / 图标尺寸 / 容器宽度是联动的三件套，容器上限约 218px。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="footer">知识库模块 · 功能说明书 · 对应原型 knowledge_index.html（示例数据，非真实业务口径）</div>
+
+        <script>
+            (function () {
+                var btn = document.getElementById('themeBtn');
+                var root = document.documentElement;
+                try {
+                    if (localStorage.getItem('theme') === 'dark') root.classList.add('dark');
+                } catch (e) { /* file:// 下可能不可用 */ }
+                btn.addEventListener('click', function () {
+                    var isDark = root.classList.toggle('dark');
+                    try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) {}
+                });
+            })();
+        </script>
+
+
+    </main>
+</div>
+
+</body>
+</html>

@@ -7,7 +7,6 @@ import { tabIcon, tabPath } from '../../data/workspace/shell-nav'
 import { useDocumentTitle } from '../../hooks/use-document-title'
 import { useUiStore } from '../../stores/ui-store'
 import { useRecentsStore } from '../../stores/recents-store'
-import { AuroraBackdrop } from './AuroraBackdrop'
 import { ShellSidebar } from '../shell/ShellSidebar'
 import { ShellTopbar } from '../shell/ShellTopbar'
 import { CommandPalette, moduleTargets, tabTargets, useCommandHotkey } from '../shell/CommandPalette'
@@ -62,8 +61,10 @@ interface WorkspaceLayoutProps {
  * ============================================================================
  *
  * · **根上仍是 `.mw-root`**。整页强调色（`--mw-m-main` / `--mw-m1~m3`）、
- *   卡片/按钮/表单/弹窗那一整套内核样式、`AuroraBackdrop` 的色团，都挂在它下面。
+ *   卡片/按钮/表单/弹窗那一整套内核样式，都挂在它下面。
  *   换成 `sb-root` 会当场丢掉全部模块色。
+ *   ⚠️ 曾经这里还有一行"`AuroraBackdrop` 的色团"—— 该组件已随纯色化删除
+ *   （页底色现在就是 `.mw-root` 自己的 `--mw-bg-page`）。
  *
  * · **主区仍是 `<main class="main">`**（内核的）。它的 `padding / overflow-y: auto /
  *   display:flex` 是各模块面板排版的前提，`.sb-app` 给的栅格区域名也叫 `main`；
@@ -132,8 +133,6 @@ export function WorkspaceLayout({
 
   return (
     <div className={cn('mw-root', 'sb-root')} data-module={module}>
-      <AuroraBackdrop />
-
       {/* 抽屉遮罩（只在 ≤768px 有意义，见 styles/workspace-shell.css） */}
       <div
         className={cn('workspace-scrim', sidebarOpen && 'is-open')}

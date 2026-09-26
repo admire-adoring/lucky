@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>侧边栏对话助手 · 思考链</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-panel: rgba(255,255,255,0.92);
+            --bg-card: rgba(255,255,255,0.7);
+            --bg-hover: rgba(15,23,42,0.05);
+            --bg-user: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            --border-subtle: rgba(15,23,42,0.08);
+            --border-panel: rgba(255,255,255,0.8);
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --shadow-panel: 0 12px 48px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.06);
+            --shadow-btn: 0 8px 28px rgba(99,102,241,0.4);
+            --blur: blur(28px) saturate(180%);
+            --m-main: #6366F1;
+            --m-soft: rgba(99,102,241,0.1);
+            --m-glow: rgba(99,102,241,0.3);
+            --m-grad: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #A855F7 100%);
+            --m-success: #10B981;
+            --m-danger: #EF4444;
+            --m-warn: #F59E0B;
+            --panel-w: 400px;
+        }
+
+        .dark {
+            --bg-panel: rgba(15,23,42,0.92);
+            --bg-card: rgba(30,41,59,0.6);
+            --bg-hover: rgba(255,255,255,0.06);
+            --border-subtle: rgba(255,255,255,0.08);
+            --border-panel: rgba(255,255,255,0.1);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --shadow-panel: 0 12px 48px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.3);
+            --m-main: #818CF8;
+            --m-soft: rgba(129,140,248,0.14);
+            --m-glow: rgba(129,140,248,0.4);
+            --m-grad: linear-gradient(135deg, #818CF8 0%, #A78BFA 50%, #C084FC 100%);
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: #F7F8FA;
+            transition: background 0.4s ease, color 0.3s ease;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        .dark body { background: #0A0F1C; }
+
+        .page-bg {
+            position: fixed; inset: 0; z-index: 0;
+            overflow: hidden; pointer-events: none;
+        }
+        .blob {
+            position: absolute; border-radius: 50%;
+            filter: blur(120px); opacity: 0.35;
+            animation: drift 24s ease-in-out infinite alternate;
+        }
+        .blob-1 { width: 500px; height: 500px; top: -12%; left: -10%; background: #A5B4FC; }
+        .blob-2 { width: 460px; height: 460px; bottom: -18%; right: 20%; background: #C4B5FD; animation-delay: -8s; }
+        .dark .blob-1 { background: #4F46E5; }
+        .dark .blob-2 { background: #7C3AED; }
+        @keyframes drift {
+            from { transform: translate(0,0) scale(1); }
+            to   { transform: translate(40px,-28px) scale(1.08); }
+        }
+        .page-hint {
+            position: relative; z-index: 1;
+            height: 100%;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 12px;
+            color: var(--text-muted);
+            font-size: 14px;
+            text-align: center;
+            padding: 24px;
+        }
+        .page-hint svg { width: 52px; height: 52px; opacity: 0.25; }
+        .page-hint b { color: var(--text-secondary); font-weight: 600; }
+
+        /* ============ 悬浮触发按钮 ============ */
+        .launcher {
+            position: fixed;
+            right: 24px; bottom: 24px;
+            z-index: 60;
+            width: 56px; height: 56px;
+            border-radius: 50%;
+            border: none;
+            background: var(--m-grad);
+            color: #fff;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: var(--shadow-btn);
+            transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s ease, opacity 0.25s ease;
+        }
+        .launcher:hover { transform: scale(1.08); box-shadow: 0 12px 36px var(--m-glow); }
+        .launcher:active { transform: scale(0.96); }
+        .launcher svg { width: 24px; height: 24px; }
+        .launcher.hidden { opacity: 0; pointer-events: none; transform: scale(0.7); }
+        .launcher .ping {
+            position: absolute; top: 4px; right: 4px;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: #EF4444;
+            border: 2px solid #fff;
+            display: none;
+        }
+        .launcher .ping.show { display: block; }
+
+        /* ============ 侧边栏面板 ============ */
+        .panel {
+            position: fixed;
+            top: 16px; right: 16px; bottom: 16px;
+            z-index: 70;
+            width: var(--panel-w);
+            max-width: calc(100vw - 32px);
+            background: var(--bg-panel);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border: 1px solid var(--border-panel);
+            border-radius: 22px;
+            box-shadow: var(--shadow-panel);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            transform: translateX(calc(100% + 24px)) scale(0.98);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.4s cubic-bezier(0.32,0.72,0,1), opacity 0.3s ease;
+        }
+        .panel.open {
+            transform: translateX(0) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .panel-head {
+            display: flex; align-items: center; gap: 10px;
+            padding: 14px 14px 14px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            flex-shrink: 0;
+        }
+        .panel-logo {
+            width: 34px; height: 34px;
+            border-radius: 11px;
+            background: var(--m-grad);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px var(--m-glow);
+        }
+        .panel-logo svg { width: 17px; height: 17px; }
+        .panel-head-info { flex: 1; min-width: 0; }
+        .panel-head-title {
+            font-size: 14px; font-weight: 700;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .panel-head-title .status-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--m-success);
+            box-shadow: 0 0 0 3px rgba(16,185,129,0.15);
+        }
+        .panel-head-sub {
+            font-size: 11px; color: var(--text-muted); margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .panel-head-actions { display: flex; gap: 2px; flex-shrink: 0; }
+
+        .icon-btn {
+            width: 32px; height: 32px;
+            border-radius: 9px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.16s ease;
+        }
+        .icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .icon-btn svg { width: 16px; height: 16px; }
+
+        .panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 18px 16px 8px;
+            display: flex; flex-direction: column; gap: 16px;
+            scroll-behavior: smooth;
+        }
+        .panel-body::-webkit-scrollbar { width: 5px; }
+        .panel-body::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+
+        /* 消息 */
+        .msg {
+            display: flex; gap: 9px;
+            max-width: 94%;
+            animation: msg-in 0.3s ease backwards;
+        }
+        @keyframes msg-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .msg.assistant { align-self: flex-start; }
+        .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+        .msg-avatar {
+            width: 28px; height: 28px;
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            font-size: 12px;
+        }
+        .msg.assistant .msg-avatar {
+            background: var(--m-grad);
+            color: #fff;
+            box-shadow: 0 3px 9px var(--m-glow);
+        }
+        .msg.assistant .msg-avatar svg { width: 14px; height: 14px; }
+        .msg.user .msg-avatar { background: var(--bg-hover); color: var(--text-secondary); }
+
+        .msg-content { flex: 1; min-width: 0; }
+        .msg-bubble {
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 13.5px;
+            line-height: 1.65;
+            word-wrap: break-word;
+        }
+        .msg.assistant .msg-bubble {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-top-left-radius: 4px;
+            color: var(--text-primary);
+        }
+        .msg.user .msg-bubble {
+            background: var(--bg-user);
+            color: #fff;
+            border-top-right-radius: 4px;
+            box-shadow: 0 4px 14px var(--m-glow);
+        }
+        .msg-bubble b { font-weight: 700; }
+
+        .msg-meta {
+            font-size: 10.5px;
+            color: var(--text-muted);
+            margin-top: 5px;
+            padding: 0 4px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .msg.user .msg-meta { justify-content: flex-end; }
+
+        .msg-actions {
+            display: flex; gap: 2px;
+            margin-top: 4px;
+            opacity: 0;
+            transition: opacity 0.16s ease;
+        }
+        .msg:hover .msg-actions { opacity: 1; }
+        .msg-action {
+            width: 26px; height: 26px;
+            border-radius: 7px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.14s ease;
+        }
+        .msg-action:hover { background: var(--bg-hover); color: var(--m-main); }
+        .msg-action svg { width: 13px; height: 13px; }
+
+        /* ============ 思考链：生成中（阶段指示器 + 实时流） ============ */
+        .thinking-live {
+            margin-bottom: 10px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            background: var(--bg-card);
+            overflow: hidden;
+            transition: all 0.25s ease;
+        }
+        .thinking-live.open {
+            border-color: var(--m-main);
+            box-shadow: 0 0 0 3px var(--m-soft);
+        }
+        .stage-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 12px;
+            flex-wrap: wrap;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            user-select: none;
+        }
+        .stage-indicator:hover { background: var(--bg-hover); }
+        .stage-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+        .stage-item .stage-dot {
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            border: 1.5px solid currentColor;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.25s ease;
+            font-size: 9px;
+            font-weight: 800;
+        }
+        .stage-item .stage-dot svg { width: 8px; height: 8px; }
+        .stage-item.done { color: var(--m-success); }
+        .stage-item.done .stage-dot {
+            background: var(--m-success);
+            border-color: var(--m-success);
+            color: #fff;
+        }
+        .stage-item.active { color: var(--m-main); }
+        .stage-item.active .stage-dot {
+            border-color: var(--m-main);
+            background: var(--m-soft);
+            color: var(--m-main);
+            position: relative;
+        }
+        .stage-item.active .stage-dot::before {
+            content: "●";
+            font-size: 10px;
+            line-height: 1;
+            animation: stage-pulse 1.2s ease-in-out infinite;
+        }
+        .stage-item.pending .stage-dot::before { content: "○"; }
+        @keyframes stage-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+        .stage-arrow { color: var(--text-muted); font-size: 10px; opacity: 0.5; }
+
+        .thinking-expand {
+            margin-left: auto;
+            width: 24px; height: 24px;
+            border-radius: 7px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+        .thinking-expand:hover {
+            background: var(--m-soft);
+            color: var(--m-main);
+        }
+        .thinking-expand svg {
+            width: 14px; height: 14px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .thinking-live.open .thinking-expand svg { transform: rotate(180deg); }
+
+        .thinking-live-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+            padding: 0 14px;
+            border-top: 1px solid transparent;
+        }
+        .thinking-live.open .thinking-live-body {
+            max-height: 320px;
+            padding: 12px 14px 14px;
+            border-top-color: var(--border-subtle);
+            overflow-y: auto;
+        }
+        .thinking-live-body::-webkit-scrollbar { width: 3px; }
+        .thinking-live-body::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+
+        .live-step {
+            display: flex; gap: 10px;
+            padding: 7px 0;
+            font-size: 12.5px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            animation: live-step-in 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes live-step-in {
+            from { opacity: 0; transform: translateX(-8px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        .live-step .live-num {
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            background: var(--m-soft);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .live-step.done .live-num {
+            background: rgba(16,185,129,0.15);
+            color: var(--m-success);
+        }
+        .live-step.active .live-num {
+            background: var(--m-main);
+            color: #fff;
+            position: relative;
+        }
+        .live-step.active .live-num::after {
+            content: "";
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            border: 2px solid var(--m-main);
+            opacity: 0;
+            animation: live-ripple 1.4s ease-out infinite;
+        }
+        @keyframes live-ripple {
+            0% { opacity: 0.6; transform: scale(0.8); }
+            100% { opacity: 0; transform: scale(1.4); }
+        }
+        .live-step.pending { opacity: 0.45; }
+        .live-step.pending .live-num {
+            background: transparent;
+            border: 1.5px solid var(--border-subtle);
+            color: var(--text-muted);
+        }
+        .live-step .live-body { flex: 1; }
+        .live-step .live-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .live-step.pending .live-title { color: var(--text-muted); font-weight: 500; }
+        .live-step .live-desc { color: var(--text-secondary); font-size: 12px; }
+        .live-step .live-status {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 1px 7px;
+            border-radius: 999px;
+            background: var(--m-soft);
+            color: var(--m-main);
+            letter-spacing: 0.04em;
+        }
+        .live-step.done .live-status {
+            background: rgba(16,185,129,0.15);
+            color: var(--m-success);
+        }
+        .live-step.pending .live-status {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border-subtle);
+        }
+
+        /* ============ 思考链：完成后的折叠卡片 ============ */
+        .thought-card {
+            margin-bottom: 10px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            background: var(--bg-card);
+            overflow: hidden;
+            transition: all 0.25s ease;
+        }
+        .thought-card-head {
+            display: flex; align-items: center; gap: 8px;
+            padding: 9px 12px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--m-main);
+            transition: background 0.15s ease;
+        }
+        .thought-card-head:hover { background: var(--bg-hover); }
+        .thought-card-head .tc-chev {
+            width: 14px; height: 14px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+            color: var(--text-muted);
+        }
+        .thought-card.open .thought-card-head .tc-chev { transform: rotate(90deg); }
+        .thought-card-head .tc-icon {
+            width: 16px; height: 16px;
+            color: var(--m-main);
+            flex-shrink: 0;
+        }
+        .thought-card-head .tc-summary { flex: 1; }
+        .thought-card-head .tc-time {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+        .thought-card-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease, padding 0.3s ease;
+            padding: 0 12px;
+            border-top: 1px solid transparent;
+        }
+        .thought-card.open .thought-card-body {
+            max-height: 400px;
+            padding: 10px 12px 14px;
+            border-top-color: var(--border-subtle);
+            overflow-y: auto;
+        }
+        .thought-card-body::-webkit-scrollbar { width: 3px; }
+        .thought-card-body::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+
+        .tc-step {
+            display: flex; gap: 9px;
+            padding: 5px 0;
+            font-size: 12.5px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+        }
+        .tc-step .tc-num {
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: var(--m-soft);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .tc-step .tc-text { flex: 1; }
+        .tc-step .tc-text b { color: var(--text-primary); font-weight: 600; }
+
+        /* 快捷指令 */
+        .quick-row {
+            display: flex; flex-wrap: wrap; gap: 7px;
+            margin-top: 4px;
+        }
+        .quick-chip {
+            padding: 7px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.16s ease;
+            white-space: nowrap;
+        }
+        .quick-chip:hover {
+            border-color: var(--m-main);
+            color: var(--m-main);
+            background: var(--m-soft);
+        }
+
+        /* 停止生成按钮 */
+        .stop-row { margin-top: 8px; }
+        .stop-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px;
+            border-radius: 9px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.16s ease;
+        }
+        .stop-btn:hover {
+            border-color: var(--m-danger);
+            color: var(--m-danger);
+            background: rgba(239,68,68,0.08);
+        }
+        .stop-btn svg { width: 11px; height: 11px; }
+
+        /* 输入区 */
+        .panel-foot {
+            padding: 12px 14px 14px;
+            border-top: 1px solid var(--border-subtle);
+            flex-shrink: 0;
+            background: var(--bg-panel);
+        }
+        .input-box {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            padding: 7px 7px 7px 14px;
+            border-radius: 18px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            transition: all 0.18s ease;
+        }
+        .input-box:focus-within {
+            border-color: var(--m-main);
+            box-shadow: 0 0 0 3px var(--m-soft);
+        }
+        .input-box textarea {
+            flex: 1;
+            resize: none;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 13.5px;
+            font-family: inherit;
+            line-height: 1.55;
+            max-height: 120px;
+            min-height: 22px;
+            padding: 4px 0;
+        }
+        .input-box textarea::placeholder { color: var(--text-muted); }
+
+        .send-btn {
+            height: 32px;
+            min-width: 32px;
+            padding: 0 11px;
+            border-radius: 999px;
+            border: none;
+            background: var(--m-grad);
+            color: #fff;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            gap: 5px;
+            transition: all 0.18s ease;
+            box-shadow: 0 4px 12px var(--m-glow);
+            font-size: 12.5px;
+            font-weight: 700;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+        .send-btn:hover:not(:disabled) { transform: scale(1.05); }
+        .send-btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+        .send-btn svg { width: 15px; height: 15px; stroke-width: 2.4; }
+        .send-btn.stop {
+            background: linear-gradient(135deg, #EF4444, #DC2626);
+            box-shadow: 0 4px 12px rgba(239,68,68,0.4);
+        }
+
+        .foot-hint {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 7px;
+            font-size: 10.5px;
+            color: var(--text-muted);
+            padding: 0 4px;
+        }
+        .foot-hint kbd {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-subtle);
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            font-size: 9.5px;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 24px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            display: flex; flex-direction: column; gap: 8px;
+            align-items: center;
+            pointer-events: none;
+        }
+        .toast {
+            padding: 9px 16px;
+            border-radius: 11px;
+            background: var(--bg-panel);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border: 1px solid var(--border-panel);
+            box-shadow: var(--shadow-panel);
+            font-size: 12.5px;
+            color: var(--text-primary);
+            display: flex; align-items: center; gap: 7px;
+            animation: toast-in 0.3s cubic-bezier(0.4,0,0.2,1);
+            pointer-events: auto;
+        }
+        .toast.out { animation: toast-out 0.25s ease forwards; }
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateY(18px) scale(0.94); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes toast-out {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to   { opacity: 0; transform: translateY(10px) scale(0.96); }
+        }
+        .toast svg { width: 13px; height: 13px; color: var(--m-success); flex-shrink: 0; }
+
+        @media (max-width: 480px) {
+            .panel {
+                top: 0; right: 0; bottom: 0;
+                width: 100vw;
+                max-width: 100vw;
+                border-radius: 0;
+                border: none;
+            }
+            .panel:not(.open) { transform: translateX(100%); }
+            .launcher { right: 16px; bottom: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+</div>
+
+<div class="page-hint">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+    <div>点击右下角按钮，<b>展开侧边栏对话助手</b></div>
+</div>
+
+<button class="launcher" id="launcher" aria-label="打开对话助手">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+    <span class="ping" id="launcherPing"></span>
+</button>
+
+<div class="panel" id="panel" role="dialog" aria-label="AI 对话助手">
+    <div class="panel-head">
+        <div class="panel-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"/>
+            </svg>
+        </div>
+        <div class="panel-head-info">
+            <div class="panel-head-title">
+                AI 助手
+                <span class="status-dot"></span>
+            </div>
+            <div class="panel-head-sub" id="headSub">在线 · Claude Sonnet</div>
+        </div>
+        <div class="panel-head-actions">
+            <button class="icon-btn" id="themeBtn" title="切换主题">
+                <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+            </button>
+            <button class="icon-btn" id="clearBtn" title="清空对话">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+            </button>
+            <button class="icon-btn" id="closeBtn" title="收起">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="panel-body" id="panelBody" aria-live="polite"></div>
+
+    <div class="panel-foot">
+        <div class="input-box">
+            <textarea id="input" rows="1" placeholder="问点什么…"></textarea>
+            <button class="send-btn" id="sendBtn" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
+                </svg>
+            </button>
+        </div>
+        <div class="foot-hint">
+            <span>AI 可能出错，请核对</span>
+            <span><kbd>Enter</kbd> 发送</span>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+    /* ============================================================
+       工具
+       ============================================================ */
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+    function stripHtml(s) { return String(s).replace(/<[^>]+>/g, ''); }
+    function nowTime() { return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }); }
+    function uid(p='id') { return p + '-' + Date.now() + '-' + Math.floor(Math.random()*1000); }
+
+    function toast(msg) {
+        const c = document.getElementById('toastContainer');
+        const el = document.createElement('div');
+        el.className = 'toast';
+        el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>${msg}</span>`;
+        c.appendChild(el);
+        setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 250); }, 2000);
+    }
+
+    /* ============================================================
+       思考链统一结构
+       ============================================================ */
+    const STAGE_NAMES = ['解析', '检索', '分析', '组装'];
+
+    function makeThoughtChain(topic) {
+        const base = [
+            { title: '解析用户意图', desc: '识别查询类型与关键实体。', time: '0.1s' },
+            { title: '并行检索数据', desc: '同时读取日程、任务、项目等多模块。', time: '0.1s' },
+            { title: '分析与排序', desc: '计算指标、识别异常、按优先级排序。', time: '0.1s' },
+            { title: '组装最终回答', desc: '结构化输出并标注关键结论。', time: '0.1s' }
+        ];
+        let enrich = {};
+        if (/日程|安排|站会|会议/.test(topic)) {
+            enrich = {
+                1: { time: '0.6s', desc: '同时读取 <b>日程模块（3 条）</b>与 <b>任务模块（5 条）</b>。' },
+                2: { time: '0.3s', desc: '标记逾期项：<b>优化首页加载速度</b>、<b>买猫粮</b>。' },
+                3: { time: '0.2s', desc: '按时间轴排序，标注优先级。' }
+            };
+        } else if (/工作|项目|OKR|拆/.test(topic)) {
+            enrich = {
+                1: { time: '0.9s', desc: '扫描 <b>8 个项目</b>、<b>54 条任务</b>、<b>5 场会议</b>。' },
+                2: { time: '0.7s', desc: '平均进度 <b>42%</b>，低于全域 <b>17 个百分点</b>；定位拖累项「团队 OKR 落地推进」。' },
+                3: { time: '0.3s', desc: '关联风险项「鉴权迁移」，给出排期建议。' }
+            };
+        } else if (/报告|数据|转化|分析|周报/.test(topic)) {
+            enrich = {
+                1: { time: '0.5s', desc: '解析数据，共 <b>1,248 行</b>；计算整体转化率 <b>3.2%</b>。' },
+                2: { time: '0.6s', desc: '按渠道分组：自然流量 4.1%、付费广告 2.4%、社媒 1.8%。' },
+                3: { time: '0.3s', desc: '定位社媒异常，建议排查素材与落地页。' }
+            };
+        } else {
+            enrich = {
+                1: { time: '0.3s', desc: '扫描相关数据。' },
+                2: { time: '0.2s', desc: '结构化输出。' },
+                3: { time: '0.2s', desc: '完成回答。' }
+            };
+        }
+        return base.map((b, i) => Object.assign({}, b, enrich[i] || {}));
+    }
+
+    /* ============================================================
+       状态
+       ============================================================ */
+    const state = {
+        open: false,
+        generating: false,
+        messages: [
+            {
+                id: uid('m'), role: 'assistant', time: nowTime(),
+                text: '你好，我是侧边栏助手。可以随时问我日程、任务、项目的问题，或者让我帮你做点小事。'
+            }
+        ],
+        timer: null,
+        stageTimer: null
+    };
+
+    const launcher = document.getElementById('launcher');
+    const launcherPing = document.getElementById('launcherPing');
+    const panel = document.getElementById('panel');
+    const panelBody = document.getElementById('panelBody');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    const headSub = document.getElementById('headSub');
+
+    /* ============================================================
+       打开 / 关闭
+       ============================================================ */
+    function openPanel() {
+        state.open = true;
+        panel.classList.add('open');
+        launcher.classList.add('hidden');
+        launcherPing.classList.remove('show');
+        setTimeout(() => input.focus(), 320);
+    }
+    function closePanel() {
+        state.open = false;
+        panel.classList.remove('open');
+        launcher.classList.remove('hidden');
+    }
+    launcher.addEventListener('click', openPanel);
+    document.getElementById('closeBtn').addEventListener('click', closePanel);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && state.open) closePanel();
+    });
+
+    /* ============================================================
+       渲染消息
+       ============================================================ */
+    function renderMessages() {
+        panelBody.innerHTML = state.messages.map((m, idx) => messageHtml(m, idx)).join('');
+        bindMessageEvents();
+        requestAnimationFrame(() => { panelBody.scrollTop = panelBody.scrollHeight; });
+    }
+
+    function messageHtml(m, idx) {
+        const isUser = m.role === 'user';
+        const avatar = isUser
+            ? '<div class="msg-avatar">杨</div>'
+            : `<div class="msg-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"/></svg></div>`;
+
+        // 生成中：阶段指示器 + 实时思考流
+        let generatingHtml = '';
+        if (m.generating) {
+            generatingHtml = buildLiveThinkingHtml(m, idx);
+        }
+
+        // 完成后：折叠的思考链卡片
+        let thoughtCardHtml = '';
+        if (!isUser && !m.generating && m.thought && m.thought.length) {
+            thoughtCardHtml = `
+      <div class="thought-card ${m.thoughtOpen ? 'open' : ''}" data-thought-card="${idx}">
+        <div class="thought-card-head" data-thought-toggle="${idx}">
+          <svg class="tc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          <svg class="tc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/><path d="M9 21h6"/><path d="M12 17v4"/></svg>
+          <span class="tc-summary">思考了 ${m.thought.length} 步</span>
+          <span class="tc-time">${m.totalTime || ''}</span>
+        </div>
+        <div class="thought-card-body">
+          ${m.thought.map((st, i) => `
+            <div class="tc-step">
+              <span class="tc-num">${i+1}</span>
+              <span class="tc-text">${st.desc}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+        }
+
+        // 停止生成按钮
+        let stopHtml = '';
+        if (m.generating) {
+            stopHtml = `
+      <div class="stop-row">
+        <button class="stop-btn" data-stop-idx="${idx}">
+          <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          停止生成
+        </button>
+      </div>`;
+        }
+
+        const actions = isUser ? '' : `
+    <div class="msg-actions">
+      <button class="msg-action" title="复制" data-copy-idx="${idx}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+      <button class="msg-action" title="重新生成" data-regen-idx="${idx}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>`;
+
+        // 快捷指令（首条助手消息后展示）
+        let quickHtml = '';
+        if (!isUser && idx === 0 && state.messages.length <= 1) {
+            quickHtml = `
+      <div class="quick-row">
+        <button class="quick-chip" data-quick="今天有什么安排">今天有什么安排</button>
+        <button class="quick-chip" data-quick="帮我拆一个项目">帮我拆一个项目</button>
+        <button class="quick-chip" data-quick="写一份本周周报">写本周周报</button>
+      </div>`;
+        }
+
+        return `
+    <div class="msg ${isUser ? 'user' : 'assistant'}" data-idx="${idx}">
+      ${avatar}
+      <div class="msg-content">
+        ${generatingHtml}
+        ${thoughtCardHtml}
+        ${m.text ? `<div class="msg-bubble">${m.text}</div>` : ''}
+        ${stopHtml}
+        ${quickHtml}
+        ${actions}
+        <div class="msg-meta">${escapeHtml(m.time)}</div>
+      </div>
+    </div>`;
+    }
+
+    // 生成中的 HTML（阶段指示器 + 实时思考流）
+    function buildLiveThinkingHtml(m, idx) {
+        const stageIdx = m.stageIdx || 0;
+        const liveSteps = m.liveThought || [];
+        return `
+    <div class="thinking-live ${m.liveOpen ? 'open' : ''}" data-live-box="${idx}">
+      <div class="stage-indicator" data-live-toggle="${idx}">
+        ${STAGE_NAMES.map((name, i) => {
+            const cls = i < stageIdx ? 'done' : i === stageIdx ? 'active' : 'pending';
+            return `
+            <span class="stage-item ${cls}">
+              <span class="stage-dot"></span>
+              <span>${name}</span>
+            </span>
+            ${i < STAGE_NAMES.length - 1 ? '<span class="stage-arrow">→</span>' : ''}
+          `;
+        }).join('')}
+        <span class="thinking-expand">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+      </div>
+      <div class="thinking-live-body">
+        ${liveSteps.map((st, i) => {
+            const status = i < stageIdx ? 'done' : i === stageIdx ? 'active' : 'pending';
+            const statusLabel = i < stageIdx ? '已完成' : i === stageIdx ? '进行中' : '等待中';
+            const desc = i <= stageIdx ? st.desc : '—';
+            return `
+            <div class="live-step ${status}">
+              <span class="live-num">${i + 1}</span>
+              <div class="live-body">
+                <div class="live-title">
+                  ${escapeHtml(st.title)}
+                  <span class="live-status">${statusLabel}</span>
+                </div>
+                <div class="live-desc">${desc}</div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+    }
+
+    function bindMessageEvents() {
+        // 思考卡片展开/收起
+        document.querySelectorAll('[data-thought-toggle]').forEach(head => {
+            head.addEventListener('click', () => {
+                const idx = +head.dataset.thoughtToggle;
+                const m = state.messages[idx];
+                const card = head.closest('.thought-card');
+                card.classList.toggle('open');
+                m.thoughtOpen = card.classList.contains('open');
+            });
+        });
+        // 生成中展开/收起
+        document.querySelectorAll('[data-live-toggle]').forEach(el => {
+            el.addEventListener('click', (e) => {
+                if (e.target.closest('.thinking-expand')) return;
+                const idx = +el.dataset.liveToggle;
+                const m = state.messages[idx];
+                const box = el.closest('.thinking-live');
+                box.classList.toggle('open');
+                m.liveOpen = box.classList.contains('open');
+            });
+        });
+        document.querySelectorAll('.thinking-expand').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const box = btn.closest('.thinking-live');
+                const idx = +box.dataset.liveBox;
+                const m = state.messages[idx];
+                box.classList.toggle('open');
+                m.liveOpen = box.classList.contains('open');
+            });
+        });
+        // 复制
+        document.querySelectorAll('[data-copy-idx]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const m = state.messages[+btn.dataset.copyIdx];
+                navigator.clipboard.writeText(stripHtml(m.text)).then(() => toast('已复制到剪贴板'));
+            });
+        });
+        // 重新生成
+        document.querySelectorAll('[data-regen-idx]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                regenerate(+btn.dataset.regenIdx);
+            });
+        });
+        // 停止生成
+        document.querySelectorAll('[data-stop-idx]').forEach(btn => {
+            btn.addEventListener('click', () => stopGenerate());
+        });
+        // 快捷指令
+        document.querySelectorAll('[data-quick]').forEach(chip => {
+            chip.addEventListener('click', () => {
+                input.value = chip.dataset.quick;
+                input.dispatchEvent(new Event('input'));
+                handleSend();
+            });
+        });
+    }
+
+    /* ============================================================
+       输入
+       ============================================================ */
+    input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+        updateSendBtn();
+    });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+        }
+    });
+    sendBtn.addEventListener('click', handleSend);
+
+    function updateSendBtn() {
+        if (state.generating) {
+            sendBtn.classList.add('stop');
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+        } else {
+            sendBtn.classList.remove('stop');
+            sendBtn.disabled = !input.value.trim();
+            sendBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>';
+        }
+    }
+
+    function handleSend() {
+        if (state.generating) { stopGenerate(); return; }
+        const text = input.value.trim();
+        if (!text) return;
+
+        state.messages.push({ id: uid('m'), role: 'user', text: escapeHtml(text), time: nowTime() });
+        input.value = '';
+        input.style.height = 'auto';
+        updateSendBtn();
+        renderMessages();
+        startGenerate(text);
+    }
+
+    /* ============================================================
+       生成 / 停止（带完整思考链）
+       ============================================================ */
+    const STAGE_DURATIONS = [300, 700, 500, 400];
+
+    function startGenerate(userText) {
+        state.generating = true;
+        updateSendBtn();
+        headSub.textContent = '正在思考…';
+
+        const msg = {
+            id: uid('m'),
+            role: 'assistant',
+            text: '',
+            time: nowTime(),
+            generating: true,
+            stageIdx: 0,
+            liveOpen: false,
+            thoughtOpen: false,
+            thought: makeThoughtChain(userText),
+            liveThought: [
+                { title: '解析用户意图', desc: '识别查询类型与关键实体。' },
+                { title: '并行检索数据', desc: '同时读取日程、任务、项目等多模块。' },
+                { title: '分析与排序', desc: '计算指标、识别异常、按优先级排序。' },
+                { title: '组装最终回答', desc: '结构化输出并标注关键结论。' }
+            ],
+            _userText: userText,
+            _startTime: Date.now()
+        };
+        state.messages.push(msg);
+        renderMessages();
+
+        driveStages(msg, state.messages.length - 1);
+    }
+
+    // 驱动阶段推进
+    function driveStages(msg, idx) {
+        let stage = 0;
+
+        const tick = () => {
+            if (stage >= STAGE_DURATIONS.length) {
+                finishGenerate(msg, idx);
+                return;
+            }
+            const wait = STAGE_DURATIONS[stage] + Math.random() * 200;
+            state.stageTimer = setTimeout(() => {
+                stage++;
+                msg.stageIdx = stage;
+                // 实时更新 DOM
+                updateLiveThinkingDOM(idx, msg);
+                // 如果思考链展开着，可能需要滚动到底部
+                const body = panelBody.querySelector(`[data-live-box="${idx}"] .thinking-live-body`);
+                if (body && msg.liveOpen) body.scrollTop = body.scrollHeight;
+                if (stage >= STAGE_DURATIONS.length) {
+                    finishGenerate(msg, idx);
+                } else {
+                    tick();
+                }
+            }, wait);
+        };
+        tick();
+    }
+
+    function updateLiveThinkingDOM(idx, msg) {
+        const box = panelBody.querySelector(`[data-live-box="${idx}"]`);
+        if (!box) return;
+        const stageIdx = msg.stageIdx || 0;
+
+        // 更新阶段指示器
+        box.querySelectorAll('.stage-item').forEach((st, i) => {
+            st.classList.remove('done', 'active', 'pending');
+            if (i < stageIdx) st.classList.add('done');
+            else if (i === stageIdx) st.classList.add('active');
+            else st.classList.add('pending');
+        });
+
+        // 更新步骤
+        box.querySelectorAll('.live-step').forEach((step, i) => {
+            step.classList.remove('done', 'active', 'pending');
+            const statusEl = step.querySelector('.live-status');
+            const descEl = step.querySelector('.live-desc');
+            const src = msg.liveThought[i];
+            if (i < stageIdx) {
+                step.classList.add('done');
+                statusEl.textContent = '已完成';
+                descEl.innerHTML = src.desc;
+            } else if (i === stageIdx) {
+                step.classList.add('active');
+                statusEl.textContent = '进行中';
+                descEl.innerHTML = src.desc;
+            } else {
+                step.classList.add('pending');
+                statusEl.textContent = '等待中';
+                descEl.textContent = '—';
+            }
+        });
+    }
+
+    function finishGenerate(msg, idx) {
+        clearTimeout(state.stageTimer);
+        msg.generating = false;
+        msg.totalTime = ((Date.now() - msg._startTime) / 1000).toFixed(1) + 's';
+        msg.text = buildReply(msg._userText);
+        delete msg._userText;
+        delete msg._startTime;
+        delete msg.stageIdx;
+        delete msg.liveThought;
+        delete msg.liveOpen;
+
+        state.generating = false;
+        headSub.textContent = '在线 · Claude Sonnet';
+        updateSendBtn();
+        renderMessages();
+
+        if (!state.open) launcherPing.classList.add('show');
+    }
+
+    function stopGenerate() {
+        if (!state.generating) return;
+        clearTimeout(state.stageTimer);
+        const msg = state.messages.find(m => m.generating);
+        if (msg) {
+            msg.generating = false;
+            msg.totalTime = ((Date.now() - msg._startTime) / 1000).toFixed(1) + 's';
+            msg.text = '（已停止生成）';
+            delete msg._userText;
+            delete msg._startTime;
+            delete msg.stageIdx;
+            delete msg.liveThought;
+            delete msg.liveOpen;
+        }
+        state.generating = false;
+        headSub.textContent = '在线 · Claude Sonnet';
+        updateSendBtn();
+        renderMessages();
+    }
+
+    function regenerate(idx) {
+        const msg = state.messages[idx];
+        if (!msg || msg.role === 'user') return;
+        let userText = '';
+        for (let i = idx - 1; i >= 0; i--) {
+            if (state.messages[i].role === 'user') { userText = stripHtml(state.messages[i].text); break; }
+        }
+        if (!userText) { toast('找不到原始提问'); return; }
+
+        // 重置为生成中状态
+        msg.generating = true;
+        msg.text = '';
+        msg.stageIdx = 0;
+        msg.liveOpen = false;
+        msg.thoughtOpen = false;
+        msg.thought = makeThoughtChain(userText);
+        msg.liveThought = [
+            { title: '解析用户意图', desc: '识别查询类型与关键实体。' },
+            { title: '并行检索数据', desc: '同时读取日程、任务、项目等多模块。' },
+            { title: '分析与排序', desc: '计算指标、识别异常、按优先级排序。' },
+            { title: '组装最终回答', desc: '结构化输出并标注关键结论。' }
+        ];
+        msg._userText = userText;
+        msg._startTime = Date.now();
+
+        state.generating = true;
+        updateSendBtn();
+        renderMessages();
+        driveStages(msg, idx);
+    }
+
+    /* ============================================================
+       构造回复
+       ============================================================ */
+    function buildReply(t) {
+        if (/日程|安排|会议|站会/i.test(t)) {
+            return '今天有 <b>3 个日程</b>：10:00 站会、14:00 项目评审、18:30 运动。<br/>还有 <b>5 个任务</b>，其中「优化首页加载速度」和「买猫粮」已逾期，建议优先处理。';
+        }
+        if (/项目|拆|任务/i.test(t)) {
+            return '可以。把项目名称或目标告诉我，我会拆成：<br/>1. 明确交付物<br/>2. 里程碑与时间点<br/>3. 具体可执行任务<br/>4. 风险与依赖<br/><br/>先说说你要拆哪个项目？';
+        }
+        if (/周报|报告|总结/i.test(t)) {
+            return '本周周报草稿：<br/>· 完成：支付系统重构方案评审、React 19 笔记整理<br/>· 进行中：团队 OKR 落地推进（42%）<br/>· 风险：鉴权迁移需在灰度发布前完成<br/>· 下周计划：完成鉴权迁移、启动性能优化<br/><br/>需要我调整措辞或补充数据吗？';
+        }
+        if (/你好|hi|hello/i.test(t)) {
+            return '你好！有什么可以帮你的？可以问日程、任务、项目，也可以让我帮你写点东西。';
+        }
+        return '收到。这个演示里我用了固定回复，接上真实模型后就能处理任意问题。你可以试试问「今天有什么安排」或「帮我拆一个项目」。';
+    }
+
+    /* ============================================================
+       清空 / 主题
+       ============================================================ */
+    document.getElementById('clearBtn').addEventListener('click', () => {
+        state.messages = [{
+            id: uid('m'), role: 'assistant', time: nowTime(),
+            text: '对话已清空。有什么新问题？'
+        }];
+        state.generating = false;
+        clearTimeout(state.stageTimer);
+        updateSendBtn();
+        renderMessages();
+        toast('已清空对话');
+    });
+
+    const themeBtn = document.getElementById('themeBtn');
+    const themeIcon = document.getElementById('themeIcon');
+    const savedTheme = localStorage.getItem('sidebar-theme') || 'light';
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+    }
+    themeBtn.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        themeIcon.innerHTML = isDark
+            ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+            : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+        localStorage.setItem('sidebar-theme', isDark ? 'dark' : 'light');
+    });
+
+    renderMessages();
+    updateSendBtn();
+</script>
+</body>
+</html>

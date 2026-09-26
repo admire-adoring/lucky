@@ -1,0 +1,1859 @@
+<!DOCTYPE html>
+<!-- ============================================================================
+     项目详情 · 单行折叠 + 普通 Tab（`work_product-detail.html`）
+     ----------------------------------------------------------------------------
+     ✅ **已落地**（2026-09-25）。替换掉 `/projects/:id` 上一版
+        （`design/project/project_index.html`：概览 + 9 个分区 + 常驻右栏）。
+        实现在 `src/pages/workspace/ProjectsWorkspace.tsx`，
+        样式在 `src/styles/module-workspace.css` 的「项目详情页」段（原型 <style> 的机械转换）。
+
+     ⚠️ 落地时**修掉了原型的一个缺陷**，别照抄回去：
+        `.hero-card { overflow: hidden }` 会把右上那个 ⋯ 菜单（`.more-dropdown`，
+        绝对定位在卡片内、高 ~166px）整条裁掉 —— 菜单点开了却什么都看不见。
+        应用里那条 `overflow` 已经去掉，收紧放在真正需要它的 `.hero-body` 上。
+
+     ⚠️ 这个原型**只有亮色**（没有 `.dark` 块）。应用那批材质的暗色变体是补写的，
+        判据写在应用那份 CSS 的段首。
+
+     ⚠️ 与原型有意不同的四处（分区可见性由数据定 / 书脊标签用 doc.source /
+        概览的文档缩略收一档 / ⋯ 菜单只有「复制链接」是真动作）逐条写在
+        `ProjectsWorkspace.tsx` 的文件头。
+     ============================================================================ -->
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>项目详情 · 单行折叠 + 普通 Tab</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-page: #F7F8FA;
+            --bg-card: rgba(255,255,255,0.72);
+            --bg-card-solid: #FFFFFF;
+            --bg-sidebar: rgba(255,255,255,0.72);
+            --bg-topbar: rgba(255,255,255,0.72);
+            --border-card: rgba(255,255,255,0.8);
+            --border-subtle: rgba(15,23,42,0.07);
+            --border-strong: rgba(15,23,42,0.12);
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --shadow-card: 0 4px 24px rgba(15,23,42,0.05);
+            --blur-card: blur(28px) saturate(200%);
+            --blob-opacity: 0.42;
+            --blob-blur: 120px;
+            --r-sm: 8px; --r-md: 12px; --r-lg: 18px;
+            --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px;
+            --a-work-1: #FDA4AF; --a-work-2: #FECDD3; --a-work-3: #FBCFE8;
+            --s-work: #E11D48;
+            --m1: var(--a-work-1); --m2: var(--a-work-2); --m3: var(--a-work-3);
+            --m-main: var(--s-work);
+        }
+
+        .dark {
+            --bg-page: #0A0F1C;
+            --bg-card: rgba(30,41,59,0.5);
+            --bg-card-solid: #1E293B;
+            --bg-sidebar: rgba(15,23,42,0.78);
+            --bg-topbar: rgba(15,23,42,0.78);
+            --border-card: rgba(255,255,255,0.08);
+            --border-subtle: rgba(255,255,255,0.06);
+            --border-strong: rgba(255,255,255,0.12);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+            --blur-card: blur(32px) saturate(180%);
+            --blob-opacity: 0.26;
+            --blob-blur: 140px;
+            --a-work-1: #BE123C; --a-work-2: #9F1239; --a-work-3: #881337;
+            --s-work: #FB7185;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "SF Pro Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: background 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        .aurora-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob { position: absolute; border-radius: 50%; filter: blur(var(--blob-blur)); opacity: var(--blob-opacity); animation: drift 22s ease-in-out infinite alternate; }
+        .blob-1 { width: 600px; height: 600px; top: -12%; left: -10%; background: var(--m1); }
+        .blob-2 { width: 540px; height: 540px; top: 20%; right: -14%; background: var(--m2); animation-delay: -7s; }
+        .blob-3 { width: 620px; height: 620px; bottom: -20%; left: 26%; background: var(--m3); animation-delay: -14s; }
+        @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(50px,-40px) scale(1.12); } }
+
+        .app {
+            position: relative; z-index: 1;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            grid-template-rows: 56px 1fr;
+            grid-template-areas: "sidebar topbar" "sidebar main";
+            height: 100vh;
+        }
+
+        /* 侧栏 */
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur-card);
+            border-right: 1px solid var(--border-subtle);
+            padding: 16px 12px;
+            display: flex; flex-direction: column; gap: 2px;
+            overflow-y: auto;
+        }
+        .sidebar-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); padding: 14px 12px 6px; }
+        .menu-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 10px;
+            font-size: 14px; color: var(--text-secondary);
+            cursor: pointer; border-left: 3px solid transparent;
+            transition: all 0.18s ease; user-select: none;
+        }
+        .menu-item:hover { background: var(--border-subtle); color: var(--text-primary); }
+        .menu-item.active { background: color-mix(in srgb, var(--m-main) 12%, transparent); color: var(--m-main); border-left-color: var(--m-main); font-weight: 600; }
+        .menu-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-main); flex-shrink: 0; }
+
+        /* 顶栏 */
+        .topbar {
+            grid-area: topbar;
+            background: var(--bg-topbar);
+            backdrop-filter: var(--blur-card);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; gap: 16px;
+        }
+        .breadcrumb { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+        .breadcrumb a { color: var(--text-muted); cursor: pointer; text-decoration: none; }
+        .breadcrumb a:hover { color: var(--m-main); }
+        .breadcrumb strong { color: var(--text-primary); font-weight: 600; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+        .btn {
+            border: none; border-radius: 10px;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.18s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+            font-family: inherit;
+        }
+        .btn-primary { background: var(--m-main); color: #fff; box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent); }
+        .btn-primary:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--m-main) 50%, transparent); transform: translateY(-1px); }
+        .btn-ghost { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-subtle); backdrop-filter: blur(12px); }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-main); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .theme-toggle {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            cursor: pointer; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s ease;
+        }
+        .theme-toggle:hover { transform: scale(1.05); border-color: var(--m-main); }
+
+        /* 主区 */
+        .main {
+            grid-area: main;
+            padding: 20px 24px 48px;
+            overflow-y: auto;
+        }
+
+        .detail {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--s-4);
+        }
+
+        .p-rose { --c: #E11D48; }
+
+        /* ============================================================
+           折叠卡片 Hero · 收起一行
+           ============================================================ */
+        .hero-card {
+            position: relative;
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: var(--r-lg);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+        }
+        .hero-card:hover {
+            box-shadow: 0 8px 32px rgba(15,23,42,0.10);
+        }
+
+        /* 单行头部 */
+        .hero-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 10px 16px;
+            min-height: 52px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .hero-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            flex: 1;
+        }
+        .hero-tag {
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            padding: 3px 8px;
+            border-radius: var(--r-sm);
+            background: color-mix(in srgb, var(--c) 14%, transparent);
+            color: var(--c);
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+        .hero-name {
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+        .hero-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: var(--r-sm);
+            font-size: 10px;
+            font-weight: 600;
+            background: rgba(245,158,11,0.12);
+            color: #D97706;
+            flex-shrink: 0;
+        }
+        .hero-status .dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: #F59E0B;
+            box-shadow: 0 0 6px #F59E0B;
+        }
+
+        .hero-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-shrink: 0;
+        }
+
+        /* 进度：横向内联 */
+        .hero-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 3px 5px;
+            margin: -3px -5px;
+            border-radius: 6px;
+            transition: background 0.18s ease;
+        }
+        .hero-progress:hover { background: var(--border-subtle); }
+        .hp-pct {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--c);
+            font-variant-numeric: tabular-nums;
+            min-width: 32px;
+            text-align: right;
+        }
+        .hp-track {
+            width: 72px;
+            height: 5px;
+            background: var(--border-subtle);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--c) 0%, color-mix(in srgb, var(--c) 70%, white) 100%);
+            border-radius: 999px;
+            box-shadow: 0 0 8px color-mix(in srgb, var(--c) 40%, transparent);
+            transition: width 0.6s ease;
+        }
+
+        /* 截止日期 */
+        .hero-deadline {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .hd-label {
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+        .hd-value {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+        .hd-urgent {
+            color: #F59E0B;
+            font-weight: 700;
+            font-size: 10px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            background: rgba(245,158,11,0.12);
+        }
+
+        /* 展开箭头 */
+        .fold-toggle {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+            transition: all 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+        }
+        .fold-toggle:hover {
+            border-color: var(--m-main);
+            color: var(--m-main);
+        }
+        .fold-toggle svg {
+            transition: transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
+        }
+        .hero-card.open .fold-toggle svg {
+            transform: rotate(180deg);
+        }
+
+        /* 展开区 */
+        .hero-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.45s cubic-bezier(0.34, 1.1, 0.64, 1);
+        }
+        .hero-card.open .hero-body {
+            max-height: 400px;
+        }
+        .hero-body-inner {
+            padding: 16px 20px 20px;
+            border-top: 1px solid var(--border-subtle);
+            opacity: 0;
+            transform: translateY(-6px);
+            transition: opacity 0.35s ease 0.1s,
+            transform 0.35s ease 0.1s;
+        }
+        .hero-card.open .hero-body-inner {
+            opacity: 1;
+            transform: none;
+        }
+
+        .body-label {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+        .body-text {
+            font-size: 13.5px;
+            line-height: 1.75;
+            color: var(--text-secondary);
+            text-indent: 2em;
+        }
+        .body-meta {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--border-subtle);
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .body-meta .sep { opacity: 0.4; }
+
+        /* more-menu */
+        .more-menu { position: relative; }
+        .more-btn {
+            width: 34px; height: 34px;
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s ease;
+        }
+        .more-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+        .more-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 140px;
+            background: var(--bg-card-solid);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--r-md);
+            box-shadow: 0 12px 32px rgba(15,23,42,0.15);
+            padding: 6px;
+            display: none;
+            z-index: 20;
+        }
+        .dark .more-dropdown { box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+        .more-dropdown.open { display: block; animation: dropIn 0.15s ease; }
+        @keyframes dropIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+        .more-item {
+            padding: 8px 12px;
+            border-radius: var(--r-sm);
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .more-item:hover { background: var(--border-subtle); }
+        .more-item.danger { color: #EF4444; }
+        .more-item.danger:hover { background: rgba(239,68,68,0.08); }
+
+        /* ============================================================
+           普通 Tab 栏（下划线式）
+           ============================================================ */
+        .tabs-wrap {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg-page);
+            border-bottom: 1px solid var(--border-subtle);
+            margin: 0 -24px;
+            padding: 0 24px;
+            transition: background 0.3s ease;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 16px 14px;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+            user-select: none;
+            position: relative;
+            background: transparent;
+            border: none;
+            transition: color 0.18s ease;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+        }
+
+        /* 选中态：主色文字 + 底部指示线 */
+        .tab.active {
+            color: var(--m-main);
+            font-weight: 600;
+        }
+
+        .tab.active::after {
+            content: "";
+            position: absolute;
+            left: 16px;
+            right: 16px;
+            bottom: -1px;
+            height: 2px;
+            background: var(--m-main);
+            border-radius: 2px 2px 0 0;
+        }
+
+        /* 数量角标 */
+        .tab-count {
+            font-size: 10.5px;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: var(--border-subtle);
+            color: var(--text-muted);
+            transition: all 0.18s ease;
+        }
+
+        .tab.active .tab-count {
+            background: color-mix(in srgb, var(--m-main) 14%, transparent);
+            color: var(--m-main);
+        }
+
+        /* 更新小红点 */
+        .tab-dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #EF4444;
+            display: none;
+        }
+
+        .tab.has-update:not(.active) .tab-dot {
+            display: block;
+        }
+
+        /* ============================================================
+           面板
+           ============================================================ */
+        .panel {
+            display: none;
+            flex-direction: column;
+            gap: var(--s-3);
+            animation: fadeIn 0.3s ease;
+        }
+        .panel.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: var(--r-lg);
+            padding: var(--s-4);
+            box-shadow: var(--shadow-card);
+        }
+        .card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--s-3);
+        }
+        .card-head-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-icon {
+            width: 26px; height: 26px;
+            border-radius: var(--r-sm);
+            background: color-mix(in srgb, var(--rc) 14%, transparent);
+            color: var(--rc);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+        .card-title { font-size: 13.5px; font-weight: 700; }
+        .card-count {
+            font-size: 10.5px;
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--border-subtle);
+        }
+        .card-more { font-size: 11.5px; color: var(--m-main); cursor: pointer; font-weight: 600; transition: opacity 0.15s ease; }
+        .card-more:hover { opacity: 0.7; text-decoration: underline; }
+
+        .rc-doc     { --rc: #8B5CF6; }
+        .rc-task    { --rc: #E11D48; }
+        .rc-bug     { --rc: #F59E0B; }
+        .rc-ops     { --rc: #10B981; }
+        .rc-meeting { --rc: #06B6D4; }
+        .rc-account { --rc: #6366F1; }
+
+        .doc-books { display: flex; gap: var(--s-3); flex-wrap: wrap; }
+        .doc-book {
+            width: 102px;
+            height: 134px;
+            border-radius: 4px 8px 8px 4px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(145deg,
+            color-mix(in srgb, var(--rc) 90%, white) 0%,
+            var(--rc) 45%,
+            color-mix(in srgb, var(--rc) 70%, black) 100%);
+            box-shadow:
+                    inset 3px 0 6px rgba(0,0,0,0.18),
+                    inset -2px 0 4px rgba(255,255,255,0.22),
+                    0 6px 16px rgba(15,23,42,0.16);
+            transition: all 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+            padding: 9px 9px 9px 14px;
+        }
+        .doc-book:hover {
+            transform: translateY(-5px) rotate(-1.5deg);
+            box-shadow:
+                    inset 3px 0 6px rgba(0,0,0,0.2),
+                    inset -2px 0 4px rgba(255,255,255,0.28),
+                    0 14px 30px rgba(15,23,42,0.26);
+        }
+        .doc-book::before {
+            content: "";
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 8px;
+            background: linear-gradient(90deg, rgba(0,0,0,0.4), rgba(0,0,0,0.15) 50%, transparent);
+        }
+        .doc-book::after {
+            content: "";
+            position: absolute;
+            left: 3px; top: 10%; bottom: 10%;
+            width: 1px;
+            background: rgba(255,255,255,0.3);
+        }
+        .doc-book.script { background: linear-gradient(145deg, #4B5563 0%, #374151 50%, #1F2937 100%); }
+        .db-tag {
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            color: rgba(255,255,255,0.85);
+            padding: 2px 6px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 3px;
+            align-self: flex-start;
+            text-transform: uppercase;
+        }
+        .db-title {
+            font-size: 11.5px;
+            font-weight: 700;
+            line-height: 1.25;
+            margin-top: auto;
+            margin-bottom: 4px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .db-meta { font-size: 8.5px; color: rgba(255,255,255,0.7); }
+
+        .task-list { display: flex; flex-direction: column; gap: 1px; }
+        .task-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 8px;
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 13px;
+        }
+        .task-row:hover { background: var(--border-subtle); }
+        .task-check {
+            width: 17px; height: 17px;
+            border-radius: 5px;
+            border: 1.5px solid var(--border-strong);
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px;
+            color: #fff;
+            transition: all 0.18s ease;
+        }
+        .task-row.done .task-check { background: var(--rc); border-color: var(--rc); }
+        .task-row.done .task-text { text-decoration: line-through; color: var(--text-muted); }
+        .task-row.doing .task-check { border-color: #F59E0B; color: #F59E0B; background: rgba(245,158,11,0.12); }
+        .task-text { flex: 1; }
+        .task-due { font-size: 10.5px; color: var(--text-muted); font-weight: 500; }
+        .task-due.urgent { color: #F59E0B; font-weight: 700; }
+        .task-pri { font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+        .task-pri.high { background: rgba(239,68,68,0.12); color: #EF4444; }
+        .task-pri.mid { background: rgba(245,158,11,0.12); color: #F59E0B; }
+        .task-pri.low { background: var(--border-subtle); color: var(--text-muted); }
+
+        .task-group-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 8px 8px 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .task-group-title .tg-count { font-size: 10px; padding: 0 6px; border-radius: 999px; background: var(--border-subtle); color: var(--text-muted); font-weight: 600; letter-spacing: 0; }
+
+        .bug-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+        .bug-card {
+            position: relative;
+            border-radius: 10px;
+            padding: 10px 12px 10px 15px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            overflow: hidden;
+        }
+        .bug-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--bc); }
+        .bug-card:hover { border-color: var(--bc); transform: translateX(2px); box-shadow: 0 4px 16px color-mix(in srgb, var(--bc) 18%, transparent); }
+        .bug-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+        .bug-level {
+            font-size: 8.5px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            padding: 2px 7px;
+            border-radius: 4px;
+            background: color-mix(in srgb, var(--bc) 15%, transparent);
+            color: var(--bc);
+            text-transform: uppercase;
+        }
+        .bug-status { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+        .bug-title { font-size: 12.5px; font-weight: 600; line-height: 1.35; margin-bottom: 4px; }
+        .bug-meta { font-size: 10.5px; color: var(--text-muted); display: flex; gap: 6px; align-items: center; }
+        .bug-assignee {
+            width: 17px; height: 17px;
+            border-radius: 50%;
+            background: var(--border-subtle);
+            color: var(--text-secondary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 700;
+            margin-left: auto;
+        }
+
+        .server-list { display: flex; flex-direction: column; gap: 6px; }
+        .server-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .server-row:hover { border-color: var(--rc); transform: translateX(2px); box-shadow: 0 4px 16px rgba(15,23,42,0.06); }
+        .server-rack {
+            width: 24px; height: 32px;
+            border-radius: 5px;
+            background: linear-gradient(180deg, #475569 0%, #334155 100%);
+            position: relative;
+            flex-shrink: 0;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .server-rack::before {
+            content: "";
+            position: absolute;
+            top: 6px; left: 4px; right: 4px;
+            height: 2px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 1px;
+            box-shadow: 0 6px 0 rgba(255,255,255,0.25), 0 12px 0 rgba(255,255,255,0.25);
+        }
+        .server-rack.prod { background: linear-gradient(180deg, #EF4444 0%, #B91C1C 100%); }
+        .server-rack.test { background: linear-gradient(180deg, #06B6D4 0%, #0891B2 100%); }
+        .server-info { flex: 1; min-width: 0; }
+        .server-name { font-size: 12.5px; font-weight: 700; font-family: ui-monospace, monospace; margin-bottom: 2px; }
+        .server-meta { font-size: 10.5px; color: var(--text-muted); }
+        .server-status { font-size: 9.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+        .server-status.on { background: rgba(16,185,129,0.14); color: #059669; }
+        .server-status.off { background: rgba(148,163,184,0.18); color: #64748B; }
+
+        .doc-books.compact .doc-book { width: 88px; height: 116px; padding: 8px 8px 8px 14px; }
+        .doc-books.compact .db-title { font-size: 10.5px; }
+        .doc-books.compact .db-tag { font-size: 7px; padding: 1px 5px; }
+        .doc-books.compact .db-meta { font-size: 8px; }
+
+        .deploy-timeline { display: flex; flex-direction: column; position: relative; }
+        .deploy-timeline::before { content: ""; position: absolute; left: 6px; top: 12px; bottom: 12px; width: 1px; background: var(--border-subtle); }
+        .deploy-row {
+            display: flex;
+            gap: 12px;
+            padding: 6px 6px;
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            position: relative;
+        }
+        .deploy-row:hover { background: var(--border-subtle); }
+        .deploy-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background: var(--dc);
+            border: 3px solid var(--bg-page);
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--dc) 30%, transparent);
+            margin-top: 3px;
+            position: relative;
+            z-index: 1;
+        }
+        .deploy-info { flex: 1; min-width: 0; }
+        .deploy-ver { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 2px; flex-wrap: wrap; }
+        .deploy-badge { font-size: 9.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+        .deploy-badge.success { background: rgba(16,185,129,0.14); color: #059669; }
+        .deploy-badge.rollback { background: rgba(245,158,11,0.14); color: #D97706; }
+        .deploy-meta { font-size: 10.5px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .deploy-meta .sep { opacity: 0.4; }
+        .deploy-duration { font-size: 9.5px; padding: 1px 6px; background: var(--border-subtle); border-radius: 4px; color: var(--text-muted); font-weight: 500; }
+
+        .meeting-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+        .meeting-card {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .meeting-card:hover { border-color: var(--rc); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,23,42,0.08); }
+        .meeting-date {
+            width: 42px;
+            flex-shrink: 0;
+            text-align: center;
+            background: color-mix(in srgb, var(--rc) 10%, transparent);
+            border-radius: var(--r-sm);
+            padding: 5px 3px;
+        }
+        .meeting-month { font-size: 8.5px; color: var(--rc); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+        .meeting-day { font-size: 17px; font-weight: 800; color: var(--rc); line-height: 1; margin: 2px 0; }
+        .meeting-time { font-size: 8.5px; color: var(--text-muted); font-weight: 600; }
+        .meeting-info { flex: 1; min-width: 0; }
+        .meeting-title { font-size: 12.5px; font-weight: 700; margin-bottom: 3px; line-height: 1.3; }
+        .meeting-meta { font-size: 10.5px; color: var(--text-muted); line-height: 1.5; }
+        .meeting-attendees { display: flex; align-items: center; margin-top: 5px; }
+        .meeting-attendees .avatar {
+            width: 17px; height: 17px;
+            border-radius: 50%;
+            background: var(--border-subtle);
+            color: var(--text-secondary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8.5px;
+            font-weight: 700;
+            margin-left: -4px;
+            border: 2px solid var(--bg-card);
+        }
+        .meeting-attendees .avatar:first-child { margin-left: 0; }
+        .meeting-attendees .more { font-size: 9.5px; color: var(--text-muted); margin-left: 5px; font-weight: 600; }
+
+        .account-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+        .account-card {
+            display: flex;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .account-card:hover { border-color: var(--rc); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,23,42,0.08); }
+        .account-card:hover .account-copy { opacity: 1; }
+        .account-key {
+            width: 34px; height: 34px;
+            border-radius: 9px;
+            background: color-mix(in srgb, var(--rc) 12%, transparent);
+            color: var(--rc);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+        .account-info { flex: 1; min-width: 0; }
+        .account-platform { font-size: 12.5px; font-weight: 700; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+        .account-env { font-size: 8.5px; font-weight: 700; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.06em; text-transform: uppercase; }
+        .account-env.prod { background: rgba(239,68,68,0.14); color: #EF4444; }
+        .account-env.test { background: rgba(6,182,212,0.14); color: #06B6D4; }
+        .account-env.dev { background: rgba(139,92,246,0.14); color: #8B5CF6; }
+        .account-user {
+            font-size: 10.5px;
+            color: var(--text-muted);
+            font-family: ui-monospace, monospace;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .account-pwd { font-size: 9.5px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+        .account-copy {
+            position: absolute;
+            top: 7px;
+            right: 7px;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card-solid);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 10px;
+            opacity: 0;
+            transition: all 0.18s ease;
+        }
+        .account-copy:hover { color: var(--m-main); border-color: var(--m-main); }
+        .account-expire {
+            position: absolute;
+            bottom: 7px;
+            right: 10px;
+            font-size: 8.5px;
+            color: var(--text-muted);
+            background: var(--border-subtle);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .account-expire.warn { background: rgba(245,158,11,0.14); color: #D97706; }
+
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--s-3);
+            align-items: start;
+        }
+        .overview-grid .card { padding: var(--s-3) var(--s-3); }
+        .overview-grid .card-head { margin-bottom: var(--s-2); }
+        .overview-grid .card-icon { width: 24px; height: 24px; font-size: 12px; }
+        .overview-grid .card-title { font-size: 13px; }
+        .overview-grid .card-count { font-size: 10px; padding: 1px 7px; }
+        .overview-grid .card-more { font-size: 11px; }
+
+        .modal-mask {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.35);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-mask.open { display: flex; animation: fadeIn 0.2s ease; }
+        .modal {
+            background: var(--bg-card-solid);
+            border-radius: var(--r-lg);
+            width: 100%; max-width: 480px;
+            max-height: 88vh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(15,23,42,0.25);
+            animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: none; } }
+        .modal-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .modal-title { font-size: 16px; font-weight: 700; }
+        .modal-close {
+            width: 32px; height: 32px;
+            border-radius: var(--r-sm);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.18s ease;
+        }
+        .modal-close:hover { background: var(--border-subtle); color: var(--text-primary); }
+        .modal-body { padding: 22px; overflow-y: auto; }
+        .modal-body p { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
+        .modal-actions {
+            display: flex; gap: 10px; justify-content: flex-end;
+            padding: 16px 22px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--bg-card-solid);
+            color: var(--text-primary);
+            padding: 12px 20px;
+            border-radius: var(--r-md);
+            box-shadow: 0 12px 32px rgba(15,23,42,0.2);
+            font-size: 13px;
+            font-weight: 600;
+            z-index: 200;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border-subtle);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        @media (max-width: 860px) {
+            .hero-bar {
+                flex-wrap: wrap;
+                padding: 10px 14px;
+            }
+            .hero-bar-right {
+                width: 100%;
+                justify-content: space-between;
+                gap: 10px;
+            }
+            .hero-name { font-size: 14px; }
+            .hp-track { width: 54px; }
+            .hero-deadline { font-size: 11px; }
+        }
+        @media (max-width: 768px) {
+            .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+            .sidebar { display: none; }
+            .main { padding: 14px; }
+            .overview-grid { grid-template-columns: 1fr; }
+            .tabs-wrap {
+                margin: 0 -14px;
+                padding: 0 14px;
+            }
+            .tab {
+                padding: 10px 12px 12px;
+                font-size: 13px;
+            }
+            .tab.active::after {
+                left: 12px;
+                right: 12px;
+            }
+        }
+        @media (max-width: 520px) {
+            .hero-bar-left .hero-tag { display: none; }
+            .hero-deadline .hd-label { display: none; }
+            .hero-bar-right > .btn { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="aurora-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+</div>
+
+<div class="app">
+
+    <aside class="sidebar">
+        <div class="sidebar-title">全局层</div>
+        <div class="menu-item"><span class="menu-dot"></span>工作台</div>
+        <div class="menu-item"><span class="menu-dot"></span>任务清单</div>
+        <div class="menu-item"><span class="menu-dot"></span>日程</div>
+
+        <div class="sidebar-title">领域层</div>
+        <div class="menu-item"><span class="menu-dot"></span>生活</div>
+        <div class="menu-item active"><span class="menu-dot"></span>工作</div>
+        <div class="menu-item"><span class="menu-dot"></span>学习</div>
+
+        <div class="sidebar-title">执行层</div>
+        <div class="menu-item active"><span class="menu-dot"></span>项目</div>
+
+        <div class="sidebar-title">沉淀层</div>
+        <div class="menu-item"><span class="menu-dot"></span>知识库</div>
+
+        <div class="sidebar-title">支撑层</div>
+        <div class="menu-item"><span class="menu-dot"></span>设置</div>
+    </aside>
+
+    <header class="topbar">
+        <div class="breadcrumb">
+            <a>项目</a>
+            <span>/</span>
+            <strong>支付系统重构</strong>
+        </div>
+        <div class="topbar-actions">
+            <button class="theme-toggle" id="themeToggle">🌙</button>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="detail p-rose">
+
+            <!-- ============================================================
+                 折叠卡片 Hero · 收起一行
+                 ============================================================ -->
+            <div class="hero-card" id="heroCard">
+                <div class="hero-bar" onclick="toggleHero()">
+                    <div class="hero-bar-left">
+                        <span class="hero-tag">CORE</span>
+                        <h1 class="hero-name">支付系统重构</h1>
+                        <span class="hero-status"><span class="dot"></span>有风险</span>
+                    </div>
+
+                    <div class="hero-bar-right" onclick="event.stopPropagation()">
+                        <div class="hero-progress" onclick="openModal('调整进度')">
+                            <span class="hp-pct">62%</span>
+                            <div class="hp-track">
+                                <div class="hp-fill" style="width:62%"></div>
+                            </div>
+                        </div>
+
+                        <div class="hero-deadline">
+                            <span class="hd-label">截止</span>
+                            <span class="hd-value">10-31</span>
+                            <span class="hd-urgent">剩 37 天</span>
+                        </div>
+
+                        <button class="btn btn-ghost btn-sm" onclick="openModal('编辑项目')">编辑</button>
+
+                        <div class="more-menu">
+                            <button class="more-btn" onclick="toggleMore(this)">⋯</button>
+                            <div class="more-dropdown">
+                                <div class="more-item" onclick="toast('已复制项目链接')">🔗 复制链接</div>
+                                <div class="more-item" onclick="toast('已归档')">📦 归档项目</div>
+                                <div class="more-item" onclick="toast('已暂停')">⏸ 暂停项目</div>
+                                <div class="more-item danger" onclick="openModal('删除项目')">🗑 删除项目</div>
+                            </div>
+                        </div>
+
+                        <div class="fold-toggle" title="展开/收起" onclick="toggleHero()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2.5"
+                                 stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-body">
+                    <div class="hero-body-inner">
+                        <div class="body-label">项目说明</div>
+                        <p class="body-text">
+                            对现有支付链路进行服务化重构，拆分订单、支付、对账三个域，降低耦合、提升成功率。
+                        </p>
+                        <div class="body-meta">
+                            <span>创建 2026-06</span>
+                            <span class="sep">·</span>
+                            <span>更新 2 小时前</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================
+                 普通 Tab 栏（下划线式）
+                 ============================================================ -->
+            <div class="tabs-wrap">
+                <div class="tabs">
+                    <div class="tab active" data-tab="overview">
+                        总览
+                    </div>
+                    <div class="tab has-update" data-tab="tasks">
+                        任务
+                        <span class="tab-count">5/8</span>
+                        <span class="tab-dot"></span>
+                    </div>
+                    <div class="tab" data-tab="bugs">
+                        Bug
+                        <span class="tab-count">2</span>
+                    </div>
+                    <div class="tab has-update" data-tab="docs">
+                        文档
+                        <span class="tab-count">3</span>
+                        <span class="tab-dot"></span>
+                    </div>
+                    <div class="tab" data-tab="ops">
+                        运维
+                        <span class="tab-count">2·3·4</span>
+                    </div>
+                    <div class="tab" data-tab="meetings">
+                        会议
+                        <span class="tab-count">2</span>
+                    </div>
+                    <div class="tab" data-tab="accounts">
+                        账户
+                        <span class="tab-count">8</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 总览 -->
+            <div class="panel active" data-panel="overview">
+                <div class="overview-grid">
+
+                    <div class="card rc-task">
+                        <div class="card-head">
+                            <div class="card-head-left">
+                                <div class="card-icon">✅</div>
+                                <div class="card-title">任务</div>
+                                <span class="card-count">5 / 8</span>
+                            </div>
+                            <span class="card-more" onclick="switchTab('tasks')">查看全部 →</span>
+                        </div>
+                        <div class="task-list">
+                            <div class="task-row doing">
+                                <div class="task-check">•</div>
+                                <div class="task-text">灰度发布</div>
+                                <span class="task-due urgent">明天</span>
+                                <span class="task-pri high">高</span>
+                            </div>
+                            <div class="task-row">
+                                <div class="task-check"></div>
+                                <div class="task-text">全量切换</div>
+                                <span class="task-due">10-20</span>
+                                <span class="task-pri mid">中</span>
+                            </div>
+                            <div class="task-row">
+                                <div class="task-check"></div>
+                                <div class="task-text">更新监控告警配置</div>
+                                <span class="task-pri low">低</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card rc-bug">
+                        <div class="card-head">
+                            <div class="card-head-left">
+                                <div class="card-icon">🐛</div>
+                                <div class="card-title">Bug</div>
+                                <span class="card-count">2 待修</span>
+                            </div>
+                            <span class="card-more" onclick="switchTab('bugs')">查看全部 →</span>
+                        </div>
+                        <div class="bug-grid" style="grid-template-columns:1fr;">
+                            <div class="bug-card" style="--bc:#EF4444;">
+                                <div class="bug-head">
+                                    <span class="bug-level">致命</span>
+                                    <span class="bug-status">待修复</span>
+                                </div>
+                                <div class="bug-title">支付回调偶发超时</div>
+                                <div class="bug-meta">
+                                    <span>v2.3.1</span>
+                                    <span>·</span>
+                                    <span>3 天前</span>
+                                    <span class="bug-assignee">张</span>
+                                </div>
+                            </div>
+                            <div class="bug-card" style="--bc:#F59E0B;">
+                                <div class="bug-head">
+                                    <span class="bug-level">严重</span>
+                                    <span class="bug-status">修复中</span>
+                                </div>
+                                <div class="bug-title">对账金额精度丢失</div>
+                                <div class="bug-meta">
+                                    <span>v2.3.0</span>
+                                    <span>·</span>
+                                    <span>5 天前</span>
+                                    <span class="bug-assignee">我</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card rc-doc">
+                        <div class="card-head">
+                            <div class="card-head-left">
+                                <div class="card-icon">📄</div>
+                                <div class="card-title">文档</div>
+                                <span class="card-count">3</span>
+                            </div>
+                            <span class="card-more" onclick="switchTab('docs')">查看全部 →</span>
+                        </div>
+                        <div class="doc-books">
+                            <div class="doc-book">
+                                <span class="db-tag">方案</span>
+                                <div class="db-title">支付系统重构方案</div>
+                                <div class="db-meta">昨天</div>
+                            </div>
+                            <div class="doc-book">
+                                <span class="db-tag">规范</span>
+                                <div class="db-title">接口设计规范</div>
+                                <div class="db-meta">3 天前</div>
+                            </div>
+                            <div class="doc-book">
+                                <span class="db-tag">设计</span>
+                                <div class="db-title">支付对账设计</div>
+                                <div class="db-meta">2 小时前</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card rc-ops">
+                        <div class="card-head">
+                            <div class="card-head-left">
+                                <div class="card-icon">🚀</div>
+                                <div class="card-title">运维</div>
+                                <span class="card-count">2 服务器 · 3 文档 · 4 记录</span>
+                            </div>
+                            <span class="card-more" onclick="switchTab('ops')">查看全部 →</span>
+                        </div>
+                        <div class="server-list" style="margin-bottom:10px;">
+                            <div class="server-row">
+                                <div class="server-rack prod"></div>
+                                <div class="server-info">
+                                    <div class="server-name">prod-web-01</div>
+                                    <div class="server-meta">4C8G · 运行中</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="deploy-timeline">
+                            <div class="deploy-row">
+                                <div class="deploy-dot" style="--dc:#10B981;"></div>
+                                <div class="deploy-info">
+                                    <div class="deploy-ver">v2.3.1 <span class="deploy-badge success">成功</span></div>
+                                    <div class="deploy-meta">昨天</div>
+                                </div>
+                            </div>
+                            <div class="deploy-row">
+                                <div class="deploy-dot" style="--dc:#10B981;"></div>
+                                <div class="deploy-info">
+                                    <div class="deploy-ver">v2.3.0 <span class="deploy-badge success">成功</span></div>
+                                    <div class="deploy-meta">5 天前</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card rc-meeting">
+                        <div class="card-head">
+                            <div class="card-head-left">
+                                <div class="card-icon">📅</div>
+                                <div class="card-title">会议</div>
+                                <span class="card-count">2</span>
+                            </div>
+                            <span class="card-more" onclick="switchTab('meetings')">查看全部 →</span>
+                        </div>
+                        <div class="meeting-grid" style="grid-template-columns:1fr;">
+                            <div class="meeting-card">
+                                <div class="meeting-date">
+                                    <div class="meeting-month">SEP</div>
+                                    <div class="meeting-day">22</div>
+                                    <div class="meeting-time">14:00</div>
+                                </div>
+                                <div class="meeting-info">
+                                    <div class="meeting-title">项目评审</div>
+                                    <div class="meeting-meta">60 分钟 · 会议室 A</div>
+                                    <div class="meeting-attendees">
+                                        <span class="avatar">张</span>
+                                        <span class="avatar">李</span>
+                                        <span class="avatar">我</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card rc-account">
+                        <div class="card-head">
+                            <div class="card-head-left">
+                                <div class="card-icon">🔑</div>
+                                <div class="card-title">账户</div>
+                                <span class="card-count">8 · 3 平台</span>
+                            </div>
+                            <span class="card-more" onclick="switchTab('accounts')">查看全部 →</span>
+                        </div>
+                        <div class="account-grid" style="grid-template-columns:1fr;">
+                            <div class="account-card">
+                                <div class="account-key">🔑</div>
+                                <div class="account-info">
+                                    <div class="account-platform">
+                                        阿里云
+                                        <span class="account-env prod">生产</span>
+                                    </div>
+                                    <div class="account-user">admin@xxx.com</div>
+                                    <div class="account-pwd">🔒 密码已加密</div>
+                                </div>
+                                <span class="account-expire">90 天后换</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 任务 Tab -->
+            <div class="panel rc-task" data-panel="tasks">
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-head-left">
+                            <div class="card-icon">✅</div>
+                            <div class="card-title">全部任务</div>
+                            <span class="card-count">5 / 8 完成</span>
+                        </div>
+                        <button class="btn btn-primary btn-sm">+ 新建任务</button>
+                    </div>
+                    <div class="task-group-title">
+                        进行中
+                        <span class="tg-count">3</span>
+                    </div>
+                    <div class="task-list">
+                        <div class="task-row doing">
+                            <div class="task-check">•</div>
+                            <div class="task-text">灰度发布</div>
+                            <span class="task-due urgent">明天</span>
+                            <span class="task-pri high">高</span>
+                        </div>
+                        <div class="task-row">
+                            <div class="task-check"></div>
+                            <div class="task-text">全量切换</div>
+                            <span class="task-due">10-20</span>
+                            <span class="task-pri mid">中</span>
+                        </div>
+                        <div class="task-row">
+                            <div class="task-check"></div>
+                            <div class="task-text">更新监控告警配置</div>
+                            <span class="task-pri low">低</span>
+                        </div>
+                    </div>
+                    <div class="task-group-title" style="margin-top:10px;">
+                        已完成
+                        <span class="tg-count">5</span>
+                    </div>
+                    <div class="task-list">
+                        <div class="task-row done"><div class="task-check">✓</div><div class="task-text">接口梳理</div><span class="task-pri high">高</span></div>
+                        <div class="task-row done"><div class="task-check">✓</div><div class="task-text">核心链路重构</div><span class="task-pri high">高</span></div>
+                        <div class="task-row done"><div class="task-check">✓</div><div class="task-text">编写单元测试</div><span class="task-pri mid">中</span></div>
+                        <div class="task-row done"><div class="task-check">✓</div><div class="task-text">代码评审</div><span class="task-pri mid">中</span></div>
+                        <div class="task-row done"><div class="task-check">✓</div><div class="task-text">更新接口文档</div><span class="task-pri low">低</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bug Tab -->
+            <div class="panel rc-bug" data-panel="bugs">
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-head-left">
+                            <div class="card-icon">🐛</div>
+                            <div class="card-title">全部 Bug</div>
+                            <span class="card-count">2 个待处理</span>
+                        </div>
+                        <button class="btn btn-primary btn-sm">+ 提交 Bug</button>
+                    </div>
+                    <div class="bug-grid">
+                        <div class="bug-card" style="--bc:#EF4444;">
+                            <div class="bug-head"><span class="bug-level">致命</span><span class="bug-status">待修复</span></div>
+                            <div class="bug-title">支付回调偶发超时</div>
+                            <div class="bug-meta"><span>v2.3.1</span><span>·</span><span>3 天前</span><span class="bug-assignee">张</span></div>
+                        </div>
+                        <div class="bug-card" style="--bc:#F59E0B;">
+                            <div class="bug-head"><span class="bug-level">严重</span><span class="bug-status">修复中</span></div>
+                            <div class="bug-title">对账金额精度丢失</div>
+                            <div class="bug-meta"><span>v2.3.0</span><span>·</span><span>5 天前</span><span class="bug-assignee">我</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 文档 Tab -->
+            <div class="panel rc-doc" data-panel="docs">
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-head-left">
+                            <div class="card-icon">📄</div>
+                            <div class="card-title">全部文档</div>
+                            <span class="card-count">3 篇</span>
+                        </div>
+                        <button class="btn btn-primary btn-sm">+ 新建文档</button>
+                    </div>
+                    <div class="doc-books">
+                        <div class="doc-book">
+                            <span class="db-tag">方案</span>
+                            <div class="db-title">支付系统重构方案</div>
+                            <div class="db-meta">昨天 · v3</div>
+                        </div>
+                        <div class="doc-book">
+                            <span class="db-tag">规范</span>
+                            <div class="db-title">接口设计规范</div>
+                            <div class="db-meta">3 天前 · v2</div>
+                        </div>
+                        <div class="doc-book">
+                            <span class="db-tag">设计</span>
+                            <div class="db-title">支付对账设计</div>
+                            <div class="db-meta">2 小时前 · v1</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 运维 Tab -->
+            <div class="panel rc-ops" data-panel="ops">
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-head-left">
+                            <div class="card-icon">🖥</div>
+                            <div class="card-title">服务器</div>
+                            <span class="card-count">2 台</span>
+                        </div>
+                    </div>
+                    <div class="server-list">
+                        <div class="server-row">
+                            <div class="server-rack prod"></div>
+                            <div class="server-info">
+                                <div class="server-name">prod-web-01</div>
+                                <div class="server-meta">47.100.x.x · 阿里云 · 4C8G · Ubuntu 22.04</div>
+                            </div>
+                            <span class="server-status on">运行中</span>
+                        </div>
+                        <div class="server-row">
+                            <div class="server-rack prod"></div>
+                            <div class="server-info">
+                                <div class="server-name">prod-db-01</div>
+                                <div class="server-meta">47.100.x.x · 阿里云 · 8C16G · Ubuntu 22.04</div>
+                            </div>
+                            <span class="server-status on">运行中</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-head-left">
+                            <div class="card-icon">📘</div>
+                            <div class="card-title">部署文档</div>
+                            <span class="card-count">3 篇</span>
+                        </div>
+                        <button class="btn btn-primary btn-sm">+ 新建</button>
+                    </div>
+                    <div class="doc-books compact">
+                        <div class="doc-book">
+                            <span class="db-tag">手册</span>
+                            <div class="db-title">生产环境部署手册</div>
+                            <div class="db-meta">v2.3</div>
+                        </div>
+                        <div class="doc-book">
+                            <span class="db-tag">流程</span>
+                            <div class="db-title">回滚流程</div>
+                            <div class="db-meta">v1.2</div>
+                        </div>
+                        <div class="doc-book script">
+                            <span class="db-tag">脚本</span>
+                            <div class="db-title">deploy.sh</div>
+                            <div class="db-meta">v1.4</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-head-left">
+                            <div class="card-icon">📋</div>
+                            <div class="card-title">发布记录</div>
+                            <span class="card-count">4 次</span>
+                        </div>
+                        <button class="btn btn-primary btn-sm">+ 记录发布</button>
+                    </div>
+                    <div class="deploy-timeline">
+                        <div class="deploy-row">
+                            <div class="deploy-dot" style="--dc:#10B981;"></div>
+                            <div class="deploy-info">
+                                <div class="deploy-ver">v2.3.1 <span class="deploy-badge success">成功</span></div>
+                                <div class="deploy-meta">
+                                    <span>昨天</span>
+                                    <span class="sep">·</span>
+                                    <span>prod-web-01</span>
+                                    <span class="sep">·</span>
+                                    <span>我</span>
+                                    <span class="deploy-duration">2m 18s</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="deploy-row">
+                            <div class="deploy-dot" style="--dc:#10B981;"></div>
+                            <div class="deploy-info">
+                                <div class="deploy-ver">v2.3.0 <span class="deploy-badge success">成功</span></div>
+                                <div class="deploy-meta">
+                                    <span>5 天前</span>
+                                    <span class="sep">·</span>
+                                    <span>prod-web-01</span>
+                                    <span class="sep">·</span>
+                                    <span>我</span>
+                                    <span class="deploy-duration">3m 02s</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="deploy-row">
+                            <div class="deploy-dot" style="--dc:#F59E0B;"></div>
+                            <div class="deploy-info">
+                                <div class="deploy-ver">v2.2.9 <span class="deploy-badge rollback">回滚</span></div>
+                                <div class="deploy-meta">
+                                    <span>10 天前</span>
+                                    <span class="sep">·</span>
+                                    <span>prod-web-01</span>
+                                    <span class="sep">·</span>
+                                    <span>我</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="deploy-row">
+                            <div class="deploy-dot" style="--dc:#10B981;"></div>
+                            <div class="deploy-info">
+                                <div class="deploy-ver">v2.2.8 <span class="deploy-badge success">成功</span></div>
+                                <div class="deploy-meta">
+                                    <span>2 周前</span>
+                                    <span class="sep">·</span>
+                                    <span>prod-web-01</span>
+                                    <span class="sep">·</span>
+                                    <span>我</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 会议 Tab -->
+            <div class="panel rc-meeting" data-panel="meetings">
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-head-left">
+                            <div class="card-icon">📅</div>
+                            <div class="card-title">全部会议</div>
+                            <span class="card-count">2 场</span>
+                        </div>
+                    </div>
+                    <div class="meeting-grid">
+                        <div class="meeting-card">
+                            <div class="meeting-date">
+                                <div class="meeting-month">SEP</div>
+                                <div class="meeting-day">22</div>
+                                <div class="meeting-time">14:00</div>
+                            </div>
+                            <div class="meeting-info">
+                                <div class="meeting-title">项目评审</div>
+                                <div class="meeting-meta">60 分钟 · 会议室 A</div>
+                                <div class="meeting-attendees">
+                                    <span class="avatar">张</span>
+                                    <span class="avatar">李</span>
+                                    <span class="avatar">我</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="meeting-card">
+                            <div class="meeting-date">
+                                <div class="meeting-month">SEP</div>
+                                <div class="meeting-day">18</div>
+                                <div class="meeting-time">10:00</div>
+                            </div>
+                            <div class="meeting-info">
+                                <div class="meeting-title">周会</div>
+                                <div class="meeting-meta">60 分钟 · 线上</div>
+                                <div class="meeting-attendees">
+                                    <span class="avatar">张</span>
+                                    <span class="avatar">李</span>
+                                    <span class="avatar">王</span>
+                                    <span class="avatar">我</span>
+                                    <span class="more">+3</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 账户 Tab -->
+            <div class="panel rc-account" data-panel="accounts">
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-head-left">
+                            <div class="card-icon">🔑</div>
+                            <div class="card-title">账户管理</div>
+                            <span class="card-count">8 个 · 3 平台</span>
+                        </div>
+                        <button class="btn btn-primary btn-sm">+ 添加账户</button>
+                    </div>
+                    <div class="account-grid">
+                        <div class="account-card">
+                            <div class="account-key">🔑</div>
+                            <div class="account-info">
+                                <div class="account-platform">阿里云 <span class="account-env prod">生产</span></div>
+                                <div class="account-user">admin@xxx.com</div>
+                                <div class="account-pwd">🔒 密码已加密</div>
+                            </div>
+                            <button class="account-copy" onclick="event.stopPropagation();toast('已复制账号')">📋</button>
+                            <span class="account-expire">90 天后换</span>
+                        </div>
+                        <div class="account-card">
+                            <div class="account-key">🔑</div>
+                            <div class="account-info">
+                                <div class="account-platform">阿里云 <span class="account-env test">测试</span></div>
+                                <div class="account-user">test@xxx.com</div>
+                                <div class="account-pwd">🔒 密码已加密</div>
+                            </div>
+                            <button class="account-copy" onclick="event.stopPropagation();toast('已复制账号')">📋</button>
+                        </div>
+                        <div class="account-card">
+                            <div class="account-key">🔑</div>
+                            <div class="account-info">
+                                <div class="account-platform">GitLab <span class="account-env dev">开发</span></div>
+                                <div class="account-user">dev@xxx.com</div>
+                                <div class="account-pwd">🔒 密码已加密</div>
+                            </div>
+                            <button class="account-copy" onclick="event.stopPropagation();toast('已复制账号')">📋</button>
+                        </div>
+                        <div class="account-card">
+                            <div class="account-key">🔑</div>
+                            <div class="account-info">
+                                <div class="account-platform">星辰后台 <span class="account-env prod">生产</span></div>
+                                <div class="account-user">xingchen_admin</div>
+                                <div class="account-pwd">🔒 密码已加密</div>
+                            </div>
+                            <button class="account-copy" onclick="event.stopPropagation();toast('已复制账号')">📋</button>
+                            <span class="account-expire warn">7 天后换</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<!-- 弹窗 -->
+<div class="modal-mask" id="modalMask">
+    <div class="modal">
+        <div class="modal-head">
+            <div class="modal-title" id="modalTitle">标题</div>
+            <div class="modal-close" onclick="closeModal()">✕</div>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="closeModal()">确定</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+    // ============================================================
+    // 折叠卡片：点击切换展开/收起
+    // ============================================================
+    function toggleHero() {
+        document.getElementById('heroCard').classList.toggle('open');
+    }
+
+    // ============================================================
+    // Tab 切换
+    // ============================================================
+    function switchTab(tabKey) {
+        document.querySelectorAll('.tab').forEach(t => {
+            t.classList.toggle('active', t.dataset.tab === tabKey);
+        });
+        document.querySelectorAll('.panel').forEach(p => {
+            p.classList.toggle('active', p.dataset.panel === tabKey);
+        });
+        const tabsWrap = document.querySelector('.tabs-wrap');
+        if (tabsWrap) tabsWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+
+    // ============================================================
+    // 更多菜单
+    // ============================================================
+    function toggleMore(btn) {
+        const dd = btn.nextElementSibling;
+        document.querySelectorAll('.more-dropdown').forEach(d => {
+            if (d !== dd) d.classList.remove('open');
+        });
+        dd.classList.toggle('open');
+    }
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.more-menu')) {
+            document.querySelectorAll('.more-dropdown').forEach(d => d.classList.remove('open'));
+        }
+    });
+
+    // ============================================================
+    // 弹窗
+    // ============================================================
+    const mask = document.getElementById('modalMask');
+    const mTitle = document.getElementById('modalTitle');
+    const mBody = document.getElementById('modalBody');
+
+    function openModal(title) {
+        mTitle.textContent = title;
+        mBody.innerHTML = `<p>原型演示：这里会打开「${title}」的操作界面。</p>`;
+        mask.classList.add('open');
+    }
+    function closeModal() { mask.classList.remove('open'); }
+    mask.addEventListener('click', (e) => { if (e.target === mask) closeModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    // ============================================================
+    // Toast
+    // ============================================================
+    let toastTimer;
+    function toast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = '✓ ' + msg;
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    // ============================================================
+    // 主题
+    // ============================================================
+    const themeToggle = document.getElementById('themeToggle');
+    const saved = localStorage.getItem('theme') || 'light';
+    if (saved === 'dark') {
+        document.documentElement.classList.add('dark');
+        themeToggle.textContent = '☀️';
+    }
+    themeToggle.addEventListener('click', () => {
+        const dark = document.documentElement.classList.toggle('dark');
+        themeToggle.textContent = dark ? '☀️' : '🌙';
+        localStorage.setItem('theme', dark ? 'dark' : 'light');
+    });
+
+    // ============================================================
+    // 快捷键
+    // ============================================================
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+            document.querySelectorAll('.more-dropdown').forEach(d => d.classList.remove('open'));
+        }
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= 7 && !e.metaKey && !e.ctrlKey) {
+            const tabs = ['overview', 'tasks', 'bugs', 'docs', 'ops', 'meetings', 'accounts'];
+            if (tabs[num - 1]) switchTab(tabs[num - 1]);
+        }
+    });
+</script>
+</body>
+</html>

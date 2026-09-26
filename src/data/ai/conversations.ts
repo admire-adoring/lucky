@@ -1,4 +1,5 @@
 import { AI_FACTS } from './facts'
+import { DEFAULT_CONTEXTS } from './contexts'
 import type { IconName } from '../../types'
 import type { AiMessage, AiQuickPrompt, AiSession } from './types'
 
@@ -231,14 +232,16 @@ function seedMessages(): AiMessage[] {
 
 /** 会话列表 —— 与原型同形（1 个有内容的种子会话 + 6 个只有标题的） */
 export function seedSessions(): AiSession[] {
+  /* 种子会话的上下文：两个事实源 + 最紧的两个项目（都是真实来源，见 contexts.ts） */
+  const seedContexts = [...DEFAULT_CONTEXTS, ...AI_FACTS.dueTop2.map((project) => `p:${project.id}`)]
   return [
-    { id: 's1', title: '今天有什么安排', pinned: false, group: '今天', messages: seedMessages() },
-    { id: 's2', title: 'React 19 ref 变化', pinned: false, group: '今天', messages: [] },
-    { id: 's3', title: '支付系统重构方案', pinned: true, group: '今天', messages: [] },
-    { id: 's4', title: '周报怎么写', pinned: false, group: '昨天', messages: [] },
-    { id: 's5', title: '评估一下学习计划', pinned: false, group: '昨天', messages: [] },
-    { id: 's6', title: '构建耗时优化', pinned: false, group: '更早', messages: [] },
-    { id: 's7', title: '弥散风格 UI 设计', pinned: false, group: '更早', messages: [] },
+    { id: 's1', title: '今天有什么安排', pinned: false, group: '今天', contexts: seedContexts, messages: seedMessages() },
+    { id: 's2', title: 'React 19 ref 变化', pinned: false, group: '今天', contexts: [], messages: [] },
+    { id: 's3', title: '支付系统重构方案', pinned: true, group: '今天', contexts: [], messages: [] },
+    { id: 's4', title: '周报怎么写', pinned: false, group: '昨天', contexts: [], messages: [] },
+    { id: 's5', title: '评估一下学习计划', pinned: false, group: '昨天', contexts: [], messages: [] },
+    { id: 's6', title: '构建耗时优化', pinned: false, group: '更早', contexts: [], messages: [] },
+    { id: 's7', title: '弥散风格 UI 设计', pinned: false, group: '更早', contexts: [], messages: [] },
   ]
 }
 
@@ -251,14 +254,21 @@ export function seedSessions(): AiSession[] {
  *    所以生成器**没有**把它们改道到 `--c-success`；照原样保留原型的六位色。
  *    这也是本页唯一几处"色值不由令牌层给"的地方，理由在此。
  *
+ * ⚠️ **2026-09-25 纯色化**：四支原来是 135° 的双色渐变，现在各取**两端的中点色**
+ *    （`#6366F1+#8B5CF6 → #7761F3` 等），键名 `grad` 保留（含义已变成"标记实色"，
+ *    与 `--grad-ai` 同一处理口径）。取中点是为了**只换材质、不动明度**。
+ *    实测这四个标记上的白色缩写是 3.5~4.3:1 —— **未达 4.5:1，但这是原渐变本来就有的
+ *    状态**（渐变两端同样在 3.5~4.4 之间），本轮不顺手改对比度：
+ *    改它要按色相逐个往深里解，那是"改配色"而不是"去渐变"，属另一件事。
+ *
  * ⚠️ 这四个档位是**原型内容**：应用里没有模型网关，选了不会真的换模型。
  *    所以 `stores/ai-store.ts` 只把它当作"偏好"存着，并在切换的 toast 里写明。
  */
 export const AI_MODELS = [
-  { name: 'Claude Sonnet', sub: '快速 · 均衡', short: 'CS', grad: 'linear-gradient(135deg,#6366F1,#8B5CF6)' },
-  { name: 'GPT-4o', sub: '多模态 · 强推理', short: 'G4', grad: 'linear-gradient(135deg,#10B981,#059669)' },
-  { name: 'Gemini 2.5 Pro', sub: '超长上下文', short: 'GM', grad: 'linear-gradient(135deg,#3B82F6,#8B5CF6)' },
-  { name: '本地 Llama 3', sub: '私有 · 离线', short: 'LL', grad: 'linear-gradient(135deg,#F59E0B,#EF4444)' },
+  { name: 'Claude Sonnet', sub: '快速 · 均衡', short: 'CS', grad: '#7761F3' },
+  { name: 'GPT-4o', sub: '多模态 · 强推理', short: 'G4', grad: '#0CA075' },
+  { name: 'Gemini 2.5 Pro', sub: '超长上下文', short: 'GM', grad: '#636FF6' },
+  { name: '本地 Llama 3', sub: '私有 · 离线', short: 'LL', grad: '#F27E27' },
 ]
 
 /* ---------- 右栏的「工具」开关 ---------- */
@@ -302,6 +312,15 @@ export const AI_STAGES = [
   { name: '分析', icon: 'i-trend' },
   { name: '组装', icon: 'i-check' },
 ] as const satisfies ReadonlyArray<{ name: string; icon: IconName }>
+
+/**
+ * 四拍各自的停留时长（毫秒）。
+ *
+ * ⚠️ 原型第二轮把它改成了**不等长**的 `[300, 700, 500, 400]`（注释写「#16 各阶段耗时不同」），
+ *    理由是"看起来更像真的在干活"。照搬即可 —— 它是**界面节奏**，不是对数据的声明
+ *    （与"思考步骤的耗时"不同：那个是假装在报处理时间，已按前面的理由整族不填）。
+ */
+export const AI_STAGE_DURATIONS = [300, 700, 500, 400]
 
 /** 生成中的实时步骤（与阶段指示器是两个东西：阶段是横向四拍，步骤是纵向明细） */
 export const AI_LIVE_STEPS = [

@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<!-- ============================================================================
+     项目详情 · 运维（`工作-项目-项目详情-运维-index.html`）
+     ----------------------------------------------------------------------------
+     ✅ **已落地**（2026-09-25）。它是项目详情「运维」分区的界面，
+        实现在 `src/components/workspace/project-detail/OpsPanel.tsx`，
+        样式在 `src/styles/module-workspace.css` 的「项目详情 · 运维」段。
+
+     ⚠️ 它比它之前那一版（`work_product-detail.html` 里的"三张卡 + 几行"）多了五件东西：
+        **KPI 指标条**（含"环境健康"那一格）、**服务器行带 CPU/MEM/DISK 负载表** +
+        展开后的五个子分区（信息 / 监控 / 日志 / 部署 / 文件分布）、监控迷你折线、
+        目录占用、发布记录的筛选与逐条展开。
+
+     ⚠️ 落地时改掉的六处（都写在 `OpsPanel.tsx` 的文件头，别照抄回去）：
+        ① 从原型搬来的规则**多收一层 `.ops-page`** —— 概览卡片与运维分区共用
+           `.server-row` / `.deploy-row` 这一批类名，而两边版式不同；
+        ② "最后检查 / 刷新"这一行搬进分区内部（这一页的页头是共用的可折叠 Hero）；
+        ③ 日志子分区**不跳页**：应用里还没有那一页，它诚实地回一句"还没落地"；
+        ④ 停机的那台不显示负载（meter 0 + 「—」）；
+        ⑤ "环境健康"的判据是**算出来的**（任一负载 ≥ 90%），不是写死在标记里；
+        ⑥ 破坏性操作（重启 / 回滚 / 清理）**确认之后只给回执** —— 没有那些接口。
+
+     ⚠️ 这个原型**只有亮色**（`.dark` 块里只有它自己的壳令牌）。这一页的颜色全部走应用的
+        令牌（`--mw-ok/warn/danger` 与原型的 `--ok-fg` 等**逐个对过值**，同值即并过去），
+        所以不需要另写一批暗色变体。
+     ---------------------------------------------------------------------------- -->
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>运维 · 项目详情</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* [hidden] 必须始终生效 —— 否则会被 .skeleton-list / .empty-state 的 display:flex 覆盖 */
+        [hidden] { display: none !important; }
+
+        :root {
+            --bg-page: #F7F8FA;
+            --bg-card: rgba(255,255,255,0.72);
+            --bg-card-solid: #FFFFFF;
+            --bg-sidebar: rgba(255,255,255,0.72);
+            --bg-topbar: rgba(255,255,255,0.72);
+            --border-card: rgba(255,255,255,0.8);
+            --border-subtle: rgba(15,23,42,0.07);
+            --border-strong: rgba(15,23,42,0.12);
+            --text-primary: #0F172A;
+            /* 浅色主题下二级/三级文字必须 ≥4.5:1 */
+            --text-secondary: #4A5A72;   /* 6.6:1 on #F7F8FA */
+            --text-muted: #5B6A82;       /* 5.2:1 on #F7F8FA */
+            --shadow-card: 0 4px 24px rgba(15,23,42,0.05);
+            --shadow-card-hover: 0 8px 32px rgba(15,23,42,0.10);
+            --blur-card: blur(28px) saturate(200%);
+            --blob-opacity: 0.42;
+            --blob-blur: 120px;
+
+            --r-sm: 8px; --r-md: 12px; --r-lg: 18px; --r-xl: 22px;
+            --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px;
+
+            --a-work-1: #FDA4AF; --a-work-2: #FECDD3; --a-work-3: #FBCFE8;
+            --s-work: #E11D48;
+            --m1: var(--a-work-1); --m2: var(--a-work-2); --m3: var(--a-work-3);
+            --m-main: var(--s-work);
+
+            /* 运维模块功能色 */
+            --rc: #10B981;
+            --rc-book: #10B981;
+
+            /* 语义状态令牌（浅色）—— 全部 ≥4.5:1 对比度 */
+            --ok-fg: #047857;      --ok-bg: rgba(16,185,129,0.14);
+            --warn-fg: #9A4708;    --warn-bg: rgba(245,158,11,0.16);
+            --danger-fg: #B91C1C;  --danger-bg: rgba(239,68,68,0.13);
+            --idle-fg: #475569;    --idle-bg: rgba(100,116,139,0.16);
+
+            /* 图表/进度色块（非文本，需 ≥3:1） */
+            --bar-ok: #10B981;
+            --bar-warn: #F59E0B;
+            --bar-danger: #EF4444;
+            --bar-track: rgba(15,23,42,0.09);
+
+            --focus-ring: var(--text-primary);
+        }
+
+        .dark {
+            --bg-page: #0A0F1C;
+            --bg-card: rgba(30,41,59,0.5);
+            --bg-card-solid: #1E293B;
+            --bg-sidebar: rgba(15,23,42,0.78);
+            --bg-topbar: rgba(15,23,42,0.78);
+            --border-card: rgba(255,255,255,0.08);
+            --border-subtle: rgba(255,255,255,0.06);
+            --border-strong: rgba(255,255,255,0.14);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #8695AB;
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+            --shadow-card-hover: 0 8px 32px rgba(0,0,0,0.42);
+            --blur-card: blur(32px) saturate(180%);
+            --blob-opacity: 0.26;
+            --blob-blur: 140px;
+
+            --a-work-1: #BE123C; --a-work-2: #9F1239; --a-work-3: #881337;
+            --s-work: #FB7185;
+            --rc: #34D399;
+            /* 书脊用更深的祖母绿：深色底上亮薄荷绿会显得发飘 */
+            --rc-book: #059669;
+
+            --ok-fg: #6EE7B7;      --ok-bg: rgba(16,185,129,0.20);
+            --warn-fg: #FCD34D;    --warn-bg: rgba(245,158,11,0.22);
+            --danger-fg: #FCA5A5;  --danger-bg: rgba(239,68,68,0.22);
+            --idle-fg: #CBD5E1;    --idle-bg: rgba(148,163,184,0.22);
+
+            --bar-ok: #34D399;
+            --bar-warn: #FBBF24;
+            --bar-danger: #F87171;
+            --bar-track: rgba(255,255,255,0.13);
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "SF Pro Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: background 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        /* 焦点环：用主文本色，浅/深色底与彩色底上都可见 */
+        :focus-visible {
+            outline: 2px solid var(--focus-ring);
+            outline-offset: 2px;
+            border-radius: 6px;
+        }
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+        }
+
+        /* 极光 */
+        .aurora-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob { position: absolute; border-radius: 50%; filter: blur(var(--blob-blur)); opacity: var(--blob-opacity); animation: drift 22s ease-in-out infinite alternate; }
+        .blob-1 { width: 600px; height: 600px; top: -12%; left: -10%; background: var(--m1); }
+        .blob-2 { width: 540px; height: 540px; top: 20%; right: -14%; background: var(--m2); animation-delay: -7s; }
+        .blob-3 { width: 620px; height: 620px; bottom: -20%; left: 26%; background: var(--m3); animation-delay: -14s; }
+        @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(50px,-40px) scale(1.12); } }
+
+        .app {
+            position: relative; z-index: 1;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            grid-template-rows: 56px 1fr;
+            grid-template-areas: "sidebar topbar" "sidebar main";
+            height: 100vh;
+        }
+
+        /* 侧栏 */
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur-card);
+            border-right: 1px solid var(--border-subtle);
+            padding: 16px 12px;
+            display: flex; flex-direction: column; gap: 2px;
+            overflow-y: auto;
+        }
+        .sidebar-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); padding: 14px 12px 6px; }
+        .menu-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 10px;
+            font-size: 14px; color: var(--text-secondary);
+            cursor: pointer; border-left: 3px solid transparent;
+            transition: background 0.18s ease, color 0.18s ease; user-select: none;
+        }
+        .menu-item:hover { background: var(--border-subtle); color: var(--text-primary); }
+        .menu-item.active { background: color-mix(in srgb, var(--m-main) 12%, transparent); color: var(--m-main); border-left-color: var(--m-main); font-weight: 600; }
+        .menu-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-main); flex-shrink: 0; }
+
+        /* 移动端抽屉 */
+        .drawer-mask {
+            position: fixed; inset: 0; z-index: 110;
+            background: rgba(15,23,42,0.42);
+            backdrop-filter: blur(6px);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        body.drawer-open .drawer-mask { opacity: 1; pointer-events: auto; }
+        .hamburger {
+            display: none;
+            align-items: center; justify-content: center;
+            width: 36px; height: 36px; flex-shrink: 0;
+            border-radius: 10px; border: 1px solid var(--border-subtle);
+            background: var(--bg-card); color: var(--text-primary);
+            font-size: 16px; cursor: pointer; font-family: inherit;
+        }
+
+        /* 顶栏 */
+        .topbar {
+            grid-area: topbar;
+            background: var(--bg-topbar);
+            backdrop-filter: var(--blur-card);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; gap: 16px;
+        }
+        .breadcrumb { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .breadcrumb a { color: var(--text-muted); cursor: pointer; text-decoration: none; white-space: nowrap; }
+        .breadcrumb a:hover { color: var(--m-main); }
+        .breadcrumb strong { color: var(--text-primary); font-weight: 600; white-space: nowrap; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+        .btn {
+            border: none; border-radius: 10px;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+            font-family: inherit; white-space: nowrap;
+        }
+        .btn-primary { background: var(--m-main); color: #fff; box-shadow: 0 4px 14px color-mix(in srgb, var(--m-main) 30%, transparent); }
+        .btn-primary:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--m-main) 50%, transparent); transform: translateY(-1px); }
+        .btn-ghost { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-subtle); backdrop-filter: blur(12px); }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-main); }
+        .btn-danger { background: var(--danger-fg); color: #fff; }
+        .btn-danger:hover { filter: brightness(1.08); transform: translateY(-1px); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .theme-toggle {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            cursor: pointer; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.18s ease, border-color 0.18s ease;
+        }
+        .theme-toggle:hover { transform: scale(1.05); border-color: var(--m-main); }
+
+        /* 主区 */
+        .main {
+            grid-area: main;
+            padding: 24px 28px 60px;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+
+        .detail {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .p-rose { --c: #E11D48; }
+
+        /* ============================================================
+           项目详情头部
+           ============================================================ */
+        .hero-mini { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .hero-mini-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; }
+        .hero-mini-tag {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 10px; border-radius: 6px;
+            background: color-mix(in srgb, var(--c) 14%, transparent);
+            color: var(--c);
+            font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+        }
+        .hero-mini-name { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+        .hero-mini-back { font-size: 13px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: color 0.18s ease; }
+        .hero-mini-back:hover { color: var(--m-main); }
+        .hero-mini-right { display: flex; align-items: center; gap: 10px; }
+        .last-sync { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+
+        /* Tab 导航 */
+        .tabs-wrap {
+            position: sticky; top: 0; z-index: 10;
+            background: linear-gradient(180deg, var(--bg-page) 62%, transparent 100%);
+            padding: 4px 0 10px;
+            margin-bottom: -6px;
+        }
+        .tabs {
+            display: flex; gap: 4px; overflow-x: auto;
+            padding: 6px; border-radius: var(--r-md);
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            box-shadow: var(--shadow-card);
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab {
+            flex-shrink: 0; display: flex; align-items: center; gap: 7px;
+            padding: 9px 14px; border-radius: 10px;
+            font-size: 13px; font-weight: 600; color: var(--text-secondary);
+            cursor: pointer; transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+            white-space: nowrap; user-select: none;
+            border: none; background: transparent; font-family: inherit;
+        }
+        .tab:hover { color: var(--text-primary); background: var(--border-subtle); }
+        .tab.active { background: var(--m-main); color: #fff; box-shadow: 0 4px 12px color-mix(in srgb, var(--m-main) 35%, transparent); }
+        .tab .tab-count {
+            font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px;
+            background: var(--border-subtle); color: var(--text-muted); min-width: 18px; text-align: center;
+        }
+        .tab.active .tab-count { background: rgba(255,255,255,0.28); color: #fff; }
+
+        /* ============================================================
+           KPI 指标条
+           ============================================================ */
+        .kpi-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .kpi {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: var(--r-lg);
+            padding: 14px 16px 15px;
+            box-shadow: var(--shadow-card);
+            position: relative;
+            overflow: hidden;
+            transition: box-shadow 0.25s ease, transform 0.25s ease;
+        }
+        .kpi::before {
+            content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+            background: var(--kpi-accent, var(--rc)); opacity: 0.85;
+        }
+        .kpi:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-2px); }
+        .kpi.warn { --kpi-accent: var(--bar-warn); }
+        .kpi-top { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+        .kpi-ico { font-size: 13px; line-height: 1; }
+        .kpi-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--text-secondary); }
+        .kpi-val { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+        .kpi-unit { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-left: 4px; }
+        .kpi-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 5px; }
+        .kpi-sub.warn-text { color: var(--warn-fg); font-weight: 600; }
+
+        /* ============================================================
+           通用卡片 / 折叠
+           ============================================================ */
+        .ops-card {
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: var(--r-lg);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+        }
+        .ops-card:hover { box-shadow: var(--shadow-card-hover); }
+
+        .ops-card-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-subtle);
+            cursor: pointer; user-select: none;
+            transition: background 0.18s ease;
+        }
+        .ops-card-head:hover { background: var(--border-subtle); }
+        .ops-card-head-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .ops-card-head-left .card-icon {
+            width: 28px; height: 28px; border-radius: var(--r-sm);
+            background: color-mix(in srgb, var(--rc) 14%, transparent);
+            color: var(--rc);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .ops-card-title { font-size: 14px; font-weight: 700; }
+        .ops-card-badge {
+            font-size: 11px; color: var(--text-secondary); font-weight: 600;
+            padding: 2px 8px; border-radius: 999px;
+            background: var(--border-subtle); margin-left: 2px; white-space: nowrap;
+        }
+        .ops-card-head-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+        .ops-fold-icon {
+            width: 24px; height: 24px; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-muted);
+            transition: transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
+        }
+        .ops-card.collapsed .ops-fold-icon { transform: rotate(-90deg); }
+
+        /* 折叠：grid-template-rows 0fr/1fr —— 内容永不被裁 */
+        .ops-card-body {
+            display: grid;
+            grid-template-rows: 1fr;
+            transition: grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            opacity: 1;
+        }
+        .ops-card.collapsed .ops-card-body { grid-template-rows: 0fr; opacity: 0; }
+        .ops-card-body > .ops-card-body-inner { overflow: hidden; min-height: 0; }
+        .ops-card-body-inner { padding: 18px 18px 20px; }
+
+        /* ============================================================
+           服务器
+           ============================================================ */
+        .server-row {
+            display: grid;
+            grid-template-columns: 28px minmax(0, 1fr) auto auto;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+            position: relative;
+            margin-bottom: 6px;
+        }
+        .server-row:last-child { margin-bottom: 0; }
+        .server-row:hover { border-color: var(--rc); transform: translateX(2px); box-shadow: var(--shadow-card); }
+        .server-row.active { border-color: var(--rc); background: color-mix(in srgb, var(--rc) 6%, var(--bg-card)); }
+        .server-row.alert { border-left: 3px solid var(--bar-warn); }
+
+        .server-rack {
+            width: 28px; height: 36px; border-radius: 6px;
+            background: linear-gradient(180deg, #475569 0%, #334155 100%);
+            position: relative; flex-shrink: 0;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .server-rack::before {
+            content: ""; position: absolute; top: 6px; left: 4px; right: 4px; height: 2px;
+            background: rgba(255,255,255,0.4); border-radius: 1px;
+            box-shadow: 0 6px 0 rgba(255,255,255,0.25), 0 12px 0 rgba(255,255,255,0.25);
+        }
+        .server-rack.prod { background: linear-gradient(180deg, #EF4444 0%, #B91C1C 100%); }
+        .server-rack.test { background: linear-gradient(180deg, #06B6D4 0%, #0891B2 100%); }
+
+        .server-info { min-width: 0; }
+        .server-name {
+            font-size: 13px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            margin-bottom: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        .server-meta { font-size: 11.5px; color: var(--text-muted); }
+
+        /* 状态徽标 —— 统一语义令牌 */
+        .badge {
+            font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+            flex-shrink: 0; white-space: nowrap; letter-spacing: 0.01em;
+        }
+        .badge.ok { background: var(--ok-bg); color: var(--ok-fg); }
+        .badge.warn { background: var(--warn-bg); color: var(--warn-fg); }
+        .badge.danger { background: var(--danger-bg); color: var(--danger-fg); }
+        .badge.idle { background: var(--idle-bg); color: var(--idle-fg); }
+
+        .env-tag {
+            font-size: 9.5px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+            padding: 2px 6px; border-radius: 4px;
+            border: 1px solid var(--border-strong); color: var(--text-muted);
+        }
+
+        /* 迷你资源条 */
+        .server-meters { display: flex; gap: 14px; align-items: center; }
+        .meter { display: flex; align-items: center; gap: 6px; }
+        .meter-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--text-muted); text-transform: uppercase; }
+        .meter-track { display: block; width: 64px; height: 5px; border-radius: 999px; background: var(--bar-track); overflow: hidden; }
+        .meter-fill { display: block; height: 100%; border-radius: 999px; background: var(--bar-ok); transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+        .meter-fill.warn { background: var(--bar-warn); }
+        .meter-fill.danger { background: var(--bar-danger); }
+        .meter-val { font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-secondary); min-width: 30px; text-align: right; }
+        .meter-val.warn { color: var(--warn-fg); }
+        .meter-val.danger { color: var(--danger-fg); }
+
+        .server-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s ease; flex-shrink: 0; }
+        .server-row:hover .server-actions, .server-row:focus-within .server-actions { opacity: 1; }
+        .server-action-btn {
+            width: 30px; height: 30px; border-radius: 6px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card-solid);
+            color: var(--text-secondary);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 12px; font-family: inherit;
+            transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+        }
+        .server-action-btn:hover { border-color: var(--rc); color: var(--rc); background: color-mix(in srgb, var(--rc) 8%, transparent); }
+        .server-action-btn.danger:hover { border-color: var(--bar-danger); color: var(--danger-fg); background: var(--danger-bg); }
+
+        /* 行内详情面板 */
+        .server-detail-panel {
+            display: grid;
+            grid-template-rows: 0fr;
+            opacity: 0;
+            margin-top: 0; margin-bottom: 0;
+            transition: grid-template-rows 0.38s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease, margin 0.38s ease;
+            border-radius: 10px;
+            background: var(--bg-card-solid);
+            border: 1px solid transparent;
+        }
+        .server-detail-panel.open {
+            grid-template-rows: 1fr;
+            opacity: 1;
+            margin-top: 8px; margin-bottom: 6px;
+            border-color: var(--border-subtle);
+        }
+        .server-detail-panel > .server-detail-inner { overflow: hidden; min-height: 0; }
+        .server-detail-inner { padding: 14px 16px; }
+
+        /* ============================================================
+           详情面板内的一排按钮组（分区切换）
+           ============================================================ */
+        .sd-tabs {
+            display: flex; gap: 3px;
+            padding: 3px;
+            border-radius: 11px;
+            background: var(--border-subtle);
+            margin-bottom: 14px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .sd-tabs::-webkit-scrollbar { display: none; }
+        .sd-tab {
+            flex: 1 1 auto;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 7px 12px;
+            border: none; background: transparent;
+            border-radius: 9px;
+            font-family: inherit; font-size: 12.5px; font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer; white-space: nowrap;
+            text-decoration: none;
+            transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+        }
+        /* 跳到独立页面的分区，用模块绿提示「会离开本页」 */
+        .sd-tab.ext { color: var(--ok-fg); }
+        .sd-tab.ext:hover { color: var(--rc); background: color-mix(in srgb, var(--rc) 8%, transparent); }
+        .sd-tab.ext .sd-tab-count { background: var(--ok-bg); color: var(--ok-fg); }
+        .sd-tab:hover { color: var(--text-primary); background: color-mix(in srgb, var(--bg-card-solid) 55%, transparent); }
+        .sd-tab.active {
+            background: var(--bg-card-solid);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-card), inset 0 -2px 0 var(--rc);
+        }
+        .sd-tab-count {
+            font-size: 10px; font-weight: 800;
+            padding: 1px 6px; border-radius: 999px;
+            background: var(--border-subtle); color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+        .sd-tab.active .sd-tab-count { background: var(--ok-bg); color: var(--ok-fg); }
+
+        .sd-pane { display: none; }
+        .sd-pane.active { display: block; animation: paneIn 0.26s ease; }
+        @keyframes paneIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+        /* 面板内小节 */
+        .sd-section + .sd-section { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-subtle); }
+        .sd-section-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+        .sd-section-head .hint { font-size: 10.5px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+
+        /* ============ 信息 ============ */
+        .server-detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px 14px; }
+        @media (min-width: 1024px) {
+            .server-detail-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        .detail-item { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .detail-label {
+            font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-muted);
+        }
+        .detail-value {
+            font-size: 12.5px; font-weight: 600;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            color: var(--text-primary); word-break: break-word;
+        }
+        .detail-value .mono-sub { font-weight: 400; font-size: 11px; color: var(--text-muted); }
+
+        .usage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px 20px; }
+        @media (min-width: 1024px) {
+            .usage-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        .usage-item { min-width: 0; }
+        .usage-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
+        .usage-top .name { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); flex: 1 1 auto; min-width: 0; }
+        .usage-top .val { font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-primary); flex: 0 0 auto; }
+        .usage-top .val.warn { color: var(--warn-fg); }
+        .usage-top .val.danger { color: var(--danger-fg); }
+        .usage-item .meter-track { display: block; width: 100%; height: 6px; }
+
+        /* ============ 监控 ============ */
+        .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+        .metric-card {
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 11px 12px 9px;
+            background: var(--bg-card);
+        }
+        .metric-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+        .metric-name { font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
+        .metric-now { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+        .metric-now.warn { color: var(--warn-fg); }
+        .metric-now.danger { color: var(--danger-fg); }
+        .spark { display: block; width: 100%; height: 36px; }
+        .spark .spark-axis { stroke: var(--border-strong); stroke-width: 1; }
+        .spark .spark-area { fill: var(--bar-ok); fill-opacity: 0.13; stroke: none; }
+        .spark .spark-line { fill: none; stroke: var(--bar-ok); stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
+        .spark.warn .spark-area { fill: var(--bar-warn); }
+        .spark.warn .spark-line { stroke: var(--bar-warn); }
+        .spark.danger .spark-area { fill: var(--bar-danger); }
+        .spark.danger .spark-line { stroke: var(--bar-danger); }
+        .spark-foot {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            margin-top: 6px; font-size: 10.5px; color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .kv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 11px 16px; }
+        .kv { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .kv-k { font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+        .kv-v { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .kv-v small { font-weight: 500; font-size: 11px; color: var(--text-muted); }
+        .kv-v.warn { color: var(--warn-fg); }
+        .kv-v.danger { color: var(--danger-fg); }
+
+        /* ============ 部署 ============ */
+        .mini-timeline { display: flex; flex-direction: column; gap: 1px; }
+        .mini-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px; border-radius: 8px;
+            transition: background 0.15s ease;
+        }
+        .mini-row:hover { background: var(--border-subtle); }
+        .mini-dot {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+            background: var(--dc);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--dc) 22%, transparent);
+        }
+        .mini-ver {
+            font-size: 12px; font-weight: 700; min-width: 56px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .mini-note {
+            flex: 1 1 auto; min-width: 0;
+            font-size: 11.5px; color: var(--text-muted);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .mini-time { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+        /* ============ 文件分布 ============ */
+        .disk-list { display: flex; flex-direction: column; gap: 11px; }
+        .disk-item { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 4px 12px; align-items: center; }
+        .disk-path {
+            grid-column: 1; grid-row: 1;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 11.5px; font-weight: 600; color: var(--text-primary);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .disk-size { grid-column: 2; grid-row: 1; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-secondary); text-align: right; }
+        .disk-bar { grid-column: 1; grid-row: 2; display: block; height: 7px; border-radius: 999px; background: var(--bar-track); overflow: hidden; }
+        .disk-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--bar-ok); }
+        .disk-bar > span.warn { background: var(--bar-warn); }
+        .disk-bar > span.danger { background: var(--bar-danger); }
+        .disk-pct { grid-column: 2; grid-row: 2; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-muted); text-align: right; }
+        .disk-total {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            margin-top: 13px; padding-top: 12px; border-top: 1px dashed var(--border-subtle);
+            font-size: 11.5px; color: var(--text-secondary);
+        }
+        .disk-total strong { font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+        /* ============ 提示条 ============ */
+        .note {
+            display: flex; gap: 9px; align-items: flex-start;
+            padding: 10px 12px; border-radius: 9px;
+            font-size: 12px; line-height: 1.6;
+            background: var(--warn-bg); color: var(--warn-fg);
+        }
+        .note.ok { background: var(--ok-bg); color: var(--ok-fg); }
+        .note.danger { background: var(--danger-bg); color: var(--danger-fg); }
+        .note-ico { flex-shrink: 0; font-weight: 800; }
+        .note strong { font-weight: 800; }
+
+        /* ============ 面板底部动作行 ============ */
+        .sd-actions {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            margin-top: 14px; padding-top: 12px;
+            border-top: 1px dashed var(--border-subtle);
+        }
+
+        /* 骨架屏 */
+        .skeleton-list { display: flex; flex-direction: column; gap: 6px; }
+        .sk-row {
+            display: flex; align-items: center; gap: 14px;
+            padding: 12px 14px; border-radius: 10px;
+            background: var(--bg-card); border: 1px solid var(--border-subtle);
+        }
+        .sk { position: relative; overflow: hidden; background: var(--bar-track); border-radius: 6px; }
+        .sk::after {
+            content: ""; position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-muted) 22%, transparent), transparent);
+            animation: shimmer 1.2s infinite;
+        }
+        @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+        .sk-box { width: 28px; height: 36px; flex-shrink: 0; }
+        .sk-lines { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+        .sk-line { height: 10px; width: 42%; }
+        .sk-line.short { width: 68%; height: 8px; }
+        .sk-meter { width: 200px; height: 18px; flex-shrink: 0; }
+
+        /* ============================================================
+           部署文档（书架）
+           ============================================================ */
+        .doc-books { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+        .doc-books.compact .doc-book { width: 104px; height: 136px; padding: 10px 10px 10px 16px; }
+        .doc-books.compact .doc-book:nth-child(2) { height: 128px; }
+        .doc-books.compact .doc-book:nth-child(3) { height: 132px; }
+        .doc-book {
+            position: relative; overflow: hidden;
+            --spine-base: linear-gradient(145deg,
+            color-mix(in srgb, var(--rc-book) 90%, white) 0%,
+            var(--rc-book) 45%,
+            color-mix(in srgb, var(--rc-book) 70%, black) 100%);
+            /* 上层是底部护底渐变（scrim）：书脊保持鲜艳，文字区单独压暗保证可读 */
+            background:
+                    linear-gradient(180deg, rgba(0,0,0,0) 24%, rgba(0,0,0,0.16) 52%, rgba(0,0,0,0.52) 100%),
+                    var(--spine-base);
+            box-shadow:
+                    inset 3px 0 6px rgba(0,0,0,0.18),
+                    inset -2px 0 4px rgba(255,255,255,0.22),
+                    0 6px 16px rgba(15,23,42,0.16);
+            transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.3s ease;
+            display: flex; flex-direction: column;
+            color: #fff; cursor: pointer;
+            border-radius: 4px 8px 8px 4px;
+            border: none; text-align: left; font-family: inherit;
+        }
+        .doc-book:hover { transform: translateY(-5px) rotate(-1.5deg); box-shadow: inset 3px 0 6px rgba(0,0,0,0.2), inset -2px 0 4px rgba(255,255,255,0.28), 0 14px 30px rgba(15,23,42,0.26); }
+        .doc-book::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 8px; background: linear-gradient(90deg, rgba(0,0,0,0.4), rgba(0,0,0,0.15) 50%, transparent); }
+        .doc-book::after { content: ""; position: absolute; left: 3px; top: 10%; bottom: 10%; width: 1px; background: rgba(255,255,255,0.3); }
+        .doc-book.script { --spine-base: linear-gradient(145deg, #4B5563 0%, #374151 50%, #1F2937 100%); }
+        .dark .doc-book.script { --spine-base: linear-gradient(145deg, #6B7280 0%, #4B5563 50%, #374151 100%); }
+        .db-tag {
+            font-size: 9.5px; font-weight: 800; letter-spacing: 0.14em;
+            color: #FFFFFF;
+            padding: 2px 6px;
+            background: rgba(0,0,0,0.34);
+            border: 1px solid rgba(255,255,255,0.34);
+            border-radius: 3px; align-self: flex-start; text-transform: uppercase;
+        }
+        .db-title {
+            font-size: 12px; font-weight: 700; line-height: 1.3;
+            margin-top: auto; margin-bottom: 5px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .db-meta { font-size: 10px; color: rgba(255,255,255,0.86); }
+        .doc-book .book-actions {
+            position: absolute; top: 6px; right: 6px;
+            display: flex; gap: 3px; opacity: 0; transition: opacity 0.2s ease;
+        }
+        .doc-book:hover .book-actions, .doc-book:focus-within .book-actions { opacity: 1; }
+        .book-action-btn {
+            width: 24px; height: 24px; border-radius: 4px; border: none;
+            background: rgba(255,255,255,0.25); backdrop-filter: blur(4px);
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 10px; font-family: inherit;
+            transition: background 0.15s ease;
+        }
+        .book-action-btn:hover { background: rgba(255,255,255,0.45); }
+        .doc-book.add {
+            background: transparent;
+            border: 1.5px dashed var(--border-strong);
+            color: var(--text-muted);
+            box-shadow: none;
+            align-items: center; justify-content: center; gap: 6px;
+            font-size: 11.5px; font-weight: 600;
+        }
+        .doc-book.add::before, .doc-book.add::after { display: none; }
+        .doc-book.add:hover { border-color: var(--rc); color: var(--rc); transform: translateY(-4px); box-shadow: none; }
+
+        /* ============================================================
+           发布记录
+           ============================================================ */
+        .deploy-toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+        }
+        .chip-group { display: flex; gap: 6px; background: var(--border-subtle); padding: 3px; border-radius: 10px; }
+        .chip {
+            border: none; background: transparent; font-family: inherit;
+            font-size: 12px; font-weight: 600; color: var(--text-secondary);
+            padding: 5px 12px; border-radius: 8px; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+            white-space: nowrap;
+        }
+        .chip:hover { color: var(--text-primary); }
+        .chip.active { background: var(--bg-card-solid); color: var(--text-primary); box-shadow: var(--shadow-card); }
+        .chip-count { font-size: 10px; font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .chip.active .chip-count { color: var(--ok-fg); }
+        .deploy-filter-info { font-size: 11.5px; color: var(--text-muted); }
+
+        .deploy-timeline { display: flex; flex-direction: column; position: relative; }
+        .deploy-timeline::before {
+            content: ""; position: absolute; left: 6px; top: 14px; bottom: 14px;
+            width: 1px; background: var(--border-strong);
+        }
+        .deploy-entry { display: contents; }
+        .deploy-entry[hidden] { display: none; }
+
+        .deploy-row {
+            display: flex; gap: 12px;
+            padding: 9px 8px 9px 6px;
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            transition: background 0.15s ease;
+            position: relative; margin-bottom: 2px;
+        }
+        .deploy-row:hover { background: var(--border-subtle); }
+        .deploy-row.highlight { background: color-mix(in srgb, var(--rc) 7%, transparent); box-shadow: inset 3px 0 0 var(--rc); }
+        .deploy-dot {
+            width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+            background: var(--dc);
+            border: 3px solid var(--bg-card-solid);
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--dc) 34%, transparent);
+            margin-top: 3px; position: relative; z-index: 1;
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
+        }
+        .deploy-row:hover .deploy-dot { box-shadow: 0 0 0 4px color-mix(in srgb, var(--dc) 42%, transparent); transform: scale(1.1); }
+        .deploy-info { flex: 1; min-width: 0; }
+        .deploy-ver { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap; }
+        .deploy-meta { font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+        .deploy-meta .sep { opacity: 0.45; }
+        .deploy-duration {
+            font-size: 10.5px; padding: 1px 7px; background: var(--border-subtle);
+            border-radius: 4px; color: var(--text-secondary); font-weight: 600;
+        }
+        .deploy-expand-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 16px; height: 16px; margin-left: 2px; font-size: 10px;
+            color: var(--text-muted); transition: transform 0.3s ease;
+        }
+        .deploy-row.expanded .deploy-expand-icon { transform: rotate(180deg); }
+
+        .deploy-detail-panel {
+            display: grid; grid-template-rows: 0fr;
+            opacity: 0;
+            transition: grid-template-rows 0.38s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease, margin 0.38s ease;
+            margin-left: 24px; margin-top: 0; margin-bottom: 0;
+            border-radius: 8px; background: var(--bg-card-solid);
+            border: 1px solid transparent;
+        }
+        .deploy-detail-panel.open { grid-template-rows: 1fr; opacity: 1; margin-top: 4px; margin-bottom: 8px; border-color: var(--border-subtle); }
+        .deploy-detail-panel > .deploy-detail-inner { overflow: hidden; min-height: 0; }
+        .deploy-detail-inner { padding: 13px 14px; }
+        .deploy-detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; }
+        .deploy-detail-item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .deploy-detail-item .label {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-muted);
+        }
+        .deploy-detail-item .value { font-size: 12px; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-word; }
+        .deploy-detail-item .value.small { font-family: inherit; font-size: 11.5px; font-weight: 500; color: var(--text-secondary); line-height: 1.6; }
+        .deploy-detail-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .empty-state {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 6px; padding: 36px 20px; text-align: center;
+            border: 1px dashed var(--border-strong); border-radius: var(--r-md);
+        }
+        .empty-icon { font-size: 24px; opacity: 0.6; }
+        .empty-title { font-size: 13px; font-weight: 700; }
+        .empty-desc { font-size: 11.5px; color: var(--text-muted); }
+
+        /* ============================================================
+           弹窗 / Toast
+           ============================================================ */
+        .modal-mask {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.35);
+            backdrop-filter: blur(10px);
+            z-index: 200;
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-mask.open { display: flex; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal {
+            background: var(--bg-card-solid);
+            border-radius: var(--r-lg);
+            width: 100%; max-width: 460px;
+            max-height: 88vh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(15,23,42,0.28);
+            animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: none; } }
+
+        .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--border-subtle); }
+        .modal-title { font-size: 16px; font-weight: 700; }
+        .modal-close {
+            width: 32px; height: 32px; border-radius: var(--r-sm); flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--text-secondary); background: transparent;
+            border: none; font-size: 14px; font-family: inherit;
+            transition: background 0.18s ease, color 0.18s ease;
+        }
+        .modal-close:hover { background: var(--border-subtle); color: var(--text-primary); }
+        .modal-body { padding: 22px; overflow-y: auto; }
+        .modal-body p { font-size: 13.5px; color: var(--text-secondary); line-height: 1.75; }
+        .modal-warn {
+            margin-top: 14px; padding: 12px 14px; border-radius: var(--r-md);
+            background: var(--danger-bg); color: var(--danger-fg);
+            font-size: 12.5px; line-height: 1.65;
+        }
+        .modal-warn.info { background: var(--idle-bg); color: var(--idle-fg); }
+        .modal-warn strong { font-weight: 800; margin-right: 2px; }
+
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 22px; border-top: 1px solid var(--border-subtle); }
+
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--bg-card-solid); color: var(--text-primary);
+            padding: 12px 20px; border-radius: var(--r-md);
+            box-shadow: 0 12px 32px rgba(15,23,42,0.2);
+            font-size: 13px; font-weight: 600; z-index: 300;
+            opacity: 0; transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex; align-items: center; gap: 8px;
+            border: 1px solid var(--border-subtle);
+            max-width: calc(100vw - 32px);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast[data-type="ok"] { border-color: color-mix(in srgb, var(--bar-ok) 40%, transparent); }
+        .toast[data-type="warn"] { border-color: color-mix(in srgb, var(--bar-warn) 45%, transparent); }
+        .toast[data-type="ok"] .toast-ico { color: var(--ok-fg); }
+        .toast[data-type="warn"] .toast-ico { color: var(--warn-fg); }
+        .toast-ico { font-weight: 800; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* 触屏：无 hover，常驻操作按钮 */
+        @media (hover: none) {
+            .server-actions, .book-actions { opacity: 1 !important; }
+        }
+
+        /* ============================================================
+           响应式
+           ============================================================ */
+        @media (min-width: 769px) {
+            .hamburger, .drawer-mask { display: none !important; }
+        }
+        @media (max-width: 1180px) {
+            .server-meters { display: none; }
+        }
+        @media (max-width: 980px) {
+            .kpi-bar { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+            .sidebar {
+                position: fixed; top: 0; bottom: 0; left: 0; width: 244px;
+                z-index: 120; transform: translateX(-102%);
+                transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+                box-shadow: 0 0 48px rgba(15,23,42,0.24);
+            }
+            body.drawer-open .sidebar { transform: none; }
+            .hamburger { display: flex; }
+            .topbar { padding: 0 14px; gap: 10px; }
+            .main { padding: 16px 14px 48px; }
+            .detail { gap: 16px; }
+            /* 窄屏没有 hover，操作按钮常驻 —— 否则会白占一行高度 */
+            .server-actions { opacity: 1; gap: 8px; }
+            /* 触屏上放大命中区（桌面端保留紧凑尺寸） */
+            .server-action-btn { width: 44px; height: 44px; font-size: 14px; }
+            .book-action-btn { width: 32px; height: 32px; font-size: 12px; }
+            .server-detail-grid { grid-template-columns: 1fr 1fr; }
+            .usage-grid { grid-template-columns: 1fr; }
+            .doc-books { gap: 12px; }
+            .deploy-toolbar { align-items: flex-start; flex-direction: column; gap: 10px; }
+            .deploy-detail-panel { margin-left: 0; }
+            .hero-mini-name { font-size: 16px; }
+            .mini-note { display: none; }
+        }
+        @media (max-width: 640px) {
+            .sd-tab { padding: 7px 10px; font-size: 12px; }
+            .sd-tab-count { display: none; }
+            .metric-grid { grid-template-columns: 1fr; }
+            .log-row { grid-template-columns: 62px 48px; row-gap: 4px; }
+            .log-msg { grid-column: 1 / -1; }
+            .disk-item { grid-template-columns: minmax(0, 1fr) 78px; }
+        }
+        @media (max-width: 560px) {
+            .kpi-bar { grid-template-columns: 1fr; }
+            .server-detail-grid { grid-template-columns: 1fr; }
+            .ops-card-body-inner { padding: 14px; }
+            .server-row { grid-template-columns: 28px minmax(0, 1fr); row-gap: 10px; }
+            .server-actions { grid-column: 1 / -1; }
+            .modal-actions { flex-direction: column-reverse; }
+            .modal-actions .btn { justify-content: center; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="aurora-bg" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+</div>
+
+<div class="app">
+
+    <!-- 抽屉遮罩放在 .app 内部：.app 有 z-index:1 会形成层叠上下文，
+         遮罩若放在外面，侧栏(z-index:120)会被整体锁在遮罩(z-index:110)之下而无法点击 -->
+    <div class="drawer-mask" id="drawerMask" onclick="closeDrawer()"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-title">全局层</div>
+        <div class="menu-item" role="button" tabindex="0">工作台</div>
+        <div class="menu-item" role="button" tabindex="0">任务清单</div>
+        <div class="menu-item" role="button" tabindex="0">日程</div>
+
+        <div class="sidebar-title">领域层</div>
+        <div class="menu-item" role="button" tabindex="0">生活</div>
+        <div class="menu-item active" role="button" tabindex="0">工作</div>
+        <div class="menu-item" role="button" tabindex="0">学习</div>
+
+        <div class="sidebar-title">执行层</div>
+        <div class="menu-item active" role="button" tabindex="0">项目</div>
+
+        <div class="sidebar-title">沉淀层</div>
+        <div class="menu-item" role="button" tabindex="0">知识库</div>
+
+        <div class="sidebar-title">支撑层</div>
+        <div class="menu-item" role="button" tabindex="0">设置</div>
+    </aside>
+
+    <header class="topbar">
+        <button class="hamburger" id="hamburger" aria-label="打开导航菜单" aria-expanded="false" aria-controls="sidebar">☰</button>
+        <nav class="breadcrumb" aria-label="面包屑">
+            <a role="button" tabindex="0" onclick="toast('返回项目列表','info')">项目</a>
+            <span aria-hidden="true">/</span>
+            <a role="button" tabindex="0" onclick="toast('返回项目详情','info')">支付系统重构</a>
+            <span aria-hidden="true">/</span>
+            <strong aria-current="page">运维</strong>
+        </nav>
+        <div class="topbar-actions">
+            <button class="theme-toggle" id="themeToggle" aria-label="切换到深色主题" aria-pressed="false">🌙</button>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="detail p-rose">
+
+            <!-- ========== 项目级头部 ========== -->
+            <div class="hero-mini">
+                <div class="hero-mini-left">
+                    <div class="hero-mini-back" role="button" tabindex="0" onclick="toast('返回项目详情','info')">← 返回</div>
+                    <span class="hero-mini-tag">CORE</span>
+                    <h1 class="hero-mini-name">支付系统重构 · 运维</h1>
+                </div>
+                <div class="hero-mini-right">
+                    <span class="last-sync" id="lastSync">最后检查 12 秒前</span>
+                    <button class="btn btn-ghost btn-sm" onclick="refreshAll()">⟳ 刷新</button>
+                </div>
+            </div>
+
+            <!-- ========== Tab 导航 ========== -->
+            <div class="tabs-wrap">
+                <div class="tabs" role="tablist" aria-label="项目详情分区">
+                    <button class="tab" role="tab" onclick="toast('总览 Tab · 原型占位','info')">📋 总览</button>
+                    <button class="tab" role="tab" onclick="toast('任务 Tab · 原型占位','info')">✅ 任务 <span class="tab-count">5/8</span></button>
+                    <button class="tab" role="tab" onclick="toast('Bug Tab · 原型占位','info')">🐛 Bug <span class="tab-count">2</span></button>
+                    <button class="tab" role="tab" onclick="location.href='work_project_detail_document.html'">📄 文档 <span class="tab-count">9</span></button>
+                    <button class="tab active" role="tab" aria-selected="true" onclick="toast('已在运维页','info')">🚀 运维 <span class="tab-count">2·3·4</span></button>
+                    <button class="tab" role="tab" onclick="toast('会议 Tab · 原型占位','info')">📅 会议 <span class="tab-count">2</span></button>
+                    <button class="tab" role="tab" onclick="toast('账户 Tab · 原型占位','info')">🔑 账户 <span class="tab-count">8</span></button>
+                </div>
+            </div>
+
+            <!-- ========== KPI 指标条 ========== -->
+            <div class="kpi-bar">
+                <div class="kpi">
+                    <div class="kpi-top"><span class="kpi-ico" aria-hidden="true">🖥</span><span class="kpi-label">服务器</span></div>
+                    <div class="kpi-val">2<span class="kpi-unit">台</span></div>
+                    <div class="kpi-sub">全部生产环境 · Ubuntu 22.04</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-top"><span class="kpi-ico" aria-hidden="true">🚀</span><span class="kpi-label">发布记录</span></div>
+                    <div class="kpi-val">4<span class="kpi-unit">次</span></div>
+                    <div class="kpi-sub">最近：昨天 14:30 · v2.3.1</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-top"><span class="kpi-ico" aria-hidden="true">📘</span><span class="kpi-label">部署文档</span></div>
+                    <div class="kpi-val">3<span class="kpi-unit">篇</span></div>
+                    <div class="kpi-sub">2 手册 · 1 脚本</div>
+                </div>
+                <div class="kpi warn">
+                    <div class="kpi-top"><span class="kpi-ico" aria-hidden="true">⚠️</span><span class="kpi-label">环境健康</span></div>
+                    <div class="kpi-val" style="color: var(--warn-fg);">1<span class="kpi-unit">项告警</span></div>
+                    <div class="kpi-sub warn-text">prod-db-01 磁盘使用率 95%</div>
+                </div>
+            </div>
+
+            <!-- ========== 服务器 ========== -->
+            <section class="ops-card" id="serverCard">
+                <h2 class="ops-card-head" role="button" tabindex="0" aria-expanded="true" aria-controls="serverCardBody" onclick="toggleOpsCard('serverCard')">
+                    <span class="ops-card-head-left">
+                        <span class="card-icon" aria-hidden="true">🖥</span>
+                        <span class="ops-card-title">服务器</span>
+                        <span class="ops-card-badge">2 台 · 1 项告警</span>
+                    </span>
+                    <span class="ops-card-head-right">
+                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();location.href='工作-项目-项目详情-运维-添加服务器.html'">+ 添加</button>
+                        <span class="ops-fold-icon" aria-hidden="true">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </span>
+                    </span>
+                </h2>
+                <div class="ops-card-body" id="serverCardBody">
+                    <div class="ops-card-body-inner">
+
+                        <!-- 骨架屏（刷新时显示） -->
+                        <div class="skeleton-list" id="serverSkeleton" hidden>
+                            <div class="sk-row">
+                                <div class="sk sk-box"></div>
+                                <div class="sk-lines"><div class="sk sk-line"></div><div class="sk sk-line short"></div></div>
+                                <div class="sk sk-meter"></div>
+                            </div>
+                            <div class="sk-row">
+                                <div class="sk sk-box"></div>
+                                <div class="sk-lines"><div class="sk sk-line"></div><div class="sk sk-line short"></div></div>
+                                <div class="sk sk-meter"></div>
+                            </div>
+                        </div>
+
+                        <div id="serverList">
+
+                            <!-- ==================== 服务器 1 ==================== -->
+                            <div class="server-row" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-prod-web-01"
+                                 onclick="toggleServerDetail(this, 'detail-prod-web-01')">
+                                <span class="server-rack prod" aria-hidden="true"></span>
+                                <div class="server-info">
+                                    <div class="server-name">
+                                        prod-web-01
+                                        <span class="badge ok">运行中</span>
+                                        <span class="env-tag">生产</span>
+                                    </div>
+                                    <div class="server-meta">47.100.x.x · 阿里云 · 4C8G · Ubuntu 22.04</div>
+                                </div>
+                                <div class="server-meters">
+                                    <div class="meter" title="CPU 负载 0.42 / 4.0">
+                                        <span class="meter-label">CPU</span>
+                                        <span class="meter-track"><span class="meter-fill" style="width:11%"></span></span>
+                                        <span class="meter-val">11%</span>
+                                    </div>
+                                    <div class="meter" title="内存 3.2G / 8G">
+                                        <span class="meter-label">MEM</span>
+                                        <span class="meter-track"><span class="meter-fill" style="width:40%"></span></span>
+                                        <span class="meter-val">40%</span>
+                                    </div>
+                                    <div class="meter" title="磁盘 32G / 80G">
+                                        <span class="meter-label">DISK</span>
+                                        <span class="meter-track"><span class="meter-fill" style="width:40%"></span></span>
+                                        <span class="meter-val">40%</span>
+                                    </div>
+                                </div>
+                                <div class="server-actions" onclick="event.stopPropagation()">
+                                    <button class="server-action-btn" title="SSH 连接" onclick="toast('打开 SSH 终端','info')">⌨</button>
+                                    <button class="server-action-btn danger" title="重启服务" onclick="askRestart('prod-web-01')">⟳</button>
+                                    <button class="server-action-btn" title="更多操作" onclick="toast('更多操作','info')">⋯</button>
+                                </div>
+                            </div>
+
+                            <div class="server-detail-panel" id="detail-prod-web-01">
+                                <div class="server-detail-inner">
+
+                                    <!-- 一排按钮组 · 默认停在「信息」 -->
+                                    <div class="sd-tabs" role="tablist" aria-label="prod-web-01 详情分区">
+                                        <button class="sd-tab active" role="tab" aria-selected="true" data-tab="info" onclick="switchServerTab(this,'info')">信息</button>
+                                        <button class="sd-tab" role="tab" aria-selected="false" data-tab="metric" onclick="switchServerTab(this,'metric')">监控</button>
+                                        <a class="sd-tab ext" href="工作-项目-项目详情-运维-日志-index.html" title="在新窗口打开日志，方便边部署边看"
+                                           onclick="return openLogWindow(this)">日志 <span class="sd-tab-count">4</span> ↗</a>
+                                        <button class="sd-tab" role="tab" aria-selected="false" data-tab="deploy" onclick="switchServerTab(this,'deploy')">部署 <span class="sd-tab-count">3</span></button>
+                                        <button class="sd-tab" role="tab" aria-selected="false" data-tab="disk" onclick="switchServerTab(this,'disk')">文件分布</button>
+                                    </div>
+
+                                    <!-- ---------- 信息 ---------- -->
+                                    <div class="sd-pane active" data-pane="info">
+                                        <div class="server-detail-grid">
+                                            <div class="detail-item"><span class="detail-label">IP 地址</span><span class="detail-value">47.100.23.11</span></div>
+                                            <div class="detail-item"><span class="detail-label">规格</span><span class="detail-value">4 vCPU · 8 GiB</span></div>
+                                            <div class="detail-item"><span class="detail-label">操作系统</span><span class="detail-value">Ubuntu 22.04 LTS</span></div>
+                                            <div class="detail-item"><span class="detail-label">运行时长</span><span class="detail-value">128 天</span></div>
+                                            <div class="detail-item"><span class="detail-label">当前版本</span><span class="detail-value">v2.3.1</span></div>
+                                            <div class="detail-item"><span class="detail-label">应用端口</span><span class="detail-value">8080 / 8443</span></div>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="sd-section-head">资源使用 <span class="hint">最近 24 小时</span></div>
+                                            <div class="usage-grid">
+                                                <div class="usage-item">
+                                                    <div class="usage-top"><span class="name">CPU 负载</span><span class="val">0.42 / 4.0 · 11%</span></div>
+                                                    <span class="meter-track"><span class="meter-fill" style="width:11%"></span></span>
+                                                </div>
+                                                <div class="usage-item">
+                                                    <div class="usage-top"><span class="name">内存</span><span class="val">3.2G / 8G · 40%</span></div>
+                                                    <span class="meter-track"><span class="meter-fill" style="width:40%"></span></span>
+                                                </div>
+                                                <div class="usage-item">
+                                                    <div class="usage-top"><span class="name">磁盘</span><span class="val">32G / 80G · 40%</span></div>
+                                                    <span class="meter-track"><span class="meter-fill" style="width:40%"></span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="sd-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('已复制 IP 47.100.23.11','info')">⧉ 复制 IP</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('编辑服务器信息','info')">✏️ 编辑</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- ---------- 监控 ---------- -->
+                                    <div class="sd-pane" data-pane="metric">
+                                        <div class="metric-grid">
+                                            <div class="metric-card">
+                                                <div class="metric-head"><span class="metric-name">CPU 使用率</span><span class="metric-now">11%</span></div>
+                                                <svg class="spark" viewBox="0 0 126 32" preserveAspectRatio="none" aria-hidden="true">
+                                                    <path class="spark-area" d="M2,23.5 L12.5,13.5 L23,21 L33.5,6 L44,16 L54.5,26 L65,18.5 L75.5,8.5 L86,21 L96.5,13.5 L107,16 L117.5,16 L117.5,30 L2,30 Z"/>
+                                                    <polyline class="spark-line" vector-effect="non-scaling-stroke" points="2,23.5 12.5,13.5 23,21 33.5,6 44,16 54.5,26 65,18.5 75.5,8.5 86,21 96.5,13.5 107,16 117.5,16"/>
+                                                    <line class="spark-axis" x1="0" y1="30.5" x2="126" y2="30.5"/>
+                                                </svg>
+                                                <div class="spark-foot"><span>24h 平均 11%</span><span>峰值 15%</span></div>
+                                            </div>
+                                            <div class="metric-card">
+                                                <div class="metric-head"><span class="metric-name">内存使用率</span><span class="metric-now">40%</span></div>
+                                                <svg class="spark" viewBox="0 0 126 32" preserveAspectRatio="none" aria-hidden="true">
+                                                    <path class="spark-area" d="M2,26 L12.5,19.3 L23,12.7 L33.5,6 L44,19.3 L54.5,26 L65,12.7 L75.5,6 L86,12.7 L96.5,19.3 L107,12.7 L117.5,12.7 L117.5,30 L2,30 Z"/>
+                                                    <polyline class="spark-line" vector-effect="non-scaling-stroke" points="2,26 12.5,19.3 23,12.7 33.5,6 44,19.3 54.5,26 65,12.7 75.5,6 86,12.7 96.5,19.3 107,12.7 117.5,12.7"/>
+                                                    <line class="spark-axis" x1="0" y1="30.5" x2="126" y2="30.5"/>
+                                                </svg>
+                                                <div class="spark-foot"><span>24h 平均 40%</span><span>峰值 41%</span></div>
+                                            </div>
+                                            <div class="metric-card">
+                                                <div class="metric-head"><span class="metric-name">磁盘使用率</span><span class="metric-now">40%</span></div>
+                                                <svg class="spark" viewBox="0 0 126 32" preserveAspectRatio="none" aria-hidden="true">
+                                                    <path class="spark-area" d="M2,26 L12.5,26 L23,21 L33.5,21 L44,21 L54.5,16 L65,16 L75.5,16 L86,11 L96.5,11 L107,6 L117.5,6 L117.5,30 L2,30 Z"/>
+                                                    <polyline class="spark-line" vector-effect="non-scaling-stroke" points="2,26 12.5,26 23,21 33.5,21 44,21 54.5,16 65,16 75.5,16 86,11 96.5,11 107,6 117.5,6"/>
+                                                    <line class="spark-axis" x1="0" y1="30.5" x2="126" y2="30.5"/>
+                                                </svg>
+                                                <div class="spark-foot"><span>24h 平均 38%</span><span>峰值 40%</span></div>
+                                            </div>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="sd-section-head">关键指标 <span class="hint">最近 1 小时</span></div>
+                                            <div class="kv-grid">
+                                                <div class="kv"><span class="kv-k">平均负载</span><span class="kv-v">0.42 <small>/ 4.0</small></span></div>
+                                                <div class="kv"><span class="kv-k">网络出</span><span class="kv-v">2.4 <small>MB/s</small></span></div>
+                                                <div class="kv"><span class="kv-k">活跃连接</span><span class="kv-v">128</span></div>
+                                                <div class="kv"><span class="kv-k">磁盘 IOPS</span><span class="kv-v">42</span></div>
+                                                <div class="kv"><span class="kv-k">进程数</span><span class="kv-v">18</span></div>
+                                                <div class="kv"><span class="kv-k">P99 响应</span><span class="kv-v">86 <small>ms</small></span></div>
+                                            </div>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="note ok"><span class="note-ico" aria-hidden="true">✓</span><span>各项指标均在阈值内，无活跃告警。</span></div>
+                                        </div>
+                                        <div class="sd-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('打开监控面板','info')">📊 打开监控面板</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('已订阅告警通知','info')">🔔 订阅告警</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- ---------- 部署 ---------- -->
+                                    <div class="sd-pane" data-pane="deploy">
+                                        <div class="sd-section-head" style="margin-bottom:6px;">该节点的发布历史 <span class="hint">最近 3 次</span></div>
+                                        <div class="mini-timeline">
+                                            <div class="mini-row">
+                                                <span class="mini-dot" style="--dc:var(--bar-ok)" aria-hidden="true"></span>
+                                                <span class="mini-ver">v2.3.1</span>
+                                                <span class="badge ok">成功</span>
+                                                <span class="mini-note">修复支付回调超时，优化对账精度</span>
+                                                <span class="mini-time">昨天 14:30</span>
+                                            </div>
+                                            <div class="mini-row">
+                                                <span class="mini-dot" style="--dc:var(--bar-ok)" aria-hidden="true"></span>
+                                                <span class="mini-ver">v2.3.0</span>
+                                                <span class="badge ok">成功</span>
+                                                <span class="mini-note">新增对账模块，重构支付核心链路</span>
+                                                <span class="mini-time">5 天前</span>
+                                            </div>
+                                            <div class="mini-row">
+                                                <span class="mini-dot" style="--dc:var(--bar-warn)" aria-hidden="true"></span>
+                                                <span class="mini-ver">v2.2.9</span>
+                                                <span class="badge warn">回滚</span>
+                                                <span class="mini-note">因对账精度问题回滚至 v2.2.8</span>
+                                                <span class="mini-time">10 天前</span>
+                                            </div>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="sd-section-head">当前版本</div>
+                                            <div class="kv-grid">
+                                                <div class="kv"><span class="kv-k">应用版本</span><span class="kv-v">v2.3.1</span></div>
+                                                <div class="kv"><span class="kv-k">提交</span><span class="kv-v">a3f8c21</span></div>
+                                                <div class="kv"><span class="kv-k">部署方式</span><span class="kv-v">滚动更新</span></div>
+                                                <div class="kv"><span class="kv-k">健康检查</span><span class="kv-v">通过</span></div>
+                                            </div>
+                                        </div>
+                                        <div class="sd-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('查看构建日志','info')">📋 构建日志</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();askRollback('v2.3.0')">⏪ 回滚到 v2.3.0</button>
+                                            <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openDeployWindow()">📦 打开部署面板</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- ---------- 文件分布 ---------- -->
+                                    <div class="sd-pane" data-pane="disk">
+                                        <div class="sd-section-head" style="margin-bottom:12px;">目录占用 <span class="hint">已用 32 G / 80 G</span></div>
+                                        <div class="disk-list">
+                                            <div class="disk-item">
+                                                <span class="disk-path">/var/log</span>
+                                                <span class="disk-size">6.4 G</span>
+                                                <span class="disk-bar"><span style="width:20%"></span></span>
+                                                <span class="disk-pct">20%</span>
+                                            </div>
+                                            <div class="disk-item">
+                                                <span class="disk-path">/opt/app</span>
+                                                <span class="disk-size">5.1 G</span>
+                                                <span class="disk-bar"><span style="width:16%"></span></span>
+                                                <span class="disk-pct">16%</span>
+                                            </div>
+                                            <div class="disk-item">
+                                                <span class="disk-path">/var/lib/docker</span>
+                                                <span class="disk-size">4.8 G</span>
+                                                <span class="disk-bar"><span style="width:15%"></span></span>
+                                                <span class="disk-pct">15%</span>
+                                            </div>
+                                            <div class="disk-item">
+                                                <span class="disk-path">/usr</span>
+                                                <span class="disk-size">3.2 G</span>
+                                                <span class="disk-bar"><span style="width:10%"></span></span>
+                                                <span class="disk-pct">10%</span>
+                                            </div>
+                                            <div class="disk-item">
+                                                <span class="disk-path">/home</span>
+                                                <span class="disk-size">1.9 G</span>
+                                                <span class="disk-bar"><span style="width:6%"></span></span>
+                                                <span class="disk-pct">6%</span>
+                                            </div>
+                                            <div class="disk-item">
+                                                <span class="disk-path">其他</span>
+                                                <span class="disk-size">10.6 G</span>
+                                                <span class="disk-bar"><span style="width:33%"></span></span>
+                                                <span class="disk-pct">33%</span>
+                                            </div>
+                                        </div>
+                                        <div class="disk-total">
+                                            <span>总占用</span>
+                                            <span><strong>32.0 G</strong> / 80 G · 剩余 48 G</span>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="note ok"><span class="note-ico" aria-hidden="true">✓</span><span>容量充足，按当前增长速率预计可用 <strong>14 个月</strong>。</span></div>
+                                        </div>
+                                        <div class="sd-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('打开文件浏览器','info')">🗂 浏览文件</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('清理临时文件','warn')">🧹 清理临时文件</button>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <!-- ==================== 服务器 2（磁盘告警） ==================== -->
+                            <div class="server-row alert" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-prod-db-01"
+                                 onclick="toggleServerDetail(this, 'detail-prod-db-01')">
+                                <span class="server-rack prod" aria-hidden="true"></span>
+                                <div class="server-info">
+                                    <div class="server-name">
+                                        prod-db-01
+                                        <span class="badge ok">运行中</span>
+                                        <span class="badge warn">磁盘告警</span>
+                                        <span class="env-tag">生产</span>
+                                    </div>
+                                    <div class="server-meta">47.100.x.x · 阿里云 · 8C16G · PostgreSQL 15</div>
+                                </div>
+                                <div class="server-meters">
+                                    <div class="meter" title="CPU 负载 1.84 / 8.0">
+                                        <span class="meter-label">CPU</span>
+                                        <span class="meter-track"><span class="meter-fill" style="width:23%"></span></span>
+                                        <span class="meter-val">23%</span>
+                                    </div>
+                                    <div class="meter" title="内存 6.8G / 16G">
+                                        <span class="meter-label">MEM</span>
+                                        <span class="meter-track"><span class="meter-fill" style="width:43%"></span></span>
+                                        <span class="meter-val">43%</span>
+                                    </div>
+                                    <div class="meter" title="磁盘 152G / 160G">
+                                        <span class="meter-label">DISK</span>
+                                        <span class="meter-track"><span class="meter-fill danger" style="width:95%"></span></span>
+                                        <span class="meter-val danger">95%</span>
+                                    </div>
+                                </div>
+                                <div class="server-actions" onclick="event.stopPropagation()">
+                                    <button class="server-action-btn" title="SSH 连接" onclick="toast('打开 SSH 终端','info')">⌨</button>
+                                    <button class="server-action-btn danger" title="重启服务" onclick="askRestart('prod-db-01')">⟳</button>
+                                    <button class="server-action-btn" title="更多操作" onclick="toast('更多操作','info')">⋯</button>
+                                </div>
+                            </div>
+
+                            <div class="server-detail-panel" id="detail-prod-db-01">
+                                <div class="server-detail-inner">
+
+                                    <!-- 一排按钮组 · 默认停在「信息」 -->
+                                    <div class="sd-tabs" role="tablist" aria-label="prod-db-01 详情分区">
+                                        <button class="sd-tab active" role="tab" aria-selected="true" data-tab="info" onclick="switchServerTab(this,'info')">信息</button>
+                                        <button class="sd-tab" role="tab" aria-selected="false" data-tab="metric" onclick="switchServerTab(this,'metric')">监控</button>
+                                        <a class="sd-tab ext" href="工作-项目-项目详情-运维-日志-index.html" title="在新窗口打开日志，方便边部署边看"
+                                           onclick="return openLogWindow(this)">日志 <span class="sd-tab-count">4</span> ↗</a>
+                                        <button class="sd-tab" role="tab" aria-selected="false" data-tab="deploy" onclick="switchServerTab(this,'deploy')">部署 <span class="sd-tab-count">3</span></button>
+                                        <button class="sd-tab" role="tab" aria-selected="false" data-tab="disk" onclick="switchServerTab(this,'disk')">文件分布</button>
+                                    </div>
+
+                                    <!-- ---------- 信息 ---------- -->
+                                    <div class="sd-pane active" data-pane="info">
+                                        <div class="server-detail-grid">
+                                            <div class="detail-item"><span class="detail-label">IP 地址</span><span class="detail-value">47.100.23.12</span></div>
+                                            <div class="detail-item"><span class="detail-label">规格</span><span class="detail-value">8 vCPU · 16 GiB</span></div>
+                                            <div class="detail-item"><span class="detail-label">数据库</span><span class="detail-value">PostgreSQL 15</span></div>
+                                            <div class="detail-item"><span class="detail-label">运行时长</span><span class="detail-value">128 天</span></div>
+                                            <div class="detail-item"><span class="detail-label">备份策略</span><span class="detail-value">每日 03:00 全量</span></div>
+                                            <div class="detail-item"><span class="detail-label">连接数</span><span class="detail-value">86 <span class="mono-sub">/ 200</span></span></div>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="sd-section-head">资源使用 <span class="hint">最近 24 小时</span></div>
+                                            <div class="usage-grid">
+                                                <div class="usage-item">
+                                                    <div class="usage-top"><span class="name">CPU 负载</span><span class="val">1.84 / 8.0 · 23%</span></div>
+                                                    <span class="meter-track"><span class="meter-fill" style="width:23%"></span></span>
+                                                </div>
+                                                <div class="usage-item">
+                                                    <div class="usage-top"><span class="name">内存</span><span class="val">6.8G / 16G · 43%</span></div>
+                                                    <span class="meter-track"><span class="meter-fill" style="width:43%"></span></span>
+                                                </div>
+                                                <div class="usage-item">
+                                                    <div class="usage-top"><span class="name">磁盘</span><span class="val danger">152G / 160G · 95%</span></div>
+                                                    <span class="meter-track"><span class="meter-fill danger" style="width:95%"></span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="note"><span class="note-ico" aria-hidden="true">⚠</span><span>磁盘使用率 <strong>95%</strong>，已超过 85% 预警线，建议尽快清理。</span></div>
+                                        </div>
+                                        <div class="sd-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('已复制 IP 47.100.23.12','info')">⧉ 复制 IP</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('编辑服务器信息','info')">✏️ 编辑</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- ---------- 监控 ---------- -->
+                                    <div class="sd-pane" data-pane="metric">
+                                        <div class="metric-grid">
+                                            <div class="metric-card">
+                                                <div class="metric-head"><span class="metric-name">CPU 使用率</span><span class="metric-now">23%</span></div>
+                                                <svg class="spark" viewBox="0 0 126 32" preserveAspectRatio="none" aria-hidden="true">
+                                                    <path class="spark-area" d="M2,26 L12.5,18.5 L23,13.5 L33.5,21 L44,11 L54.5,16 L65,6 L75.5,18.5 L86,13.5 L96.5,16 L107,11 L117.5,13.5 L117.5,30 L2,30 Z"/>
+                                                    <polyline class="spark-line" vector-effect="non-scaling-stroke" points="2,26 12.5,18.5 23,13.5 33.5,21 44,11 54.5,16 65,6 75.5,18.5 86,13.5 96.5,16 107,11 117.5,13.5"/>
+                                                    <line class="spark-axis" x1="0" y1="30.5" x2="126" y2="30.5"/>
+                                                </svg>
+                                                <div class="spark-foot"><span>24h 平均 22%</span><span>峰值 26%</span></div>
+                                            </div>
+                                            <div class="metric-card">
+                                                <div class="metric-head"><span class="metric-name">内存使用率</span><span class="metric-now">43%</span></div>
+                                                <svg class="spark" viewBox="0 0 126 32" preserveAspectRatio="none" aria-hidden="true">
+                                                    <path class="spark-area" d="M2,26 L12.5,19.3 L23,19.3 L33.5,12.7 L44,19.3 L54.5,12.7 L65,6 L75.5,12.7 L86,12.7 L96.5,12.7 L107,12.7 L117.5,12.7 L117.5,30 L2,30 Z"/>
+                                                    <polyline class="spark-line" vector-effect="non-scaling-stroke" points="2,26 12.5,19.3 23,19.3 33.5,12.7 44,19.3 54.5,12.7 65,6 75.5,12.7 86,12.7 96.5,12.7 107,12.7 117.5,12.7"/>
+                                                    <line class="spark-axis" x1="0" y1="30.5" x2="126" y2="30.5"/>
+                                                </svg>
+                                                <div class="spark-foot"><span>24h 平均 43%</span><span>峰值 44%</span></div>
+                                            </div>
+                                            <div class="metric-card">
+                                                <div class="metric-head"><span class="metric-name">磁盘使用率</span><span class="metric-now danger">95%</span></div>
+                                                <svg class="spark danger" viewBox="0 0 126 32" preserveAspectRatio="none" aria-hidden="true">
+                                                    <path class="spark-area" d="M2,26 L12.5,22.5 L23,18.9 L33.5,16.6 L44,14.2 L54.5,11.9 L65,10.7 L75.5,9.5 L86,8.4 L96.5,7.2 L107,6 L117.5,6 L117.5,30 L2,30 Z"/>
+                                                    <polyline class="spark-line" vector-effect="non-scaling-stroke" points="2,26 12.5,22.5 23,18.9 33.5,16.6 44,14.2 54.5,11.9 65,10.7 75.5,9.5 86,8.4 96.5,7.2 107,6 117.5,6"/>
+                                                    <line class="spark-axis" x1="0" y1="30.5" x2="126" y2="30.5"/>
+                                                </svg>
+                                                <div class="spark-foot"><span>24h 平均 89%</span><span>峰值 95%</span></div>
+                                            </div>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="sd-section-head">关键指标 <span class="hint">最近 1 小时</span></div>
+                                            <div class="kv-grid">
+                                                <div class="kv"><span class="kv-k">平均负载</span><span class="kv-v">1.84 <small>/ 8.0</small></span></div>
+                                                <div class="kv"><span class="kv-k">连接数</span><span class="kv-v warn">86 <small>/ 200</small></span></div>
+                                                <div class="kv"><span class="kv-k">QPS</span><span class="kv-v">340</span></div>
+                                                <div class="kv"><span class="kv-k">慢查询</span><span class="kv-v warn">3</span></div>
+                                                <div class="kv"><span class="kv-k">缓存命中</span><span class="kv-v">98.6%</span></div>
+                                                <div class="kv"><span class="kv-k">复制延迟</span><span class="kv-v">0.2 <small>s</small></span></div>
+                                            </div>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="note danger"><span class="note-ico" aria-hidden="true">⚠</span><span><strong>磁盘使用率 95%</strong>，超过 85% 阈值。按当前写入速率预计 <strong>3 天后写满</strong>，写入将失败。</span></div>
+                                        </div>
+                                        <div class="sd-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('打开监控面板','info')">📊 打开监控面板</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();switchServerTabByName('detail-prod-db-01','disk')">🧹 去看文件分布</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- ---------- 部署 ---------- -->
+                                    <div class="sd-pane" data-pane="deploy">
+                                        <div class="sd-section-head" style="margin-bottom:6px;">Schema 迁移记录 <span class="hint">数据库节点无应用发布</span></div>
+                                        <div class="mini-timeline">
+                                            <div class="mini-row">
+                                                <span class="mini-dot" style="--dc:var(--bar-ok)" aria-hidden="true"></span>
+                                                <span class="mini-ver">v41</span>
+                                                <span class="badge ok">完成</span>
+                                                <span class="mini-note">orders 表新增对账批次索引</span>
+                                                <span class="mini-time">7 天前</span>
+                                            </div>
+                                            <div class="mini-row">
+                                                <span class="mini-dot" style="--dc:var(--bar-ok)" aria-hidden="true"></span>
+                                                <span class="mini-ver">v40</span>
+                                                <span class="badge ok">完成</span>
+                                                <span class="mini-note">新增 reconciliation 表</span>
+                                                <span class="mini-time">12 天前</span>
+                                            </div>
+                                            <div class="mini-row">
+                                                <span class="mini-dot" style="--dc:var(--bar-warn)" aria-hidden="true"></span>
+                                                <span class="mini-ver">v39</span>
+                                                <span class="badge warn">耗时偏长</span>
+                                                <span class="mini-note">payments 表加列，执行 6m 12s</span>
+                                                <span class="mini-time">26 天前</span>
+                                            </div>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="sd-section-head">当前状态</div>
+                                            <div class="kv-grid">
+                                                <div class="kv"><span class="kv-k">Schema 版本</span><span class="kv-v">v41</span></div>
+                                                <div class="kv"><span class="kv-k">迁移方式</span><span class="kv-v">在线 DDL</span></div>
+                                                <div class="kv"><span class="kv-k">备份校验</span><span class="kv-v">通过</span></div>
+                                                <div class="kv"><span class="kv-k">下次迁移</span><span class="kv-v">无计划</span></div>
+                                            </div>
+                                        </div>
+                                        <div class="sd-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('查看迁移日志','info')">📋 迁移日志</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('立即触发一次全量备份','info')">💾 立即备份</button>
+                                            <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openDeployWindow()">📦 打开部署面板</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- ---------- 文件分布 ---------- -->
+                                    <div class="sd-pane" data-pane="disk">
+                                        <div class="sd-section-head" style="margin-bottom:12px;">目录占用 <span class="hint">已用 152 G / 160 G</span></div>
+                                        <div class="disk-list">
+                                            <div class="disk-item">
+                                                <span class="disk-path">/var/lib/postgresql</span>
+                                                <span class="disk-size">128.4 G</span>
+                                                <span class="disk-bar"><span class="danger" style="width:85%"></span></span>
+                                                <span class="disk-pct">84%</span>
+                                            </div>
+                                            <div class="disk-item">
+                                                <span class="disk-path">/var/log</span>
+                                                <span class="disk-size">9.2 G</span>
+                                                <span class="disk-bar"><span style="width:6%"></span></span>
+                                                <span class="disk-pct">6%</span>
+                                            </div>
+                                            <div class="disk-item">
+                                                <span class="disk-path">/var/lib/postgresql/wal</span>
+                                                <span class="disk-size">7.8 G</span>
+                                                <span class="disk-bar"><span class="warn" style="width:5%"></span></span>
+                                                <span class="disk-pct">5%</span>
+                                            </div>
+                                            <div class="disk-item">
+                                                <span class="disk-path">/tmp</span>
+                                                <span class="disk-size">3.1 G</span>
+                                                <span class="disk-bar"><span style="width:2%"></span></span>
+                                                <span class="disk-pct">2%</span>
+                                            </div>
+                                            <div class="disk-item">
+                                                <span class="disk-path">其他</span>
+                                                <span class="disk-size">3.5 G</span>
+                                                <span class="disk-bar"><span style="width:2%"></span></span>
+                                                <span class="disk-pct">2%</span>
+                                            </div>
+                                        </div>
+                                        <div class="disk-total">
+                                            <span>总占用</span>
+                                            <span><strong>152.0 G</strong> / 160 G · 剩余 8 G</span>
+                                        </div>
+                                        <div class="sd-section">
+                                            <div class="note"><span class="note-ico" aria-hidden="true">⚠</span><span>可回收 <strong>约 12 G</strong>：WAL 归档 7.8 G + 历史日志 4.2 G。清理后使用率降至约 <strong>88%</strong>。</span></div>
+                                        </div>
+                                        <div class="sd-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('打开文件浏览器','info')">🗂 浏览文件</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();askCleanup('prod-db-01')">🧹 清理磁盘</button>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== 部署文档 ========== -->
+            <section class="ops-card" id="docCard">
+                <h2 class="ops-card-head" role="button" tabindex="0" aria-expanded="true" aria-controls="docCardBody" onclick="toggleOpsCard('docCard')">
+                    <span class="ops-card-head-left">
+                        <span class="card-icon" aria-hidden="true">📘</span>
+                        <span class="ops-card-title">部署文档</span>
+                        <span class="ops-card-badge">3 篇</span>
+                    </span>
+                    <span class="ops-card-head-right">
+                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();toast('新建文档','info')">+ 新建</button>
+                        <span class="ops-fold-icon" aria-hidden="true">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </span>
+                    </span>
+                </h2>
+                <div class="ops-card-body" id="docCardBody">
+                    <div class="ops-card-body-inner">
+                        <div class="doc-books compact">
+                            <div class="doc-book" role="button" tabindex="0" onclick="toast('打开文档：生产环境部署手册','info')">
+                                <span class="book-actions" onclick="event.stopPropagation()">
+                                    <button class="book-action-btn" title="下载生产环境部署手册" onclick="toast('下载生产环境部署手册','info')">↓</button>
+                                    <button class="book-action-btn" title="更多操作" onclick="toast('更多操作','info')">⋯</button>
+                                </span>
+                                <span class="db-tag">手册</span>
+                                <span class="db-title">生产环境部署手册</span>
+                                <span class="db-meta">v2.3 · 昨天更新</span>
+                            </div>
+                            <div class="doc-book" role="button" tabindex="0" onclick="toast('打开文档：回滚流程','info')">
+                                <span class="book-actions" onclick="event.stopPropagation()">
+                                    <button class="book-action-btn" title="下载回滚流程" onclick="toast('下载回滚流程','info')">↓</button>
+                                    <button class="book-action-btn" title="更多操作" onclick="toast('更多操作','info')">⋯</button>
+                                </span>
+                                <span class="db-tag">流程</span>
+                                <span class="db-title">回滚流程</span>
+                                <span class="db-meta">v1.2 · 3 天前</span>
+                            </div>
+                            <div class="doc-book script" role="button" tabindex="0" onclick="toast('打开脚本：deploy.sh','info')">
+                                <span class="book-actions" onclick="event.stopPropagation()">
+                                    <button class="book-action-btn" title="下载 deploy.sh" onclick="toast('下载 deploy.sh','info')">↓</button>
+                                    <button class="book-action-btn" title="更多操作" onclick="toast('更多操作','info')">⋯</button>
+                                </span>
+                                <span class="db-tag">脚本</span>
+                                <span class="db-title">deploy.sh</span>
+                                <span class="db-meta">v1.4 · 5 天前</span>
+                            </div>
+                            <button class="doc-book add" onclick="toast('新建部署文档','info')">
+                                <span aria-hidden="true" style="font-size:16px;">＋</span>
+                                <span>新建文档</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== 发布记录 ========== -->
+            <section class="ops-card" id="deployCard">
+                <h2 class="ops-card-head" role="button" tabindex="0" aria-expanded="true" aria-controls="deployCardBody" onclick="toggleOpsCard('deployCard')">
+                    <span class="ops-card-head-left">
+                        <span class="card-icon" aria-hidden="true">🚀</span>
+                        <span class="ops-card-title">发布记录</span>
+                        <span class="ops-card-badge">4 次 · 1 次回滚</span>
+                    </span>
+                    <span class="ops-card-head-right">
+                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();toast('记录发布','info')">+ 记录</button>
+                        <span class="ops-fold-icon" aria-hidden="true">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </span>
+                    </span>
+                </h2>
+                <div class="ops-card-body" id="deployCardBody">
+                    <div class="ops-card-body-inner">
+
+                        <div class="deploy-toolbar">
+                            <div class="chip-group" id="deployChips" role="group" aria-label="按结果筛选发布记录">
+                                <button class="chip active" aria-pressed="true" onclick="filterDeploys('all', this)">全部 <span class="chip-count">4</span></button>
+                                <button class="chip" aria-pressed="false" onclick="filterDeploys('success', this)">成功 <span class="chip-count">3</span></button>
+                                <button class="chip" aria-pressed="false" onclick="filterDeploys('rollback', this)">回滚 <span class="chip-count">1</span></button>
+                            </div>
+                            <span class="deploy-filter-info" id="deployFilterInfo">4 条</span>
+                        </div>
+
+                        <div class="deploy-timeline" id="deployList">
+
+                            <!-- 发布 1 -->
+                            <div class="deploy-entry" data-status="success">
+                                <div class="deploy-row highlight" role="button" tabindex="0" aria-expanded="false" aria-controls="deploy-detail-1"
+                                     onclick="toggleDeployDetail(this, 'deploy-detail-1')">
+                                    <span class="deploy-dot" style="--dc:var(--bar-ok);" aria-hidden="true"></span>
+                                    <div class="deploy-info">
+                                        <div class="deploy-ver">
+                                            v2.3.1
+                                            <span class="badge ok">成功</span>
+                                            <span class="badge idle">最新</span>
+                                            <span class="deploy-expand-icon" aria-hidden="true">▼</span>
+                                        </div>
+                                        <div class="deploy-meta">
+                                            <span>昨天 14:30</span>
+                                            <span class="sep" aria-hidden="true">·</span>
+                                            <span>prod-web-01</span>
+                                            <span class="sep" aria-hidden="true">·</span>
+                                            <span>我</span>
+                                            <span class="deploy-duration">耗时 2m 18s</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="deploy-detail-panel" id="deploy-detail-1">
+                                    <div class="deploy-detail-inner">
+                                        <div class="deploy-detail-grid">
+                                            <div class="deploy-detail-item"><span class="label">提交</span><span class="value">a3f8c21</span></div>
+                                            <div class="deploy-detail-item"><span class="label">部署人</span><span class="value">我</span></div>
+                                            <div class="deploy-detail-item"><span class="label">服务器</span><span class="value">prod-web-01</span></div>
+                                            <div class="deploy-detail-item"><span class="label">耗时</span><span class="value">2m 18s</span></div>
+                                            <div class="deploy-detail-item" style="grid-column: span 2;">
+                                                <span class="label">变更说明</span>
+                                                <span class="value small">修复支付回调超时问题，优化对账精度</span>
+                                            </div>
+                                        </div>
+                                        <div class="deploy-detail-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('查看构建日志','info')">📋 构建日志</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();askRollback('v2.3.1')">⏪ 回滚到此版本</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 发布 2 -->
+                            <div class="deploy-entry" data-status="success">
+                                <div class="deploy-row" role="button" tabindex="0" aria-expanded="false" aria-controls="deploy-detail-2"
+                                     onclick="toggleDeployDetail(this, 'deploy-detail-2')">
+                                    <span class="deploy-dot" style="--dc:var(--bar-ok);" aria-hidden="true"></span>
+                                    <div class="deploy-info">
+                                        <div class="deploy-ver">
+                                            v2.3.0
+                                            <span class="badge ok">成功</span>
+                                            <span class="deploy-expand-icon" aria-hidden="true">▼</span>
+                                        </div>
+                                        <div class="deploy-meta">
+                                            <span>5 天前</span>
+                                            <span class="sep" aria-hidden="true">·</span>
+                                            <span>prod-web-01</span>
+                                            <span class="sep" aria-hidden="true">·</span>
+                                            <span>我</span>
+                                            <span class="deploy-duration">耗时 3m 02s</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="deploy-detail-panel" id="deploy-detail-2">
+                                    <div class="deploy-detail-inner">
+                                        <div class="deploy-detail-grid">
+                                            <div class="deploy-detail-item"><span class="label">提交</span><span class="value">b7e2d94</span></div>
+                                            <div class="deploy-detail-item"><span class="label">部署人</span><span class="value">我</span></div>
+                                            <div class="deploy-detail-item"><span class="label">服务器</span><span class="value">prod-web-01</span></div>
+                                            <div class="deploy-detail-item"><span class="label">耗时</span><span class="value">3m 02s</span></div>
+                                            <div class="deploy-detail-item" style="grid-column: span 2;">
+                                                <span class="label">变更说明</span>
+                                                <span class="value small">新增对账模块，重构支付核心链路</span>
+                                            </div>
+                                        </div>
+                                        <div class="deploy-detail-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('查看构建日志','info')">📋 构建日志</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();askRollback('v2.3.0')">⏪ 回滚到此版本</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 发布 3 · 回滚 -->
+                            <div class="deploy-entry" data-status="rollback">
+                                <div class="deploy-row" role="button" tabindex="0" aria-expanded="false" aria-controls="deploy-detail-3"
+                                     onclick="toggleDeployDetail(this, 'deploy-detail-3')">
+                                    <span class="deploy-dot" style="--dc:var(--bar-warn);" aria-hidden="true"></span>
+                                    <div class="deploy-info">
+                                        <div class="deploy-ver">
+                                            v2.2.9
+                                            <span class="badge warn">回滚</span>
+                                            <span class="deploy-expand-icon" aria-hidden="true">▼</span>
+                                        </div>
+                                        <div class="deploy-meta">
+                                            <span>10 天前</span>
+                                            <span class="sep" aria-hidden="true">·</span>
+                                            <span>prod-web-01</span>
+                                            <span class="sep" aria-hidden="true">·</span>
+                                            <span>我</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="deploy-detail-panel" id="deploy-detail-3">
+                                    <div class="deploy-detail-inner">
+                                        <div class="deploy-detail-grid">
+                                            <div class="deploy-detail-item"><span class="label">回滚自</span><span class="value">v2.2.8</span></div>
+                                            <div class="deploy-detail-item"><span class="label">操作人</span><span class="value">我</span></div>
+                                            <div class="deploy-detail-item"><span class="label">服务器</span><span class="value">prod-web-01</span></div>
+                                            <div class="deploy-detail-item"><span class="label">原因</span><span class="value small">对账精度问题</span></div>
+                                        </div>
+                                        <div class="deploy-detail-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('查看回滚日志','info')">📋 回滚日志</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 发布 4 -->
+                            <div class="deploy-entry" data-status="success">
+                                <div class="deploy-row" role="button" tabindex="0" aria-expanded="false" aria-controls="deploy-detail-4"
+                                     onclick="toggleDeployDetail(this, 'deploy-detail-4')">
+                                    <span class="deploy-dot" style="--dc:var(--bar-ok);" aria-hidden="true"></span>
+                                    <div class="deploy-info">
+                                        <div class="deploy-ver">
+                                            v2.2.8
+                                            <span class="badge ok">成功</span>
+                                            <span class="deploy-expand-icon" aria-hidden="true">▼</span>
+                                        </div>
+                                        <div class="deploy-meta">
+                                            <span>2 周前</span>
+                                            <span class="sep" aria-hidden="true">·</span>
+                                            <span>prod-web-01</span>
+                                            <span class="sep" aria-hidden="true">·</span>
+                                            <span>我</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="deploy-detail-panel" id="deploy-detail-4">
+                                    <div class="deploy-detail-inner">
+                                        <div class="deploy-detail-grid">
+                                            <div class="deploy-detail-item"><span class="label">提交</span><span class="value">c9a1f37</span></div>
+                                            <div class="deploy-detail-item"><span class="label">部署人</span><span class="value">我</span></div>
+                                            <div class="deploy-detail-item"><span class="label">服务器</span><span class="value">prod-web-01</span></div>
+                                            <div class="deploy-detail-item" style="grid-column: span 2;">
+                                                <span class="label">变更说明</span>
+                                                <span class="value small">支付网关超时配置调整</span>
+                                            </div>
+                                        </div>
+                                        <div class="deploy-detail-actions">
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('查看构建日志','info')">📋 构建日志</button>
+                                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();askRollback('v2.2.8')">⏪ 回滚到此版本</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="empty-state" id="deployEmpty" hidden>
+                            <div class="empty-icon" aria-hidden="true">🗂️</div>
+                            <div class="empty-title">该筛选下没有发布记录</div>
+                            <div class="empty-desc">换一个结果类型，或清空筛选查看全部</div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+</div>
+
+<!-- 弹窗（仅用于破坏性操作的二次确认） -->
+<div class="modal-mask" id="modalMask">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-head">
+            <div class="modal-title" id="modalTitle">标题</div>
+            <button class="modal-close" onclick="closeModal()" aria-label="关闭">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" id="modalConfirm">确定</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+    /* ============================================================
+       主题
+       ============================================================ */
+    const root = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+
+    function applyTheme(dark) {
+        root.classList.toggle('dark', dark);
+        themeToggle.textContent = dark ? '☀️' : '🌙';
+        themeToggle.setAttribute('aria-pressed', String(dark));
+        themeToggle.setAttribute('aria-label', dark ? '切换到浅色主题' : '切换到深色主题');
+        localStorage.setItem('theme', dark ? 'dark' : 'light');
+    }
+    applyTheme((localStorage.getItem('theme') || 'light') === 'dark');
+    themeToggle.addEventListener('click', () => applyTheme(!root.classList.contains('dark')));
+
+    /* ============================================================
+       Toast
+       ============================================================ */
+    const TOAST_ICON = { ok: '✓', info: 'ℹ', warn: '⚠' };
+    let toastTimer;
+
+    function toast(msg, type = 'ok') {
+        const t = document.getElementById('toast');
+        t.dataset.type = type;
+        t.innerHTML = '';
+        const ico = document.createElement('span');
+        ico.className = 'toast-ico';
+        ico.setAttribute('aria-hidden', 'true');
+        ico.textContent = TOAST_ICON[type] || TOAST_ICON.ok;
+        const txt = document.createElement('span');
+        txt.textContent = msg;
+        t.append(ico, txt);
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+    }
+
+    /* ============================================================
+       日志：在新窗口打开
+       —— window.open 必须由用户手势直接触发，所以挂在 <a> 的 onclick 上；
+          返回 false 阻止本页跳转；被浏览器拦截时返回 true，走链接默认行为（渐进增强）
+       ============================================================ */
+    const LOG_WINDOW_NAME = 'ops-log-window';
+
+    function openLogWindow(a) {
+        const url = a.getAttribute('href') + '#win';
+        const w = window.open(url, LOG_WINDOW_NAME,
+            'width=1320,height=920,left=80,top=60,resizable=yes,scrollbars=yes');
+        if (w && !w.closed) {
+            w.focus();
+            toast('日志已在独立窗口打开');
+            return false;
+        }
+        return true;
+    }
+
+    /* 部署面板：同样开独立窗口 —— 上传文件 + 执行启动命令期间要一直盯着，
+       被运维页挡在后面就没意义了。窗口名固定，重复点只聚焦同一个窗口。 */
+    const DEPLOY_WINDOW_NAME = 'ops-deploy-window';
+    function openDeployWindow() {
+        const url = '工作-项目-项目详情-运维-部署-index.html#win';
+        const w = window.open(url, DEPLOY_WINDOW_NAME,
+            'width=1320,height=920,left=120,top=80,resizable=yes,scrollbars=yes');
+        if (w && !w.closed) {
+            w.focus();
+            toast('部署面板已在独立窗口打开');
+            return false;
+        }
+        // 被弹窗拦截时退回本页打开，避免点了没反应
+        location.href = url;
+        return false;
+    }
+
+    /* ============================================================
+       卡片折叠 —— grid-template-rows 0fr/1fr
+       ============================================================ */
+    function toggleOpsCard(cardId) {
+        const card = document.getElementById(cardId);
+        const collapsed = card.classList.toggle('collapsed');
+        const head = card.querySelector('.ops-card-head');
+        if (head) head.setAttribute('aria-expanded', String(!collapsed));
+        if (collapsed) closeDetails(card);
+    }
+
+    /* ============================================================
+       详情面板内的一排按钮组：同一面板内互斥切换
+       ============================================================ */
+    function switchServerTab(btn, tab) {
+        const panel = btn.closest('.server-detail-panel');
+        if (!panel) return;
+        setServerTab(panel, tab);
+    }
+
+    function setServerTab(panel, tab) {
+        panel.querySelectorAll('.sd-tab').forEach(t => {
+            const on = t.dataset.tab === tab;
+            t.classList.toggle('active', on);
+            t.setAttribute('aria-selected', String(on));
+        });
+        panel.querySelectorAll('.sd-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tab));
+    }
+
+    /* 供「去看文件分布」这类跨区跳转使用 */
+    function switchServerTabByName(panelId, tab) {
+        const panel = document.getElementById(panelId);
+        if (panel) setServerTab(panel, tab);
+    }
+
+    /* 收起面板时把分区复位到「信息」，保证每次展开都默认停在信息 */
+    function resetServerTabs(panel) {
+        setServerTab(panel, 'info');
+    }
+
+    /* ============================================================
+       行内详情：同一容器内互斥展开
+       ============================================================ */
+    function closeDetails(scope) {
+        scope.querySelectorAll('.server-detail-panel.open').forEach(p => {
+            p.classList.remove('open');
+            resetServerTabs(p);
+        });
+        scope.querySelectorAll('.deploy-detail-panel.open').forEach(p => p.classList.remove('open'));
+        scope.querySelectorAll('.server-row.active').forEach(r => {
+            r.classList.remove('active');
+            r.setAttribute('aria-expanded', 'false');
+        });
+        scope.querySelectorAll('.deploy-row.expanded').forEach(r => {
+            r.classList.remove('expanded');
+            r.setAttribute('aria-expanded', 'false');
+        });
+    }
+
+    function toggleServerDetail(row, detailId) {
+        const detail = document.getElementById(detailId);
+        const willOpen = !detail.classList.contains('open');
+        closeDetails(document.getElementById('serverCard'));
+        if (willOpen) {
+            detail.classList.add('open');
+            row.classList.add('active');
+        }
+        row.setAttribute('aria-expanded', String(willOpen));
+    }
+
+    function toggleDeployDetail(row, detailId) {
+        const detail = document.getElementById(detailId);
+        const willOpen = !detail.classList.contains('open');
+        closeDetails(document.getElementById('deployCard'));
+        if (willOpen) {
+            detail.classList.add('open');
+            row.classList.add('expanded');
+        }
+        row.setAttribute('aria-expanded', String(willOpen));
+    }
+
+    /* ============================================================
+       发布记录筛选 + 空态
+       ============================================================ */
+    function filterDeploys(status, btn) {
+        const chips = document.querySelectorAll('#deployChips .chip');
+        chips.forEach(c => {
+            const on = c === btn;
+            c.classList.toggle('active', on);
+            c.setAttribute('aria-pressed', String(on));
+        });
+        let shown = 0;
+        document.querySelectorAll('#deployList .deploy-entry').forEach(entry => {
+            const match = status === 'all' || entry.dataset.status === status;
+            entry.hidden = !match;
+            if (match) shown++;
+        });
+        document.getElementById('deployEmpty').hidden = shown > 0;
+        document.getElementById('deployFilterInfo').textContent = shown + ' 条';
+    }
+
+    /* ============================================================
+       刷新：骨架屏 → 数据回填
+       ============================================================ */
+    let refreshing = false;
+    function refreshAll() {
+        if (refreshing) return;
+        refreshing = true;
+        const list = document.getElementById('serverList');
+        const skel = document.getElementById('serverSkeleton');
+        list.hidden = true;
+        skel.hidden = false;
+        document.getElementById('lastSync').textContent = '正在同步…';
+
+        setTimeout(() => {
+            skel.hidden = true;
+            list.hidden = false;
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('lastSync').textContent = `最后更新 ${hh}:${mm}`;
+            refreshing = false;
+            toast('监控数据已刷新');
+        }, 900);
+    }
+
+    /* ============================================================
+       二次确认弹窗 —— 破坏性操作不再"一键成功"
+       ============================================================ */
+    const mask = document.getElementById('modalMask');
+    const mTitle = document.getElementById('modalTitle');
+    const mBody = document.getElementById('modalBody');
+    const mConfirm = document.getElementById('modalConfirm');
+    let lastFocused = null;
+
+    function openConfirm({ title, desc, warn, warnKind = 'danger', confirmText = '确定', danger = false, onConfirm }) {
+        lastFocused = document.activeElement;
+        mTitle.textContent = title;
+        mBody.innerHTML = '';
+
+        if (desc) {
+            const p = document.createElement('p');
+            p.textContent = desc;
+            mBody.appendChild(p);
+        }
+
+        if (warn) {
+            const box = document.createElement('div');
+            box.className = 'modal-warn' + (warnKind === 'info' ? ' info' : '');
+            box.setAttribute('role', 'note');
+            const strong = document.createElement('strong');
+            strong.textContent = warnKind === 'info' ? '说明：' : '影响：';
+            const span = document.createElement('span');
+            span.textContent = warn;
+            box.append(strong, span);
+            mBody.appendChild(box);
+        }
+
+        mConfirm.textContent = confirmText;
+        mConfirm.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+        mConfirm.onclick = () => {
+            closeModal();
+            if (onConfirm) onConfirm();
+        };
+
+        mask.classList.add('open');
+        mConfirm.focus();
+    }
+
+    function closeModal() {
+        if (!mask.classList.contains('open')) return;
+        mask.classList.remove('open');
+        if (lastFocused && lastFocused.focus) lastFocused.focus();
+    }
+
+    mask.addEventListener('click', e => { if (e.target === mask) closeModal(); });
+
+    function askRestart(name) {
+        openConfirm({
+            title: `重启 ${name}？`,
+            desc: '重启会中断该服务器上正在处理的请求，通常在 20–40 秒内恢复。',
+            warn: '若该节点正在承接线上流量，用户会看到短暂 502。建议先确认另一节点健康、或等业务低峰期执行。',
+            confirmText: '确认重启',
+            danger: true,
+            onConfirm: () => toast(`已下发重启指令：${name}`, 'warn')
+        });
+    }
+
+    function askRollback(version) {
+        openConfirm({
+            title: `回滚到 ${version}？`,
+            desc: `将 prod-web-01 上的应用版本切回 ${version}，回滚过程自动执行，无需重新构建。`,
+            warn: '回滚后，当前版本的数据写入与接口变更不会自动撤销。若涉及数据库结构变更，需人工处理。',
+            confirmText: '确认回滚',
+            danger: true,
+            onConfirm: () => toast(`已回滚到 ${version}`, 'warn')
+        });
+    }
+
+    function askCleanup(name) {
+        openConfirm({
+            title: `清理 ${name} 的磁盘？`,
+            desc: '将清理 WAL 归档（7.8 G）与 14 天前的历史日志（4.2 G），预计释放约 12 G。',
+            warn: '清理后的 WAL 归档无法用于时间点恢复。若仍需要该时间区间的恢复能力，请先完成一次全量备份。',
+            confirmText: '确认清理',
+            danger: true,
+            onConfirm: () => toast('已开始清理，预计 3 分钟完成', 'warn')
+        });
+    }
+
+    /* ============================================================
+       键盘可达性：所有 role="button" 支持 Enter / Space
+       ============================================================ */
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            if (mask.classList.contains('open')) { closeModal(); return; }
+            closeDrawer();
+            return;
+        }
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"]')) {
+            e.preventDefault();
+            e.target.click();
+        }
+    });
+
+    /* 弹窗内 Tab 焦点循环 */
+    mask.addEventListener('keydown', e => {
+        if (e.key !== 'Tab') return;
+        const focusables = mask.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+
+    /* ============================================================
+       移动端抽屉导航
+       ============================================================ */
+    const hamburger = document.getElementById('hamburger');
+
+    function openDrawer() {
+        document.body.classList.add('drawer-open');
+        hamburger.setAttribute('aria-expanded', 'true');
+    }
+    function closeDrawer() {
+        if (!document.body.classList.contains('drawer-open')) return;
+        document.body.classList.remove('drawer-open');
+        hamburger.setAttribute('aria-expanded', 'false');
+    }
+    hamburger.addEventListener('click', () => {
+        document.body.classList.contains('drawer-open') ? closeDrawer() : openDrawer();
+    });
+    document.getElementById('sidebar').addEventListener('click', e => {
+        if (e.target.closest('.menu-item')) closeDrawer();
+    });
+
+    /* ============================================================
+       初始化
+       ============================================================ */
+    // 环境告警浮层：每个会话只提示一次，避免反复打扰
+    if (!sessionStorage.getItem('ops-alert-shown')) {
+        sessionStorage.setItem('ops-alert-shown', '1');
+        setTimeout(() => toast('prod-db-01 磁盘使用率 95%，建议清理', 'warn'), 600);
+    }
+</script>
+</body>
+</html>

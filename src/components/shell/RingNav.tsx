@@ -5,25 +5,20 @@ import type { IconName } from '../../types'
 import { Compass } from '../workbench/ModuleRing'
 
 /**
- * 侧栏环形导航 —— 当前模块的 Tab 环。
+ * 侧栏环形导航 —— 当前模块的 Tab 环。**环上不写字，名称走悬停名称条。**
  *
  * ============================================================================
  * 它**复用**工作台 Hero 那一套环，不是第二份实现
  * ============================================================================
  *
- * 类名（`.radial` / `.radial__item` / `.radial__label` / `.hub-door` / `.hub-dial` /
- * `.hub-arc` / `.hub-compass*` / `.hub-ripple` / `.hub-pin` / `.hub-name*`）与
+ * 类名（`.radial` / `.radial__item` / `.hub-door` / `.hub-dial` /
+ * `.hub-arc` / `.hub-compass*` / `.hub-ripple` / `.hub-pin`）与
  * 罗盘（`Compass`）都取自 `ModuleRing.tsx` + `styles/workbench-hero.css`。
- * 判据写在 `design/build-sidebar-css.mjs` 的 REUSE_RING 里，三条：
- *   ① 同一件东西（同族类名，同一套几何约定）；
- *   ② 侧栏原型那一份**代际更旧**（有 `hub-aura`/`hub-back`/`hub-name-flip`，
- *      没有 `hub-pin`/`hub-door__clip`/`hub-name__pad`）；
- *   ③ 用户已定的决策在里面（`hub-aura` 与"指针射线"是 09-19/09-21 明确撤掉的），
- *      重搬原型那一份会把它们原样复活。
- * 侧栏只是**覆盖刻度**：半径/表盘/瓦片尺寸/`--accent`，写在 `sidebar-shell.css` 的 `.sb-ring` 下。
+ * 侧栏只是**覆盖刻度**：半径/表盘/瓦片尺寸/`--accent`，写在 `sidebar-shell.css`
+ * 的 `.sb-ring` 下。
  *
  * ============================================================================
- * 与工作台那个环的三处差异（都是"它在一个 300px 的侧栏里"造成的）
+ * 与工作台那个环的四处差异（都是"它在一个 300px 的侧栏里"造成的）
  * ============================================================================
  *
  * ① **没有三级**。原型的环有第二层（Tab → 子项，如「习惯 → 本周/连续记录/统计」）。
@@ -38,19 +33,31 @@ import { Compass } from '../workbench/ModuleRing'
  * ③ **`data-current` 而不是 `.active`**。工作台那一份用的是 `[data-current='true']`，
  *    侧栏跟着它 —— 两个环共用同一批样式，属性名不一致就等于其中一份永远不高亮。
  *
+ * ④ **环上不写字，门里也不写字**（2026-09-25 对齐导航-v5）。
+ *    原型的主张：瓦片只放图标，圆盘里只有刻度弧 + 罗盘 + 指针；名字**统一由环下方
+ *    的 `.radial-caption` 承担，悬停/聚焦才出现**。
+ *    工作台那一份的「环上九个标签当图例 + 中心 hub-name 当状态」是另一套读法，
+ *    侧栏不用它，两个理由：
+ *      · 侧栏的分区最多 10 个、标签又是中文长词，环上那圈标签必然互相挤
+ *        （上一版就得靠「弦长 vs 边界取小」两处算式压着才不叠字）；
+ *      · 中心名与**侧栏副标题**（`.sidebar-subtitle`）是同一个词、相隔 40px 说两遍，
+ *        而"我在哪个分区"这件事只该有一处文字回执。
+ *    ⚠️ 名称条**不参与布局**（常驻占位，只切 opacity/translateY），
+ *       所以悬停时下面的槽面板一格都不会动。
+ *
  * ============================================================================
  * 几何
  * ============================================================================
  *
- * 角度约定与 `ModuleRing.ringAngle` 相同：**12 点起、顺时针**（`-90 + step * i`）。
- * 半径/标签半径/表盘直径由 CSS 的 `--r` / `--rl` / `--dial` 给（`.sb-ring .radial`），
- * 这里只把"标签相对瓦片中心再外推 `rl - r`"算成 `--lx/--ly`。
- * ⚠️ 这三个数**彼此牵制**，改一个就要重量（与 ModuleRing 的 RING 注释同一条纪律）：
- *    瓦片 34 · r 76 · rl 118 · dial 62 —— 内圈要能塞下表盘（76 − 17 = 59 > 62/2），
- *    而相邻标签的中心间距是 `2 · rl · sin(π/n)`，n = 12 时约 61px，
- *    所以标签 `max-width` 必须 ≤ 58px（见 sidebar-shell.css），否则会叠字。
+ * 角度约定与 `ModuleRing.ringAngle` 相同：**12 点起、顺时针**（-90 + step * i）。
+ * ⚠️ 半径、表盘直径**全部由 CSS 给**（`.sb-ring .radial` 的 `--r` / `--dial`）；
+ *    JS 不再参与定位 —— 环上不写字之后，这里唯一算得出来的东西（标签相对瓦片
+ *    外推的 `--lx/--ly`）也一并消失了。所以本文件里**没有一个尺寸常量**，
+ *    改环的大小去改 CSS 那一条，不要在这里加偏移。
  */
-const GEOMETRY = { r: 76, rl: 118, start: -90 }
+
+/** 起始角：12 点方向（与 ModuleRing 同一约定） */
+const START = -90
 
 const round1 = (v: number) => Math.round(v * 10) / 10
 
@@ -75,6 +82,15 @@ export function RingNav({ items, activeKey, onSelect, onEnter, ariaLabel }: Ring
   const [rippleKey, setRippleKey] = useState(0)
   const rippleRef = useRef<HTMLElement>(null)
   const reduceRef = useRef(false)
+
+  /**
+   * 名称条的状态。
+   *
+   * ⚠️ 拆成 `text` + `on` 两个字段，而不是"null 表示不显示"：
+   *    隐藏时必须**留着上一个名字**，否则淡出的那 160ms 里会看到一条**空胶囊**
+   *    （原型同处理：hideCaption 只摘 is-on，不动 textContent）。
+   */
+  const [caption, setCaption] = useState<{ text: string; on: boolean }>({ text: '', on: false })
 
   // prefers-reduced-motion 只在挂载时读一次：这个动画是"一次性的扩散"，不必常驻订阅
   useEffect(() => {
@@ -102,6 +118,21 @@ export function RingNav({ items, activeKey, onSelect, onEnter, ariaLabel }: Ring
     )
   }, [rippleKey])
 
+  /**
+   * 换模块时把名称条复位。
+   *
+   * 为什么需要：瓦片卸载时**不会**触发 `mouseleave`（DOM 移除不产生鼠标事件），
+   * 所以"指针还压着环、同时换了模块"会留下上一个模块的名字。
+   *
+   * ⚠️ 依赖不能写成 `[items]` —— `WorkspaceLayout` 每次渲染都会重建那个数组，
+   *    于是每次渲染都复位（光标停在环上时名字永远不出现）。
+   *    所以取一个**内容签名**：项的 key 串 + 无障碍名（后者含模块名）。
+   */
+  const itemsKey = items.map((item) => item.key).join('|')
+  useEffect(() => {
+    setCaption({ text: '', on: false })
+  }, [itemsKey, ariaLabel])
+
   const n = Math.max(items.length, 1)
   const step = 360 / n
   const activeIndex = Math.max(
@@ -117,7 +148,7 @@ export function RingNav({ items, activeKey, onSelect, onEnter, ariaLabel }: Ring
    * `@property --na` 已注册成 `<angle>`，所以插值是真的在转。
    * 与 `ModuleRing` 用的是同一个算法，只是它的角度由 9 项固定 40° 推出。
    */
-  const targetAngle = GEOMETRY.start + step * activeIndex
+  const targetAngle = START + step * activeIndex
   const [needle, setNeedle] = useState(targetAngle)
   useEffect(() => {
     setNeedle((prev) => {
@@ -127,18 +158,29 @@ export function RingNav({ items, activeKey, onSelect, onEnter, ariaLabel }: Ring
     })
   }, [targetAngle])
 
+  /** 悬停/聚焦时把名字写到名称条；同一个名字重复触发时不重渲染 */
+  const showCaption = (text: string) =>
+    setCaption((current) => (current.on && current.text === text ? current : { text, on: true }))
+
+  const hideCaption = () =>
+    setCaption((current) => (current.on ? { text: current.text, on: false } : current))
+
   return (
-    <div className="sb-ring" data-ring-level="1">
+    <div className="sb-ring" data-ring-level="1" onMouseLeave={hideCaption}>
       <div
         className="radial"
         role="group"
         aria-roledescription="环形菜单"
         aria-label={ariaLabel}
-        style={{ ['--na' as string]: `${round1(needle)}deg` }}
+        style={{
+          ['--na' as string]: `${round1(needle)}deg`,
+        }}
       >
         <i className="hub-ripple" key={rippleKey} ref={rippleRef} aria-hidden="true" />
 
-        {/* 门：表盘 + 中心名 = 打开命令面板（见文件头 ②） */}
+        {/* 门：表盘（刻度弧 + 罗盘 + 指针）= 打开命令面板（见文件头 ②）。
+            ⚠️ 门里**不放文字**（见文件头 ④）：可访问名由 aria-label 给，
+               视觉上的"可以进去"由 :hover 的表盘反馈与 title 承担。 */}
         <button
           type="button"
           className="hub-door"
@@ -154,18 +196,11 @@ export function RingNav({ items, activeKey, onSelect, onEnter, ariaLabel }: Ring
             <Compass />
             <i className="hub-pin" />
           </span>
-          <span className="hub-name" aria-hidden="true">
-            <i className="hub-name__pad" />
-            <span>{activeItem?.label ?? ''}</span>
-            <Icon name="i-arrow-right" className="hub-name__go h-3 w-3" />
-          </span>
           <span className="hub-door__clip" aria-hidden="true" />
         </button>
 
         {items.map((item, i) => {
-          const angle = GEOMETRY.start + step * i
-          const rad = (angle * Math.PI) / 180
-          const reach = GEOMETRY.rl - GEOMETRY.r
+          const angle = START + step * i
           const isCurrent = i === activeIndex
           return (
             <button
@@ -174,25 +209,37 @@ export function RingNav({ items, activeKey, onSelect, onEnter, ariaLabel }: Ring
               className="radial__item flex items-center justify-center"
               style={{
                 ['--a' as string]: `${round1(angle)}deg`,
-                ['--lx' as string]: `${round1(reach * Math.cos(rad))}px`,
-                ['--ly' as string]: `${round1(reach * Math.sin(rad))}px`,
                 ['--i' as string]: String(i),
               }}
               data-current={isCurrent}
               aria-current={isCurrent}
               aria-label={item.label}
-              title={item.label}
+              /* ⚠️ 这里**不写 `title`**：原生 tooltip 会和下面的名称条同时冒出来
+                 （两个框、同一句话、位置还不一样）。可访问名归 `aria-label`，
+                 视觉提示归名称条 —— 与收起态图标列同一条判据。 */
+              onMouseEnter={() => showCaption(item.label)}
+              onMouseLeave={hideCaption}
+              /* 键盘路径与指针同待遇：Tab 到哪一格，名称条就说哪一格。
+                 ⚠️ 用 `focus`/`blur` 而不是 `focus-visible`：后者在点击时也常常成立，
+                    会把名称条在鼠标路径上又点亮一次。 */
+              onFocus={() => showCaption(item.label)}
+              onBlur={hideCaption}
               onClick={() => {
                 if (isCurrent) return
                 setRippleKey((k) => k + 1)
                 onSelect(item.key)
               }}
             >
-              <span className="radial__label">{item.label}</span>
               <Icon name={item.icon} className={cn('h-[17px] w-[17px]')} />
             </button>
           )
         })}
+      </div>
+
+      {/* 名称条：位置固定在圆盘正下方（见文件头 ④）。aria-hidden 是刻意的 ——
+          每一格瓦片自己带 aria-label，这一条对读屏是重复的。 */}
+      <div className={cn('radial-caption', caption.on && 'is-on')} aria-hidden="true">
+        {caption.text}
       </div>
     </div>
   )

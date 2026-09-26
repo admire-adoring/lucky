@@ -1,17 +1,17 @@
 /* ============================================================================
    src/styles/ai-assistant.css —— AI 助手（/ai）
    ----------------------------------------------------------------------------
-   ⚠️ 这是**生成物**，不要手改。事实源是 「design/ai-assistant/ai-assistant_index.html」
-      的 <style>，改原型后跑：
-        node design/build-ai-css.mjs          # 写盘
+   ⚠️ 这是**生成物**，不要手改。事实源是
+      「design/ai-assistant/ai-assistant_index.html」的 <style>，改原型后跑：
+        node design/build-ai-css.mjs          # 写盘（**两份一起写**）
         node design/build-ai-css.mjs --check  # 门禁：产物是否过期
 
-   这一层与另外两层的分工：
+   本脚本产出**两份** CSS（完整页 /ai 与全局抽屉），共用一台转换机器，参数见 JOBS：
      · module-workspace.css（内核）= 8 个模块原型共用的**内容**层（.card / .btn / .tabs / .panel）
      · sidebar-shell.css（外壳）= 顶栏九域导航 / 侧栏分区环 / 命令面板
-     · **本文件** = 这一页自己的正文（会话侧栏 / 对话流 / 思考链 / 输入区 / 上下文栏 / 浮层）
+     · **本文件** = AI 助手这一层自己的正文
 
-   所有选择器收在 「.ai-root」 之下，撞车的类名已改名（见脚本 RENAME），
+   所有选择器收在 「.ai-root」 之下，撞车的类名已改名（见 JOBS 里那一份 rename 表），
    所以它与内核、与外壳**零冲突** —— 导入顺序不再承担任何隐含前提。
 
    产出统计：保留 395 块 · 丢弃 32 块
@@ -46,18 +46,21 @@
 
 /* ---------- 暗色下用户气泡要换深色字 ----------
    原型写的是「用户气泡：背景取原型的 --m-grad（已改道到 --grad-ai），文字 #fff」——
-   而 --grad-ai **按主题分了两档**，暗色那一档（#818CF8 → #A78BFA → #C084FC）
-   本身就偏浅。白字压在上面的对比度只有 **1.9:1 ~ 2.9:1**，远低于设计规范 §九 的 4.5:1；
-   亮色那一档是 3.3:1 ~ 5.2:1（与外壳里 .sb-icon-btn.ai / .sb-avatar 那两处白字同一水平）。
+   而 --grad-ai 是**按主题分两档**的，暗色那一档本身就偏浅。
 
-   ⚠️ 这是**主动偏离原型的一处**，判据是"文字"与"图标"在这套规范里不同档：
-   图标（.sb-icon-btn.ai 的那颗星）可以容忍低对比，14px 的正文不行。
-   所以只改暗色（那里是"读不出来"），亮色保持原型原样（那里是"偏浅但可读"，
-   且与全站已有的 AI 渐变元素一致）。
+   ⚠️ **2026-09-25 纯色化之后这段的判断变了**：`--grad-ai` 从渐变改成了纯色，
+   两档分别是亮 `#6264EF` / 暗 `#A78BFA`。于是：
+     · 亮色：白字压 #6264EF = **4.58:1** —— 达标。上一版这里是 3.3~5.2:1
+       （渐变两端不同），当时靠"与全站已有的 AI 元素一致"把 3.3 那一端放过去了。
+       现在是一个数，所以它不再需要那条豁免。
+     · 暗色：深字（`--mw-bg-page` #0A0F1C）压 #A78BFA = **7.08:1** —— 达标。
+   两条判据都从"实测某一段"变成"算一个数"，这正是纯色换来的好处。
+
+   ⚠️ 保留"按主题分两档"是有必要的：这一支同时给**用户气泡**（要承载正文）
+   与一堆 AI 图标用，暗色下用亮色档能让图标在深底上亮起来。
 
    色值用的是 var(--mw-bg-page)（暗色档 #0A0F1C）—— 不新起色值：
-   它就是这套深色主题的"最深的底"，当深色字用对比度是 7.0:1（#818CF8 一侧）
-   与 8.6:1（#C084FC 一侧）。
+   它就是这套深色主题的"最深的底"。
    ⚠️ 本段是**模板字符串**：注释中一个反引号都不能有。
       这里原本写的是带反引号的令牌名，于是模板被提前闭合 —— 后面的正文被当成代码解析，
       报错指向 AI_TOKENS 那一行、说"postfix operation"，
@@ -79,6 +82,24 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
 
 /* ---------- 窄屏抽屉（判据见脚本头 ⑦）---------- */
 
+/* ---------- 搜索浮层的定位锚（第二轮原型新增） ----------
+   原型的 .search-box 是「position:absolute; top:calc(100% + 8px); right:60px」，
+   挂在它自己那条 .topbar 下（那条顶栏是 position:relative）。
+   本页的顶栏换成了外壳的 ShellTopbar，搜索入口走 actions 槽 ——
+   所以真正缺的只有**一个定位祖先**。起一个自己的类名，而不是：
+     · 把 position:relative 塞进内联 style（下次改就读不出来源）；
+     · 或者去掉 right:60px 改成 0（那是改原型的几何，不是补缺口）。
+   本段**只加定位**，几何仍然全部来自生成物。
+   ⚠️ 手写规则**同样要带作用域**。第一版这里写的是裸的 .ai-search-anchor ——
+      功能上没错（这个类名只出现在本页，没有第二份定义），但它让「每条顶层规则
+      都以作用域开头」这条**形状判据**破了例，而门禁 7 正是靠**没有例外**才好用：
+      一旦允许"我确定它是安全的"这一类豁免，下一个真脱轨的规则就能混在豁免里过去。
+      锚点在 .ai-app 里的 ShellTopbar 动作槽内，而 .ai-app 在 .ai-root 内 ⇒ 收进去无副作用。
+   ⚠️ 本段在模板字符串里：**一个反引号都不能有**（见脚本头的自检命令）。 */
+.ai-root .ai-search-anchor {
+  position: relative;
+}
+
 @media (max-width: 768px) {
   .mw-root.sb-root.ai-root .ai-app > .ai-sidebar {
     display: flex;
@@ -99,9 +120,21 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
   .mw-root.sb-root.ai-root .ai-app > .ai-sidebar.is-open {
     transform: translateX(0);
   }
+
+  /* 搜索浮层的宽度收口。
+     原型把它挂在一条 1100px 宽的顶栏上（右边距 60px、宽 300px），
+     窄屏照搬会**左边溢出到屏幕外**（300 + 60 已经超过半屏）。
+     这里只夹"右边距 + 宽度"两条，其余几何仍来自生成物。
+     ⚠️ 没有做成"窄屏隐藏搜索"：把功能入口藏掉比溢出更糟（那等于手机上搜不到自己的会话）。 */
+  .ai-root .ai-search-anchor .search-box {
+    right: 0;
+    width: min(300px, calc(100vw - 32px));
+  }
 }
 
-.ai-app {
+
+
+.ai-root .ai-app {
   position: relative; z-index: 1;
   height: 100vh;
   display: grid;
@@ -159,8 +192,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
   right: 0;
   width: 220px;
   background: var(--sb-bg-float);
-  backdrop-filter: var(--mw-blur-card);
-  -webkit-backdrop-filter: var(--mw-blur-card);
+ 
+ 
   border: 1px solid var(--mw-border-card);
   border-radius: 14px;
   box-shadow: var(--sb-shadow-float);
@@ -214,8 +247,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
   right: 60px;
   width: 300px;
   background: var(--sb-bg-float);
-  backdrop-filter: var(--mw-blur-card);
-  -webkit-backdrop-filter: var(--mw-blur-card);
+ 
+ 
   border: 1px solid var(--mw-border-card);
   border-radius: 14px;
   box-shadow: var(--sb-shadow-float);
@@ -289,8 +322,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
 .ai-root .ai-sidebar {
   grid-area: sidebar;
   background: var(--mw-bg-sidebar);
-  backdrop-filter: var(--mw-blur-card);
-  -webkit-backdrop-filter: var(--mw-blur-card);
+ 
+ 
   border: 1px solid var(--mw-border-card);
   border-radius: 20px;
   box-shadow: var(--sb-shadow-float);
@@ -398,8 +431,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
   z-index: 300;
   width: 180px;
   background: var(--sb-bg-float);
-  backdrop-filter: var(--mw-blur-card);
-  -webkit-backdrop-filter: var(--mw-blur-card);
+ 
+ 
   border: 1px solid var(--mw-border-card);
   border-radius: 12px;
   box-shadow: var(--sb-shadow-float);
@@ -433,8 +466,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
 .ai-root .ai-main {
   grid-area: main;
   background: var(--mw-bg-card);
-  backdrop-filter: var(--mw-blur-card);
-  -webkit-backdrop-filter: var(--mw-blur-card);
+ 
+ 
   border: 1px solid var(--mw-border-card);
   border-radius: 20px;
   box-shadow: var(--sb-shadow-float);
@@ -1181,15 +1214,24 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
 
 .ai-root .send-btn svg{ width: 15px; height: 15px; stroke-width: 2.4; }
 
+/* ⚠️ 这两支原来是 135° 的双色渐变（`#EF4444→#DC2626` / `#F59E0B→#D97706`），
+   纯色化时**按"哪一端能满足前景对比度"选端，而不是取中间** ——
+   取中间那条通用规则在这里会选错：
+     · `.stop` 是**图标按钮**（`title="停止生成"`，无文字）⇒ 按 1.4.11 要 ≥3:1。
+       白图标在 #EF4444 上 3.76、在 #DC2626 上 4.82，**两端都过** ⇒ 取中间偏暗的 #DC2626
+       （保留"最接近原渐变平均观感"的意图，同时给足余量）。
+     · `.queue` 同样是图标按钮。白图标在 #F59E0B 上只有 **2.14:1**、在 #D97706 上 3.19:1
+       —— 这是"只有一端能用"，所以取 #D97706。旧渐变左半段本来就在 2:1 上下，
+       不属于本轮引入的问题，但既然要落成一个数，就落在合规的那一端。 */
 .ai-root .send-btn.stop {
-  background: linear-gradient(135deg, #EF4444, #DC2626);
+  background: #DC2626;
   box-shadow: 0 4px 12px rgba(239,68,68,0.4);
 }
 
 .ai-root .send-btn.stop:hover{ box-shadow: 0 6px 18px rgba(239,68,68,0.5); }
 
 .ai-root .send-btn.queue {
-  background: linear-gradient(135deg, #F59E0B, #D97706);
+  background: #D97706;
   box-shadow: 0 4px 12px rgba(245,158,11,0.4);
 }
 
@@ -1288,8 +1330,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
   inset: 0;
   z-index: 100;
   background: rgba(15,23,42,0.5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+ 
+ 
   display: none;
   align-items: center;
   justify-content: center;
@@ -1302,8 +1344,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
 
 .ai-root .voice-modal {
   background: var(--sb-bg-float);
-  backdrop-filter: var(--mw-blur-card);
-  -webkit-backdrop-filter: var(--mw-blur-card);
+ 
+ 
   border: 1px solid var(--mw-border-card);
   border-radius: 24px;
   box-shadow: var(--sb-shadow-float);
@@ -1441,8 +1483,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
   width: 340px;
   max-height: calc(100vh - 160px);
   background: var(--sb-bg-float);
-  backdrop-filter: var(--mw-blur-card);
-  -webkit-backdrop-filter: var(--mw-blur-card);
+ 
+ 
   border: 1px solid var(--mw-border-card);
   border-radius: 18px;
   box-shadow: var(--sb-shadow-float);
@@ -1607,7 +1649,10 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
   top: 6px;
   bottom: 6px;
   width: 2px;
-  background: linear-gradient(180deg, var(--mw-m-main), rgba(139,92,246,0.3));
+  /* 原来是"域色 → 域色 30% 透明"的竖向渐变（一条会淡出的导轨）。
+     纯色化取域色本身：这条 2px 的导轨表达的是"这些节点属于同一条时间线"，
+     淡出只是装饰 —— 而它恰好让人误读成"越往下越不重要"。 */
+  background: var(--mw-m-main);
   border-radius: 2px;
 }
 
@@ -1769,8 +1814,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
 .ai-root .ai-aside {
   grid-area: aside;
   background: var(--mw-bg-sidebar);
-  backdrop-filter: var(--mw-blur-card);
-  -webkit-backdrop-filter: var(--mw-blur-card);
+ 
+ 
   border: 1px solid var(--mw-border-card);
   border-radius: 20px;
   box-shadow: var(--sb-shadow-float);
@@ -1925,8 +1970,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
   inset: 0;
   z-index: 400;
   background: rgba(15,23,42,0.4);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+ 
+ 
   display: none;
   align-items: center;
   justify-content: center;
@@ -1938,8 +1983,8 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
   width: 380px;
   max-height: 500px;
   background: var(--sb-bg-float);
-  backdrop-filter: var(--mw-blur-card);
-  -webkit-backdrop-filter: var(--mw-blur-card);
+ 
+ 
   border: 1px solid var(--mw-border-card);
   border-radius: 18px;
   box-shadow: var(--sb-shadow-float);
@@ -2043,13 +2088,13 @@ html[data-theme='dark'] .mw-root.ai-root .msg.user .msg-bubble {
 
 .ai-root .ctx-btn.primary:hover{ transform: translateY(-1px); box-shadow: 0 6px 18px var(--sb-m-glow); }
 
-confirm-modal {
+.ai-root .rename-modal, .ai-root .confirm-modal {
   position: fixed;
   inset: 0;
   z-index: 400;
   background: rgba(15,23,42,0.4);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+ 
+ 
   display: none;
   align-items: center;
   justify-content: center;
@@ -2060,8 +2105,8 @@ confirm-modal {
 .ai-root .rename-box, .ai-root .confirm-box {
   width: 340px;
   background: var(--sb-bg-float);
-  backdrop-filter: var(--mw-blur-card);
-  -webkit-backdrop-filter: var(--mw-blur-card);
+ 
+ 
   border: 1px solid var(--mw-border-card);
   border-radius: 18px;
   box-shadow: var(--sb-shadow-float);
@@ -2131,7 +2176,8 @@ confirm-modal {
 .ai-root .rename-btn.primary:hover{ transform: translateY(-1px); box-shadow: 0 6px 18px var(--sb-m-glow); }
 
 .ai-root .confirm-btn.danger {
-  background: linear-gradient(135deg, #EF4444, #DC2626);
+  /* 这一支**承载文字**（白字），所以要 4.5:1 ⇒ 取原渐变能满足的那一端 #DC2626（4.82:1） */
+  background: #DC2626;
   color: #fff;
   border-color: transparent;
   box-shadow: 0 4px 12px rgba(239,68,68,0.3);

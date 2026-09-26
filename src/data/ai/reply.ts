@@ -1,5 +1,6 @@
 import { AI_FACTS } from './facts'
-import type { AiAttachment, AiMessage, AiThoughtStep } from './types'
+import type { AiAttachment, AiMessage, AiQuote, AiReplyVersion, AiThoughtStep, ReplyVariant } from './types'
+import type { TextRun } from '../../types/workbench'
 
 /**
  * 意图 → 回复。**每个数字都从 `AI_FACTS` 现算**，没有口径的明说。
@@ -34,6 +35,69 @@ export interface ReplyInput {
 /** 四拍思考链的公共第一步：意图分类。写一次，六个分支共用 */
 function intentStep(label: string): AiThoughtStep {
   return { title: '解析用户意图', desc: [{ text: `识别为「${label}」。` }] }
+}
+
+/* ============================================================================
+   「重新生成」：版本切换切的是什么
+   ============================================================================
+
+   原型的第二轮加了版本切换（`msg.versions` + `.msg-version-switch`），
+   但它的"新版本"是**再跑一遍 `buildReply`** —— 而那条链路是确定性的，
+   所以新旧版本**文本一模一样**，唯一不同的是 `totalTime` 里那个 `Math.random()`。
+   照搬的话，用户点「重新生成」会看到 `1 / 2` 变到 `2 / 2`，而正文一个字没变。
+
+   本页的处置：**事实同源，换的是讲法**。三种讲法只做重排 ——
+   不加一个数字、不减一个数字，所以版本切换真的有东西可切，也没有任何新事实产生。
+   这也与"重跑结果完全相同"这条事实自洽：换的是"怎么讲"，不是"讲什么"。
+
+   （另一条路是让 `buildReply` 随机化 —— 那正好是本项目禁止的"编数字"。所以不走。） */
+
+export const AI_VARIANTS = ['摘要', '逐项', '精简'] as const
+
+/**
+ * 按讲法重排一条回复。
+ *
+ * · 摘要（0）：正文一段 + 引用块（原型形态，默认）
+ * · 逐项（1）：把引用块逐条编进正文，去掉引用块 —— 适合复制粘贴
+ * · 精简（2）：只留正文那一段 —— 适合"我只要结论"
+ *
+ * ⚠️ 精简会把引用块整个去掉，而好几个分支的正文是以「…能确定的是：」结尾的
+ *    （它是在为下面的引用块做引子）。不处理的话会留一个悬空的冒号 ——
+ *    所以这里把结尾的「：」换成「。」。这是**标点收口**，不是改内容。
+ */
+export function applyVariant(
+  reply: { text: TextRun[]; quote?: AiQuote },
+  variant: ReplyVariant,
+): { text: TextRun[]; quote?: AiQuote } {
+  if (variant === 0) return { text: reply.text, quote: reply.quote }
+
+  if (variant === 1) {
+    if (!reply.quote) return { text: reply.text, quote: undefined }
+    /* 每行前面加「\n序号. 」—— 换行会被 `Paragraphs` 切成独立的一行 */
+    const numbered: TextRun[] = reply.quote.lines.flatMap((line, i) => [{ text: `\n${i + 1}. ` }, ...line])
+    return { text: [...reply.text, ...numbered], quote: undefined }
+  }
+
+  /* variant === 2：只留第一段 */
+  const firstBreak = reply.text.findIndex((run) => run.text.includes('\n'))
+  const head = firstBreak >= 0 ? reply.text.slice(0, firstBreak + 1) : [...reply.text]
+  const last = head[head.length - 1]
+  if (last && last.text.endsWith('：')) {
+    head[head.length - 1] = { ...last, text: `${last.text.slice(0, -1)}。` }
+  }
+  return { text: head, quote: undefined }
+}
+
+/**
+ * 造一个新版本。
+ *
+ * 复用 `buildReply`（同一份事实、同一套分支），只把正文按讲法重排 ——
+ * 这样"版本"与"首发"永远出自同一处，不会漂。
+ */
+export function buildVersion(input: ReplyInput, variant: ReplyVariant, time: string): AiReplyVersion {
+  const fresh = buildReply({ ...input, attachments: [], time })
+  const { text, quote } = applyVariant({ text: fresh.text, quote: fresh.quote }, variant)
+  return { variantName: AI_VARIANTS[variant], variant, text, quote, thought: fresh.thought }
 }
 
 /** 缺数据源时的公共收尾步骤 */

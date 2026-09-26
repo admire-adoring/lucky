@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>知识库 · 数据模型与分流规则</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-page: #F4F5F7;
+            --bg-card: #FFFFFF;
+            --bg-subtle: #F7F8FA;
+            --bg-hover: #EDF0F4;
+            --border-subtle: #E7EAF0;
+            --border-strong: #D3D8E0;
+            --text-primary: #0F172A;
+            --text-secondary: #4A5A72;
+            --text-muted: #5B6A82;
+            --m-main: #0D9488;
+            --m-ink: #0F766E;
+            --m-soft: #E6F7F5;
+            --m-line: #CCEDE8;
+            --warn-soft: #FBEFD9;
+            --warn-ink: #8A5A0B;
+            --warn-line: #F2DDB6;
+            --danger-soft: #FCEBEB;
+            --danger-ink: #A32D2D;
+            --danger-line: #F7C1C1;
+            --shadow-card: 0 1px 2px rgba(15,23,42,0.05);
+        }
+        .dark {
+            --bg-page: #0A0F1C; --bg-card: #171F32; --bg-subtle: #131A2A; --bg-hover: #1E2739;
+            --border-subtle: #232D42; --border-strong: #333F58;
+            --text-primary: #F1F5F9; --text-secondary: #94A3B8; --text-muted: #8695AB;
+            --m-main: #2DD4BF; --m-ink: #7FE9DA; --m-soft: #14332F; --m-line: #1F4A44;
+            --warn-soft: #3A2A12; --warn-ink: #F5CB86; --warn-line: #55401F;
+            --danger-soft: #3B1A1A; --danger-ink: #F09595; --danger-line: #5C2A2A;
+            --shadow-card: 0 1px 2px rgba(0,0,0,0.4);
+        }
+
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px; line-height: 1.7;
+            color: var(--text-primary); background: var(--bg-page);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; max-width: 1240px; margin: 0 auto; padding: 20px; align-items: start; }
+
+        .toc {
+            position: sticky; top: 20px;
+            background: var(--bg-card); border: 1px solid var(--border-subtle);
+            border-radius: 16px; padding: 16px; box-shadow: var(--shadow-card);
+            max-height: calc(100vh - 40px); overflow-y: auto;
+        }
+        .toc-title { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+        .toc a { display: block; font-size: 13px; color: var(--text-secondary); text-decoration: none; padding: 5px 9px; border-radius: 8px; }
+        .toc a:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+        .main { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+
+        .hero { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 24px; box-shadow: var(--shadow-card); }
+        .hero h1 { font-size: 23px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+        .hero p { color: var(--text-secondary); max-width: 680px; }
+        .hero-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+        .chip { font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 999px; background: var(--m-soft); color: var(--m-ink); border: 1px solid var(--m-line); }
+        .chip.plain { background: var(--bg-hover); color: var(--text-secondary); border-color: var(--border-subtle); }
+        .chip.warn { background: var(--warn-soft); color: var(--warn-ink); border-color: var(--warn-line); }
+
+        .chapter { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 22px 24px; box-shadow: var(--shadow-card); }
+        .chapter > h2 { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .chapter > .lead { color: var(--text-secondary); font-size: 13.5px; margin-bottom: 16px; }
+        .chapter-no { width: 24px; height: 24px; border-radius: 8px; background: var(--m-soft); color: var(--m-ink); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
+
+        h3.sub { font-size: 14.5px; font-weight: 700; margin: 20px 0 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        h3.sub:first-of-type { margin-top: 6px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 4px 0 8px; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+        th { font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+        td { color: var(--text-secondary); }
+        td strong { color: var(--text-primary); font-weight: 600; }
+        tr:last-child td { border-bottom: none; }
+        td.mono, code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+        code { background: var(--bg-hover); border: 1px solid var(--border-subtle); border-radius: 5px; padding: 1px 5px; color: var(--text-primary); }
+        .pk { color: var(--m-ink); font-weight: 700; }
+        .fk { color: var(--warn-ink); font-weight: 700; }
+
+        .decision {
+            background: var(--bg-subtle); border: 1px solid var(--border-subtle);
+            border-left: 3px solid var(--m-main);
+            border-radius: 12px; padding: 14px 16px; margin: 12px 0;
+        }
+        .decision h4 { font-size: 13.5px; font-weight: 700; margin-bottom: 6px; }
+        .decision p { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+        .decision p:last-child { margin-bottom: 0; }
+        .decision .why { color: var(--m-ink); font-weight: 600; }
+
+        .box { background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px 16px; margin: 10px 0; }
+        .box.warn { background: var(--warn-soft); border-color: var(--warn-line); }
+        .box.danger { background: var(--danger-soft); border-color: var(--danger-line); }
+        .box-title { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 7px; }
+        .box.warn .box-title { color: var(--warn-ink); }
+        .box.danger .box-title { color: var(--danger-ink); }
+        .box ul, .box ol { padding-left: 18px; font-size: 13px; color: var(--text-secondary); }
+        .box li { margin-bottom: 4px; }
+        .box li:last-child { margin-bottom: 0; }
+        .box p { font-size: 13px; color: var(--text-secondary); }
+
+        .flow { display: flex; flex-direction: column; gap: 8px; }
+        .flow-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+        .node { padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border-subtle); background: var(--bg-card); font-weight: 600; color: var(--text-primary); }
+        .node.rec { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn-ink); }
+        .node.prod { background: var(--m-soft); border-color: var(--m-line); color: var(--m-ink); }
+        .arrow { color: var(--text-muted); }
+        .flow-note { font-size: 12.5px; color: var(--text-muted); }
+
+        .topbar-doc { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--bg-page); padding: 12px 0 10px; }
+        .topbar-doc .name { font-size: 13px; font-weight: 700; }
+        .theme-btn { font-family: inherit; font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 999px; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-strong); cursor: pointer; }
+        .theme-btn:hover { border-color: var(--m-main); color: var(--m-ink); }
+        .footer { text-align: center; font-size: 12px; color: var(--text-muted); padding: 10px 0 4px; }
+
+        @media (max-width: 900px) { .layout { grid-template-columns: 1fr; padding: 14px; } .toc { position: static; max-height: none; } }
+    </style>
+</head>
+<body>
+
+<div class="layout">
+
+    <nav class="toc">
+        <div class="toc-title">数据模型与分流规则</div>
+        <a href="#c1">1 · 输入与设计约束</a>
+        <a href="#c2">2 · 实体与字段</a>
+        <a href="#c3">3 · 七个关键决策</a>
+        <a href="#c4">4 · 状态机与分流规则</a>
+        <a href="#c5">5 · 上千条下的检索与性能</a>
+        <a href="#c6">6 · 迁移、重算与治理</a>
+        <a href="#c7">7 · 本阶段不做</a>
+        <a href="#c8">8 · 原型要跟着改的 6 处</a>
+    </nav>
+
+    <main class="main">
+
+        <div class="topbar-doc">
+            <span class="name">知识库 · 数据模型与分流规则（v1 草案）</span>
+            <button class="theme-btn" id="themeBtn">切换深浅色</button>
+        </div>
+
+        <header class="hero">
+            <h1>知识库 · 数据模型与分流规则</h1>
+            <p>
+                这份是<strong>先于界面</strong>的一页验证稿：只定"数据怎么存、内容怎么流转"，不定视觉。
+                落地时最贵的返工来自数据结构，界面反而是最便宜的部分。
+            </p>
+            <div class="hero-meta">
+                <span class="chip">双链为核心</span>
+                <span class="chip">上千条笔记量级</span>
+                <span class="chip">6 个分区不变</span>
+                <span class="chip plain">7 个实体</span>
+                <span class="chip plain">v1 草案 · 待你确认</span>
+            </div>
+        </header>
+
+        <!-- ============ 1 ============ -->
+        <section class="chapter" id="c1">
+            <h2><span class="chapter-no">1</span>输入与它带来的硬约束</h2>
+            <p class="lead">你给的两个事实（双链是核心用法 / 上千条量级）会改变结论，逐条列出它们推出的要求 —— 后面所有字段与规则都是为满足这几条。</p>
+
+            <table>
+                <tr><th>输入</th><th>推出的硬约束</th><th>做不到会怎样</th></tr>
+                <tr>
+                    <td><strong>双链是核心</strong></td>
+                    <td>链接表是一等公民；必须能列出"谁引用了我"；必须有<strong>链接建议</strong>与<strong>孤儿巡检</strong></td>
+                    <td>靠人肉回忆补链接 → 120 条以上就没人补了，加工层永久堆积</td>
+                </tr>
+                <tr>
+                    <td rowspan="5"><strong>上千条</strong></td>
+                    <td><strong>检索是主入口</strong>，浏览是次要入口（分区 + 视图解决"看哪些"，搜索解决"找那条"）</td>
+                    <td>用列表翻 1000 条 = 不可用</td>
+                </tr>
+                <tr><td>列表必须<strong>游标分页 + 排序 + 多条件筛选</strong>，不能一次渲染全量</td><td>首屏几秒白屏</td></tr>
+                <tr><td>成熟度<strong>必须自动推导</strong>，且要能<strong>批量处置</strong></td><td>12 条未链接能手改，120 条就只能放弃</td></tr>
+                <tr><td>图谱<strong>不能画全库</strong>：默认画"以某条笔记为中心 N 跳"的局部图，全库只给统计与聚类</td><td>1000 个节点 + 3000 条边的全图 = 一团毛线</td></tr>
+                <tr><td>归档与收件箱必须<strong>有自动化</strong>（只进不出 + 无自动清理 = 垃圾堆积）</td><td>三年后库里有 3000 条，其中一半是死的</td></tr>
+            </table>
+
+            <div class="box warn">
+                <div class="box-title">由此撤掉的两个之前的假设</div>
+                <ul>
+                    <li>原型里"主题只有 42 个、平铺即可"<strong>不成立</strong>：上千条下主题会涨到上百个，必须支持分组（见决策 4）。</li>
+                    <li>原型里"标签点一下就筛"<strong>不够</strong>：几百个标签需要治理（合并同义、淘汰废弃），否则筛选器本身变成噪音。</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- ============ 2 ============ -->
+        <section class="chapter" id="c2">
+            <h2><span class="chapter-no">2</span>实体与字段</h2>
+            <p class="lead">7 个实体。<span class="pk">主键</span> <span class="fk">外键</span>；"冗余列"指为性能而存、可重算的字段。</p>
+
+            <h3 class="sub">2.1 <code>note</code> — 笔记（唯一的内容表）</h3>
+            <table>
+                <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+                <tr><td class="mono pk">id</td><td>uuid</td><td>主键</td></tr>
+                <tr><td class="mono">title</td><td>text</td><td>可为空（收件箱里允许"无标题笔记"）</td></tr>
+                <tr><td class="mono">body</td><td>text</td><td>Markdown 原文。双链在正文里写成 <code>[[笔记标题或 id]]</code></td></tr>
+                <tr><td class="mono">stage</td><td>enum</td><td><code>record</code> / <code>process</code> / <code>produce</code> — <strong>冗余列</strong>，由规则重算（决策 2）</td></tr>
+                <tr><td class="mono">is_evergreen</td><td>bool</td><td>是否标记为"永久 / 常青笔记"，人工点的，不自动推导</td></tr>
+                <tr><td class="mono fk">topic_id</td><td>uuid?</td><td>归属主题，可空（收件箱里为空）</td></tr>
+                <tr><td class="mono">source</td><td>enum</td><td><code>clip</code> 剪藏 / <code>voice</code> 语音 / <code>quick</code> 快捷输入 / <code>image</code> 图片 / <code>book</code> 书 / <code>manual</code> 手工</td></tr>
+                <tr><td class="mono">source_ref</td><td>text?</td><td>来源地址（剪藏 URL、书页码…），用于"退回来源模块"</td></tr>
+                <tr><td class="mono">inbox_status</td><td>enum?</td><td>仅 stage=record 时有值：<code>unfiled</code> 未归类 / <code>need_more</code> 待补全 / <code>need_refine</code> 待提炼 / <code>need_judge</code> 待判断</td></tr>
+                <tr><td class="mono">link_out_count</td><td>int</td><td><strong>冗余列</strong>：本笔记链出去几条</td></tr>
+                <tr><td class="mono">link_in_count</td><td>int</td><td><strong>冗余列</strong>：几条笔记链向本笔记。<code>link_in_count = 0</code> 就是"未链接 / 调不出来"</td></tr>
+                <tr><td class="mono">created_at / updated_at</td><td>ts</td><td>updated_at 用于"最近编辑"视图与自动归档判定</td></tr>
+                <tr><td class="mono">archived_at</td><td>ts?</td><td>非空即已归档（只读、不参与检索与图谱）—— 归档是<strong>状态</strong>，不是另一张表</td></tr>
+                <tr><td class="mono">last_viewed_at</td><td>ts?</td><td>只给"最近"用；<strong>不放复习状态</strong>（SRS 属学习模块）</td></tr>
+            </table>
+            <div class="box">
+                <div class="box-title">索引</div>
+                <p><code>(archived_at, updated_at)</code> · <code>(stage, updated_at)</code> · <code>(topic_id)</code> · <code>(link_in_count)</code> · 全文索引 <code>(title, body)</code></p>
+            </div>
+
+            <h3 class="sub">2.2 <code>link</code> — 双链（一等公民）</h3>
+            <table>
+                <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+                <tr><td class="mono pk">id</td><td>uuid</td><td>主键</td></tr>
+                <tr><td class="mono fk">from_note_id</td><td>uuid</td><td>发出方</td></tr>
+                <tr><td class="mono fk">to_note_id</td><td>uuid</td><td>接收方</td></tr>
+                <tr><td class="mono">kind</td><td>enum</td><td><code>mention</code> 顺带提到 / <code>reference</code> 明确引用 / <code>contradict</code> 反驳。保留类型是为了将来能按关系性质筛选</td></tr>
+                <tr><td class="mono">created_at</td><td>ts</td><td>——</td></tr>
+            </table>
+            <div class="box">
+                <div class="box-title">约束</div>
+                <p><code>UNIQUE(from_note_id, to_note_id)</code> · 索引 <code>(to_note_id)</code>、<code>(from_note_id)</code> · <strong>一行代表一条有向关系，不存反向行</strong>（决策 3）</p>
+            </div>
+
+            <h3 class="sub">2.3 <code>topic</code> — 主题（人工策展，支持一层分组）</h3>
+            <table>
+                <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+                <tr><td class="mono pk">id</td><td>uuid</td><td>主键</td></tr>
+                <tr><td class="mono">name</td><td>text</td><td>如「前端工程化」</td></tr>
+                <tr><td class="mono fk">parent_id</td><td>uuid?</td><td>只允许<strong>一层</strong>（决策 4）：空 = 领域主题，非空 = 其分组</td></tr>
+                <tr><td class="mono">desc</td><td>text?</td><td>主题说明 —— 这就是"主题能补充说明"的那一块</td></tr>
+                <tr><td class="mono">note_count</td><td>int</td><td><strong>冗余列</strong>，用于圆盘 / 列表计数与排序</td></tr>
+                <tr><td class="mono">is_moc</td><td>bool</td><td>是否为"内容地图"型主题（自身挂一篇索引笔记）</td></tr>
+                <tr><td class="mono">sort</td><td>int</td><td>手动排序，避免列表因计数变化而跳动</td></tr>
+            </table>
+
+            <h3 class="sub">2.4 <code>tag</code> + <code>note_tag</code> — 标签（自发涌现，可治理）</h3>
+            <table>
+                <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+                <tr><td class="mono pk">tag.id</td><td>uuid</td><td>主键</td></tr>
+                <tr><td class="mono">tag.name</td><td>text</td><td>唯一</td></tr>
+                <tr><td class="mono fk">tag.alias_of</td><td>uuid?</td><td>非空表示"本标签已被合并到另一标签"，历史引用保留可回溯</td></tr>
+                <tr><td class="mono">tag.note_count / last_used_at</td><td>int / ts</td><td>冗余计数 + 最后使用时间 → 支撑"低频标签清理"</td></tr>
+                <tr><td class="mono fk">note_tag.note_id / tag_id</td><td>uuid</td><td>多对多，联合主键</td></tr>
+            </table>
+
+            <h3 class="sub">2.5 <code>stage_log</code> — 状态迁移日志（可解释性）</h3>
+            <table>
+                <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+                <tr><td class="mono pk">id</td><td>uuid</td><td>——</td></tr>
+                <tr><td class="mono fk">note_id</td><td>uuid</td><td>——</td></tr>
+                <tr><td class="mono">from_stage / to_stage</td><td>enum</td><td>如 <code>process → produce</code></td></tr>
+                <tr><td class="mono">reason</td><td>text</td><td><code>auto</code>（规则触发）或人工说明 —— 回答"这条为什么回到记录层了"</td></tr>
+                <tr><td class="mono">at</td><td>ts</td><td>——</td></tr>
+            </table>
+
+            <h3 class="sub">2.6 <code>archive_rule</code> / <code>archive_candidate</code> — 归档策略</h3>
+            <table>
+                <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+                <tr><td class="mono">rule.kind</td><td>enum</td><td><code>inbox_stale</code>（收件箱 N 天未动）/ <code>no_inlink</code>（N 月 0 入链且无标签）/ <code>superseded</code>（被新笔记取代）</td></tr>
+                <tr><td class="mono">rule.params</td><td>json</td><td>如 <code>{"days": 14}</code></td></tr>
+                <tr><td class="mono">candidate.note_id / rule_id / at</td><td>——</td><td><strong>规则只产出候选，不直接归档</strong>（决策 6）</td></tr>
+            </table>
+
+            <h3 class="sub">2.7 <code>attachment</code> — 附件</h3>
+            <table>
+                <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+                <tr><td class="mono pk">id</td><td>uuid</td><td>——</td></tr>
+                <tr><td class="mono fk">note_id</td><td>uuid</td><td>归属</td></tr>
+                <tr><td class="mono">object_key / mime / size / width / height</td><td>——</td><td>存对象存储的键，<strong>不把二进制塞进 note.body</strong></td></tr>
+            </table>
+        </section>
+
+        <!-- ============ 3 ============ -->
+        <section class="chapter" id="c3">
+            <h2><span class="chapter-no">3</span>七个关键决策（含判据与反面后果）</h2>
+            <p class="lead">这一章是全文最该被质疑的部分。每条都给出判据与"不这样做会怎样"，你可以逐条推翻。</p>
+
+            <div class="decision">
+                <h4>决策 1 · 收件箱是 <code>note</code> 的一个状态，不建独立表</h4>
+                <p><span class="why">判据：</span>从收件箱进主库是<strong>状态迁移</strong>（补 topic_id / 改 stage），不是"搬家"；同一条笔记的 id 必须全程不变，否则双链、附件、历史会断。</p>
+                <p><span class="why">反面：</span>做成 <code>inbox_item</code> 表后，"归类"要 delete + insert，link 表外键要级联改，附件的 note_id 要迁移，还会出现"同一内容两个 id"的历史断点。</p>
+            </div>
+
+            <div class="decision">
+                <h4>决策 2 · <code>stage</code> 与两个 link 计数存成<strong>冗余列</strong>，由规则重算</h4>
+                <p><span class="why">判据：</span>上千条下，列表要<strong>按 stage 筛选 + 排序 + 分页</strong>。纯派生意味着每页查询都要实时聚合 link 表算入链数；规则一改还要改所有查询。冗余列让"筛未链接"变成走索引的一次查询。</p>
+                <p><span class="why">代价与对策：</span>冗余会不一致。对策是三条 —— ① 所有写操作走同一个写入路径（链接增删时同事务更新计数）；② 每日全量重算并输出差异报告；③ 差异 > 0 就告警，不允许静默飘移。</p>
+            </div>
+
+            <div class="decision">
+                <h4>决策 3 · <code>link</code> 一行表示一条有向关系，<strong>不存反向行</strong></h4>
+                <p><span class="why">判据：</span>存反向行意味着"删一条链接要删两行、改一行要保证两行一致"。上千条下 link 表约 3–5 千行（<code>1240 × 3.4</code>），远小于笔记表，双向查询用 <code>WHERE from = x OR to = x</code> + 两个索引就够快。</p>
+                <p><span class="why">反面：</span>双向存两份 → 迟早出现"单向幽灵链接"（A 说链了 B，B 看不到），图谱与入链计数全部不可信。</p>
+            </div>
+
+            <div class="decision">
+                <h4>决策 4 · 主题支持<strong>一层</strong>父子，禁止无限层级</h4>
+                <p><span class="why">判据：</span>上千条下主题会从几十涨到上百个，平铺不可扫；但"主题套主题套主题"会变成第二个标签体系，而且圆盘、筛选器、面包屑都只能呈现三层以内。</p>
+                <p><span class="why">落地形态：</span><code>parent_id</code> 为空 = 领域主题（前端工程化 / 后端架构 …），非空 = 该领域下的分组（构建 / 状态管理 …）。层级深度在写入时校验，只允许 2 层。</p>
+            </div>
+
+            <div class="decision">
+                <h4>决策 5 · 标签靠<strong>合并与淘汰</strong>治理，不做层级</h4>
+                <p><span class="why">判据：</span>标签是自发涌现的，唯一可持续的控制手段是"降熵"：<code>alias_of</code> 合并同义（React / react / React.js → 一个），<code>last_used_at</code> 淘汰废弃。软约束：一条笔记 ≤ 3 个标签，超了就说明该建主题了。</p>
+                <p><span class="why">反面：</span>给标签建层级 = 和主题重复，之后每次都要判断"这条到底进主题还是进标签"。</p>
+            </div>
+
+            <div class="decision">
+                <h4>决策 6 · 归档规则<strong>只产出候选清单</strong>，不静默执行</h4>
+                <p><span class="why">判据：</span>自动归档 = 自动把内容从检索里拿掉。上一轮我已经把"两周未动自动归档"标为危险默认 —— 唯一可接受的例外是<strong>收件箱</strong>：它本来就是"未整理"的临时区，可以自动归档，但必须在收件箱顶部留一条"已自动归档 7 条 · 撤销"的记录。</p>
+                <p><span class="why">主库永不自动归档</span>：只给"归档候选"清单（如 12 个月 0 入链且无标签），人工确认后执行。</p>
+            </div>
+
+            <div class="decision">
+                <h4>决策 7 · 检索必须支持<strong>结构化谓词</strong>，且是主入口</h4>
+                <p><span class="why">判据：</span>上千条下"找那条"不可能靠浏览。可组合的谓词把"我上次写的那条关于支付的"变成一条查询。</p>
+                <p><span class="why">语法（v1）：</span><code>tag:架构</code> · <code>topic:后端架构</code> · <code>stage:process</code> · <code>has:inlink</code> · <code>has:nolink</code> · <code>source:clip</code> · <code>before:2026-06</code>，与关键词混合（如 <code>对账 topic:后端架构 has:inlink</code>）。</p>
+            </div>
+
+            <div class="decision">
+                <h4>决策 8 · 知识库<strong>不存复习状态</strong></h4>
+                <p><span class="why">判据：</span>到期日与掌握度绑在"学习目标"上，与"内容归属"无关。知识库只留 <code>last_viewed_at</code>（服务"最近"），一旦把 SRS 状态也存进来，同一条笔记就会有两个状态的真相源。</p>
+            </div>
+        </section>
+
+        <!-- ============ 4 ============ -->
+        <section class="chapter" id="c4">
+            <h2><span class="chapter-no">4</span>状态机与分流规则</h2>
+            <p class="lead">四个状态、五个迁移动作。每一步都能回答"这条笔记现在该做什么"。</p>
+
+            <h3 class="sub">4.1 四个状态</h3>
+            <div class="flow">
+                <div class="flow-row">
+                    <span class="node rec">record 记录</span>
+                    <span class="arrow">→</span>
+                    <span class="node">process 加工</span>
+                    <span class="arrow">→</span>
+                    <span class="node prod">produce 生产</span>
+                    <span class="arrow">／</span>
+                    <span class="node">archived 归档</span>
+                    <span class="arrow">／</span>
+                    <span class="node">returned 退回来源</span>
+                </div>
+                <div class="flow-note">状态由字段推导，不是人工选择；人只改字段（归类 / 点亮常青 / 归档），状态跟着变。</div>
+            </div>
+
+            <h3 class="sub">4.2 状态推导（机械判据，可直接写成 SQL）</h3>
+            <table>
+                <tr><th>状态</th><th>判据</th><th>含义（对应你那张图的症状）</th></tr>
+                <tr><td><strong>record</strong></td><td><code>archived_at IS NULL AND topic_id IS NULL</code></td><td>记录层：还没加工（"漏"）</td></tr>
+                <tr><td><strong>process</strong></td><td><code>topic_id IS NOT NULL AND link_in_count = 0 AND NOT is_evergreen</code></td><td>加工层：归类了但没被引用（"懵"）</td></tr>
+                <tr><td><strong>produce</strong></td><td><code>link_in_count &gt; 0 OR is_evergreen</code></td><td>生产层：可被检索、可被引用（"调得出来"）</td></tr>
+                <tr><td><strong>archived</strong></td><td><code>archived_at IS NOT NULL</code></td><td>冻结：不参与检索与图谱（优先级最高，先判它）</td></tr>
+            </table>
+
+            <h3 class="sub">4.3 迁移动作（谁能触发，触发后发生什么）</h3>
+            <table>
+                <tr><th>动作</th><th>触发者</th><th>写入</th><th>连带</th></tr>
+                <tr><td>捕获</td><td>人工 / 剪藏插件</td><td>建 note，<code>inbox_status='unfiled'</code></td><td>写一条 stage_log（null → record）</td></tr>
+                <tr><td>归类到主题</td><td>人工（或 AI 建议后人工确认）</td><td>补 <code>topic_id</code>，清空 inbox_status</td><td>record → process；topic.note_count +1</td></tr>
+                <tr><td>补链</td><td>人工 / 链接建议一键接受</td><td>插 link，更新两侧计数</td><td>若被引用方原为 process，升为 produce</td></tr>
+                <tr><td>点亮常青</td><td>人工</td><td><code>is_evergreen = true</code></td><td>升为 produce（这是"我认它够格"的唯一人工升级口）</td></tr>
+                <tr><td>归档</td><td>人工（候选清单确认后）</td><td><code>archived_at = now()</code></td><td>从检索与图谱摘除；入链计数保留但不再参与"未链接"统计</td></tr>
+                <tr><td>恢复</td><td>人工</td><td><code>archived_at = NULL</code></td><td>按 4.2 重新推导 state</td></tr>
+                <tr><td>退回来源</td><td>人工（收件箱行内）</td><td>删除本库 note，写 stage_log 留痕</td><td><strong>同时在学习 / 工作模块建对应笔记</strong>（先建后删，避免中途失败丢内容）</td></tr>
+            </table>
+
+            <h3 class="sub">4.4 三个断裂点的指标口径（与界面上的 KPI 一一对应）</h3>
+            <table>
+                <tr><th>指标</th><th>口径</th><th>界面</th></tr>
+                <tr><td><strong>漏</strong></td><td><code>count(stage = record)</code></td><td>收件箱计数、KPI 第一张卡</td></tr>
+                <tr><td><strong>懵</strong></td><td><code>count(stage = process)</code></td><td>「未链接」视图、右侧轨、KPI 第二张卡</td></tr>
+                <tr><td><strong>调不出来</strong></td><td><code>count(link_in_count &gt; 0) / count(*)</code>，排除已归档</td><td>KPI 第三张卡（274 / 1240 这类分式）</td></tr>
+            </table>
+
+            <h3 class="sub">4.5 双链是核心 ⇒ 必须有三个自动化（否则上千条下必崩）</h3>
+            <table>
+                <tr><th>机制</th><th>判据</th><th>交互</th></tr>
+                <tr><td><strong>链接建议</strong></td><td>同 topic 且共享 ≥2 个 tag；或正文关键词重叠高于阈值（用全文索引打分近似）</td><td>在笔记详情里给"建议链接"列表，一键接受 / 忽略</td></tr>
+                <tr><td><strong>黑洞巡检</strong></td><td>入链 ≥3 但出链 = 0</td><td>列进"待补出链"，避免只进不出的吸附点</td></tr>
+                <tr><td><strong>孤儿巡检</strong></td><td>入链 = 0 且出链 = 0 且创建 ≥30 天</td><td>和「未链接」视图合并展示，但按"完全孤立"优先排序</td></tr>
+            </table>
+
+            <h3 class="sub">4.6 收件箱的自动分流（上千条下唯一可行的整理方式）</h3>
+            <div class="box">
+                <ul>
+                    <li><strong>剪藏类</strong>自动抽标题、摘要、建议主题与 1–3 个标签（AI 产出，人工确认才落库 —— 不自动改 <code>topic_id</code>）。</li>
+                    <li><strong>同一来源连续 ≥3 条</strong>：提示批量归类（"这批 5 条都来自《反脆弱》，一起挂到「读书笔记」？"）。</li>
+                    <li><strong>14 天未动</strong>：进"自动归档候选"；收件箱顶部显示"已自动归档 7 条 · 撤销"，<strong>不静默</strong>。</li>
+                    <li><strong>退回来源</strong>：命中"删掉来源后不成立"的（判据见 4.3），一键退回学习 / 工作模块。</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- ============ 5 ============ -->
+        <section class="chapter" id="c5">
+            <h2><span class="chapter-no">5</span>上千条下的检索与性能</h2>
+            <p class="lead">量级一变，入口就变：<strong>浏览让位给检索</strong>。这一章是"能不能用"的分水岭。</p>
+
+            <h3 class="sub">5.1 查询模式与上限</h3>
+            <table>
+                <tr><th>场景</th><th>查询</th><th>上限 / 策略</th></tr>
+                <tr><td>分区首屏</td><td>按 <code>(archived_at, updated_at)</code> 取首页</td><td>20 条 + 总数；游标翻页，<strong>不用 offset</strong></td></tr>
+                <tr><td>视图筛选</td><td>加 <code>stage</code> / <code>link_in_count</code> 条件</td><td>同上；筛"未链接"必须走索引，不许全表扫</td></tr>
+                <tr><td>检索 <span class="kbd">⌘K</span></td><td>全文 + 谓词组合</td><td>结果 20 条 + 高亮；标题权重高于正文</td></tr>
+                <tr><td>局部图谱</td><td>以某笔记为中心 1–2 跳</td><td>节点 ≤ 60、边 ≤ 200，超出按入链数截断</td></tr>
+                <tr><td>全库图谱</td><td>不画图，只出统计</td><td>孤立笔记数、平均入链、最大聚团大小</td></tr>
+                <tr><td>主题 / 标签列表</td><td>按 <code>note_count</code> 倒序</td><td>只取前 100；更深的用检索谓词</td></tr>
+            </table>
+
+            <h3 class="sub">5.2 中文全文索引</h3>
+            <div class="box warn">
+                <div class="box-title">坑</div>
+                <p>默认分词对中文不可靠：<code>分词器把「对账」切成一个字</code> 就导致搜不到。v1 至少用 <strong>trigram（三字滑窗）</strong> 或成熟中文分词器，并在写入时把 <code>title</code> 与 <code>body</code> 分别索引、分别加权。</p>
+            </div>
+
+            <h3 class="sub">5.3 冗余与一致性</h3>
+            <table>
+                <tr><th>冗余字段</th><th>来源</th><th>何时重算</th></tr>
+                <tr><td><code>note.stage</code></td><td>4.2 的判据</td><td>相关字段变更时同事务；每日全量校验</td></tr>
+                <tr><td><code>note.link_in_count / link_out_count</code></td><td>link 表聚合</td><td>插删 link 时；每日全量校验</td></tr>
+                <tr><td><code>topic.note_count</code> / <code>tag.note_count</code></td><td>note 表聚合</td><td>归类 / 改标签时；每日</td></tr>
+            </table>
+        </section>
+
+        <!-- ============ 6 ============ -->
+        <section class="chapter" id="c6">
+            <h2><span class="chapter-no">6</span>迁移、重算与治理</h2>
+            <table>
+                <tr><th>项</th><th>做法</th><th>频率</th></tr>
+                <tr><td>结构版本</td><td><code>schema_version</code> 表 + 按序号命名的迁移脚本；每次迁移必须可回滚</td><td>每次改结构</td></tr>
+                <tr><td>状态重算</td><td>跑 4.2 判据全量重算，输出"变化条数 + 前后分布"报告</td><td>每日 + 规则变更后</td></tr>
+                <tr><td>标签治理</td><td>合并（写 <code>alias_of</code>，历史引用保留）/ 淘汰（<code>note_count = 0</code> 且 90 天未用）/ 归一（全半角、大小写）</td><td>每月</td></tr>
+                <tr><td>主题治理</td><td>主题数 > 60 提示分组；<code>note_count = 0</code> 的空主题进清理候选</td><td>每季</td></tr>
+                <tr><td>归档回顾</td><td>生成候选清单（12 个月 0 入链且无标签 → 归档；候选被忽略 3 次则不再提示）</td><td>每季</td></tr>
+            </table>
+            <div class="box danger">
+                <div class="box-title">只进不出的代价，必须有出口</div>
+                <p>知识库"只进不出"说的是<strong>不删除</strong>，不是"不整理"。上千条量级下没有出口的后果是：五年后 5000 条里一半是死的，检索信噪比崩掉。所以出口是<strong>归档 + 季度回顾</strong>，而不是删除。</p>
+            </div>
+        </section>
+
+        <!-- ============ 7 ============ -->
+        <section class="chapter" id="c7">
+            <h2><span class="chapter-no">7</span>本阶段明确不做</h2>
+            <table>
+                <tr><th>不做</th><th>理由</th><th>留的口子</th></tr>
+                <tr><td>多人协作与权限</td><td>先验证"一个人会不会天天用"</td><td>表都带 <code>owner_id</code> 位置，后加不迁移数据</td></tr>
+                <tr><td>向量检索 / 语义问答</td><td>成本高，且先要有稳定的结构化检索</td><td>预留 <code>note.embedding</code> 可后加，不影响现有字段</td></tr>
+                <tr><td>附件在线预览 / OCR</td><td>v1 只要"能存、能点开原图"</td><td>attachment 表已独立，不塞进 body</td></tr>
+                <tr><td>从 Obsidian / Notion 导入</td><td>v1 用剪藏 + 手工录入即可</td><td>留 <code>import</code> 适配层位置（source 枚举已含扩展位）</td></tr>
+            </table>
+        </section>
+
+        <!-- ============ 8 ============ -->
+        <section class="chapter" id="c8">
+            <h2><span class="chapter-no">8</span>原型要跟着改的 6 处（下一步的清单）</h2>
+            <p class="lead">现在的原型是"286 条 + 双链为装饰"的心智，与你确认的"上千条 + 双链为核心"不一致。下列 6 处是<strong>数据模型定稿后</strong>要改的界面部分。</p>
+            <table>
+                <tr><th>#</th><th>改什么</th><th>为什么（对应约束）</th></tr>
+                <tr><td>1</td><td>数字上调：286 → <strong>1240</strong>；主题 42 → <strong>96</strong>（含 3 个分组）；标签 96 → <strong>280</strong>；双链 348 → <strong>4200</strong>（链/笔记 ≈ 3.4）</td><td>数量级影响所有判断</td></tr>
+                <tr><td>2</td><td>图谱：全库图 → 「以当前笔记为中心 2 跳」局部图；顶部补全库统计（孤立 37 条 / 平均入链 2.1 / 最大聚团 180）</td><td>1000 个节点画成一张图毫无信息量</td></tr>
+                <tr><td>3</td><td><span class="kbd">⌘K</span> 从"导航面板"升级为<strong>检索面板</strong>：输入即出结果列表（标题 + 摘要 + 命中位置）；导航项只在无输入时显示</td><td>检索是上千条下的主入口</td></tr>
+                <tr><td>4</td><td>列表加：游标分页提示（已加载 20 / 1240）、排序切换、多条件筛选（stage / 标签 / 有无入链）</td><td>浏览不再是主要用法</td></tr>
+                <tr><td>5</td><td>收件箱加：批量选择 + 批量归类；整理规则里"两周未动自动归档"改成<strong>"生成归档候选清单 + 撤销"</strong></td><td>决策 6：不许静默丢内容</td></tr>
+                <tr><td>6</td><td>主题与标签加治理入口：主题分组折叠、空主题清理、标签合并与废弃</td><td>上百主题 / 数百标签必须能降熵</td></tr>
+            </table>
+            <div class="box warn">
+                <div class="box-title">确认这份模型之后，我建议的第一件实现</div>
+                <p>只做一条纵向切片：<strong>捕获 → 收件箱 → 归类到主题 → 笔记列表（分页）→ 补一条双链 → 入链计数与状态跟着变</strong>。
+                这条链把 7 个实体里的 4 个（note / topic / link / stage_log）和两个冗余重算都跑通了，是"模型能不能用"的最小验证；其余分区可以先留空壳。</p>
+            </div>
+        </section>
+
+        <div class="footer">知识库 · 数据模型与分流规则 v1 草案 · 配套原型 knowledge_index.html / knowledge_features.html</div>
+
+        <script>
+            (function () {
+                var btn = document.getElementById('themeBtn');
+                var root = document.documentElement;
+                try { if (localStorage.getItem('theme') === 'dark') root.classList.add('dark'); } catch (e) {}
+                btn.addEventListener('click', function () {
+                    var isDark = root.classList.toggle('dark');
+                    try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) {}
+                });
+            })();
+        </script>
+
+    </main>
+</div>
+
+</body>
+</html>

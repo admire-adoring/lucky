@@ -51,7 +51,90 @@
       out.info = { probeError: String(e && e.message ? e.message : e) }
       out.fail.push("探针自身抛错：" + out.info.probeError)
     }
-    report(out)
+
+    /* ---------- 5 · 命令面板：**点开它**再看一眼 ----------
+       为什么非点不可：`.cmd-mask` 的规则来自**生成物**（外壳原型那一份），
+       而生成物曾经出现过"被剪掉一截"的缺陷 —— 面板自己那条 `.sb-root .cmd-mask`
+       被削成 `.cmd-mask`，元素上还有这个类、**照样生效**，所以静态看一点问题都没有。
+       而这一类"浮层的基础规则没了"的缺陷，症状统一是：**默认该关着的浮层常驻在文档流里**。
+       ⇒ 所以壳层这里也有一条：点开 → 它必须是 `position:fixed` 且铺满视口。
+
+       ⚠️ 先掐掉动画/过渡。dump 通道不做合成帧，而 `.cmd-mask` 挂着 `sb-fade-in`：
+          不掐的话读到的是动画第一帧（`opacity:0`），几何也可能被带偏。
+          （见 read-probe.mjs 头部那条：观感以出图为准，断言只读 display/几何。） */
+    var trigger = null
+    var cands = document.querySelectorAll('.sb-root [title^="跳转"]')
+    for (var ci = 0; ci < cands.length; ci++) {
+      var cr = cands[ci].getBoundingClientRect()
+      if (cr.width > 0 && cr.height > 0) {
+        trigger = cands[ci]
+        break
+      }
+    }
+    out.info.paletteTrigger = trigger ? 'ok' : 'absent'
+    if (!trigger) {
+      /* 窄屏可能只剩抽屉里的入口 —— 报出来但不判失败（那是布局选择，不是缺陷） */
+      report(out)
+      return
+    }
+    var kill = document.createElement('style')
+    kill.textContent = '*{animation:none !important;transition:none !important}'
+    document.head.appendChild(kill)
+    trigger.click()
+    setTimeout(function () {
+      measurePalette(out)
+      report(out)
+    }, 90)
+  }
+
+  function measurePalette(out) {
+    try {
+      var mask = document.querySelector('.sb-root .cmd-mask')
+      if (!mask) {
+        out.fail.push('点了「跳转」之后 .sb-root 里没有 .cmd-mask → 那条基础规则多半脱了作用域')
+        return
+      }
+      var cs = getComputedStyle(mask)
+      var r = mask.getBoundingClientRect()
+      out.info.palette = {
+        open: /(^|\s)open(\s|$)/.test(mask.className),
+        position: cs.position,
+        display: cs.display,
+        w: Math.round(r.width),
+        h: Math.round(r.height),
+        items: document.querySelectorAll('.sb-root .cmd-item').length,
+      }
+      if (!out.info.palette.open) out.fail.push('点了「跳转」之后 .cmd-mask 没有 .open（面板打不开）')
+      if (cs.display === 'none') out.fail.push('命令面板的遮罩是 display:none → 它没生效')
+      if (cs.position !== 'fixed') {
+        out.fail.push('命令面板的遮罩不是 position:fixed（读到 ' + cs.position + '）→ 它会落在文档流里')
+      }
+      if (
+        Math.abs(r.left) > 1 ||
+        Math.abs(r.top) > 1 ||
+        r.width < window.innerWidth - 2 ||
+        r.height < window.innerHeight - 2
+      ) {
+        out.fail.push(
+          '命令面板的遮罩没有铺满视口（' +
+            Math.round(r.left) +
+            ',' +
+            Math.round(r.top) +
+            ' ' +
+            Math.round(r.width) +
+            '×' +
+            Math.round(r.height) +
+            ' vs 视口 ' +
+            window.innerWidth +
+            '×' +
+            window.innerHeight +
+            '）',
+        )
+      }
+      if (!out.info.palette.items) out.fail.push('命令面板里没有条目（.cmd-item）')
+    } catch (e) {
+      out.fail.push('命令面板那一相抛错：' + String(e && e.message ? e.message : e))
+    }
   }
 
   function measure(out) {
@@ -152,6 +235,10 @@
   }
 
   function report(out) {
+    /* 两条通道都写：`<title>` 给"dump 被截断"兜底 —— `/home` 的 dump 在本机
+       稳定停在 61841 字节，而 `<pre>` 追加在 body 末尾正好落在那之后。
+       `<title>` 在 `<head>` 里、序列化时排最前，截断动不了它（详见 read-probe.mjs）。 */
+    document.title = 'PROBE ' + JSON.stringify(out)
     var el = document.createElement('pre')
     el.id = 'PROBE'
     el.textContent = JSON.stringify(out, null, 1)

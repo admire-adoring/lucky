@@ -35,6 +35,15 @@ export function GlyphChevronRight({ className }: GlyphProps) {
   )
 }
 
+/** 左向雪佛龙 —— 版本切换与思考链翻页的「上一条」。原型里是独立的一条 polyline */
+export function GlyphChevronLeft({ className }: GlyphProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  )
+}
+
 export function GlyphOpenInNew({ className }: GlyphProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className={className}>

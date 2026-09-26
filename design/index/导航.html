@@ -1,0 +1,2317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jarvis · 个人系统</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-page: #F7F8FA;
+            --bg-float: rgba(255,255,255,0.78);
+            --bg-sidebar: rgba(255,255,255,0.72);
+            --bg-card: rgba(255,255,255,0.62);
+            --bg-hover: rgba(15,23,42,0.045);
+            --border-subtle: rgba(15,23,42,0.07);
+            --border-card: rgba(255,255,255,0.7);
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --shadow-card: 0 4px 24px rgba(15,23,42,0.05);
+            --shadow-float: 0 10px 40px rgba(15,23,42,0.10), 0 2px 8px rgba(15,23,42,0.04);
+            --blur-card: blur(24px) saturate(180%);
+            --blob-opacity: 0.38;
+            --blob-blur: 120px;
+
+            --m1: #A5B4FC;
+            --m2: #C4B5FD;
+            --m3: #BAE6FD;
+            --m-main: #6366F1;
+            --m-soft: rgba(99,102,241,0.10);
+            --m-glow: rgba(99,102,241,0.28);
+
+            --gap-page: 16px;
+            --sidebar-w: 300px;
+            --sidebar-w-collapsed: 64px;
+        }
+
+        .dark {
+            --bg-page: #0A0F1C;
+            --bg-float: rgba(15,23,42,0.85);
+            --bg-sidebar: rgba(15,23,42,0.78);
+            --bg-card: rgba(30,41,59,0.5);
+            --bg-hover: rgba(255,255,255,0.05);
+            --border-subtle: rgba(255,255,255,0.06);
+            --border-card: rgba(255,255,255,0.08);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+            --shadow-float: 0 10px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+            --blur-card: blur(28px) saturate(160%);
+            --blob-opacity: 0.24;
+            --blob-blur: 140px;
+
+            --m1: #4F46E5;
+            --m2: #7C3AED;
+            --m3: #0EA5E9;
+            --m-main: #818CF8;
+            --m-soft: rgba(129,140,248,0.14);
+            --m-glow: rgba(129,140,248,0.4);
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: background 0.45s ease, color 0.35s ease;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 弥散背景 */
+        .aurora-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob {
+            position: absolute; border-radius: 50%;
+            filter: blur(var(--blob-blur));
+            opacity: var(--blob-opacity);
+            transition: opacity 0.8s ease, filter 0.8s ease, background 0.8s ease;
+            animation: drift 26s ease-in-out infinite alternate;
+            will-change: transform;
+        }
+        .blob-1 { width: 600px; height: 600px; top: -14%; left: -12%; background: var(--m1); }
+        .blob-2 { width: 560px; height: 560px; top: 18%;  right: -16%; background: var(--m2); animation-delay: -8s; }
+        .blob-3 { width: 640px; height: 640px; bottom: -22%; left: 24%; background: var(--m3); animation-delay: -16s; }
+
+        @keyframes drift {
+            from { transform: translate(0,0) scale(1); }
+            to   { transform: translate(44px,-30px) scale(1.1); }
+        }
+        @media (prefers-reduced-motion: reduce) { .blob { animation: none; } }
+
+        /* 布局 */
+        .app {
+            position: relative; z-index: 1;
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 68px 1fr;
+            grid-template-columns: var(--sidebar-w) 1fr;
+            grid-template-areas:
+      "topbar topbar"
+      "sidebar main";
+            gap: var(--gap-page);
+            padding: var(--gap-page);
+            transition: grid-template-columns 0.32s cubic-bezier(0.4,0,0.2,1);
+        }
+        .app.sidebar-collapsed {
+            grid-template-columns: var(--sidebar-w-collapsed) 1fr;
+        }
+
+        /* ========== 顶栏 ========== */
+        .topbar-wrap {
+            grid-area: topbar;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none;
+            min-width: 0;
+        }
+
+        .topbar {
+            pointer-events: auto;
+            display: flex; align-items: center;
+            gap: 10px;
+            padding: 10px 12px 10px 14px;
+            background: var(--bg-float);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 999px;
+            box-shadow: var(--shadow-float);
+            width: 100%;
+            max-width: 1400px;
+            transition: all 0.3s ease;
+            position: relative;
+            min-width: 0;
+        }
+
+        .topbar::before {
+            content: "";
+            position: absolute; inset: -1px;
+            border-radius: 999px;
+            padding: 1px;
+            background: linear-gradient(120deg, transparent 20%, var(--m-main) 50%, transparent 80%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0.35;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+        }
+        .topbar:hover::before { opacity: 0.7; }
+
+        .logo-mark {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366F1, #8B5CF6 60%, #A855F7);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; font-weight: 800;
+            flex-shrink: 0;
+            box-shadow: 0 4px 14px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+            letter-spacing: -0.5px;
+            cursor: pointer;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .logo-mark:hover { transform: rotate(-8deg) scale(1.08); }
+
+        .divider-v {
+            width: 1px; height: 22px;
+            background: var(--border-subtle);
+            flex-shrink: 0;
+            margin: 0 2px;
+        }
+
+        .nav-primary {
+            display: flex; align-items: center;
+            gap: 2px; flex: 1;
+            overflow-x: auto;
+            scrollbar-width: none;
+            height: 40px;
+            min-width: 0;
+        }
+        .nav-primary::-webkit-scrollbar { display: none; }
+
+        .nav-p-item {
+            position: relative;
+            display: flex; align-items: center; gap: 7px;
+            padding: 0 14px; height: 36px;
+            border-radius: 999px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap; user-select: none;
+            flex-shrink: 0;
+        }
+        .nav-p-item:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+        .nav-p-item.active {
+            color: #fff;
+            background: var(--m-main);
+            box-shadow: 0 4px 16px var(--m-glow), inset 0 1px 0 rgba(255,255,255,0.2);
+            font-weight: 600;
+        }
+        .nav-p-item.active::before {
+            content: "";
+            position: absolute; inset: 0;
+            border-radius: 999px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent 60%);
+            pointer-events: none;
+        }
+        .nav-p-icon {
+            width: 15px; height: 15px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .nav-p-icon svg { width: 15px; height: 15px; stroke-width: 2; }
+        .nav-p-item:hover .nav-p-icon { transform: scale(1.15); }
+
+        .nav-p-badge {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.25);
+            color: inherit;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+        .nav-p-item:not(.active) .nav-p-badge {
+            background: var(--m-soft);
+            color: var(--m-main);
+        }
+        .nav-p-badge.warn {
+            background: rgba(239,68,68,0.16);
+            color: #EF4444;
+        }
+        .nav-p-item.active .nav-p-badge.warn {
+            background: rgba(255,255,255,0.25);
+            color: #fff;
+        }
+        .dark .nav-p-item:not(.active) .nav-p-badge.warn { color: #F87171; }
+
+        .topbar-right {
+            display: flex; align-items: center; gap: 4px;
+            flex-shrink: 0;
+        }
+        .icon-btn {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .icon-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+        .icon-btn svg { width: 17px; height: 17px; stroke-width: 1.9; }
+        .icon-btn .dot {
+            position: absolute;
+            top: 7px; right: 7px;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #EF4444;
+            border: 1.5px solid var(--bg-float);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+            50%      { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+        }
+        .icon-btn.ai {
+            background: linear-gradient(135deg, #6366F1, #A855F7);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(139,92,246,0.35);
+        }
+        .icon-btn.ai:hover {
+            box-shadow: 0 6px 22px rgba(139,92,246,0.55);
+            transform: translateY(-1px) scale(1.05);
+        }
+
+        .avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366F1, #A855F7);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            margin-left: 4px;
+            box-shadow: 0 3px 10px rgba(99,102,241,0.3);
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .avatar:hover { transform: scale(1.1); }
+        .avatar::after {
+            content: "";
+            position: absolute;
+            right: -1px; bottom: -1px;
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: #10B981;
+            border: 2px solid var(--bg-float);
+        }
+
+        /* ========== 侧栏 ========== */
+        .sidebar-wrap {
+            grid-area: sidebar;
+            display: flex;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .sidebar {
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-float);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            width: 100%;
+            transition: background 0.4s ease;
+            position: relative;
+        }
+
+        .sidebar-head {
+            padding: 12px 16px 0;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .sidebar.collapsed .sidebar-head { padding: 12px 12px 0; }
+
+        .sidebar-title {
+            font-size: 14px; font-weight: 800;
+            letter-spacing: -0.3px;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            transition: opacity 0.2s ease;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .sidebar-title .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--m-main);
+            box-shadow: 0 0 0 3px var(--m-soft), 0 0 8px var(--m-glow);
+            flex-shrink: 0;
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+        }
+        .sidebar-title .name {
+            background: linear-gradient(135deg, var(--text-primary), var(--m-main));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transition: all 0.4s ease;
+        }
+        .sidebar-subtitle {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            transition: opacity 0.2s ease;
+            margin-left: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .sidebar.collapsed .sidebar-title,
+        .sidebar.collapsed .sidebar-subtitle { opacity: 0; overflow: hidden; height: 0; }
+
+        /* ========== 圆盘：图标内圈 + 文字外圈 ========== */
+        .radial-stage {
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+            margin-top: -6px;
+            padding: 0 0 8px;
+            transition: opacity 0.2s ease, margin 0.3s ease, padding 0.3s ease, height 0.3s ease;
+        }
+        .sidebar.collapsed .radial-stage { opacity: 0; overflow: hidden; height: 0; margin: 0; padding: 0; }
+
+        .radial {
+            --r: 76px;
+            --rl: 118px;
+            --dial: 62px;
+            position: relative;
+            width: calc(2 * (var(--rl) + 12px));
+            height: calc(2 * (var(--rl) + 12px));
+            flex-shrink: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .hub-aura {
+            position: absolute; left: 50%; top: 50%;
+            width: calc(2 * var(--rl)); height: calc(2 * var(--rl));
+            transform: translate(-50%, -50%);
+            border-radius: 999px;
+            pointer-events: none;
+            background: radial-gradient(
+                    circle at 50% 50%,
+                    rgba(255, 255, 255, 0.42) 0%,
+                    color-mix(in srgb, var(--m-main) 12%, transparent) 32%,
+                    color-mix(in srgb, var(--m-main) 5%, transparent) 60%,
+                    transparent 82%
+            );
+            transition: opacity 0.3s ease;
+        }
+
+        .hub-ripple {
+            position: absolute; left: 50%; top: 50%;
+            width: var(--dial); height: var(--dial);
+            margin-left: calc(var(--dial) / -2);
+            margin-top: calc(var(--dial) / -2);
+            border-radius: 999px;
+            border: 1.5px solid var(--m-main);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hub-door {
+            position: absolute; left: 50%; top: 50%;
+            width: var(--dial); height: var(--dial);
+            transform: translate(-50%, -50%);
+            border-radius: 999px;
+            appearance: none; border: 0; padding: 0; margin: 0;
+            background: none; color: inherit; font: inherit;
+            cursor: pointer;
+            z-index: 5;
+        }
+        .hub-dial {
+            position: absolute; inset: 0;
+            border-radius: 999px;
+            background: radial-gradient(
+                    circle at 50% 50%,
+                    color-mix(in srgb, var(--m-main) 26%, transparent) 0%,
+                    color-mix(in srgb, var(--m-main) 8%, transparent) 44%,
+                    transparent 76%
+            );
+            backdrop-filter: blur(6px) saturate(1.2);
+            -webkit-backdrop-filter: blur(6px) saturate(1.2);
+            box-shadow:
+                    inset 0 1px 0 rgba(255,255,255,0.5),
+                    inset 0 0 16px color-mix(in srgb, var(--m-main) 22%, transparent),
+                    0 0 0 2px color-mix(in srgb, var(--m-main) 8%, transparent),
+                    0 0 18px color-mix(in srgb, var(--m-main) 34%, transparent);
+            transition: box-shadow 0.24s ease;
+        }
+        .hub-door:hover .hub-dial {
+            box-shadow:
+                    inset 0 1px 0 rgba(255,255,255,0.65),
+                    inset 0 0 20px color-mix(in srgb, var(--m-main) 34%, transparent),
+                    0 0 0 3px color-mix(in srgb, var(--m-main) 14%, transparent),
+                    0 0 26px color-mix(in srgb, var(--m-main) 52%, transparent);
+        }
+
+        .hub-arc {
+            position: absolute; inset: 0;
+            border-radius: 999px;
+            background: conic-gradient(
+                    from 0deg,
+                    color-mix(in srgb, var(--m-main) 75%, transparent) 0deg var(--arc, 0deg),
+                    transparent var(--arc, 0deg) 360deg
+            );
+            -webkit-mask: radial-gradient(closest-side, transparent 93%, #000 95%);
+            mask: radial-gradient(closest-side, transparent 93%, #000 95%);
+            transition: --arc 0.5s cubic-bezier(0, 0, 0.2, 1);
+        }
+
+        .hub-compass {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            opacity: 0.85;
+            transition: opacity 0.3s ease;
+        }
+        .hub-compass__petals path {
+            fill: color-mix(in srgb, var(--m-main) 10%, transparent);
+            stroke: color-mix(in srgb, var(--m-main) 55%, transparent);
+            stroke-width: 0.9;
+            stroke-dasharray: 1.5 1.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .hub-compass__star {
+            transform-box: view-box;
+            transform-origin: 50% 50%;
+            transform: rotate(var(--na, 0deg));
+            transition: opacity 0.3s ease;
+        }
+        .hub-compass__star path {
+            fill: color-mix(in srgb, var(--m-main) 16%, transparent);
+            stroke: color-mix(in srgb, var(--m-main) 70%, transparent);
+            stroke-width: 0.9;
+            stroke-dasharray: 1.4 1.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .hub-compass__star path.is-main {
+            fill: color-mix(in srgb, var(--m-main) 28%, transparent);
+            stroke: var(--m-main);
+            stroke-width: 1.1;
+        }
+
+        .hub-back {
+            position: absolute;
+            inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .hub-back svg { width: 22px; height: 22px; color: var(--m-main); stroke-width: 2.4; }
+        .radial.is-nested .hub-compass { opacity: 0; }
+        .radial.is-nested .hub-back { opacity: 1; }
+
+        .hub-name {
+            position: absolute;
+            left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--text-primary);
+            pointer-events: none;
+            z-index: 6;
+            text-align: center;
+            line-height: 1.2;
+            max-width: 52px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: opacity 0.2s ease;
+            letter-spacing: -0.2px;
+        }
+        .radial.is-nested .hub-name { opacity: 0; }
+
+        /* 环上的图标 */
+        .radial__item {
+            position: absolute;
+            left: 50%; top: 50%;
+            width: 34px; height: 34px;
+            border-radius: 999px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            background: transparent;
+            border: 1px solid transparent;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--r)) rotate(calc(-1 * var(--a)));
+            z-index: 2;
+        }
+
+        .radial__item.enter-from-center {
+            animation: ring-in 0.5s cubic-bezier(0.16, 0.9, 0.3, 1) backwards;
+            animation-delay: calc(var(--i) * 35ms);
+        }
+        @keyframes ring-in {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) rotate(var(--a)) translateX(0px) rotate(calc(-1 * var(--a))) scale(0.4);
+            }
+        }
+        .radial__item.enter-from-center-strong {
+            animation: ring-in-strong 0.6s cubic-bezier(0.16, 0.9, 0.3, 1) backwards;
+            animation-delay: calc(var(--i) * 45ms);
+        }
+        @keyframes ring-in-strong {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) rotate(var(--a)) translateX(0px) rotate(calc(-1 * var(--a))) scale(0.2);
+                filter: blur(4px);
+            }
+            50% { opacity: 1; filter: blur(0); }
+            to   { opacity: 1; filter: blur(0); }
+        }
+
+        .radial__item:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+            border-color: var(--border-subtle);
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--r)) rotate(calc(-1 * var(--a))) scale(1.15);
+        }
+        .radial__item.active {
+            color: #fff;
+            background: var(--m-main);
+            border-color: var(--m-main);
+            box-shadow:
+                    0 0 0 1.2px color-mix(in srgb, var(--m-main) 50%, transparent),
+                    0 4px 12px color-mix(in srgb, var(--m-main) 36%, transparent),
+                    0 0 16px color-mix(in srgb, var(--m-main) 28%, transparent);
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--r)) rotate(calc(-1 * var(--a))) scale(1.15);
+        }
+        .radial__item.active::after {
+            content: ''; position: absolute; inset: -1px;
+            border-radius: inherit;
+            border: 1.2px solid var(--m-main);
+            animation: sel-pulse 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes sel-pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            70%, 100% { transform: scale(1.5); opacity: 0; }
+        }
+        .radial__item svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .radial__item.active svg { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.85)); }
+
+        /* 有子菜单的标记：底部小圆点 */
+        .radial__item[data-has-children="true"]::before {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 5px; height: 5px;
+            border-radius: 999px;
+            background: var(--m-main);
+            box-shadow: 0 0 6px color-mix(in srgb, var(--m-main) 60%, transparent);
+            z-index: 3;
+            transition: all 0.2s ease;
+        }
+        .radial__item[data-has-children="true"].active::before {
+            background: #fff;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+        }
+
+        /* 环上的文字：外圈 */
+        .radial__label {
+            position: absolute;
+            left: 50%; top: 50%;
+            white-space: nowrap;
+            transform: translate(-50%, -50%) translate(var(--lx, 0), var(--ly, 0));
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            opacity: 0.9;
+            pointer-events: none;
+            transition: color 0.2s ease, font-weight 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+            max-width: 76px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            z-index: 3;
+        }
+        .radial__item.active + .radial__label,
+        .radial__item:hover + .radial__label {
+            color: var(--text-primary);
+            font-weight: 700;
+            opacity: 1;
+        }
+
+        /* 悬停气泡 */
+        .radial__item .bubble {
+            position: absolute;
+            left: 50%; top: 50%;
+            transform: translate(-50%, -50%) translate(var(--bx), var(--by)) scale(0.9);
+            background: var(--bg-float);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 9px;
+            padding: 5px 10px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            box-shadow: var(--shadow-float);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+            z-index: 100;
+        }
+        .radial__item:hover .bubble {
+            opacity: 1;
+            transform: translate(-50%, -50%) translate(var(--bx), var(--by)) scale(1);
+        }
+
+        /* ========== 可切换的槽 ========== */
+        .sidebar-slot {
+            flex: 1;
+            min-height: 0;
+            display: flex; flex-direction: column;
+            border-top: 1px solid var(--border-subtle);
+            margin-top: 4px;
+        }
+        .sidebar.collapsed .sidebar-slot { display: none; }
+
+        .slot-tabs {
+            display: flex; align-items: center;
+            gap: 2px;
+            padding: 8px 10px 6px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            flex-shrink: 0;
+        }
+        .slot-tabs::-webkit-scrollbar { display: none; }
+        .slot-tab {
+            flex-shrink: 0;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .slot-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+        .slot-tab.active {
+            color: var(--m-main);
+            background: var(--m-soft);
+        }
+
+        .slot-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 0 14px 14px;
+        }
+        .slot-body::-webkit-scrollbar { width: 4px; }
+        .slot-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
+        .slot-body:hover::-webkit-scrollbar-thumb { background: var(--border-subtle); }
+
+        .slot-panel { display: none; }
+        .slot-panel.active { display: block; animation: slot-in 0.25s ease backwards; }
+        @keyframes slot-in {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 最近 */
+        .recent-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px;
+            margin: 0 -8px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .recent-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            padding-left: 12px;
+        }
+        .recent-icon {
+            width: 20px; height: 20px;
+            border-radius: 6px;
+            background: var(--m-soft);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .recent-icon svg { width: 11px; height: 11px; }
+        .recent-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .recent-time { font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; }
+
+        /* 快捷 */
+        .quick-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .quick-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 11.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: left;
+            width: 100%;
+        }
+        .quick-btn:hover {
+            border-color: var(--m-main);
+            color: var(--m-main);
+            background: var(--m-soft);
+        }
+        .quick-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+        /* KPI */
+        .kpi-list { display: flex; flex-direction: column; gap: 4px; }
+        .kpi-item {
+            display: flex; align-items: baseline; gap: 6px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .kpi-item:last-child { border-bottom: none; }
+        .kpi-label { font-size: 11.5px; color: var(--text-muted); flex: 1; }
+        .kpi-value {
+            font-size: 14px; font-weight: 800;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+        .kpi-value.accent { color: var(--m-main); }
+
+        /* AI */
+        .ai-chat { display: flex; flex-direction: column; gap: 8px; }
+        .ai-msg {
+            padding: 8px 10px;
+            border-radius: 10px;
+            font-size: 11.5px;
+            line-height: 1.6;
+        }
+        .ai-msg.bot {
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            border-top-left-radius: 3px;
+        }
+        .ai-msg.user {
+            background: var(--m-soft);
+            color: var(--m-main);
+            border-top-right-radius: 3px;
+            align-self: flex-end;
+            max-width: 85%;
+        }
+        .ai-input {
+            display: flex; align-items: center; gap: 4px;
+            margin-top: 6px;
+            padding: 4px 4px 4px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+        }
+        .ai-input input {
+            flex: 1; min-width: 0;
+            border: none; outline: none; background: transparent;
+            font-size: 11.5px;
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+        .ai-input input::placeholder { color: var(--text-muted); }
+        .ai-send {
+            width: 24px; height: 24px;
+            border-radius: 999px;
+            border: none;
+            background: var(--m-main);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .ai-send svg { width: 12px; height: 12px; }
+
+        /* 侧栏底部 */
+        .sidebar-foot {
+            padding: 8px 14px 14px;
+            flex-shrink: 0;
+        }
+        .collapse-btn {
+            width: 100%;
+            padding: 8px;
+            border-radius: 9px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 11.5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .collapse-btn:hover {
+            border-color: var(--m-main);
+            color: var(--m-main);
+            background: var(--m-soft);
+        }
+        .collapse-btn svg {
+            width: 12px; height: 12px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sidebar.collapsed .collapse-btn svg { transform: rotate(180deg); }
+        .sidebar.collapsed .collapse-text { display: none; }
+
+        /* ========== 主内容 ========== */
+        .main-wrap { grid-area: main; overflow: hidden; display: flex; min-width: 0; }
+
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 26px;
+            background: var(--bg-card);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-float);
+            transition: background 0.4s ease, padding 0.3s ease;
+            min-width: 0;
+        }
+        .main::-webkit-scrollbar { width: 6px; }
+        .main::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+
+        .page-header {
+            display: flex; align-items: flex-end; justify-content: space-between;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 16px;
+        }
+        .page-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+        .page-title {
+            font-size: 24px; font-weight: 800;
+            letter-spacing: -0.6px;
+            background: linear-gradient(135deg, var(--text-primary) 40%, var(--m-main));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transition: all 0.4s ease;
+        }
+        .page-path {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .page-path .crumb {
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .page-path .crumb:hover { color: var(--m-main); border-color: var(--m-main); }
+        .page-path .crumb.current {
+            background: var(--m-soft);
+            color: var(--m-main);
+            border-color: transparent;
+            font-weight: 600;
+            cursor: default;
+        }
+        .page-subtitle { font-size: 13px; color: var(--text-secondary); }
+        .page-actions { display: flex; gap: 8px; }
+
+        .btn {
+            padding: 9px 15px;
+            border-radius: 10px;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary {
+            background: var(--m-main);
+            color: #fff;
+            box-shadow: 0 5px 14px var(--m-soft);
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 7px 22px var(--m-glow); }
+        .btn-ghost {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-main); }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: var(--bg-hover);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 18px;
+            transition: all 0.3s ease;
+            display: flex; flex-direction: column;
+            min-height: 96px;
+            animation: fadeUp 0.35s ease backwards;
+        }
+        .card:nth-child(1) { animation-delay: 0.03s; }
+        .card:nth-child(2) { animation-delay: 0.06s; }
+        .card:nth-child(3) { animation-delay: 0.09s; }
+        .card:nth-child(4) { animation-delay: 0.12s; }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: var(--m-soft);
+            background: var(--bg-card);
+            box-shadow: 0 8px 24px rgba(15,23,42,0.06);
+        }
+        .card-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+        .card-value {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+            transition: color 0.3s ease;
+            line-height: 1;
+        }
+        .card:hover .card-value { color: var(--m-main); }
+        .card-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: auto;
+            line-height: 1.5;
+        }
+
+        .section {
+            background: var(--bg-hover);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+        .section:last-child { margin-bottom: 0; }
+        .section:hover { border-color: var(--m-soft); background: var(--bg-card); }
+        .section-title {
+            font-size: 13.5px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .section-title .more {
+            font-size: 11.5px;
+            color: var(--m-main);
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .section-title .more:hover { transform: translateX(3px); }
+
+        .list-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 11px 8px;
+            margin: 0 -8px;
+            border-radius: 9px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border-subtle);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .list-item:last-child { border-bottom: none; }
+        .list-item:hover { background: var(--bg-card); padding-left: 14px; }
+        .list-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+        .list-item:hover .list-dot { transform: scale(1.4); }
+        .list-text { flex: 1; min-width: 0; }
+        .list-meta { font-size: 11.5px; color: var(--text-muted); flex-shrink: 0; }
+        .list-meta.warn { color: #EF4444; }
+
+        /* 命令面板 */
+        .cmd-mask {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: none;
+            align-items: flex-start; justify-content: center;
+            padding: 120px 20px 20px;
+            animation: fadeIn 0.2s ease;
+        }
+        .cmd-mask.open { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .cmd-panel {
+            width: 100%;
+            max-width: 560px;
+            background: var(--bg-float);
+            backdrop-filter: var(--blur-card);
+            -webkit-backdrop-filter: var(--blur-card);
+            border: 1px solid var(--border-card);
+            border-radius: 18px;
+            box-shadow: var(--shadow-float);
+            overflow: hidden;
+            animation: cmdIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes cmdIn {
+            from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .cmd-input {
+            width: 100%;
+            padding: 18px 20px;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .cmd-input::placeholder { color: var(--text-muted); }
+        .cmd-list { max-height: 320px; overflow-y: auto; padding: 8px; }
+        .cmd-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .cmd-item:hover, .cmd-item.active {
+            background: var(--m-soft);
+            color: var(--m-main);
+        }
+        .cmd-item-icon {
+            width: 28px; height: 28px;
+            border-radius: 8px;
+            background: var(--bg-hover);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .cmd-item-text { flex: 1; }
+        .cmd-kbd {
+            font-size: 10.5px;
+            padding: 2px 7px;
+            border-radius: 5px;
+            background: var(--bg-hover);
+            color: var(--text-muted);
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        }
+
+        @media (max-width: 1100px) { :root { --sidebar-w: 280px; } }
+        @media (max-width: 900px) {
+            .app {
+                grid-template-columns: 1fr;
+                grid-template-areas: "topbar" "main";
+                grid-template-rows: 68px 1fr;
+                gap: 12px;
+                padding: 12px;
+            }
+            .sidebar-wrap { display: none; }
+            .nav-p-item span:not(.nav-p-icon):not(.nav-p-badge) { display: none; }
+            .nav-p-item { padding: 0 12px; }
+            .topbar { padding: 8px 10px 8px 12px; }
+            .topbar-right .icon-btn:not(.ai):not(#themeBtn) { display: none; }
+        }
+        @media (max-width: 600px) {
+            .main { padding: 18px; }
+            .page-title { font-size: 20px; }
+            .card-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .card { padding: 14px; min-height: 84px; }
+            .card-value { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="aurora-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+</div>
+
+<div class="app" id="app">
+
+    <!-- ========== 顶栏 ========== -->
+    <div class="topbar-wrap">
+        <div class="topbar">
+            <div class="logo-mark" onclick="openCmd()">J</div>
+            <div class="divider-v"></div>
+
+            <nav class="nav-primary" id="navPrimary">
+                <div class="nav-p-item active" data-module="dashboard" onclick="switchPrimary('dashboard')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="9" rx="1.5"></rect>
+              <rect x="14" y="3" width="7" height="5" rx="1.5"></rect>
+              <rect x="14" y="12" width="7" height="9" rx="1.5"></rect>
+              <rect x="3" y="16" width="7" height="5" rx="1.5"></rect>
+            </svg>
+          </span>
+                    工作台
+                </div>
+                <div class="nav-p-item" data-module="tasks" onclick="switchPrimary('tasks')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+          </span>
+                    任务
+                    <span class="nav-p-badge">5</span>
+                </div>
+                <div class="nav-p-item" data-module="calendar" onclick="switchPrimary('calendar')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </span>
+                    日程
+                </div>
+                <div class="nav-p-item" data-module="life" onclick="switchPrimary('life')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12l2-2 4 4 7-7 3 3"></path>
+              <path d="M3 21h18"></path>
+            </svg>
+          </span>
+                    生活
+                </div>
+                <div class="nav-p-item" data-module="work" onclick="switchPrimary('work')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+          </span>
+                    工作
+                    <span class="nav-p-badge warn">2</span>
+                </div>
+                <div class="nav-p-item" data-module="learning" onclick="switchPrimary('learning')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 4l10 5 10-5-10-5z"></path>
+              <path d="M2 20l10 5 10-5"></path>
+              <path d="M2 12l10 5 10-5"></path>
+            </svg>
+          </span>
+                    学习
+                </div>
+                <div class="nav-p-item" data-module="projects" onclick="switchPrimary('projects')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7l9-4 9 4-9 4-9-4z"></path>
+              <path d="M3 12l9 4 9-4"></path>
+              <path d="M3 17l9 4 9-4"></path>
+            </svg>
+          </span>
+                    项目
+                    <span class="nav-p-badge">4</span>
+                </div>
+                <div class="nav-p-item" data-module="knowledge" onclick="switchPrimary('knowledge')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+          </span>
+                    知识库
+                </div>
+                <div class="nav-p-item" data-module="settings" onclick="switchPrimary('settings')">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </span>
+                    设置
+                </div>
+            </nav>
+
+            <div class="topbar-right">
+                <button class="icon-btn" title="搜索 ⌘K" onclick="openCmd()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+                <button class="icon-btn" title="通知" onclick="alert('原型演示：通知')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <span class="dot"></span>
+                </button>
+                <button class="icon-btn" id="themeBtn" title="切换主题">
+                    <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+                <button class="icon-btn ai" title="AI 助手 ⌘K" onclick="alert('原型演示：AI 助手')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"></path>
+                    </svg>
+                </button>
+                <div class="avatar" onclick="alert('原型演示：用户菜单')">杨</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 侧栏 ========== -->
+    <div class="sidebar-wrap">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-head">
+                <div class="sidebar-title">
+                    <span class="dot"></span>
+                    <span class="name" id="sidebarTitle">工作台</span>
+                </div>
+                <div class="sidebar-subtitle" id="sidebarSubtitle">今日概览</div>
+            </div>
+
+            <!-- 圆盘 -->
+            <div class="radial-stage">
+                <div class="radial" id="moduleRing" role="group" aria-label="环形导航">
+                    <span class="hub-aura" aria-hidden="true"></span>
+                    <i class="hub-ripple" aria-hidden="true"></i>
+
+                    <button type="button" class="hub-door" data-hub-door aria-label="进入 / 返回">
+            <span class="hub-dial" aria-hidden="true">
+              <i class="hub-arc" data-hub-arc></i>
+              <svg class="hub-compass" viewBox="0 0 100 100" aria-hidden="true">
+                <g class="hub-compass__petals">
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(0 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(30 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(60 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(90 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(120 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(150 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(180 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(210 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(240 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(270 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(300 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(330 50 50)"/>
+                </g>
+                <g class="hub-compass__star">
+                  <path class="is-main" d="M50 50 L46.4 50 L50 26 L53.6 50 Z" transform="rotate(0 50 50)"/>
+                  <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(90 50 50)"/>
+                  <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(180 50 50)"/>
+                  <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(270 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(45 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(135 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(225 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(315 50 50)"/>
+                </g>
+              </svg>
+              <span class="hub-back" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 12H5"></path>
+                  <path d="m12 19-7-7 7-7"></path>
+                </svg>
+              </span>
+            </span>
+                        <span class="hub-name">
+              <span class="hub-name-flip" data-hub-name>今日概览</span>
+            </span>
+                    </button>
+
+                    <div data-radial-items></div>
+                </div>
+            </div>
+
+            <!-- 可切换的槽 -->
+            <div class="sidebar-slot">
+                <div class="slot-tabs" id="slotTabs">
+                    <div class="slot-tab active" data-slot="recent">最近</div>
+                    <div class="slot-tab" data-slot="quick">快捷</div>
+                    <div class="slot-tab" data-slot="kpi">KPI</div>
+                    <div class="slot-tab" data-slot="ai">AI</div>
+                </div>
+
+                <div class="slot-body">
+                    <!-- 最近访问 -->
+                    <div class="slot-panel active" data-panel="recent">
+                        <div class="recent-item">
+              <span class="recent-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </span>
+                            <span class="recent-text">客户资料 · 需求</span>
+                            <span class="recent-time">2h</span>
+                        </div>
+                        <div class="recent-item">
+              <span class="recent-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+              </span>
+                            <span class="recent-text">会议 · 项目评审</span>
+                            <span class="recent-time">今天</span>
+                        </div>
+                        <div class="recent-item">
+              <span class="recent-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/></svg>
+              </span>
+                            <span class="recent-text">项目 · 支付系统重构</span>
+                            <span class="recent-time">昨天</span>
+                        </div>
+                        <div class="recent-item">
+              <span class="recent-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/></svg>
+              </span>
+                            <span class="recent-text">设置 · 模块管理</span>
+                            <span class="recent-time">3天</span>
+                        </div>
+                    </div>
+
+                    <!-- 快捷操作 -->
+                    <div class="slot-panel" data-panel="quick">
+                        <div class="quick-grid">
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                                新建任务
+                            </button>
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+                                新建日程
+                            </button>
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                新建笔记
+                            </button>
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>
+                                记一笔
+                            </button>
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                习惯打卡
+                            </button>
+                            <button class="quick-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"/></svg>
+                                AI 助手
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- KPI -->
+                    <div class="slot-panel" data-panel="kpi">
+                        <div class="kpi-list">
+                            <div class="kpi-item">
+                                <span class="kpi-label">任务完成</span>
+                                <span class="kpi-value accent">3 / 8</span>
+                            </div>
+                            <div class="kpi-item">
+                                <span class="kpi-label">今日会议</span>
+                                <span class="kpi-value">2</span>
+                            </div>
+                            <div class="kpi-item">
+                                <span class="kpi-label">进行项目</span>
+                                <span class="kpi-value">4</span>
+                            </div>
+                            <div class="kpi-item">
+                                <span class="kpi-label">本周学习</span>
+                                <span class="kpi-value accent">8.5h</span>
+                            </div>
+                            <div class="kpi-item">
+                                <span class="kpi-label">逾期任务</span>
+                                <span class="kpi-value">2</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI -->
+                    <div class="slot-panel" data-panel="ai">
+                        <div class="ai-chat">
+                            <div class="ai-msg bot">今天有 1 项风险、6 项待到期。要我先排今天的顺序吗？</div>
+                            <div class="ai-msg user">先看工作</div>
+                            <div class="ai-msg bot">工作域平均 42%，低于全域 17 个百分点。主要拖累是团队 OKR（12%）。</div>
+                        </div>
+                        <div class="ai-input">
+                            <input type="text" placeholder="问点什么…" />
+                            <button class="ai-send">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-foot">
+                <button class="collapse-btn" id="collapseBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span class="collapse-text">收起</span>
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ========== 主内容 ========== -->
+    <div class="main-wrap">
+        <main class="main">
+            <div class="page-header">
+                <div>
+                    <div class="page-title-row">
+                        <div class="page-title" id="pageTitle">工作台</div>
+                    </div>
+                    <div class="page-path" id="pagePath"></div>
+                    <div class="page-subtitle" id="pageSubtitle" style="margin-top:6px;">下午好，杨刘。今天有 3 个日程、5 个任务。</div>
+                </div>
+                <div class="page-actions">
+                    <button class="btn btn-ghost" onclick="openCmd()">⌘K 搜索</button>
+                    <button class="btn btn-primary" onclick="alert('原型演示：新建')">+ 新建</button>
+                </div>
+            </div>
+
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-label">今日任务</div>
+                    <div class="card-value">3 / 8</div>
+                    <div class="card-desc">2 个高优先级 · 2 个逾期</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">今日日程</div>
+                    <div class="card-value">3</div>
+                    <div class="card-desc">下一场 14:00 项目评审</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">进行项目</div>
+                    <div class="card-value">4</div>
+                    <div class="card-desc">2 个里程碑临近</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">本周学习</div>
+                    <div class="card-value">8.5h</div>
+                    <div class="card-desc">目标 10h · 85%</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    <span id="sectionTitle">今日任务</span>
+                    <span class="more" onclick="alert('原型演示：查看全部')">查看全部 ›</span>
+                </div>
+                <div id="sectionList">
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#E11D48;"></span>
+                        <span class="list-text">准备项目评审</span>
+                        <span class="list-meta">14:00</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#E11D48;"></span>
+                        <span class="list-text">优化首页加载速度</span>
+                        <span class="list-meta warn">已逾期</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#10B981;"></span>
+                        <span class="list-text">买猫粮</span>
+                        <span class="list-meta warn">已逾期</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-dot" style="background:#D946EF;"></span>
+                        <span class="list-text">复习 React 19 笔记</span>
+                        <span class="list-meta">今天</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+</div>
+
+<!-- 命令面板 -->
+<div class="cmd-mask" id="cmdMask" onclick="if(event.target===this)closeCmd()">
+    <div class="cmd-panel">
+        <input class="cmd-input" id="cmdInput" placeholder="搜索模块、任务、笔记... 或输入命令" />
+        <div class="cmd-list">
+            <div class="cmd-item active"><div class="cmd-item-icon">🏠</div><div class="cmd-item-text">工作台</div><span class="cmd-kbd">G D</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon">✅</div><div class="cmd-item-text">任务清单</div><span class="cmd-kbd">G T</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon">📅</div><div class="cmd-item-text">日程</div><span class="cmd-kbd">G C</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon">💚</div><div class="cmd-item-text">生活</div><span class="cmd-kbd">G L</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon">💼</div><div class="cmd-item-text">工作</div><span class="cmd-kbd">G W</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon">📚</div><div class="cmd-item-text">学习</div><span class="cmd-kbd">G S</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon">📦</div><div class="cmd-item-text">项目</div><span class="cmd-kbd">G P</span></div>
+            <div class="cmd-item"><div class="cmd-item-icon">📖</div><div class="cmd-item-text">知识库</div><span class="cmd-kbd">G K</span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ============================================================
+       数据：一级 → 二级 → 三级
+       ============================================================ */
+    const primaryConfig = {
+        dashboard: {
+            name: '工作台', subtitle: '今日概览',
+            desc: '下午好，杨刘。今天有 3 个日程、5 个任务。',
+            colors: {
+                light: { c1: '#A5B4FC', c2: '#C4B5FD', c3: '#BAE6FD', main: '#6366F1' },
+                dark:  { c1: '#4F46E5', c2: '#7C3AED', c3: '#0EA5E9', main: '#818CF8' }
+            },
+            items: [
+                { key: 'overview', label: '今日概览', icon: 'grid' },
+                { key: 'briefing', label: 'AI 简报', icon: 'sparkle' },
+                { key: 'activity', label: '最近活动', icon: 'activity' }
+            ]
+        },
+        tasks: {
+            name: '任务', subtitle: '跨领域任务中心',
+            desc: '统一管理生活、工作、学习任务。',
+            colors: {
+                light: { c1: '#FDE68A', c2: '#FED7AA', c3: '#FEF3C7', main: '#F59E0B' },
+                dark:  { c1: '#B45309', c2: '#C2410C', c3: '#92400E', main: '#FBBF24' }
+            },
+            items: [
+                { key: 'all', label: '全部', icon: 'list',
+                    children: [
+                        { key: 'all-life', label: '生活', icon: 'leaf', count: 8 },
+                        { key: 'all-work', label: '工作', icon: 'briefcase', count: 12 },
+                        { key: 'all-learn', label: '学习', icon: 'book', count: 4 }
+                    ] },
+                { key: 'today', label: '今日', icon: 'sun',
+                    children: [
+                        { key: 'today-overdue', label: '已逾期', icon: 'alert', count: 2 },
+                        { key: 'today-high', label: '高优先级', icon: 'flag', count: 3 },
+                        { key: 'today-rest', label: '其余', icon: 'list', count: 3 }
+                    ] },
+                { key: 'inbox', label: '收件箱', icon: 'inbox',
+                    children: [
+                        { key: 'inbox-new', label: '未整理', icon: 'list', count: 5 },
+                        { key: 'inbox-idea', label: '想法', icon: 'sparkle' },
+                        { key: 'inbox-ref', label: '参考', icon: 'file' }
+                    ] },
+                { key: 'board', label: '看板', icon: 'kanban',
+                    children: [
+                        { key: 'board-todo', label: '待办', icon: 'list', count: 12 },
+                        { key: 'board-doing', label: '进行中', icon: 'trend', count: 5 },
+                        { key: 'board-done', label: '已完成', icon: 'check', count: 7 }
+                    ] },
+                { key: 'matrix', label: '四象限', icon: 'matrix',
+                    children: [
+                        { key: 'mx-1', label: '重要紧急', icon: 'alert', count: 2 },
+                        { key: 'mx-2', label: '重要不紧急', icon: 'flag', count: 4 },
+                        { key: 'mx-3', label: '紧急不重要', icon: 'clock', count: 3 },
+                        { key: 'mx-4', label: '其余', icon: 'archive', count: 5 }
+                    ] },
+                { key: 'calendar', label: '日历', icon: 'calendar' }
+            ]
+        },
+        calendar: {
+            name: '日程', subtitle: '统一时间轴',
+            desc: '聚合生活、工作、学习、项目所有事件。',
+            colors: {
+                light: { c1: '#7DD3FC', c2: '#A5F3FC', c3: '#BAE6FD', main: '#0EA5E9' },
+                dark:  { c1: '#0284C7', c2: '#0E7490', c3: '#075985', main: '#38BDF8' }
+            },
+            items: [
+                { key: 'month', label: '月视图', icon: 'calendar' },
+                { key: 'week', label: '周视图', icon: 'calendar' },
+                { key: 'day', label: '日视图', icon: 'calendar' },
+                { key: 'agenda', label: '议程', icon: 'list',
+                    children: [
+                        { key: 'ag-today', label: '今天', icon: 'sun', count: 3 },
+                        { key: 'ag-tomorrow', label: '明天', icon: 'clock', count: 2 },
+                        { key: 'ag-week', label: '本周', icon: 'calendar', count: 9 }
+                    ] },
+                { key: 'life', label: '生活日历', icon: 'leaf' },
+                { key: 'work', label: '工作日历', icon: 'briefcase' },
+                { key: 'learning', label: '学习日历', icon: 'book' },
+                { key: 'milestone', label: '里程碑', icon: 'flag' }
+            ]
+        },
+        life: {
+            name: '生活', subtitle: '个人生活管理',
+            desc: '习惯、健康、财务、日记、宠物、食谱、运动。',
+            colors: {
+                light: { c1: '#86EFAC', c2: '#A7F3D0', c3: '#BBF7D0', main: '#10B981' },
+                dark:  { c1: '#059669', c2: '#047857', c3: '#065F46', main: '#34D399' }
+            },
+            items: [
+                { key: 'overview', label: '概览', icon: 'grid' },
+                { key: 'habits', label: '习惯', icon: 'check',
+                    children: [
+                        { key: 'habits-week', label: '本周', icon: 'calendar' },
+                        { key: 'habits-streak', label: '连续记录', icon: 'trend' },
+                        { key: 'habits-stats', label: '统计', icon: 'graph' }
+                    ] },
+                { key: 'health', label: '健康', icon: 'heart',
+                    children: [
+                        { key: 'health-weight', label: '体重', icon: 'trend' },
+                        { key: 'health-sleep', label: '睡眠', icon: 'clock' },
+                        { key: 'health-steps', label: '步数', icon: 'run' }
+                    ] },
+                { key: 'fitness', label: '运动', icon: 'run',
+                    children: [
+                        { key: 'fit-run', label: '跑步', icon: 'run' },
+                        { key: 'fit-bike', label: '骑行', icon: 'run' },
+                        { key: 'fit-strength', label: '力量', icon: 'heart' },
+                        { key: 'fit-yoga', label: '瑜伽', icon: 'heart' }
+                    ] },
+                { key: 'recipes', label: '食谱', icon: 'food',
+                    children: [
+                        { key: 'recipe-breakfast', label: '早餐', icon: 'sun' },
+                        { key: 'recipe-lunch', label: '午餐', icon: 'food' },
+                        { key: 'recipe-dinner', label: '晚餐', icon: 'food' }
+                    ] },
+                { key: 'finance', label: '财务', icon: 'wallet',
+                    children: [
+                        { key: 'fin-income', label: '收入', icon: 'trend' },
+                        { key: 'fin-expense', label: '支出', icon: 'wallet' },
+                        { key: 'fin-budget', label: '预算', icon: 'target' }
+                    ] },
+                { key: 'journal', label: '日记', icon: 'pen' },
+                { key: 'pets', label: '宠物', icon: 'paw',
+                    children: [
+                        { key: 'pet-profile', label: '档案', icon: 'paw' },
+                        { key: 'pet-health', label: '健康', icon: 'heart' },
+                        { key: 'pet-food', label: '饮食', icon: 'food' },
+                        { key: 'pet-cost', label: '支出', icon: 'wallet' }
+                    ] },
+                { key: 'family', label: '家庭', icon: 'home' }
+            ]
+        },
+        work: {
+            name: '工作', subtitle: '职业工作管理',
+            desc: '任务、项目、客户资料、服务器、部署。',
+            colors: {
+                light: { c1: '#FDA4AF', c2: '#FECDD3', c3: '#FBCFE8', main: '#E11D48' },
+                dark:  { c1: '#BE123C', c2: '#9F1239', c3: '#881337', main: '#FB7185' }
+            },
+            items: [
+                { key: 'dashboard', label: '工作台', icon: 'grid' },
+                { key: 'tasks', label: '任务', icon: 'list',
+                    children: [
+                        { key: 'wt-all', label: '全部', icon: 'list', count: 8 },
+                        { key: 'wt-today', label: '今日', icon: 'sun', count: 3 },
+                        { key: 'wt-overdue', label: '已逾期', icon: 'alert', count: 1 },
+                        { key: 'wt-done', label: '已完成', icon: 'check', count: 4 }
+                    ] },
+                { key: 'projects', label: '项目', icon: 'project',
+                    children: [
+                        { key: 'wp-active', label: '进行中', icon: 'play', count: 4 },
+                        { key: 'wp-risk', label: '风险', icon: 'alert', count: 1 },
+                        { key: 'wp-done', label: '已完成', icon: 'check', count: 8 }
+                    ] },
+                { key: 'calendar', label: '会议', icon: 'calendar' },
+                { key: 'clients', label: '客户', icon: 'folder',
+                    children: [
+                        { key: 'cl-requirement', label: '需求', icon: 'file', count: 12 },
+                        { key: 'cl-data', label: '数据', icon: 'database', count: 8 },
+                        { key: 'cl-prototype', label: '原型', icon: 'sparkle', count: 6 },
+                        { key: 'cl-reference', label: '参考', icon: 'link', count: 6 }
+                    ] },
+                { key: 'docs', label: '文档', icon: 'file',
+                    children: [
+                        { key: 'doc-wiki', label: 'Wiki', icon: 'file' },
+                        { key: 'doc-adr', label: 'ADR', icon: 'file' },
+                        { key: 'doc-meeting', label: '会议纪要', icon: 'pen' },
+                        { key: 'doc-link', label: '外部链接', icon: 'link' }
+                    ] },
+                { key: 'servers', label: '服务器', icon: 'server',
+                    children: [
+                        { key: 'srv-prod', label: '生产', icon: 'server', count: 3 },
+                        { key: 'srv-test', label: '测试', icon: 'server', count: 3 },
+                        { key: 'srv-staging', label: '预发', icon: 'server', count: 2 }
+                    ] },
+                { key: 'deploy', label: '部署', icon: 'rocket',
+                    children: [
+                        { key: 'dep-manual', label: '部署手册', icon: 'file' },
+                        { key: 'dep-rollback', label: '回滚', icon: 'refresh' },
+                        { key: 'dep-checklist', label: '检查清单', icon: 'check' },
+                        { key: 'dep-script', label: '部署脚本', icon: 'rocket' }
+                    ] },
+                { key: 'contacts', label: '联系人', icon: 'users' },
+                { key: 'okr', label: 'OKR', icon: 'target' },
+                { key: 'timesheet', label: '工时', icon: 'clock' },
+                { key: 'review', label: '周报', icon: 'refresh' }
+            ]
+        },
+        learning: {
+            name: '学习', subtitle: '个人学习成长',
+            desc: '目标、技能、资源、笔记、复习、实践。',
+            colors: {
+                light: { c1: '#F0ABFC', c2: '#E9D5FF', c3: '#FBCFE8', main: '#D946EF' },
+                dark:  { c1: '#A21CAF', c2: '#86198F', c3: '#701A75', main: '#E879F9' }
+            },
+            items: [
+                { key: 'dashboard', label: '概览', icon: 'grid' },
+                { key: 'goals', label: '目标', icon: 'target',
+                    children: [
+                        { key: 'goal-quarter', label: '季度目标', icon: 'flag' },
+                        { key: 'goal-year', label: '年度目标', icon: 'target' },
+                        { key: 'goal-done', label: '已完成', icon: 'check' }
+                    ] },
+                { key: 'skills', label: '技能', icon: 'sparkle' },
+                { key: 'resources', label: '资源', icon: 'folder',
+                    children: [
+                        { key: 'res-book', label: '书', icon: 'book' },
+                        { key: 'res-course', label: '课程', icon: 'play' },
+                        { key: 'res-doc', label: '文档', icon: 'file' },
+                        { key: 'res-video', label: '视频', icon: 'play' }
+                    ] },
+                { key: 'notes', label: '笔记', icon: 'pen',
+                    children: [
+                        { key: 'note-permanent', label: '永久', icon: 'star' },
+                        { key: 'note-literature', label: '文献', icon: 'book' },
+                        { key: 'note-flash', label: '闪卡', icon: 'sparkle' }
+                    ] },
+                { key: 'review', label: '复习', icon: 'refresh',
+                    children: [
+                        { key: 'rev-today', label: '今日到期', icon: 'clock', count: 5 },
+                        { key: 'rev-week', label: '本周', icon: 'calendar', count: 12 },
+                        { key: 'rev-all', label: '全部', icon: 'archive' }
+                    ] },
+                { key: 'practice', label: '实践', icon: 'project' },
+                { key: 'output', label: '输出', icon: 'send',
+                    children: [
+                        { key: 'out-blog', label: '博客', icon: 'pen' },
+                        { key: 'out-share', label: '分享', icon: 'send' },
+                        { key: 'out-os', label: '开源', icon: 'project' }
+                    ] }
+            ]
+        },
+        projects: {
+            name: '项目', subtitle: '统一执行层',
+            desc: '生活 / 工作 / 学习项目统一管理。',
+            colors: {
+                light: { c1: '#FDBA74', c2: '#FED7AA', c3: '#FDE68A', main: '#F97316' },
+                dark:  { c1: '#EA580C', c2: '#C2410C', c3: '#9A3412', main: '#FB923C' }
+            },
+            items: [
+                { key: 'all', label: '全部', icon: 'grid',
+                    children: [
+                        { key: 'all-active', label: '进行中', icon: 'play', count: 4 },
+                        { key: 'all-risk', label: '风险', icon: 'alert', count: 1 },
+                        { key: 'all-done', label: '已完成', icon: 'check', count: 8 }
+                    ] },
+                { key: 'life', label: '生活', icon: 'leaf' },
+                { key: 'work', label: '工作', icon: 'briefcase' },
+                { key: 'learning', label: '学习', icon: 'book' }
+            ]
+        },
+        knowledge: {
+            name: '知识库', subtitle: '长期知识沉淀',
+            desc: '永久笔记、主题索引、双链图谱。',
+            colors: {
+                light: { c1: '#99F6E4', c2: '#A7F3D0', c3: '#CCFBF1', main: '#14B8A6' },
+                dark:  { c1: '#14B8A6', c2: '#0F766E', c3: '#115E59', main: '#2DD4BF' }
+            },
+            items: [
+                { key: 'notes', label: '笔记', icon: 'file',
+                    children: [
+                        { key: 'n-all', label: '全部', icon: 'file', count: 286 },
+                        { key: 'n-star', label: '收藏', icon: 'star' },
+                        { key: 'n-recent', label: '最近', icon: 'clock' }
+                    ] },
+                { key: 'topics', label: '主题', icon: 'folder',
+                    children: [
+                        { key: 't-frontend', label: '前端', icon: 'sparkle', count: 42 },
+                        { key: 't-backend', label: '后端', icon: 'server', count: 36 },
+                        { key: 't-ui', label: 'UI', icon: 'palette', count: 28 },
+                        { key: 't-life', label: '生活', icon: 'leaf', count: 24 }
+                    ] },
+                { key: 'tags', label: '标签', icon: 'tag' },
+                { key: 'graph', label: '图谱', icon: 'graph' },
+                { key: 'favorites', label: '收藏', icon: 'star' },
+                { key: 'archive', label: '归档', icon: 'archive' }
+            ]
+        },
+        settings: {
+            name: '设置', subtitle: '全局配置中心',
+            desc: '账户、模块、主题、通知、数据、集成、AI。',
+            colors: {
+                light: { c1: '#B8C4D9', c2: '#C9D5E5', c3: '#DCE4F0', main: '#475569' },
+                dark:  { c1: '#5A6B82', c2: '#44546B', c3: '#2E3B52', main: '#A8B8CC' }
+            },
+            items: [
+                { key: 'account', label: '账户', icon: 'user' },
+                { key: 'modules', label: '模块', icon: 'grid',
+                    children: [
+                        { key: 'mod-life', label: '生活', icon: 'leaf' },
+                        { key: 'mod-work', label: '工作', icon: 'briefcase' },
+                        { key: 'mod-learn', label: '学习', icon: 'book' },
+                        { key: 'mod-knowledge', label: '知识库', icon: 'file' }
+                    ] },
+                { key: 'appearance', label: '外观', icon: 'palette' },
+                { key: 'notifications', label: '通知', icon: 'bell' },
+                { key: 'shortcuts', label: '快捷键', icon: 'keyboard' },
+                { key: 'data', label: '数据', icon: 'database' },
+                { key: 'integrations', label: '集成', icon: 'link' },
+                { key: 'ai', label: 'AI', icon: 'sparkle' },
+                { key: 'privacy', label: '隐私', icon: 'shield' }
+            ]
+        }
+    };
+
+    const icons = {
+        grid: '<rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect>',
+        list: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>',
+        sun: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>',
+        inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>',
+        kanban: '<rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line>',
+        matrix: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect>',
+        calendar: '<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+        leaf: '<path d="M3 12l2-2 4 4 7-7 3 3"></path><path d="M3 21h18"></path>',
+        briefcase: '<rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>',
+        book: '<path d="M2 4l10 5 10-5-10-5z"></path><path d="M2 20l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path>',
+        check: '<polyline points="20 6 9 17 4 12"></polyline>',
+        target: '<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>',
+        heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>',
+        run: '<circle cx="13" cy="4" r="2"></circle><path d="M4 17l5-5 3 3 5-7"></path><path d="M13 12v8"></path>',
+        food: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"></path>',
+        wallet: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>',
+        pen: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>',
+        paw: '<circle cx="11" cy="4" r="2"></circle><circle cx="18" cy="8" r="2"></circle><circle cx="20" cy="16" r="2"></circle><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10z"></path>',
+        home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
+        project: '<path d="M3 7l9-4 9 4-9 4-9-4z"></path><path d="M3 12l9 4 9-4"></path><path d="M3 17l9 4 9-4"></path>',
+        folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>',
+        file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>',
+        server: '<rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line>',
+        rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>',
+        users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+        clock: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
+        refresh: '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>',
+        sparkle: '<path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"></path>',
+        play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>',
+        tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line>',
+        graph: '<circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="12" cy="18" r="3"></circle><line x1="8.5" y1="7.5" x2="10.5" y2="16.5"></line><line x1="15.5" y1="7.5" x2="13.5" y2="16.5"></line>',
+        star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>',
+        archive: '<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>',
+        user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>',
+        palette: '<circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path>',
+        bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>',
+        keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"></rect><line x1="6" y1="10" x2="6" y2="10"></line><line x1="10" y1="10" x2="10" y2="10"></line><line x1="14" y1="10" x2="14" y2="10"></line><line x1="18" y1="10" x2="18" y2="10"></line><line x1="8" y1="14" x2="16" y2="14"></line>',
+        database: '<ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>',
+        link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
+        shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>',
+        info: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>',
+        activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
+        alert: '<path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path>',
+        flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line>',
+        send: '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>',
+        trend: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>'
+    };
+
+    function iconSvg(name) {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${icons[name] || icons.grid}</svg>`;
+    }
+
+    /* ============ 状态 ============ */
+    let currentPrimary = 'dashboard';
+    let ringLevel = 'level2';
+    let currentItemIdx = 0;
+    let currentChildIdx = 0;
+    let parentItem = null;
+    const START = -90;
+
+    const ringEl = document.getElementById('moduleRing');
+    const radialItemsWrap = ringEl.querySelector('[data-radial-items]');
+    const arcEl = ringEl.querySelector('[data-hub-arc]');
+    const ripple = ringEl.querySelector('.hub-ripple');
+    const hubDoor = ringEl.querySelector('[data-hub-door]');
+    const sidebarEl = document.getElementById('sidebar');
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const R = 76, RL = 118;
+
+    /* ============ 一级切换 ============ */
+    function switchPrimary(key) {
+        const cfg = primaryConfig[key];
+        if (!cfg) return;
+        currentPrimary = key;
+        ringLevel = 'level2';
+        currentItemIdx = 0;
+        currentChildIdx = 0;
+        parentItem = null;
+
+        document.querySelectorAll('.nav-p-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.module === key);
+        });
+
+        document.getElementById('sidebarTitle').textContent = cfg.name;
+        document.getElementById('sidebarSubtitle').textContent = cfg.subtitle;
+        document.getElementById('pageTitle').textContent = cfg.name;
+        document.getElementById('pageSubtitle').textContent = cfg.desc;
+
+        applyColors(cfg);
+        renderRing(cfg, false);
+        renderPage(cfg);
+    }
+
+    /* ============ 渲染环 ============ */
+    function renderRing(cfg, animate) {
+        let list;
+        if (ringLevel === 'level2') {
+            list = cfg.items;
+        } else {
+            list = parentItem.children || [];
+        }
+
+        const n = list.length;
+        const step = 360 / n;
+        const activeIdx = ringLevel === 'level2' ? currentItemIdx : currentChildIdx;
+
+        let html = '';
+        list.forEach((item, i) => {
+            const a = START + step * i;
+            const rad = (a * Math.PI) / 180;
+            const lx = (RL * Math.cos(rad)).toFixed(1) + 'px';
+            const ly = (RL * Math.sin(rad)).toFixed(1) + 'px';
+            const bubbleR = R + 34;
+            const bx = (bubbleR * Math.cos(rad)).toFixed(1) + 'px';
+            const by = (bubbleR * Math.sin(rad)).toFixed(1) + 'px';
+            const isActive = i === activeIdx;
+            const hasChildren = !!(item.children && item.children.length);
+
+            let animClass = '';
+            if (animate) {
+                animClass = ringLevel === 'level3' ? 'enter-from-center-strong' : 'enter-from-center';
+            }
+
+            html += `
+        <button type="button"
+          class="radial__item ${isActive ? 'active' : ''} ${animClass}"
+          style="--a:${a}deg; --r:${R}px; --bx:${bx}; --by:${by}; --i:${i}"
+          data-idx="${i}"
+          data-key="${item.key}"
+          data-has-children="${hasChildren}"
+          aria-label="${item.label}">
+          ${iconSvg(item.icon)}
+          <span class="bubble">${item.label}</span>
+        </button>
+        <span class="radial__label" style="--lx:${lx}; --ly:${ly}">${item.label}</span>
+      `;
+        });
+        radialItemsWrap.innerHTML = html;
+
+        radialItemsWrap.querySelectorAll('[data-idx]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const i = parseInt(btn.dataset.idx, 10);
+                handleRingClick(i, cfg);
+            });
+        });
+
+        ringEl.classList.toggle('is-nested', ringLevel === 'level3');
+
+        if (ringLevel === 'level2') {
+            hubDoor.classList.remove('is-back');
+            hubDoor.setAttribute('aria-label', '进入当前项');
+            const nameEl = document.querySelector('[data-hub-name]');
+            if (nameEl) nameEl.textContent = cfg.items[currentItemIdx].label;
+        } else {
+            hubDoor.classList.add('is-back');
+            hubDoor.setAttribute('aria-label', '返回上一级');
+        }
+
+        pointTo(START + step * activeIdx);
+        if (arcEl) arcEl.style.setProperty('--arc', (step * (activeIdx + 1)) + 'deg');
+    }
+
+    /* ============ 点击环上的项 ============ */
+    function handleRingClick(i, cfg) {
+        if (ringLevel === 'level2') {
+            if (i === currentItemIdx) return;
+            currentItemIdx = i;
+            const item = cfg.items[i];
+            if (item.children && item.children.length) {
+                enterLevel3(item);
+            } else {
+                renderRing(cfg, false);
+                renderPage(cfg);
+            }
+        } else {
+            if (i === currentChildIdx) return;
+            currentChildIdx = i;
+            renderRing(cfg, false);
+            renderPage(cfg);
+        }
+    }
+
+    /* ============ 进入三级 ============ */
+    function enterLevel3(item) {
+        parentItem = item;
+        ringLevel = 'level3';
+        currentChildIdx = 0;
+        const cfg = primaryConfig[currentPrimary];
+
+        if (ripple && !reduce) {
+            ripple.animate(
+                [
+                    { transform: 'scale(0.4)', opacity: 0.7 },
+                    { transform: 'scale(2.6)', opacity: 0 }
+                ],
+                { duration: 700, easing: 'cubic-bezier(0.16, 0.9, 0.3, 1)' }
+            );
+        }
+
+        renderRing(cfg, true);
+        renderPage(cfg);
+    }
+
+    /* ============ 返回二级 ============ */
+    function backToLevel2() {
+        if (ringLevel !== 'level3') return;
+        ringLevel = 'level2';
+        parentItem = null;
+        const cfg = primaryConfig[currentPrimary];
+        renderRing(cfg, true);
+        renderPage(cfg);
+    }
+
+    /* ============ 中心门 ============ */
+    hubDoor.addEventListener('click', () => {
+        if (ringLevel === 'level3') {
+            backToLevel2();
+        } else {
+            const cfg = primaryConfig[currentPrimary];
+            const item = cfg.items[currentItemIdx];
+            if (item.children && item.children.length) {
+                enterLevel3(item);
+            } else {
+                renderPage(cfg);
+            }
+        }
+    });
+
+    /* ============ 指针 ============ */
+    let needleAngle = START + 90;
+    function pointTo(deg) {
+        const target = deg + 90;
+        const delta = ((target - needleAngle + 540) % 360) - 180;
+        needleAngle += delta;
+        if (sidebarEl) sidebarEl.style.setProperty('--na', needleAngle + 'deg');
+    }
+
+    /* ============ 主内容 ============ */
+    function renderPage(cfg) {
+        const pageTitle = document.getElementById('pageTitle');
+        const pagePath = document.getElementById('pagePath');
+        const pageSubtitle = document.getElementById('pageSubtitle');
+        const sectionTitle = document.getElementById('sectionTitle');
+        const sectionList = document.getElementById('sectionList');
+
+        let pathParts = [];
+        if (ringLevel === 'level3') {
+            pathParts = [
+                { text: cfg.name },
+                { text: parentItem.label },
+                { text: parentItem.children[currentChildIdx].label, current: true }
+            ];
+            pageTitle.textContent = parentItem.children[currentChildIdx].label;
+            pageSubtitle.textContent = parentItem.label + ' · ' + parentItem.children[currentChildIdx].label;
+        } else {
+            const item = cfg.items[currentItemIdx];
+            pathParts = [
+                { text: cfg.name },
+                { text: item.label, current: true }
+            ];
+            pageTitle.textContent = item.label;
+            pageSubtitle.textContent = cfg.desc;
+        }
+
+        let pathHtml = '';
+        pathParts.forEach((p, i) => {
+            if (i > 0) pathHtml += `<span class="sep">/</span>`;
+            if (p.current) {
+                pathHtml += `<span class="crumb current">${p.text}</span>`;
+            } else {
+                pathHtml += `<span class="crumb" data-crumb-idx="${i}">${p.text}</span>`;
+            }
+        });
+        pagePath.innerHTML = pathHtml;
+
+        pagePath.querySelectorAll('[data-crumb-idx]').forEach(el => {
+            el.addEventListener('click', () => {
+                const i = parseInt(el.dataset.crumbIdx, 10);
+                if (i >= 1 && ringLevel === 'level3') backToLevel2();
+            });
+        });
+
+        sectionTitle.textContent = pageTitle.textContent;
+
+        if (ringLevel === 'level3') {
+            const child = parentItem.children[currentChildIdx];
+            sectionList.innerHTML = `
+        <div class="list-item">
+          <span class="list-dot" style="background:var(--m-main);"></span>
+          <span class="list-text">${child.label} · 条目 1</span>
+          <span class="list-meta">今天</span>
+        </div>
+        <div class="list-item">
+          <span class="list-dot" style="background:var(--m-main);"></span>
+          <span class="list-text">${child.label} · 条目 2</span>
+          <span class="list-meta">昨天</span>
+        </div>
+        <div class="list-item">
+          <span class="list-dot" style="background:var(--m-main);"></span>
+          <span class="list-text">${child.label} · 条目 3</span>
+          <span class="list-meta">3 天前</span>
+        </div>
+      `;
+        }
+    }
+
+    /* ============ 颜色 ============ */
+    function applyColors(cfg) {
+        const isDark = document.documentElement.classList.contains('dark');
+        const c = isDark ? cfg.colors.dark : cfg.colors.light;
+        const root = document.documentElement;
+        root.style.setProperty('--m1', c.c1);
+        root.style.setProperty('--m2', c.c2);
+        root.style.setProperty('--m3', c.c3);
+        root.style.setProperty('--m-main', c.main);
+        root.style.setProperty('--m-soft', hexToRgba(c.main, isDark ? 0.16 : 0.10));
+        root.style.setProperty('--m-glow', hexToRgba(c.main, isDark ? 0.4 : 0.28));
+    }
+
+    function hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    /* ============ 槽切换 ============ */
+    document.querySelectorAll('.slot-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const key = tab.dataset.slot;
+            document.querySelectorAll('.slot-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelectorAll('.slot-panel').forEach(p => {
+                p.classList.toggle('active', p.dataset.panel === key);
+            });
+        });
+    });
+
+    /* ============ 折叠 ============ */
+    const app = document.getElementById('app');
+    document.getElementById('collapseBtn').addEventListener('click', () => {
+        sidebarEl.classList.toggle('collapsed');
+        app.classList.toggle('sidebar-collapsed');
+    });
+
+    /* ============ 主题 ============ */
+    const themeBtn = document.getElementById('themeBtn');
+    const themeIcon = document.getElementById('themeIcon');
+    themeBtn.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        themeIcon.innerHTML = isDark
+            ? '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>'
+            : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+        applyColors(primaryConfig[currentPrimary]);
+    });
+
+    /* ============ 键盘 ============ */
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+
+        if (e.key === 'Escape' || e.key === 'Backspace') {
+            if (ringLevel === 'level3') {
+                e.preventDefault();
+                backToLevel2();
+            }
+            return;
+        }
+
+        const cfg = primaryConfig[currentPrimary];
+        const list = ringLevel === 'level2' ? cfg.items : (parentItem ? parentItem.children : []);
+
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            const dir = e.key === 'ArrowRight' ? 1 : -1;
+            if (ringLevel === 'level2') {
+                currentItemIdx = (currentItemIdx + dir + list.length) % list.length;
+                renderRing(cfg, false);
+                renderPage(cfg);
+            } else {
+                currentChildIdx = (currentChildIdx + dir + list.length) % list.length;
+                renderRing(cfg, false);
+                renderPage(cfg);
+            }
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (ringLevel === 'level3') {
+                backToLevel2();
+            } else {
+                const item = cfg.items[currentItemIdx];
+                if (item.children && item.children.length) enterLevel3(item);
+                else renderPage(cfg);
+            }
+        }
+    });
+
+    /* ============ 命令面板 ============ */
+    const cmdMask = document.getElementById('cmdMask');
+    const cmdInput = document.getElementById('cmdInput');
+    function openCmd() {
+        cmdMask.classList.add('open');
+        setTimeout(() => cmdInput.focus(), 50);
+    }
+    function closeCmd() {
+        cmdMask.classList.remove('open');
+        cmdInput.value = '';
+    }
+    document.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            cmdMask.classList.contains('open') ? closeCmd() : openCmd();
+        }
+        if (e.key === 'Escape' && cmdMask.classList.contains('open')) closeCmd();
+        if ((e.key === 'd' || e.key === 'D') && !e.metaKey && !e.ctrlKey && !cmdMask.classList.contains('open') && e.target.tagName !== 'INPUT') {
+            themeBtn.click();
+        }
+    });
+
+    switchPrimary('dashboard');
+</script>
+</body>
+</html>

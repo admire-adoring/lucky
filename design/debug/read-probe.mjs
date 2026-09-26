@@ -20,19 +20,37 @@ process.stdin.on('data', (d) => (s += d)).on('end', () => {
   if (i < 0) {
     /* ⚠️ 「没有输出」有三类完全不同的原因，这里要把它们分开报，否则下一步没法查：
          ① 探针没跑起来 / 页面还没渲染完（DOM 里连 `</html>` 都有）；
-         ② **dump 被截断了** —— 实测 `/home` 的 `--dump-dom` 输出**稳定停在 61841 字节**
-            （跑两次完全一样），而探针报告是 `document.body.appendChild` 追加的、
-            排在注入脚本**之后** ⇒ 整块被截掉。这时页面本身是好的
-            （`.sb-root`、页面文案都在），只有报告丢了。
-         ③ 页面真的没渲染。 */
+         ② **dump 被截断了** —— 实测 `/home` 稳定停在 61841 字节，`/ai` 加到 6 万上下
+            就也开始被截。而探针报告是 `document.body.appendChild` 追加的、
+            排在注入脚本**之后** ⇒ 整块被截掉。这时页面本身是好的。
+         ③ 页面真的没渲染。
+
+       ⇒ 所以探针还有**第二条通道**：把报告同时写进 `document.title`
+         （`<title>` 在 `<head>` 里，序列化时排在最前面，一定不在截断点之后）。
+         下面先试这条。 */
+    const t = s.match(/<title>PROBE ([\s\S]*?)<\/title>/)
+    if (t) {
+      const rawTitle = t[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      try {
+        const o = JSON.parse(rawTitle)
+        console.log('（经 <title> 通道读出 —— dump 在 ' + s.length + ' 字节处被截断了）')
+        console.log(JSON.stringify(o.info, null, 1))
+        console.log('FAIL:', o.fail.length ? o.fail : '（无）')
+        if (o.steps) for (const st of o.steps) console.log(st.ok ? `  ✓ ${st.name} · ${st.detail}` : `  ✗ ${st.name} · ${st.detail}`)
+        return
+      } catch {
+        console.log('（title 里有 PROBE 但解析失败）', rawTitle.slice(0, 300))
+        return
+      }
+    }
     const truncated = !s.includes('</html>')
     console.log(
       `(没有 PROBE 输出 —— dump 长度 ${s.length} 字节${truncated ? '、**没有到 `</html>`，说明被截断了**' : ''})`,
     )
     if (truncated) {
       console.log(
-        '  探针报告是追加在 body 末尾的，截断点之后的内容整块看不到。\n' +
-          '  换个更小的页面/更小的视口再试，或按 `--dump | head -c …` 之前的部分判断页面是否正常。',
+        '  探针报告既没进 <pre> 也没进 <title> —— 检查探针的 report() 是否两条通道都写了。\n' +
+          '  判据：`<title>PROBE {…}` 一定在 dump 最前面，截断动不了它。',
       )
     }
     return

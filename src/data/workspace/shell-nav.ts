@@ -113,18 +113,20 @@ const TAB_ICON: Record<string, IconName> = {
   'life:pets': 'i-life',
   'life:journal': 'i-edit',
   'life:goals': 'i-flag',
-  /* 工作 */
+  /* 工作 —— 2026-09-25 分区 12 → 7（对照表在 `pages/workspace/work/panels.tsx` 文件头）。
+     ⚠️ 撤掉的 5 个 key（deploy / calendar / clients / okr / timesheet）在这里**一并删掉**，
+        不留：它们已经不可能被查到（环上只有 7 项），留着不是"保险"，
+        而是让下一个读这张表的人以为工作模块还有 12 个分区。
+     合并后语义有变的两个：
+       · servers  —— 除了服务器清单，还装了部署记录 / 部署文档，图标仍是 `i-layers`（多层机器）
+       · contacts —— 客户资料 + 联系人，`i-users` 同时罩得住两边
+     其余五项（dashboard/tasks/projects/docs/review）图标沿用，一个都没换。 */
   'work:dashboard': 'i-grid',
   'work:tasks': 'i-list',
   'work:projects': 'i-project',
   'work:servers': 'i-layers',
-  'work:deploy': 'i-play',
-  'work:calendar': 'i-calendar',
   'work:docs': 'i-file',
   'work:contacts': 'i-users',
-  'work:clients': 'i-link',
-  'work:okr': 'i-flag',
-  'work:timesheet': 'i-clock',
   'work:review': 'i-edit',
   /* 学习 */
   'learning:dashboard': 'i-grid',

@@ -1,13 +1,21 @@
 /* ============================================================================
-   工作台内容层 —— 由 design/export-workbench-content.mjs 生成，**请勿手改**。
+   工作台内容层 —— **生成器已退役**（2026-09-25），现在是手写维护。
    ----------------------------------------------------------------------------
-   事实源是 design/gen-modules.mjs 的 MODULES（它同时驱动设计原型 workbench.html）。
+   ⚠️ 上一版这里写的是"由 design/export-workbench-content.mjs 生成，**请勿手改**"，
+   那个脚本（连同 `design/gen-modules.mjs`）**已从仓库删除**（与 build-*.mjs 同期）。
+   所以改这个文件不再会被覆盖，改它就等于改事实源。
+
+   事实源原来是 gen-modules.mjs 的 MODULES（它同时驱动设计原型 workbench.html）。
    内容不手抄的理由与 CSS 同源那条一致：抄一遍就会漂，而"数字/文案差一点"这种漂
    在页面上不会报错，只会安静地不一致。
 
-   重跑：node design/export-workbench-content.mjs --write
-   校验：node design/export-workbench-content.mjs --check
-   ========================================================================= */
+   ⚠️ 本轮改动只有一处：进度条的 `"grad"` 值从
+   `"bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]"` 这类**渐变工具类**
+   换成了域色令牌类（`bg-learn` / `bg-life` / `bg-work`），共 18 处（纯色化）。
+   **键名 `grad` 保持不变** —— 改键名要同时动 `TileRows.tsx` 的 prop 与类型，
+   而它的含义已经从"渐变类"变成"进度填充类"，属于"名字变陈旧"，就地记明即可。
+   与 `--grad-ai` 同一处理口径（见 design-tokens.css）。 */
+
 import type { WorkbenchAggregates, WorkbenchModule } from '../types/workbench'
 
 /** gen-modules.mjs 里项目投影的指纹。src/data/workbench.ts 会拿 PROJECTS 现算一遍比对 */
@@ -631,7 +639,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-learn",
-            "grad": "bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]",
+            "grad": "bg-learn",
             "name": "Rust 异步编程精读",
             "meta": "待办 4 条 · 9月28日",
             "pct": 80
@@ -639,7 +647,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-life",
-            "grad": "bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]",
+            "grad": "bg-life",
             "name": "老房翻新改造",
             "meta": "待办 15 条 · 9月30日",
             "pct": 42
@@ -647,7 +655,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-life",
-            "grad": "bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]",
+            "grad": "bg-life",
             "name": "马尔代夫家庭旅行",
             "meta": "待办 6 条 · 10月01日",
             "pct": 68
@@ -655,7 +663,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-work",
-            "grad": "bg-[linear-gradient(90deg,#6f9dff,#2f6fed)]",
+            "grad": "bg-work",
             "name": "Q4 客户交付系统重构",
             "meta": "待办 10 条 · 11月15日",
             "pct": 72
@@ -663,7 +671,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-learn",
-            "grad": "bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]",
+            "grad": "bg-learn",
             "name": "数据可视化课程实践",
             "meta": "待办 14 条 · 11月20日",
             "pct": 0
@@ -671,7 +679,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-work",
-            "grad": "bg-[linear-gradient(90deg,#6f9dff,#2f6fed)]",
+            "grad": "bg-work",
             "name": "团队 OKR 落地推进",
             "meta": "待办 15 条 · 12月31日",
             "pct": 12
@@ -687,7 +695,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-life",
-            "grad": "bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]",
+            "grad": "bg-life",
             "name": "生活",
             "meta": "33 / 54 条 · 待办 21",
             "pct": 61.1
@@ -695,7 +703,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-work",
-            "grad": "bg-[linear-gradient(90deg,#6f9dff,#2f6fed)]",
+            "grad": "bg-work",
             "name": "工作",
             "meta": "29 / 54 条 · 待办 25",
             "pct": 53.7
@@ -703,7 +711,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-learn",
-            "grad": "bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]",
+            "grad": "bg-learn",
             "name": "学习",
             "meta": "38 / 56 条 · 待办 18",
             "pct": 67.9
@@ -976,7 +984,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-learn",
-            "grad": "bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]",
+            "grad": "bg-learn",
             "name": "Rust 异步编程精读",
             "meta": "9月28日 · 剩余 10 天",
             "pct": 80
@@ -984,7 +992,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-life",
-            "grad": "bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]",
+            "grad": "bg-life",
             "name": "老房翻新改造",
             "meta": "9月30日 · 剩余 12 天",
             "pct": 42
@@ -992,7 +1000,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-life",
-            "grad": "bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]",
+            "grad": "bg-life",
             "name": "马尔代夫家庭旅行",
             "meta": "10月01日 · 剩余 13 天",
             "pct": 68
@@ -1000,7 +1008,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-work",
-            "grad": "bg-[linear-gradient(90deg,#6f9dff,#2f6fed)]",
+            "grad": "bg-work",
             "name": "Q4 客户交付系统重构",
             "meta": "11月15日 · 剩余 58 天",
             "pct": 72
@@ -1008,7 +1016,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-learn",
-            "grad": "bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]",
+            "grad": "bg-learn",
             "name": "数据可视化课程实践",
             "meta": "11月20日 · 剩余 63 天",
             "pct": 0
@@ -1016,7 +1024,7 @@ export const WORKBENCH_MODULES: WorkbenchModule[] = [
           {
             "kind": "flat",
             "dot": "bg-work",
-            "grad": "bg-[linear-gradient(90deg,#6f9dff,#2f6fed)]",
+            "grad": "bg-work",
             "name": "团队 OKR 落地推进",
             "meta": "12月31日 · 剩余 104 天",
             "pct": 12

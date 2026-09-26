@@ -12,10 +12,17 @@ export const SCOPE_META: Record<
   Scope,
   { label: string; badge: string; fill: string; bar: string; avatar: string; icon: IconName; hex: string }
 > = {
+  /* ⚠️ `fill` **原来是一条域色渐变**（`bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]` 这类），
+     2026-09-25 纯色化时改成**域色令牌本身**（`bg-life` / `bg-work` / `bg-learn`）。
+     取令牌而不是取"渐变两端的中间色"，理由是**令牌本来就存在**：
+     这三个域色贯穿全站的徽标底 / 圆点 / 色条 / 头像，浅→深那道渐变只是给进度条加的
+     "从左到右越来越深"的光泽，不承载任何数据（进度条的数据是**长度**）。
+     现在 fill 与 bar 取值相同 —— 它们是两个角色（进度填充 / 3px 色标）、同一个域色，
+     不是两份描述。 */
   life: {
     label: '生活',
     badge: 'bg-life-bg text-life-strong',
-    fill: 'bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]',
+    fill: 'bg-life',
     bar: 'bg-life',
     avatar: 'bg-life',
     icon: 'i-life',
@@ -24,7 +31,7 @@ export const SCOPE_META: Record<
   work: {
     label: '工作',
     badge: 'bg-work-bg text-work-strong',
-    fill: 'bg-[linear-gradient(90deg,#6f9dff,#2f6fed)]',
+    fill: 'bg-work',
     bar: 'bg-work',
     avatar: 'bg-work',
     icon: 'i-work',
@@ -33,7 +40,7 @@ export const SCOPE_META: Record<
   learn: {
     label: '学习',
     badge: 'bg-learn-bg text-learn-strong',
-    fill: 'bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]',
+    fill: 'bg-learn',
     bar: 'bg-learn',
     avatar: 'bg-learn',
     icon: 'i-learn',

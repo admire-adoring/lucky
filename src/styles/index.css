@@ -1,5 +1,5 @@
 /* ============================================================
-   Lucky-Y · 全局样式与设计令牌（玻璃拟态 / Glassmorphism）
+   Lucky-Y · 全局样式与设计令牌（**纯色**）
    ------------------------------------------------------------
    令牌来源：ui-design/v1.0 三个原型文件的 :root
    映射方式：原型 CSS 变量 → Tailwind v4 @theme
@@ -9,13 +9,17 @@
    因此原型里的语义色在组件里可直接写成 bg-life/10 text-life 这类工具类。
 
    ------------------------------------------------------------
-   玻璃拟态的三条前提（缺一条就会退化成"半透明灰块"）
-   1. 底下必须有可折射的环境色 —— 见 index.html 的 .ambient 极光底衬。
-      没有它，backdrop-filter 无物可糊，玻璃只会显得发灰。
-   2. 表面令牌必须是「半透明白」而不是实色 —— 见 --color-surface 一族。
-      全站的 bg-surface / bg-ink-50 因此自动变成材质，不必逐处改 class。
-   3. 边缘要有一道 1px 上沿高光 —— 见 @utility glass 里的 ::after。
-      高光与 box-shadow 分离，是为了把 box-shadow 完整让给 shadow-* 工具类。
+   材质口径（2026-09-25 由玻璃拟态换成纯色）
+   上一版这里写着"玻璃拟态的三条前提"（① 底下要有可折射的环境色
+   ② 表面令牌必须是半透明白 ③ 边缘要有一道 1px 上沿高光）。
+   **三条全部作废**，逐条对应现在的做法：
+     ① 环境色层（`.ambient__aurora`）已删 —— 改成纯色后没有东西要折射。
+     ② 表面令牌改成**实色**（见下面 --color-surface 一族），
+        于是全站 `bg-surface` / `bg-ink-50` 自动从"材质"变成"面"，不必逐处改 class。
+     ③ 上沿高光（glass-* 的 `::after`）已删 —— 实底上它只会变成一行洗白的假高光。
+   新增的两条：
+     ④ 层次靠「面阶 + 1px 描边 + 两段小阴影」，面阶共三档（页 / 卡面 / 沉槽）。
+     ⑤ 域色薄染（`rgba(强调色, α)`）**保留** —— 它压在实底上，结果是确定的实色。
    ============================================================ */
 @import 'tailwindcss';
 
@@ -44,12 +48,14 @@
    ⚠️ 实测确认过一次（原型里两块 CSS 内联在同一页面）：
    `--color-ink-400` 解析成 `#5f6785`（Prism 的 --fg-mute），而不是本文件 @theme 里的 `#74808f`。
    这条一旦失效，「颜色令牌整体换成 Prism」就是**静默无效**的 ——
-   类名还在、页面照常渲染，只是取值全回到了旧玻璃那一套。
+   类名还在、页面照常渲染，只是取值全回到了旧那一套。
 
-   ⚠️ 本文件 @theme 里那些 `--color-ink-* / --color-surface* / glass-*` **暂时保留**：
-   已有页面（项目列表 / 详情 / 登录）还在用它们。两者并存不会打架 ——
-   颜色类名走 Prism（上面那条），材质工具类 `glass-*` 仍由本文件提供，
-   新写的工作台组件改用 Prism 的 `.g` + `.g1~.g4`。
+   ⚠️ 本文件 @theme 里那些 `--color-ink-* / --color-surface*` **保留**，但身份变了：
+   它们现在是**兜底值**（Prism §6 是唯一事实源，无 layer 稳压本层）。
+   为什么还留：`bg-surface` 这类工具类是 Tailwind **编译期**求值的，只能从 @theme 取，
+   不能写 `var(--g-card)`。⇒ 这是全仓唯一一处被允许的重复。
+   `glass-*` 四条工具类仍在（见下），但材质已删、只剩定位契约。
+   新写的工作台组件用 Prism 的 `.g` + `.g1~.g4`。
 
    ⚠️ 令牌的**唯一事实源**是 `design/design-tokens/design-tokens.md`。
    本文件与 prism.css / module-workspace.css 都是它的下游。
@@ -121,6 +127,24 @@
    事实源与重新生成：design/build-ai-css.mjs（`--check` 可校验是否过期）
    ============================================================ */
 @import './ai-assistant.css';
+@import './ai-sidebar.css';
+
+/* ============================================================
+   窗框层（`src/components/shell/MacWindow.tsx`）
+   ------------------------------------------------------------
+   macOS 风格的窗口外壳：标题栏（红黄绿三颗 + 居中标题）、圆角、投影、
+   拖动 / 最小化 / 全屏。给"整窗页面"用，目前唯一使用者是日志页（`/logs/:id`）。
+
+   与上面几层的关系：**零冲突**。选择器收在 `.macwin-stage` / `.macwin*` 下，
+   自成一套，且颜色走自己的 `--mac-*` 局部变量，不借用 `--mw-bg-topbar`
+   （理由见该文件头）。
+
+   ⚠️ 必须排在 `module-workspace.css` **之后**：日志页有一段 `.lg-root .viewer`
+      与 `.lg-root .modal` 的尺寸声明要按"已经在窗口里"重算过（`100vh` → `100%`），
+      这里不靠特异性去抢，而是**直接改了那两处源头**；
+      本层放在后面只是为了将来加覆盖时顺序符合直觉。
+   ============================================================ */
+@import './mac-window.css';
 
 @theme {
   /* ---------- 字体 ---------- */
@@ -138,10 +162,13 @@
   --color-brand-700: #3730a3;
 
   /* ---------- 三域语义色（全局唯一的“归属”信号）
-     ⚠️ 三支 -bg 已从实色改为同级明度的半透明染色：胶囊压在玻璃上时，
-     实色块会像"贴上去的贴纸"，半透明染色才是"同一片玻璃上的色"。
-     ⚠️ -strong 是"文字级"色阶，专供小字号徽标使用：把 -bg 改成 13% 半透明后，
-     徽标底色不再自带浅底，11.5px 的 #0f9d76 压在上面只有 2.8:1。
+     ⚠️ 三支 -bg 是**半透明染色**，不是实色块。这是"纯色范式内的合法叠层"：
+     它压在实底（卡面 / 页）之上，合成结果仍然是确定的实色 —— 与"用 α 做面"
+     是两件事。上一版把它写成"胶囊压在玻璃上时，实色块会像贴上去的贴纸"，
+     那个理由随玻璃作废了，但**做法保留**：域色是"这一域的标记"，
+     每次都要重新配一遍"贴纸在哪个底色上"显然是白费。
+     ⚠️ -strong 是"文字级"色阶，专供小字号徽标使用：-bg 只有 13%，
+     11.5px 的 #0f9d76 压在它上面只有 2.8:1。
      色条 / 进度条填充 / 圆点仍用原色阶（它们不承载文字）。 ---------- */
   --color-life: #0f9d76;
   --color-life-strong: #0a6b52;
@@ -157,10 +184,12 @@
   --color-learn-line: #dccdfb;
 
   /* ---------- 中性灰阶（冷调）
-     ⚠️ 相比原型整体下调约 8%～12%。理由：文字改压在「半透明白 + 极光」而不是纯白上，
-     合成后的底衬亮度低于 #fff；若沿用原灰阶，ink-400 / ink-500 这些小字号的对比度
-     会跌破原型水平。下调后各级相对层级不变，各级在玻璃上的实测比值与原型持平或更好。
-     实测（见交付说明）：ink-500 在页面底衬上 4.7:1（原型在纯白上 4.83:1）。 ---------- */
+     ⚠️ 这套值是从**玻璃底衬**上实测调下来的（原注释：相比原型整体下调 8%~12%，
+     因为文字压在「半透明白 + 极光」上，合成亮度低于 #fff）。
+     换成纯色后底衬变成 #FFF / #F4F5F7 与 #171F32 —— **两个方向都在拉大对比度**，
+     所以这套值不必重解（重解只会得到更浅的值，那是"为了达标"而不是"为了好看"）。
+     ⚠️ 注意：真正生效的是 prism.css §6 的 `html { --color-ink-*: var(--fg-*) }`
+     （无 layer ⇒ 压过本层 @theme）。这里保留是给"没有 Prism 时的兜底"。 ---------- */
   --color-ink-50: rgba(17, 20, 28, 0.045);
   --color-ink-100: rgba(17, 20, 28, 0.075);
   --color-ink-200: #d3d7de;
@@ -172,23 +201,26 @@
   --color-ink-800: #1b1e26;
   --color-ink-900: #101218;
 
-  /* ---------- 表面与描边（玻璃拟态：表面是材质，不是实色）
-     三档材质自下而上：沉槽 → 常规玻璃 → 抬升玻璃
-     ⚠️ 外壳（侧栏 / 顶栏）用 surface 而不是 surface-raised：
-     raised 的 α.84 会把背后极光几乎全部盖掉（实测侧栏底衬 250,249,252 ≈ 纯白，像一块白板）。
-     代价是侧栏 ink-400 装饰层从 3.7 降到 3.4 —— 与原型在纯白上的 3.50 同档，可接受。 ---------- */
-  --color-surface: rgba(255, 255, 255, 0.7);
-  --color-surface-raised: rgba(255, 255, 255, 0.84);
-  --color-surface-sunken: rgba(255, 255, 255, 0.42);
-  --color-canvas: rgba(255, 255, 255, 0.38);
-  --color-line: rgba(17, 20, 28, 0.085);
-  --color-line-strong: rgba(17, 20, 28, 0.155);
+  /* ---------- 表面与描边（**实色**）
+     三档面自下而上：沉槽 → 页 → 卡面（"浮起"= 变亮，亮暗共用这一个方向）。
 
-  /* ---------- 玻璃专用 ---------- */
-  --color-glass-hi: rgba(255, 255, 255, 0.8); /* 上沿高光 */
-  --color-glass-lo: rgba(17, 20, 28, 0.055); /* 下沿暗线 */
+     ⚠️ 这里写的值**只是兜底**：真正生效的是 prism.css §6 的
+     `html { --color-surface*: var(--g-card|--g-subtle) }`（无 layer ⇒ 压过本层 @theme）。
+     为什么还要写一遍：`bg-surface` 这类工具类是 Tailwind **编译期**求值的，
+     只能从 @theme 取，不能写 `var(--g-card)`。所以这是唯一一处被允许的重复，
+     判据是"Tailwind 能不能读"，取值必须与 prism 的面阶逐字一致。
+     ⚠️ 上一版这里是半透明白（`rgba(255,255,255,.7)`）且**没有在 Prism 里接别名** ——
+     后果是暗色主题下 `bg-surface` 仍然解析成 70% 的白，一块浅灰板压在暗页上。
+     本轮顺手接上别名（见 §6），`bg-surface` 从此跟主题走。
+     `--color-canvas`（0 引用）已删 —— 留一个没人用的面只会让人以为它是事实源。
+     `--color-line` 同理只是兜底，取值对齐 Prism 亮色的 `--line`。 ---------- */
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #f7f8fa;
+  --color-line: #e3e7ee;
+  --color-line-strong: #d3d8e0;
 
-  /* ---------- 语义色（-bg 同样改为半透明染色） ---------- */
+  /* ---------- 语义色（-bg 是半透明染色，压在实底上 ⇒ 结果确定） ---------- */
   --color-danger: #d82323;
   --color-danger-bg: rgba(220, 38, 38, 0.11);
   --color-danger-strong: #b91c1c;
@@ -212,12 +244,17 @@
      prism.css 那句 `html { --radius-*: var(--r-*) }` 无 layer，一直压着它。
      留着它就是留一个"看着像事实源、其实没人用"的第二描述，所以删掉。 */
 
-  /* ---------- 阴影：玻璃的重心在上沿高光，投影只负责"离地高度" ---------- */
-  --shadow-xs: 0 1px 2px rgba(17, 20, 28, 0.04);
-  --shadow-sm: 0 2px 6px rgba(17, 20, 28, 0.05), 0 1px 2px rgba(17, 20, 28, 0.03);
-  --shadow-md: 0 8px 20px rgba(17, 20, 28, 0.07), 0 2px 5px rgba(17, 20, 28, 0.035);
-  --shadow-lg: 0 18px 40px rgba(17, 20, 28, 0.1), 0 4px 10px rgba(17, 20, 28, 0.04);
-  --shadow-xl: 0 32px 64px rgba(17, 20, 28, 0.14);
+  /* ---------- 阴影 ----------
+     ⚠️ 上一版的取值是"大偏移 + 负扩散"（`0 18px 40px -14px …`），那是**给玻璃配的**：
+     半透明面板与底衬本来就没几档亮度差，需要一大团柔和投影把"离地高度"说出来。
+     纯色底上同一团影会**发虚** —— 面是实色的，边缘本来就清楚，大扩散只会糊。
+     现在是两段小影：近段定轮廓（1px 级）、远段给一点扩散。
+     Hover 抬升一档仍然成立（`shadow-sm → shadow-md`），只是档距变小了。 ---------- */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.05);
+  --shadow-xl: 0 12px 32px rgba(15, 23, 42, 0.14), 0 3px 8px rgba(15, 23, 42, 0.06);
 
   /* ---------- 字号（原型使用的非标准刻度，1:1 映射） ---------- */
   --text-9-5: 9.5px;
@@ -345,100 +382,48 @@ html[data-platform='windows'] {
     opacity: 0.35;
   }
 }
-/* 极光缓慢漂移：让玻璃背后的色块轻微位移，玻璃才有"活"的折射感 */
-@keyframes auroraDrift {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(-2.2%, 1.6%, 0) scale(1.06);
-  }
-}
+/* ⚠️ `@keyframes auroraDrift`（极光缓慢漂移）已删 —— 极光层不存在了。
+   它当时的作用是"让玻璃背后的色块轻微位移，玻璃才有活的折射感"，
+   纯色底上位移一条看不见的东西只会白烧一帧合成。
+   要回玻璃请从 git 历史取：`translate3d(-2.2%, 1.6%, 0) scale(1.06)` / 26s / alternate。 */
 
 /* ============================================================
-   玻璃材质（Tailwind v4 @utility）
+   面档位工具类（Tailwind v4 @utility）
    ------------------------------------------------------------
-   为什么用 @utility 而不是 @layer components：
-   工具类层支持 hover: / max-[860px]: 这类变体，材质需要按状态换档
-   （例如 hover:glass-life），放 components 层就调不动。
-   为什么高光走 ::after 而不是 box-shadow：
-   Tailwind 的 shadow-* 工具类写的是同一个 box-shadow 属性，两者会互相覆盖，
-   且"谁生效"取决于产出顺序、不取决于 class 书写顺序。把上沿高光隔离进 ::after，
-   box-shadow 就完整留给了 shadow-md / shadow-lg 这些工具类。
+   ⚠️ **名字里的 glass 是历史锚点，材质已经全部删掉**（2026-09-25 纯色化）。
+   上一版这四条各自写「backdrop-filter(12~28px) + ::after 上沿高光」，
+   现在它们只剩一件事要做：`position: relative`。
+
+   为什么不能顺手把这四条一起删掉：
+   有的调用点**没有自己写 `relative`**（例如 `ui/Card.tsx` 的 `glass-panel`），
+   它的子元素里有绝对定位的东西（角标、拖拽把手）。删掉这张工具类 =
+   悄悄把那些子元素的包含块换成更外层 —— 症状是"某个角标跑到卡片外面去了"，
+   而且**只在有角标的时候**才看得见。所以定位契约要留在原地。
+
+   为什么背景不写在这里：**每一个调用点都已经带 `bg-*` 工具类**（`bg-surface` /
+   `bg-surface-sunken` / `bg-ink-50`）。既然背景由它们负责，"面"就不该有第二个出口 ——
+   同属性、同层的两条工具类谁生效取决于产出顺序，而不是书写顺序。
+
+   ⇒ 后续清理方向：把这四处需要定位的调用点各自补上 `relative`，然后删掉这四条。
+      在补完之前，这里的 `position: relative` 就是唯一让它们还活着的东西。
    ============================================================ */
 @utility glass {
   position: relative;
-  backdrop-filter: blur(18px) saturate(175%);
-  -webkit-backdrop-filter: blur(18px) saturate(175%);
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    box-shadow:
-      inset 0 1px 0 var(--color-glass-hi),
-      inset 0 -1px 0 var(--color-glass-lo);
-  }
 }
-
-/* 顶栏 / 侧栏 / 浮层：面积大、遮挡内容多，需要更厚的模糊把背后彻底糊开 */
 @utility glass-bar {
   position: relative;
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    box-shadow:
-      inset 0 1px 0 var(--color-glass-hi),
-      inset 0 -1px 0 var(--color-glass-lo);
-  }
 }
-
-/* 卡片 / 面板：与内容同层，模糊适度即可，过厚会让文字底衬发脏 */
 @utility glass-panel {
   position: relative;
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    box-shadow:
-      inset 0 1px 0 var(--color-glass-hi),
-      inset 0 -1px 0 var(--color-glass-lo);
-  }
 }
-
-/* 小控件（胶囊、图标按钮、分段项）：面积小，模糊调轻，否则描边外会泛光晕 */
 @utility glass-soft {
   position: relative;
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    box-shadow: inset 0 1px 0 var(--color-glass-hi);
-  }
 }
 
-/* 悬浮抬升：只补投影，不碰高光 */
-@utility glass-lift {
-  box-shadow: 0 18px 40px rgba(17, 20, 28, 0.11), 0 4px 10px rgba(17, 20, 28, 0.04);
-}
+/* ⚠️ 这里原本还有 `@utility glass-lift`（一条"悬浮抬升"的投影）。
+   它在本仓库**零引用**（`grep glass-lift src` 只有这一处定义），删掉。
+   —— 判据与上一版删 `--t-*` 那套字阶时同一条：留一个没人用的第二描述，
+   下次会有人以为"改它就等于改了抬升效果"。 */
 
 /* ============================================================
    Base
@@ -467,13 +452,11 @@ html[data-platform='windows'] {
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* ---------- 环境光层 ----------
-     ⚠️ 结构：外层 .ambient 只负责"形状"，内层 .ambient__aurora 只负责"漂"。
-     两个职责必须分开，原因见 index.html 里的注释 —— 合并在一起时，
-     漂移的 transform 会把带圆角的那一层挪出视口，极光顺着窗口四角漏出去。
-
-     几何（内层）刻意错开：强色压在两侧与上下边缘（侧栏之外、内容区四周），
-     中央内容带留得更淡 —— 玻璃依然有色可折射，正文底衬却不会太花。 */
+  /* ---------- 环境层 ----------
+     ⚠️ 原来这里是两层：外层 `.ambient` 只管"形状"（圆角 + 底色 + overflow:hidden），
+     内层 `.ambient__aurora` 只管"漂"（8 层 radial 色团 + auroraDrift）。
+     **内层已删**（纯色化），所以那套"两个职责必须分开"的约束也随之消失 ——
+     现在只剩一个纯色底。 */
   .ambient {
     position: fixed;
     inset: 0;
@@ -482,79 +465,24 @@ html[data-platform='windows'] {
     /* 底衬基色（原来是 body 的 background-color）。
        桌面壳里窗口是透明的，基色若留在 body 上，圆角外露出的那部分就是
        **不透明的方角** —— 基色必须和圆角待在同一个图层里。 */
-    background-color: #e9edf6;
+    background-color: var(--g-base);
     border-radius: var(--window-radius);
-    /* 关键的一行：把会漂的内层裁在圆角之内。
-       没有它，内层漂到极值时就会盖到圆角外面去。 */
+    /* 保留 overflow:hidden：它现在是**防御性**的 —— 万一将来有人往这一层里
+       加一个会溢出的小装饰，不至于顺着窗口四角漏出去。 */
     overflow: hidden;
   }
 
-  .ambient__aurora {
-    position: absolute;
-    /* 比外层大一圈，给漂移留余量（漂移量见 auroraDrift：最多平移 2.2% + 放大 6%）。
-       这一圈永远在视口之外、被外层裁掉，所以不会改变任何可见几何。 */
-    inset: -10%;
-    /* ⚠️ 这两行是几何得以保持的关键，不能省：
-       background-size 把渐变图像固定成"一屏大小"，background-position: 50% 50%
-       再把它在放大的元素里居中 —— 两者合起来让渐变**与视口像素对齐**，
-       而不是按 120% 的元素尺寸重算百分比。
-       少了它们，@6% 的色斑会变成 -2.8%、@21% 的色带归零点变成 15.2%，
-       左侧色带就会扫进内容列，13.5px 正文会掉到 4.4:1。
-       background-repeat 保持默认 repeat：铺在余量里，反正看不见。 */
-    background-size: 100vw 100vh;
-    background-position: 50% 50%;
-    background-image:
-      /* 顶栏紫纱：只作用于顶部 7.2%（≈65px，即顶栏高度），全宽均匀 */
-      linear-gradient(180deg, rgba(124, 58, 237, 0.36) 0%, rgba(124, 58, 237, 0) 7.2%),
-      /* 顶栏左端靛蓝：y 半径 10%（≈90px），压在顶栏高度内，与侧栏顶部同色 */
-      radial-gradient(30% 10% at 6% 0%, rgba(99, 102, 241, 0.46) 0%, rgba(99, 102, 241, 0) 76%),
-      /* 左侧全高色带：侧栏的"料" */
-      linear-gradient(
-        96deg,
-        rgba(99, 102, 241, 0.52) 0%,
-        rgba(99, 102, 241, 0.3) 13%,
-        rgba(99, 102, 241, 0) 21%
-      ),
-      /* 右上紫：同时负责顶栏右端 */
-      radial-gradient(40% 24% at 101% -2%, rgba(124, 58, 237, 0.34) 0%, rgba(124, 58, 237, 0) 74%),
-      /* 侧栏底部青绿 */
-      radial-gradient(18% 40% at 7% 104%, rgba(15, 157, 118, 0.36) 0%, rgba(15, 157, 118, 0) 74%),
-      radial-gradient(26% 32% at 100% 100%, rgba(14, 165, 233, 0.34) 0%, rgba(14, 165, 233, 0) 72%),
-      radial-gradient(30% 34% at 54% 102%, rgba(236, 72, 153, 0.16) 0%, rgba(236, 72, 153, 0) 76%),
-      radial-gradient(72% 62% at 50% 42%, rgba(99, 102, 241, 0.06) 0%, rgba(99, 102, 241, 0) 72%);
-    animation: auroraDrift 26s ease-in-out infinite alternate;
-  }
+  /* ⚠️ 这里原本是 `.ambient__aurora`（8 层 radial/linear 色团 + `auroraDrift` 漂移）
+     与 `.ambient__noise`（霜感颗粒）。两者随纯色化一并删除，**连同它们的历史**：
+     那套几何是反复实测调出来的（色带横向射程必须 21% 归零、否则扫进内容列把
+     13.5px 正文从 4.66 压到 4.40；顶栏那条横带的 α 要到 0.36 才不显得发白）。
+     如果将来要回玻璃，这些数在 git 历史里，别凭感觉重调。
+     现在保留一条**兜底**见 prism.css §7：旧产物里若还留着这两层的标记，
+     它们会被 `display:none` 掉，而不是渲染出满屏光斑。 */
 
-  /* ⚠️ 上面这套几何是反复实测调出来的，改动前先读这三条（每条都对应一次翻车）：
-     ① 最初写成 `inset:-12%` + 四角 radial → 色斑中心被推出视口，只剩尾部衰减落在画面里，
-        实测页面底衬几乎纯灰白，玻璃彻底没有"折射物"。
-     ② 改成 `inset:0` + 四角后，角点 radial 的**垂直半径不够**（52% 从 y=14% 起算），
-        侧栏 900px 高的中段落到色斑之外 —— 实测侧栏中心 245,248,250 ≈ 中性灰，仍是一块白板。
-        角点色斑天生只能照顾"角"，照顾不了"整列"，所以左侧改成了全高线性色带。
-     ③ 色带的横向射程必须按列宽定：侧栏右边缘在 17.2%、内容列从 18.9% 开始，
-        所以色带要在 **21% 归零**。第一版写到 30%，尾巴扫进内容列，
-        把 13.5px 正文（page-sub）从 4.66 压到 4.40。
-        ——这也是上面 background-size / background-position 两行不能省的原因：
-        少了它们，百分比会按 120% 的元素尺寸重算，@21% 会变成 15.2%，正文立刻掉档。
-     顶栏那条横带另外单给三层（全宽紫纱 + 左端靛蓝 + 右上紫），
-     因为侧栏色带 21% 就归零、而顶栏从 17.2% 才开始，中间 600~1100px 本来一点色都没有。
-     紫纱的 α 从 0.14 起试过：α.70 的玻璃会把底衬稀释到 30%，0.14 只做出 6 个通道差，
-     顶栏仍是白横条（实测 244,245,250，比侧栏还亮）；要到 0.36 才落到同一亮度档。
-     这一带可以放心给足 —— 它只作用于顶部 65px，里面只有搜索框和 ⌘K 徽标，没有正文。 */
-
-  /* 玻璃的"霜感"：细颗粒噪点。压在极光之上、内容之下，
-     被玻璃模糊后成为均匀的磨砂膜，避免大面积渐变糊出塑料感。
-     不参与漂移 —— 它只是质感，跟着动反而会显脏。 */
-  .ambient__noise {
-    position: absolute;
-    inset: 0;
-    opacity: 0.3;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
-  }
-
-  /* 应用内容整体抬到环境光之上。
-     只加 position + z-index 不会形成 backdrop root（filter / opacity<1 / mask 才会），
-     所以 #root 内部的玻璃仍能采到 .ambient__aurora 的极光 —— 这是整套方案成立的关键。 */
+  /* 应用内容整体抬到环境层之上。
+     ⚠️ 上一版这里写着"不能形成 backdrop root，否则 #root 内部的玻璃采不到极光" ——
+     玻璃没了之后这条只是**分层惯例**（底衬在最下面、内容在上面），不再有正确性含义。 */
   #root {
     position: relative;
     z-index: 1;
@@ -581,12 +509,14 @@ html[data-platform='windows'] {
 
   /* 浏览器宿主的"桌面"底衬。
      为什么需要：圆角要看得见，圆角**外面**必须有东西。桌面壳里窗外是 macOS 桌面，
-     天然有对比；浏览器里不做这一层，圆角外就只是浏览器默认白，与浅色玻璃几乎同色 ——
+     天然有对比；浏览器里不做这一层，圆角外就只是浏览器默认白，与浅色的页几乎同色 ——
      圆角在观感上等于不存在，这正是"看着还是方的"最可能的来源。
-     它只画在 html（也就是画布）上，圆角以内的一切都不受影响，
-     因此不会改变任何文字的对比度。 */
+     ⚠️ 上一版这里是 `linear-gradient(140deg, #5f6980 → #6e6a88 → #7b7566)`。
+     它画在圆角**之外**、不承载任何文字，所以严格说不在"素材性渐变"的清理范围内；
+     但这一版的口径是**全站不留渐变**，而且那道斜向渐变里没有一条信息 ——
+     取其中间那支（#6e6a88）当实色，观感差异只在"有没有那道斜光"。 */
   html[data-shell='browser'] {
-    background: linear-gradient(140deg, #5f6980 0%, #6e6a88 52%, #7b7566 100%);
+    background: #6e6a88;
   }
 
   a {
@@ -648,9 +578,11 @@ html[data-platform='windows'] {
 
      为什么要多此一举：外壳是整片铺满视口的矩形，整块外壳的圆角目前只有一个来源
      —— #root 的 border-radius + overflow:hidden。这是"借来的"圆角：
-     任何一层引入新的裁剪上下文或合成层，它就可能失效；而侧栏与顶栏恰恰都带
-     backdrop-filter（glass-bar），玻璃在部分引擎里会被提升为独立合成层。
-     让每一块自己带圆角，圆角就不再依赖外层是否裁得动。
+     任何一层引入新的裁剪上下文或合成层，它就可能失效。
+     ⚠️ 原来这里举的例子是"侧栏与顶栏都带 backdrop-filter（glass-bar），
+     玻璃在部分引擎里会被提升为独立合成层" —— 2026-09-25 纯色化后没有 backdrop-filter 了，
+     这个**具体诱因**消失，但**做法保留**：让每一块自己带圆角，圆角就不依赖外层是否裁得动。
+     判据从"防某一种触发条件"升级成"不依赖任何触发条件"，成本只有两条声明。
 
      取值与窗口圆角**同源**（都用 --window-radius）：半径档位一变，外壳跟着变，
      不会出现"窗口 10px、外壳还是旧的"这种两套数。
@@ -704,20 +636,24 @@ html[data-platform='windows'] {
     flex: none;
   }
 
-  /* 登录页左侧品牌面板：深色玻璃。
-     底色仍是接近不透明的深色（白字要够对比，实测面板底衬 29~44 亮度，
-     比原型的 #0b0d13 略亮，是靠保持 0.92 的不透明度换回来的），
-     但保留 backdrop-filter + 一点透光，让背后极光渗进来，避免变成一块死黑实心板。 */
+  /* 登录页左侧品牌面板：**一块实色深面**。
+     ⚠️ 上一版是"深色半透明 + 三团 radial 色团（靛蓝 / 紫 / 天青）+ blur(30px)"，
+     —— 那正是极光在登录页的翻版。改法是把三团色收成一个值。
+     取值 `#111827` 与暗色主题的**外壳面同源**（prism §1 的 `--g-shell` 暗色那支）：
+     登录页这块面板在亮暗两个主题下都必须是深色（它上面全是白字），
+     所以这里**写死实色而不是引用 `--g-shell`** —— 引用会让它在亮色主题下变成白色，
+     白字立刻不可读。这是一次有意的跨主题取值，不是漏改。
+     白字在 #111827 上 ≈ 16:1，比上一版实测的 29~44 亮度底衬更宽裕。 */
   .brand-panel {
-    background:
-      radial-gradient(120% 85% at 8% 4%, rgba(99, 102, 241, 0.5) 0%, rgba(99, 102, 241, 0) 58%),
-      radial-gradient(85% 70% at 92% 16%, rgba(124, 58, 237, 0.42) 0%, rgba(124, 58, 237, 0) 55%),
-      radial-gradient(110% 90% at 72% 104%, rgba(14, 165, 233, 0.26) 0%, rgba(14, 165, 233, 0) 62%),
-      rgba(9, 11, 16, 0.92);
-    backdrop-filter: blur(30px) saturate(150%);
-    -webkit-backdrop-filter: blur(30px) saturate(150%);
+    background: #111827;
   }
 
+  /* 网格纹理：**保留**，且这是"全站不留渐变"里唯一的一处例外，判据是
+     **"这道渐变里有没有信息"** —— 它由两条 1px 的线平铺而成（一条横、一条纵），
+     本身没有任何色相与亮度斜坡；`mask` 只决定这张线网在哪里停下，
+     也不会产生光感。CSS 里画网格本来就只能用 repeating/linear-gradient，
+     没有"纯色画线"的写法；把它删掉等于删掉登录页唯一的纹理，而不是删掉一种材质。
+     ⚠️ 线宽与间距（1px / 56px）上一版就定下了，不动。 */
   .brand-panel__grid::before {
     content: '';
     position: absolute;
@@ -733,24 +669,10 @@ html[data-platform='windows'] {
 }
 
 /* ============================================================
-   降级：不支持 backdrop-filter 时把玻璃退回不透明表面。
-   否则「半透明 + 无模糊」比原设计更难读（文字压在半透明块上发灰）。
-   放在所有 @layer 之外 —— 未分层的规则优先级高于任何 @layer，
-   因此这里的 background-color 能压过 bg-surface / bg-ink-50 这些工具类。
+   ⚠️ 原来的"降级：不支持 backdrop-filter 时把玻璃退回不透明表面"整块已删：
+   现在没有任何元素依赖 backdrop-filter，这块降级没有对象。
+   （同理 prism.css §8 也空了。）
    ============================================================ */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass,
-  .glass-bar,
-  .glass-panel,
-  .glass-soft {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-  /* 没有模糊可采时，噪点只会让大片平坦色域变脏，直接关掉 */
-  .ambient__noise {
-    display: none;
-  }
-}
 
 /* ============================================================
    降低动效偏好（原型用 * 全局降级，这里保持一致）
@@ -762,7 +684,8 @@ html[data-platform='windows'] {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-  .ambient__aurora {
-    animation: none !important;
-  }
+  /* ⚠️ 原来这里还有一条 `.ambient__aurora { animation: none }` ——
+     极光已删，那条没有对象了。但**判据要留**（上一轮踩过）：
+     全局那条只压 `duration`，对 `infinite` 动画无效（等于以 100kHz 空转，比不动更糟）。
+     所以**任何新增的持续动画都必须显式 `animation: none`**，不能指望这一块。 */
 }

@@ -40,7 +40,11 @@ export function DetailTabs({ active, counts, onChange }: DetailTabsProps) {
               </span>
             ) : null}
             {isActive ? (
-              <span className="absolute -bottom-px left-3 right-3 h-0.5 rounded-t-[2px] bg-[linear-gradient(90deg,#6366f1,#7c3aed)] shadow-[0_0_10px_rgba(99,102,241,.5)]" />
+              // ⚠️ 2026-09-25 纯色化：原来是 `linear-gradient(90deg,#6366f1,#7c3aed)`
+              // 外加一圈 10px 的品牌色辉光（`shadow-[0_0_10px_rgba(99,102,241,.5)]`）。
+              // 渐变改成一个品牌令牌；辉光删掉 —— 一条 2px 的下划线不需要发光，
+              // "当前在哪一页"由它的**位置**表达，不由亮度表达。
+              <span className="absolute -bottom-px left-3 right-3 h-0.5 rounded-t-[2px] bg-brand-500" />
             ) : null}
           </button>
         )

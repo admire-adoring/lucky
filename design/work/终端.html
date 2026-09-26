@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nebula Terminal · Pro</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-0: #0a0c10; --bg-1: #0e1117; --bg-2: #131820; --bg-3: #171d26;
+      --line: #1f2630; --line-soft: #171d26;
+      --fg: #c9d1d9; --fg-dim: #7d8590; --fg-mute: #4d5560;
+      --green: #3fb950; --green-bright: #56d364; --green-glow: rgba(86,211,100,0.5);
+      --cyan: #58a6ff; --purple: #bc8cff; --yellow: #e3b341; --red: #f85149;
+      --accent: #2ea043; --selection: rgba(86,211,100,0.25);
+    }
+    [data-theme="amber"] {
+      --bg-0: #0d0a06; --bg-1: #120e08; --bg-2: #1a130b; --bg-3: #221a10;
+      --line: #33260f; --line-soft: #241a0d;
+      --fg: #ffd8a8; --fg-dim: #b89468; --fg-mute: #6b573f;
+      --green: #ffa726; --green-bright: #ffb74d; --green-glow: rgba(255,167,38,0.5);
+      --cyan: #ff8a65; --purple: #e0a96d; --yellow: #ffd54f; --red: #ff5252;
+      --accent: #f57c00; --selection: rgba(255,167,38,0.25);
+    }
+    [data-theme="blue"] {
+      --bg-0: #050810; --bg-1: #0a0f1c; --bg-2: #0f1626; --bg-3: #141d31;
+      --line: #1d2a44; --line-soft: #161f33;
+      --fg: #c5d5f0; --fg-dim: #7a8db3; --fg-mute: #475575;
+      --green: #58a6ff; --green-bright: #79c0ff; --green-glow: rgba(88,166,255,0.5);
+      --cyan: #56d4dd; --purple: #b392f0; --yellow: #e3b341; --red: #f85149;
+      --accent: #1f6feb; --selection: rgba(88,166,255,0.25);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-0);
+      font-family: 'JetBrains Mono','SF Mono','Menlo','Consolas',monospace;
+      -webkit-font-smoothing: antialiased;
+      color: var(--fg);
+      overflow: hidden;
+    }
+    body {
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      background:
+              radial-gradient(ellipse 80% 50% at 50% -10%, var(--green-glow), transparent 60%),
+              radial-gradient(ellipse 60% 50% at 100% 100%, rgba(88,166,255,0.08), transparent 60%),
+              var(--bg-0);
+      min-height: 100vh; position: relative;
+      transition: background 0.4s ease;
+    }
+    body::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background-image:
+              linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black, transparent 90%);
+    }
+    body::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      opacity: 0.035; z-index: 9999;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+    }
+
+    .terminal {
+      width: min(1200px, 100%);
+      height: min(760px, 92vh);
+      background: linear-gradient(180deg, var(--bg-1), var(--bg-0));
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      display: flex; flex-direction: column;
+      overflow: hidden; position: relative;
+      box-shadow:
+              0 0 0 1px rgba(255,255,255,0.02) inset,
+              0 30px 80px -20px rgba(0,0,0,0.9),
+              0 0 80px -20px var(--green-glow);
+      z-index: 1;
+      transition: box-shadow 0.4s ease;
+    }
+    .terminal::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--green-glow), transparent);
+      opacity: 0.7; z-index: 5;
+    }
+    .terminal::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 120px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
+      pointer-events: none; z-index: 4; border-radius: 12px 12px 0 0;
+    }
+
+    /* ============ 标题栏 ============ */
+    .titlebar {
+      display: flex; align-items: center;
+      height: 44px; padding: 0 16px;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0; position: relative; gap: 14px;
+      z-index: 6;
+    }
+    .dots { display: flex; gap: 8px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; position: relative; transition: filter 0.2s; }
+    .dot::after {
+      content: ''; position: absolute; inset: 1px; border-radius: 50%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.15), transparent);
+    }
+    .dot.red { background: #ff5f57; }
+    .dot.yellow { background: #febc2e; }
+    .dot.green { background: #28c840; }
+    .dot:hover { filter: brightness(1.2); }
+
+    .title {
+      font-size: 12px; color: var(--fg-dim); letter-spacing: 0.3px;
+      display: flex; align-items: center; gap: 8px; flex: 1;
+      justify-content: center; font-weight: 500;
+    }
+    .title svg { width: 14px; height: 14px; opacity: 0.6; }
+    .title .path { color: var(--fg); }
+    .title .sep { color: var(--fg-mute); }
+    .title .file { color: var(--cyan); }
+
+    .title-actions { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--fg-mute); }
+    .kbd {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 7px; border: 1px solid var(--line); border-radius: 5px;
+      background: rgba(255,255,255,0.02);
+      font-size: 10px; color: var(--fg-dim); font-weight: 500; letter-spacing: 0.5px;
+    }
+    .theme-switch {
+      display: flex; gap: 4px; padding: 3px;
+      border: 1px solid var(--line); border-radius: 6px; background: var(--bg-3);
+    }
+    .theme-btn {
+      width: 16px; height: 16px; border-radius: 4px; cursor: pointer;
+      border: 1px solid transparent; transition: all 0.2s;
+    }
+    .theme-btn:hover { transform: scale(1.1); }
+    .theme-btn.active { border-color: var(--fg-dim); }
+    .theme-btn.g { background: linear-gradient(135deg, #56d364, #2ea043); }
+    .theme-btn.a { background: linear-gradient(135deg, #ffb74d, #f57c00); }
+    .theme-btn.b { background: linear-gradient(135deg, #79c0ff, #1f6feb); }
+
+    /* ============ 标签页 ============ */
+    .tabs {
+      display: flex; align-items: center;
+      height: 38px; padding: 0 12px;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--line-soft);
+      gap: 2px; flex-shrink: 0; overflow-x: auto;
+      scrollbar-width: none; z-index: 6;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 14px; height: 100%; font-size: 12px;
+      color: var(--fg-dim);
+      border-bottom: 2px solid transparent;
+      white-space: nowrap; cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab .dot-ind {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--fg-mute); transition: all 0.15s;
+    }
+    .tab:hover { color: var(--fg); }
+    .tab.active { color: var(--fg); border-bottom-color: var(--accent); }
+    .tab.active .dot-ind { background: var(--green-bright); box-shadow: 0 0 8px var(--green-bright); }
+    .tab .close { opacity: 0; font-size: 14px; line-height: 1; color: var(--fg-mute); transition: opacity 0.15s; }
+    .tab:hover .close { opacity: 0.6; }
+    .tab .close:hover { color: var(--fg); }
+
+    /* ============ 主体 tmux 分屏 ============ */
+    .screen {
+      flex: 1; display: flex; overflow: hidden;
+      background: var(--bg-0); position: relative; z-index: 3;
+    }
+    .screen::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(0deg,
+      rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0.08) 3px, rgba(0,0,0,0) 4px);
+      z-index: 30; mix-blend-mode: multiply; opacity: 0.4;
+    }
+    .screen::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.35) 100%);
+      z-index: 29;
+    }
+
+    /* tmux 顶部状态条 */
+    .tmux-status {
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 24px;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 12px;
+      font-size: 11px;
+      color: var(--fg-dim);
+      z-index: 25;
+      letter-spacing: 0.3px;
+    }
+    .tmux-status .left, .tmux-status .right { display: flex; align-items: center; gap: 12px; }
+    .tmux-status .tag {
+      padding: 1px 8px; border-radius: 3px; font-weight: 600; font-size: 10px;
+    }
+    .tmux-status .tag.g { background: rgba(63,185,80,0.2); color: var(--green-bright); }
+    .tmux-status .tag.c { background: rgba(88,166,255,0.15); color: var(--cyan); }
+    .tmux-status .sep { color: var(--fg-mute); }
+
+    /* 分屏容器 */
+    .panes {
+      display: flex;
+      padding-top: 24px;
+      width: 100%; height: 100%;
+      gap: 1px;
+      background: var(--line);
+    }
+    .pane {
+      background: var(--bg-0);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .pane.master { flex: 1.4; }
+    .pane.side { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .pane.side .pane { flex: 1; }
+
+    .pane-header {
+      height: 22px;
+      padding: 0 10px;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--line-soft);
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11px;
+      color: var(--fg-mute);
+      letter-spacing: 0.3px;
+      flex-shrink: 0;
+    }
+    .pane-header .title {
+      color: var(--fg-dim);
+      display: flex; align-items: center; gap: 6px;
+      font-weight: 500;
+    }
+    .pane-header .title .dot-sm {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--green-bright); box-shadow: 0 0 6px var(--green-bright);
+    }
+    .pane-header .meta { color: var(--fg-mute); font-size: 10px; }
+
+    .pane-body {
+      flex: 1;
+      overflow: auto;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      line-height: 1.7;
+    }
+    .pane-body::-webkit-scrollbar { width: 8px; }
+    .pane-body::-webkit-scrollbar-thumb {
+      background: var(--line); border-radius: 4px; border: 2px solid var(--bg-0);
+    }
+
+    /* ============ 终端 pane 内部 ============ */
+    .term-output {
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--fg-dim);
+      font-size: 12.5px;
+      line-height: 1.65;
+    }
+    .term-output .ok { color: var(--green-bright); text-shadow: 0 0 6px var(--green-glow); }
+    .term-output .err { color: var(--red); }
+    .term-output .info { color: var(--cyan); }
+    .term-output .warn { color: var(--yellow); }
+    .term-output .mute { color: var(--fg-mute); }
+    .term-output .hl { color: var(--fg); }
+    .term-output .key { color: var(--purple); }
+
+    /* ============ htop 面板 ============ */
+    .htop {
+      font-size: 11.5px;
+      line-height: 1.55;
+      color: var(--fg);
+    }
+    .htop .section {
+      margin-bottom: 8px;
+    }
+    .htop .meters {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px 12px;
+      margin-bottom: 6px;
+    }
+    .htop .meter {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 10.5px;
+    }
+    .htop .meter .label {
+      width: 26px;
+      color: var(--fg-dim);
+    }
+    .htop .meter .bar-mini {
+      flex: 1;
+      height: 8px;
+      background: var(--bg-3);
+      border-radius: 1px;
+      overflow: hidden;
+      position: relative;
+    }
+    .htop .meter .bar-mini > i {
+      display: block; height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--green-bright));
+      transition: width 0.5s ease;
+    }
+    .htop .meter .bar-mini.warn > i { background: linear-gradient(90deg, var(--yellow), #f0883e); }
+    .htop .meter .bar-mini.crit > i { background: linear-gradient(90deg, var(--red), #ff7b72); }
+    .htop .meter .val { width: 40px; text-align: right; color: var(--fg-dim); font-size: 10px; }
+
+    .htop table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .htop table th {
+      text-align: left;
+      color: var(--fg-mute);
+      font-weight: 500;
+      padding: 3px 6px;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .htop table td {
+      padding: 3px 6px;
+      color: var(--fg-dim);
+      border-bottom: 1px solid transparent;
+    }
+    .htop table tr:hover td {
+      background: var(--selection);
+      color: var(--fg);
+    }
+    .htop table td.num { text-align: right; color: var(--fg); }
+    .htop table td.name { color: var(--cyan); }
+    .htop table td.cpu-hi { color: var(--yellow); }
+    .htop table td.cpu-crit { color: var(--red); font-weight: 600; }
+    .htop table td.mem-hi { color: var(--purple); }
+    .htop .header-line {
+      display: flex; justify-content: space-between;
+      color: var(--fg-mute); font-size: 10px;
+      padding: 2px 6px 4px;
+      letter-spacing: 0.5px;
+    }
+    .htop .header-line .left { color: var(--green-bright); }
+
+    /* ============ 输入行 ============ */
+    .term-input-line {
+      display: flex; align-items: baseline; gap: 0;
+      margin-top: 6px;
+      position: relative;
+    }
+    .term-input-line .prompt {
+      color: var(--green-bright);
+      font-weight: 600;
+      flex-shrink: 0;
+      text-shadow: 0 0 6px var(--green-glow);
+    }
+    .term-input-line .prompt .user { color: var(--cyan); }
+    .term-input-line .prompt .at { color: var(--fg-mute); }
+    .term-input-line .prompt .host { color: var(--green-bright); }
+    .term-input-line .prompt .path { color: var(--purple); }
+    .term-input-line .prompt .sign { color: var(--fg-dim); margin-left: 2px; }
+
+    .term-input {
+      flex: 1;
+      background: transparent;
+      border: none; outline: none;
+      color: var(--fg);
+      font-family: inherit;
+      font-size: 12.5px;
+      caret-color: var(--green-bright);
+      letter-spacing: 0.2px;
+      padding: 0 4px;
+    }
+    .term-input::placeholder { color: var(--fg-mute); }
+
+    .connection-status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--bg-3);
+      color: var(--fg-mute);
+      border: 1px solid var(--line-soft);
+    }
+    .connection-status .dot-c {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--fg-mute);
+    }
+    .connection-status.live .dot-c {
+      background: var(--green-bright);
+      box-shadow: 0 0 6px var(--green-bright);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .connection-status.live { color: var(--green-bright); border-color: var(--green); }
+    .connection-status.fallback { color: var(--yellow); border-color: var(--yellow); }
+    .connection-status.fallback .dot-c { background: var(--yellow); }
+
+    /* 「连接」按钮 —— 默认**不建连接**，SSH 由这一下发起，所以它是顶栏里最该被看见的动作 */
+    .connect-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 22px; padding: 0 10px;
+      border-radius: 6px;
+      font-family: inherit; font-size: 11px; font-weight: 700;
+      border: 1px solid var(--green);
+      background: color-mix(in srgb, var(--green) 16%, transparent);
+      color: var(--green-bright);
+      cursor: pointer;
+      transition: background .15s ease, color .15s ease, border-color .15s ease;
+    }
+    .connect-btn:hover { background: color-mix(in srgb, var(--green) 26%, transparent); }
+    .connect-btn:disabled { opacity: .55; cursor: default; }
+    /* 已经连上 ⇒ 按钮变成「断开」并退回中性色：常驻的强调色会让人以为还有事要做 */
+    .connect-btn.on {
+      border-color: var(--line-soft); background: var(--bg-3); color: var(--fg-dim);
+    }
+    .connect-btn.on:hover { border-color: var(--yellow); color: var(--yellow); }
+    .connect-btn svg { width: 13px; height: 13px; display: block; }
+
+    @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+    /* ============ 状态栏 ============ */
+    .statusbar {
+      height: 30px; padding: 0 16px;
+      background: var(--bg-2);
+      border-top: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11px; color: var(--fg-dim);
+      flex-shrink: 0; letter-spacing: 0.3px; z-index: 6;
+    }
+    .sb-left, .sb-right { display: flex; align-items: center; gap: 16px; }
+    .sb-item { display: flex; align-items: center; gap: 6px; }
+    .sb-item .badge {
+      padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600;
+    }
+    .badge.g { background: rgba(63,185,80,0.15); color: var(--green-bright); }
+    .badge.c { background: rgba(88,166,255,0.15); color: var(--cyan); }
+    .badge.y { background: rgba(227,179,65,0.15); color: var(--yellow); }
+    .sep-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--fg-mute); }
+    .led {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green-bright);
+      box-shadow: 0 0 8px var(--green-bright);
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+
+    /* 响应式 */
+    @media (max-width: 860px) {
+      .pane.side { display: none; }
+      .pane.master { flex: 1; }
+      body { padding: 12px; }
+      .terminal { height: 94vh; }
+      .title .path { display: none; }
+      .title-actions .kbd { display: none; }
+      .sb-right .sb-item:nth-child(-n+3) { display: none; }
+    }
+    @media (max-width: 560px) {
+      .htop table .col-hide { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="terminal">
+
+  <!-- 标题栏 -->
+  <div class="titlebar">
+    <div class="dots">
+      <span class="dot red"></span>
+      <span class="dot yellow"></span>
+      <span class="dot green"></span>
+    </div>
+    <div class="title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="4 17 10 11 4 5"></polyline>
+        <line x1="12" y1="19" x2="20" y2="19"></line>
+      </svg>
+      <span class="path">~/projects/nebula</span>
+      <span class="sep">—</span>
+      <span class="file">tmux: 3 panes</span>
+    </div>
+    <div class="title-actions">
+      <button class="connect-btn" id="connBtn" type="button" title="发起 SSH 连接">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 2v4M16 2v4"></path>
+          <path d="M5 6h14v4a7 7 0 0 1-7 7 7 7 0 0 1-7-7z"></path>
+          <path d="M12 17v5"></path>
+        </svg>
+        <span id="connBtnText">连接</span>
+      </button>
+      <span class="connection-status" id="connStatus">
+        <span class="dot-c"></span>
+        <span id="connText">未连接</span>
+      </span>
+      <div class="theme-switch">
+        <div class="theme-btn g active" data-theme="green" title="绿色"></div>
+        <div class="theme-btn a" data-theme="amber" title="琥珀"></div>
+        <div class="theme-btn b" data-theme="blue" title="蓝色"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 标签页 -->
+  <div class="tabs">
+    <div class="tab active">
+      <span class="dot-ind"></span>
+      <span>dev</span>
+      <span class="close">×</span>
+    </div>
+    <div class="tab">
+      <span class="dot-ind"></span>
+      <span>monitor</span>
+      <span class="close">×</span>
+    </div>
+    <div class="tab">
+      <span class="dot-ind"></span>
+      <span>+</span>
+    </div>
+  </div>
+
+  <!-- 主体：tmux 分屏 -->
+  <div class="screen">
+    <div class="tmux-status">
+      <div class="left">
+        <span class="tag g">[nebula]</span>
+        <span>0:bash*</span>
+        <span class="sep">·</span>
+        <span>1:htop</span>
+        <span class="sep">·</span>
+        <span>2:logs</span>
+      </div>
+      <div class="right">
+        <span id="tmuxTime">--:--</span>
+        <span class="sep">·</span>
+        <span>2026-04-07</span>
+      </div>
+    </div>
+
+    <div class="panes">
+
+      <!-- 左：主终端 -->
+      <div class="pane master">
+        <div class="pane-header">
+          <div class="title"><span class="dot-sm"></span>bash · ~/projects/nebula</div>
+          <div class="meta" id="termStatus">idle</div>
+        </div>
+        <div class="pane-body" id="termPane">
+          <div class="term-output" id="termOutput">$ <span class="info">nebula shell v2.6</span>
+            <span class="mute" id="termHint">// 未连接 — 点右上角「连接」发起 SSH</span>
+          </div>
+          <div class="term-input-line">
+            <span class="prompt">
+              <span class="user">guest</span><span class="at">@</span><span class="host">nebula</span>
+              <span class="path">~/projects/nebula</span><span class="sign">$</span>
+            </span>
+            <input class="term-input" id="termInput" type="text" placeholder="输入命令 (回车执行)" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：上下分 -->
+      <div class="pane side">
+
+        <!-- 上：htop -->
+        <div class="pane">
+          <div class="pane-header">
+            <div class="title"><span class="dot-sm"></span>htop</div>
+            <div class="meta" id="htopMeta">refresh 1s</div>
+          </div>
+          <div class="pane-body">
+            <div class="htop" id="htop">
+              <!-- JS 渲染 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 下：日志 -->
+        <div class="pane">
+          <div class="pane-header">
+            <div class="title"><span class="dot-sm"></span>logs · tail -f</div>
+            <div class="meta">live</div>
+          </div>
+          <div class="pane-body">
+            <div class="term-output" id="logPane"></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 状态栏 -->
+  <div class="statusbar">
+    <div class="sb-left">
+      <div class="sb-item">
+        <span class="led"></span>
+        <span id="sbConn">demo</span>
+      </div>
+      <span class="sep-dot"></span>
+      <div class="sb-item">
+        <span class="badge g">main</span>
+        <span>clean</span>
+      </div>
+      <span class="sep-dot"></span>
+      <div class="sb-item">
+        <span class="badge c">node</span>
+        <span>v22.11.0</span>
+      </div>
+    </div>
+    <div class="sb-right">
+      <div class="sb-item"><span id="cpuStat">CPU 12%</span></div>
+      <span class="sep-dot"></span>
+      <div class="sb-item"><span id="memStat">MEM 21%</span></div>
+      <span class="sep-dot"></span>
+      <div class="sb-item"><span id="clock">--:--:--</span></div>
+      <span class="sep-dot"></span>
+      <div class="sb-item"><span class="badge y">TS</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  (function () {
+    'use strict';
+
+    const $ = id => document.getElementById(id);
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const escapeHtml = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    /* 从运维页的「连接服务器」开过来时 URL 带 ?host=<机器>：
+       把窗口标题跟上 —— 同时连着 web 与 db 两台时，任务栏 / 窗口列表里才分得清谁是谁。 */
+    const TARGET_HOST = new URLSearchParams(location.search).get('host') || '';
+    if (TARGET_HOST) document.title = 'Nebula Terminal · ' + TARGET_HOST;
+
+    /* ======================= 主题切换 ======================= */
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const t = btn.dataset.theme;
+        if (t === 'green') document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme', t);
+      });
+    });
+
+    /* ======================= 时钟 ======================= */
+    function pad(n) { return String(n).padStart(2, '0'); }
+    setInterval(() => {
+      const d = new Date();
+      const t = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      $('clock').textContent = t;
+      $('tmuxTime').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }, 1000);
+
+    /* ======================= htop 面板 ======================= */
+    const processes = [
+      { pid: 1204, user: 'guest', cpu: 12.4, mem: 3.2, name: 'node server.ts', cmd: 'tsx watch src/server.ts' },
+      { pid: 892,  user: 'systemd', cpu: 4.1, mem: 1.8, name: 'postgres', cmd: 'postgres -D /var/lib/postgres' },
+      { pid: 934,  user: 'systemd', cpu: 1.2, mem: 1.1, name: 'redis-server', cmd: 'redis-server *:6379' },
+      { pid: 1567, user: 'guest', cpu: 0.8, mem: 0.6, name: 'tsx watch', cmd: 'node /usr/bin/tsx' },
+      { pid: 2188, user: 'guest', cpu: 2.3, mem: 2.1, name: 'vite', cmd: 'vite --host 0.0.0.0' },
+      { pid: 3451, user: 'guest', cpu: 0.4, mem: 0.9, name: 'docker-proxy', cmd: '/usr/bin/docker-proxy' },
+      { pid: 88,   user: 'root',  cpu: 0.2, mem: 0.3, name: 'systemd', cmd: '/sbin/init' },
+      { pid: 4521, user: 'guest', cpu: 0.1, mem: 0.2, name: 'zsh', cmd: '-zsh' }
+    ];
+
+    function cpuClass(v) { return v > 8 ? 'cpu-crit' : v > 3 ? 'cpu-hi' : ''; }
+    function memClass(v) { return v > 2 ? 'mem-hi' : ''; }
+
+    function renderHtop() {
+      const cpu = 12 + Math.random() * 6 - 3;
+      const mem = 21 + Math.random() * 3 - 1.5;
+      const cpuBars = [12, 8, 24, 4].map(v => Math.max(0, Math.min(100, v + Math.random() * 4 - 2)));
+      const memBars = [21, 18, 34, 12].map(v => Math.max(0, Math.min(100, v + Math.random() * 3 - 1.5)));
+      const swap = 4;
+
+      const meterHTML = (label, bars) => bars.map((v, i) =>
+              `<div class="meter">
+        <span class="label">${label}${i}</span>
+        <span class="bar-mini ${v > 70 ? 'crit' : v > 45 ? 'warn' : ''}"><i style="width:${v}%"></i></span>
+        <span class="val">${v.toFixed(0)}%</span>
+      </div>`
+      ).join('');
+
+      const rows = processes.map(p => {
+        const c = cpuClass(p.cpu);
+        const m = memClass(p.mem);
+        return `<tr>
+        <td class="num">${p.pid}</td>
+        <td class="name">${p.user}</td>
+        <td class="num ${c}">${p.cpu.toFixed(1)}</td>
+        <td class="num ${m}">${p.mem.toFixed(1)}</td>
+        <td>${p.name}</td>
+        <td class="col-hide" style="color:var(--fg-mute)">${p.cmd}</td>
+      </tr>`;
+      }).join('');
+
+      $('htop').innerHTML = `
+      <div class="header-line">
+        <span class="left">CPU [${cpuBars.map(v => v.toFixed(0)).join(' ')}%]</span>
+        <span>Tasks: 87, 214 thr; 1 running</span>
+      </div>
+      <div class="meters">
+        ${meterHTML('C', cpuBars)}
+      </div>
+      <div class="header-line">
+        <span class="left">Mem [${memBars.map(v => v.toFixed(0)).join(' ')}%]</span>
+        <span>Load avg: 0.42 0.38 0.35</span>
+      </div>
+      <div class="meters">
+        ${meterHTML('M', memBars)}
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>PID</th><th>USER</th><th>CPU%</th><th>MEM%</th><th>COMMAND</th><th class="col-hide">CMD</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+      $('htopMeta').textContent = `cpu ${cpu.toFixed(0)}% · mem ${mem.toFixed(0)}%`;
+    }
+    renderHtop();
+    setInterval(renderHtop, 2000);
+
+    /* ======================= 日志面板 ======================= */
+    const logTemplates = [
+      () => `<span class="mute">${logTime()}</span> <span class="info">nebula-api:</span> <span class="hl">GET</span> /api/health <span class="ok">200</span> <span class="mute">${(1+Math.random()*5).toFixed(0)}ms</span>`,
+      () => `<span class="mute">${logTime()}</span> <span class="info">nebula-api:</span> <span class="hl">POST</span> /api/auth/login <span class="ok">200</span> <span class="mute">${(8+Math.random()*20).toFixed(0)}ms</span>`,
+      () => `<span class="mute">${logTime()}</span> <span class="info">nebula-api:</span> <span class="hl">GET</span> /api/users/me <span class="ok">200</span> <span class="mute">${(2+Math.random()*8).toFixed(0)}ms</span>`,
+      () => `<span class="mute">${logTime()}</span> <span class="info">nebula-api:</span> <span class="warn">WARN</span> Cache miss <span class="key">user:profile:${Math.floor(Math.random()*999)}</span>`,
+      () => `<span class="mute">${logTime()}</span> <span class="info">nebula-api:</span> <span class="hl">POST</span> /api/orders <span class="ok">201</span> <span class="mute">${(15+Math.random()*40).toFixed(0)}ms</span>`,
+      () => `<span class="mute">${logTime()}</span> <span class="info">postgres:</span> checkpoint complete: wrote <span class="hl">${Math.floor(Math.random()*300)}</span> buffers`
+    ];
+    function logTime() {
+      const d = new Date();
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+    function pushLog() {
+      const el = $('logPane');
+      const tpl = logTemplates[Math.floor(Math.random() * logTemplates.length)];
+      const line = document.createElement('div');
+      line.innerHTML = tpl();
+      el.appendChild(line);
+      while (el.children.length > 60) el.removeChild(el.firstChild);
+      el.parentElement.scrollTop = el.parentElement.scrollHeight;
+    }
+    pushLog();
+    setInterval(pushLog, 1800);
+
+    /* ======================= 终端连接与回显 ======================= */
+    const termOutput = $('termOutput');
+    const termInput = $('termInput');
+    const termStatus = $('termStatus');
+    const connStatus = $('connStatus');
+    const connText = $('connText');
+    const sbConn = $('sbConn');
+    const connBtn = $('connBtn');
+    const connBtnText = $('connBtnText');
+
+    let ws = null;
+    let wsReady = false;
+    let fallbackMode = false;   /* 只有连过之后才谈得上"降级到内置回显" */
+
+    /* ---- 连接状态 ----
+       默认 idle：**打开页面不会自己去连**，SSH 由顶栏那个「连接」按钮发起。
+       四个状态只在这一处收口（顶栏胶囊 / 状态栏 / pane meta / 按钮本身），
+       否则很快会出现"胶囊说已连接、按钮还写着连接"两套说法。 */
+    let connState = 'idle';     /* idle | connecting | live | fallback */
+
+    /* 服务器卡片上的「运行中」跟着这条线走：键写在 localStorage，运维页靠 storage 事件同步 */
+    const TERM_KEY = 'ops-term:';
+
+    function publishConn(on) {
+      if (!TARGET_HOST) return;   /* 直接打开本页（没带 ?host=）时不代表任何一台机器 */
+      try {
+        if (on) localStorage.setItem(TERM_KEY + TARGET_HOST, 'on');
+        else localStorage.removeItem(TERM_KEY + TARGET_HOST);
+      } catch (e) {}
+    }
+
+    function setConnState(state) {
+      connState = state;
+      connStatus.classList.toggle('live', state === 'live');
+      connStatus.classList.toggle('fallback', state === 'fallback');
+      connText.textContent = state === 'live' ? '真实 shell'
+        : state === 'fallback' ? '内置回显'
+          : state === 'connecting' ? '连接中…' : '未连接';
+      sbConn.textContent = state === 'live' ? 'live' : state === 'fallback' ? 'demo' : 'idle';
+      termStatus.textContent = state === 'live' ? 'connected'
+        : state === 'connecting' ? 'connecting' : 'disconnected';
+      connBtnText.textContent = state === 'connecting' ? '连接中…' : state === 'idle' ? '连接' : '断开';
+      connBtn.disabled = state === 'connecting';
+      connBtn.classList.toggle('on', state === 'live' || state === 'fallback');
+      publishConn(state === 'live' || state === 'fallback');
+    }
+
+    function toggleConnect() {
+      if (connState === 'idle') connectWS();
+      else if (connState !== 'connecting') disconnect();
+    }
+
+    function disconnect() {
+      /* 先摘回调再关窗口：否则 ws.onclose 会把状态又推回"内置回显" */
+      if (ws) {
+        ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
+        try { ws.close(); } catch (e) {}
+      }
+      ws = null;
+      wsReady = false;
+      fallbackMode = false;
+      setConnState('idle');
+      termWrite(`<span class="mute">// 已断开 ${TARGET_HOST || 'nebula'}</span>`);
+    }
+
+    connBtn.addEventListener('click', toggleConnect);
+
+    /* 连接是**机器**的状态、不是这个窗口的状态：运维页那个开关也能开能关，
+       所以本窗口既要把结果报出去，也要听别的窗口改这条标记 ——
+       否则会出现"卡片说已连接、终端还说未连接"两套说法。
+       这里只跟着动展示层：已连接 = 走内置回显（真实后端仍要本页自己发 WS）。 */
+    window.addEventListener('storage', function (e) {
+      if (!TARGET_HOST || e.key !== TERM_KEY + TARGET_HOST) return;
+      if (e.newValue === 'on') {
+        if (connState === 'idle') adoptExternalConn();
+      } else if (connState === 'fallback' || connState === 'live') {
+        disconnect();
+      }
+    });
+
+    function adoptExternalConn() {
+      wsReady = false;
+      fallbackMode = true;
+      const hint = $('termHint');
+      if (hint) hint.remove();
+      setConnState('fallback');
+      termWrite(`<span class="mute">// 连接已由运维页建立 — 使用内置模拟回显</span>`);
+    }
+
+    // ---- 提示符 ----
+    const PS1 = `<span class="prompt"><span class="user">guest</span><span class="at">@</span><span class="host">${escapeHtml(TARGET_HOST || 'nebula')}</span><span class="path"> ~/projects/nebula</span><span class="sign">$</span></span> `;
+
+    // ---- 写入终端 ----
+    function termWrite(html) {
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      termOutput.appendChild(div);
+      const body = termOutput.parentElement;
+      body.scrollTop = body.scrollHeight;
+    }
+
+    // ---- 命令历史 ----
+    const history = [];
+    let histIdx = -1;
+
+    // ---- 内置模拟回显 ----
+    const FALLBACK_CMDS = {
+      'help': () => `可用命令：
+  <span class="info">ls, pwd, cd, cat, echo, clear</span>
+  <span class="info">git status, git log, git branch</span>
+  <span class="info">docker ps, docker images</span>
+  <span class="info">npm run dev, npm test, npm build</span>
+  <span class="info">htop, top, ps, free, df</span>
+  <span class="info">neofetch, whoami, date</span>
+
+<span class="mute">// 启动后端 server.js 可切换到真实 shell</span>`,
+
+      'pwd': () => '/home/guest/projects/nebula',
+
+      'whoami': () => 'guest',
+
+      'date': () => new Date().toString(),
+
+      'echo': (args) => escapeHtml(args.join(' ')) || '',
+
+      'ls': (args) => {
+        const flags = args.filter(a => a.startsWith('-'));
+        const long = flags.some(f => f.includes('l'));
+        if (long) {
+          return `total 48
+drwxr-xr-x  6 guest guest 4096 Apr  7 10:23 <span class="info">.</span>
+drwxr-xr-x 18 guest guest 4096 Apr  6 22:10 <span class="info">..</span>
+drwxr-xr-x  8 guest guest 4096 Apr  7 10:22 <span class="info">node_modules</span>
+drwxr-xr-x  3 guest guest 4096 Apr  7 10:22 <span class="info">src</span>
+-rw-r--r--  1 guest guest  512 Apr  7 10:23 README.md
+-rw-r--r--  1 guest guest 1024 Apr  7 10:22 index.html
+-rw-r--r--  1 guest guest 2048 Apr  7 10:22 package.json
+-rw-r--r--  1 guest guest 1890 Apr  7 10:22 server.js`;
+        }
+        return `<span class="info">node_modules</span>  <span class="info">src</span>  README.md  index.html  package.json  server.js`;
+      },
+
+      'clear': () => { termOutput.innerHTML = ''; return null; },
+
+      'neofetch': () => `<span class="ok">      ███╗   ██╗███████╗██████╗ ██╗   ██╗██╗      █████╗
+      ████╗  ██║██╔════╝██╔══██╗██║   ██║██║     ██╔══██╗
+      ██╔██╗ ██║█████╗  ██████╔╝██║   ██║██║     ███████║
+      ██║╚██╗██║██╔══╝  ██╔══██╗██║   ██║██║     ██╔══██║
+      ██║ ╚████║███████╗██████╔╝╚██████╔╝███████╗██║  ██║
+      ╚═╝  ╚═══╝╚══════╝╚═════╝  ╚═════╝ ╚══════╝╚═╝  ╚═╝</span>
+
+<span class="hl">guest@nebula</span>
+<span class="mute">─────────────</span>
+<span class="key">OS</span>      Nebula Linux 2.6.1
+<span class="key">Kernel</span>  6.9.0-nebula
+<span class="key">Shell</span>   zsh 5.9
+<span class="key">CPU</span>     AMD Ryzen 9
+<span class="key">Memory</span>  6.8GiB / 32GiB`,
+
+      'git': (args) => {
+        const sub = args[0];
+        if (sub === 'status') {
+          return `On branch <span class="info">main</span>
+Your branch is ahead of <span class="info">'origin/main'</span> by 2 commits.
+
+Changes not staged for commit:
+  <span class="warn">modified:   src/server.ts</span>
+  <span class="warn">modified:   src/routes/auth.ts</span>
+
+Untracked files:
+  <span class="err">src/routes/metrics.ts</span>
+
+<span class="mute">no changes added to commit</span>`;
+        }
+        if (sub === 'log') {
+          return `<span class="warn">a1b2c3d</span> <span class="hl">(HEAD -> main)</span> feat: add metrics route
+<span class="warn">9f8e7d6</span> fix: auth token refresh
+<span class="warn">3c4b5a6</span> chore: bump deps
+<span class="warn">7d8e9f0</span> <span class="info">(origin/main)</span> refactor: split server modules
+<span class="warn">2a1b0c9</span> initial commit`;
+        }
+        if (sub === 'branch') {
+          return `  dev
+  feature/metrics
+<span class="ok">* main</span>
+  staging`;
+        }
+        return `git: '<span class="warn">${escapeHtml(sub || '')}</span>' is not a git command. See 'git --help'.`;
+      },
+
+      'docker': (args) => {
+        if (args[0] === 'ps') {
+          return `<span class="hl">CONTAINER ID   IMAGE                STATUS                   PORTS</span>
+<span class="mute">b1c2d3e4f5a6   postgres:16-alpine   Up 3 hours (healthy)     0.0.0.0:5432->5432/tcp</span>
+<span class="mute">c2d3e4f5a6b7   redis:7-alpine       Up 3 hours (healthy)     0.0.0.0:6379->6379/tcp</span>
+<span class="mute">d3e4f5a6b7c8   minio/minio:latest   Up 3 hours               0.0.0.0:9000->9000/tcp</span>`;
+        }
+        if (args[0] === 'images') {
+          return `<span class="hl">REPOSITORY          TAG           SIZE</span>
+postgres            16-alpine     243MB
+redis               7-alpine      41MB
+minio/minio         latest        152MB
+node                22-alpine     178MB`;
+        }
+        return 'docker: mock 只实现了 ps / images';
+      },
+
+      'npm': (args) => {
+        if (args[0] === 'run' && args[1] === 'dev') {
+          return `<span class="mute">> nebula-api@2.6.1 dev</span>
+<span class="mute">> tsx watch src/server.ts</span>
+
+<span class="ok">✔</span> Server running at <span class="info">http://localhost:3000</span>
+<span class="ok">✔</span> WebSocket listening on <span class="info">ws://localhost:3001</span>
+<span class="mute">[tsx] watching for file changes...</span>`;
+        }
+        if (args[0] === 'test') {
+          return `<span class="ok">PASS</span>  src/routes/auth.test.ts
+<span class="ok">PASS</span>  src/routes/users.test.ts
+<span class="ok">PASS</span>  src/utils/crypto.test.ts
+
+<span class="hl">Tests: 24 passed, 24 total</span>
+<span class="mute">Time:  1.482 s</span>`;
+        }
+        if (args[0] === 'build') {
+          return `<span class="mute">vite v5.4.0 building for production...</span>
+<span class="ok">✓</span> 312 modules transformed.
+<span class="ok">✓</span> built in <span class="hl">1.24s</span>`;
+        }
+        return `Unknown npm command. Try: run dev / test / build`;
+      },
+
+      'ps': () => `  PID TTY          TIME CMD
+ 1204 pts/0    00:00:03 node
+ 1567 pts/0    00:00:01 tsx
+ 2188 pts/0    00:00:02 vite
+ 4521 pts/0    00:00:00 zsh`,
+
+      'free': () => `              total        used        free      shared  buff/cache
+Mem:           32Gi       6.8Gi        18Gi       412Mi        7.2Gi
+Swap:          8Gi        320Mi        7.7Gi`,
+
+      'df': () => `Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p1  512G  187G  299G  39% /
+tmpfs            16G     0   16G   0% /dev/shm`,
+
+      'htop': () => `<span class="mute">// htop 已在右侧面板运行 —— 见 "htop" pane</span>`,
+
+      'top': () => `<span class="mute">// top 已合并进右侧 htop 面板</span>`
+    };
+
+    // ---- 模拟执行 ----
+    function fallbackExec(cmdline) {
+      const parts = cmdline.trim().split(/\s+/);
+      const cmd = parts[0];
+      const args = parts.slice(1);
+
+      if (!cmd) return null;
+
+      if (FALLBACK_CMDS[cmd]) {
+        return FALLBACK_CMDS[cmd](args);
+      }
+
+      // 未知命令
+      return `<span class="err">${escapeHtml(cmd)}: command not found</span>
+<span class="mute">// 内置命令：help 查看列表</span>`;
+    }
+
+    // ---- 处理回车 ----
+    function handleEnter(line) {
+      const cmd = line.trim();
+
+      // 回显
+      termWrite(PS1 + escapeHtml(cmd));
+
+      if (!cmd) return;
+
+      history.push(cmd);
+      histIdx = history.length;
+
+      // 有 WS 就发过去
+      if (wsReady && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'input', data: cmd + '\n' }));
+        return;
+      }
+
+      // 否则用内置回显
+      if (!fallbackMode) {
+        termWrite(`<span class="err">[offline]</span> 未连接 — 点右上角「连接」发起 SSH`);
+        return;
+      }
+
+      const out = fallbackExec(cmd);
+      if (out === null) return; // clear 命令
+      termWrite(out);
+    }
+
+    // ---- 输入框事件 ----
+    termInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        handleEnter(termInput.value);
+        termInput.value = '';
+        histIdx = history.length;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (history.length) {
+          histIdx = Math.max(0, histIdx - 1);
+          termInput.value = history[histIdx] || '';
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (history.length) {
+          histIdx = Math.min(history.length, histIdx + 1);
+          termInput.value = history[histIdx] || '';
+        }
+      } else if (e.key === 'l' && e.ctrlKey) {
+        e.preventDefault();
+        termOutput.innerHTML = '';
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        // 简易补全
+        const val = termInput.value;
+        const candidates = Object.keys(FALLBACK_CMDS).filter(c => c.startsWith(val));
+        if (candidates.length === 1) termInput.value = candidates[0] + ' ';
+        else if (candidates.length > 1) {
+          termWrite(PS1 + escapeHtml(val));
+          termWrite(`<span class="mute">${candidates.join('  ')}</span>`);
+        }
+      }
+    });
+
+    // 点击终端面板聚焦输入
+    $('termPane').addEventListener('click', () => termInput.focus());
+
+    // ---- WS 连接（只在用户按了「连接」之后才走这里）----
+    let fallbackNotified = false;   /* 降级提示只写一次：onerror 与 onclose 会连着来 */
+    function connectWS() {
+      setConnState('connecting');
+      fallbackNotified = false;
+      const hint = $('termHint');
+      if (hint) hint.remove();
+      termWrite(`<span class="mute">// 正在连接 ${escapeHtml(TARGET_HOST || 'nebula')} …</span>`);
+
+      try {
+        ws = new WebSocket('ws://localhost:8080');
+      } catch (e) {
+        setFallback();
+        return;
+      }
+
+      const timeout = setTimeout(() => {
+        if (!wsReady) {
+          try { ws.close(); } catch {}
+          setFallback();
+        }
+      }, 1500);
+
+      ws.onopen = () => {
+        clearTimeout(timeout);
+        wsReady = true;
+        fallbackMode = false;
+        setConnState('live');
+        termOutput.innerHTML = '';
+        termWrite(`<span class="ok">✔</span> 已连接到真实 shell (ws://localhost:8080)
+<span class="mute">// 试试 ls / pwd / whoami</span>`);
+      };
+
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === 'output') {
+            // 后端输出直接渲染（保留 ANSI 会被简单清除或保留）
+            const clean = stripAnsi(msg.data);
+            termWrite(escapeHtml(clean).replace(/\n/g, '<br>'));
+          } else if (msg.type === 'exit') {
+            termWrite(`<span class="err">[process exited with code ${msg.code}]</span>`);
+            wsReady = false;
+          }
+        } catch (e) {}
+      };
+
+      ws.onerror = () => {
+        clearTimeout(timeout);
+        setFallback();
+      };
+
+      ws.onclose = () => {
+        clearTimeout(timeout);
+        if (wsReady) {
+          termWrite(`<span class="warn">[连接断开]</span>`);
+        }
+        setFallback();
+      };
+    }
+
+    function setFallback() {
+      wsReady = false;
+      fallbackMode = true;
+      setConnState('fallback');
+      if (!fallbackNotified) {
+        fallbackNotified = true;
+        termWrite(`<span class="warn">⚠ 后端未启动</span> <span class="mute">— 使用内置模拟回显</span>
+<span class="mute">// 想要真实 shell，运行：</span>
+<span class="info">//   npm install && npm start</span>
+<span class="mute">// 然后点右上角「连接」重试</span>
+
+<span class="mute">输入 </span><span class="hl">help</span><span class="mute"> 查看可用命令</span>`);
+      }
+    }
+
+    function stripAnsi(s) {
+      // 移除 ANSI 转义序列
+      return s.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+              .replace(/\x1b\][^\x07]*\x07/g, '')
+              .replace(/\r/g, '');
+    }
+
+    // 启动：是否已连接以本机那条标记为准（可能刚在运维页点过）——
+    // 已连接 ⇒ 直接进"内置回显"，不必自己再发一次 WS；没有 ⇒ 摆成「未连接」，等用户按「连接」
+    let alreadyConnected = false;
+    try { alreadyConnected = !!TARGET_HOST && localStorage.getItem(TERM_KEY + TARGET_HOST) === 'on'; } catch (e) {}
+    if (alreadyConnected) adoptExternalConn();
+    else setConnState('idle');
+
+    /* ======================= 状态栏实时数据 ======================= */
+    let cpuVal = 12, memVal = 21;
+    setInterval(() => {
+      cpuVal = Math.max(5, Math.min(45, cpuVal + (Math.random() - 0.5) * 4));
+      memVal = Math.max(15, Math.min(40, memVal + (Math.random() - 0.5) * 1.5));
+      $('cpuStat').textContent = `CPU ${cpuVal.toFixed(0)}%`;
+      $('memStat').textContent = `MEM ${memVal.toFixed(0)}%`;
+    }, 1000);
+
+    /* ======================= 标签切换 ======================= */
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        if (tab.textContent.trim() === '+') return;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+
+  })();
+</script>
+
+</body>
+</html>

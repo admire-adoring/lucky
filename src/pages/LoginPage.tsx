@@ -94,7 +94,11 @@ export function LoginPage() {
         </div>
 
         <div className="relative z-[1] my-auto max-w-[520px] py-10">
-          <h2 className="mb-5 bg-[linear-gradient(120deg,#fff_30%,rgba(255,255,255,.68)_100%)] bg-clip-text text-[clamp(28px,2.7vw,40px)] font-bold leading-[1.32] tracking-[-0.01em] text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent]">
+          {/* 标题：原来是**渐变文字**（`linear-gradient(120deg,#fff 30%, rgba(255,255,255,.68))`
+              + bg-clip:text + text-transparent）。纯色化只能落成一个文字色，
+              取白 —— 它在深色品牌面板上对比度最高（约 17:1），
+              而那半截 68% 的白本来就在 4.5 判据的边缘上。 */}
+          <h2 className="mb-5 text-[clamp(28px,2.7vw,40px)] font-bold leading-[1.32] tracking-[-0.01em] text-white">
             把生活、工作、学习
             <br />
             装进同一个系统
@@ -257,13 +261,16 @@ export function LoginPage() {
               type="submit"
               disabled={pending}
               className={cn(
-                'group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-md border-0 bg-[linear-gradient(180deg,rgba(32,36,48,.95)_0%,rgba(12,14,20,.97)_100%)] text-15 font-semibold tracking-[.01em] shadow-[0_10px_26px_rgba(16,18,24,.24),inset_0_1px_0_rgba(255,255,255,.18)] transition-all duration-150 ease-out hover:bg-[linear-gradient(180deg,rgba(44,49,64,.96)_0%,rgba(16,18,24,.98)_100%)] hover:shadow-[0_18px_38px_rgba(16,18,24,.3),inset_0_1px_0_rgba(255,255,255,.22)] active:scale-[.988]',
+                // ⚠️ 原来还挂着 `group` 与 `overflow-hidden` —— 它们只为那颗"扫光"存在
+                // （`group-hover:translate-x-full` 与把扫光裁在按钮内）。
+                // 扫光删了，这两个类也就没有消费者了，一并去掉。
+                'relative flex h-12 w-full items-center justify-center gap-2 rounded-md border-0 bg-[color:var(--ink-solid)] text-15 font-semibold tracking-[.01em] shadow-[0_10px_26px_rgba(16,18,24,.24)] transition-all duration-150 ease-out hover:bg-[color:var(--ink-solid-hover)] hover:shadow-[0_18px_38px_rgba(16,18,24,.3)] active:scale-[.988]',
                 pending ? 'pointer-events-none text-transparent' : 'text-white',
               )}
             >
-              {!pending ? (
-                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-[linear-gradient(120deg,transparent_20%,rgba(255,255,255,.14)_50%,transparent_80%)] transition-transform duration-[400ms] ease-out group-hover:translate-x-full" />
-              ) : null}
+              {/* ⚠️ 这里原本还有一颗"扫光"（hover 时从按钮左侧扫到右侧的斜向白色渐变）。
+                  纯色范式里删掉：它是玻璃材质最典型的一件装饰，而登录按钮是近黑实底 ——
+                  上面加一道白光是"给不透明的东西打高光"，物理上不成立。 */}
               <span className="relative z-[1]">登录</span>
               <Icon name="i-arrow-right" className="relative z-[1] h-[17px] w-[17px]" />
               {pending ? (

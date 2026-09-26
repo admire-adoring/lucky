@@ -2,12 +2,23 @@ import { useEffect, useRef } from 'react'
 import { Icon } from '../icons/Icon'
 import { cn } from '../../lib/cn'
 import { AI_COMPOSER_CHIPS } from '../../data/ai/conversations'
-import { formatFileSize, nowTime, useAiStore } from '../../stores/ai-store'
+import { findGenerating, formatFileSize, nowTime, useAiStore } from '../../stores/ai-store'
 import { GlyphCode, GlyphMic, GlyphPaperclip, GlyphStop } from './ai-glyphs'
 import { pressable } from './pressable'
 
 /**
  * 输入区（原型 `.chat-input`）。
+ *
+ * ============================================================================
+ * 第二轮原型在这里改了三件事，都照搬
+ * ============================================================================
+ * ① **发送键有三态**：空闲（箭头）/ 生成中且输入区有内容（`排队发送` + 时钟）/
+ *    生成中且输入区为空（`停止` + 方块）。第一代只有两态，而"生成中按回车"
+ *    在它那里是**什么都不发生** —— 用户敲完一句按了回车，界面毫无反馈。
+ * ② **排队横幅**：队列非空时在输入框上方显示「已排队 N 条消息…」。
+ * ③ **麦克风那一次点击顺带记下光标位置**：语音浮层的「插入光标处」需要它。
+ *    （原型直接读 `input.selectionStart`；浮层与输入框是两个组件，
+ *      所以这里在打开浮层的那一刻把位置存进 store。）
  *
  * ⚠️ 自适应高度是**手写行为**，不是标记：原型靠
  *    `input.style.height = 'auto'; input.style.height = min(scrollHeight, 140) + 'px'`。
@@ -39,13 +50,15 @@ export function AiComposer({ onOpenVoice, recording }: AiComposerProps) {
   const draft = useAiStore((state) => state.draft)
   const attachments = useAiStore((state) => state.attachments)
   const chips = useAiStore((state) => state.chips)
-  const generating = useAiStore((state) => state.generating)
+  const queue = useAiStore((state) => state.queue)
+  const generatingMessage = useAiStore((state) => findGenerating(state.sessions))
   const setDraft = useAiStore((state) => state.setDraft)
-  const setChips = useAiStore((state) => state.toggleChip)
+  const toggleChip = useAiStore((state) => state.toggleChip)
   const addAttachments = useAiStore((state) => state.addAttachments)
   const removeAttachment = useAiStore((state) => state.removeAttachment)
+  const setCaret = useAiStore((state) => state.setCaret)
   const send = useAiStore((state) => state.send)
-  const cancel = useAiStore((state) => state.cancel)
+  const stop = useAiStore((state) => state.stop)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -57,7 +70,26 @@ export function AiComposer({ onOpenVoice, recording }: AiComposerProps) {
     el.style.height = `${Math.min(el.scrollHeight, MAX_INPUT_HEIGHT)}px`
   }, [draft])
 
-  const canSend = draft.trim().length > 0 || attachments.length > 0
+  const hasContent = draft.trim().length > 0 || attachments.length > 0
+  const generating = Boolean(generatingMessage)
+
+  /**
+   * 发送键与回车的**同一个**入口。
+   *
+   * 三态的分支顺序就是原型 `handleSend` 的顺序：
+   * 生成中 + 有内容 → 入队；生成中 + 空 → 停止；空闲 → 发送。
+   */
+  function submit() {
+    if (generating && generatingMessage) {
+      if (hasContent) {
+        send(nowTime())
+        return
+      }
+      stop(generatingMessage.id)
+      return
+    }
+    if (hasContent) send(nowTime())
+  }
 
   return (
     <div className="chat-input">
@@ -83,13 +115,21 @@ export function AiComposer({ onOpenVoice, recording }: AiComposerProps) {
         </div>
       ) : null}
 
+      {/* 排队横幅：文案与原型逐字一致 */}
+      <div className={cn('queue-banner', queue.length > 0 && 'show')}>
+        <Icon name="i-clock" />
+        <span>
+          已排队 <span className="q-count">{queue.length}</span> 条消息，当前生成完成后自动发送
+        </span>
+      </div>
+
       <div className="input-tools">
         {AI_COMPOSER_CHIPS.map((chip) => (
           <div
             key={chip.key}
             className={cn('tool-chip', chips[chip.key] && 'active')}
             aria-pressed={Boolean(chips[chip.key])}
-            {...pressable(() => setChips(chip.key))}
+            {...pressable(() => toggleChip(chip.key))}
           >
             {chipIcon(chip.key)}
             {chip.label}
@@ -108,8 +148,7 @@ export function AiComposer({ onOpenVoice, recording }: AiComposerProps) {
           onKeyDown={(event) => {
             if (event.key !== 'Enter' || event.shiftKey) return
             event.preventDefault()
-            if (generating || !canSend) return
-            send(nowTime())
+            submit()
           }}
         />
         <div className="input-actions">
@@ -143,26 +182,38 @@ export function AiComposer({ onOpenVoice, recording }: AiComposerProps) {
             type="button"
             className={cn('input-btn', recording && 'recording')}
             title="语音输入"
-            onClick={onOpenVoice}
+            onClick={() => {
+              /* 记下光标位置给「插入光标处」用（浮层里读不到这个 textarea） */
+              setCaret(textareaRef.current?.selectionStart ?? draft.length)
+              onOpenVoice()
+            }}
           >
             <GlyphMic />
           </button>
-          <button
-            type="button"
-            className={cn('send-btn', generating && 'stop')}
-            disabled={!generating && !canSend}
-            title={generating ? '停止生成' : '发送'}
-            aria-label={generating ? '停止生成' : '发送'}
-            onClick={() => {
-              if (generating) {
-                cancel()
-                return
-              }
-              if (canSend) send(nowTime())
-            }}
-          >
-            {generating ? <GlyphStop /> : <Icon name="i-arrow-right" />}
-          </button>
+
+          {/* 三态发送键：文本与图标都与原型一致 */}
+          {generating && hasContent ? (
+            <button type="button" className="send-btn queue" onClick={submit} title="排队发送">
+              <Icon name="i-clock" />
+              排队发送
+            </button>
+          ) : generating ? (
+            <button type="button" className="send-btn stop" onClick={submit} title="停止生成">
+              <GlyphStop />
+              停止
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="send-btn"
+              disabled={!hasContent}
+              onClick={submit}
+              title="发送"
+              aria-label="发送"
+            >
+              <Icon name="i-arrow-right" />
+            </button>
+          )}
         </div>
       </div>
 

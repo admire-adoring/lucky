@@ -1,0 +1,396 @@
+/* ============================================================================
+   src/styles/mac-window.css —— macOS 风格窗口（`src/components/shell/MacWindow.tsx`）
+   ----------------------------------------------------------------------------
+   给"整窗页面"提供窗框：标题栏（红黄绿三颗 + 居中标题）、圆角、投影、拖动、
+   最小化 / 全屏。目前唯一使用者是日志页（`/logs/:id`）。
+   行为与取舍写在组件文件头，这里只写**外观**。
+
+   为什么单开一个文件、不并进 `module-workspace.css`：窗框不属于任何模块，
+   它是一层通用外壳；并进去之后，下一个要用它的页面得先引用那个近 6000 行的模块文件。
+
+   ⚠️ 颜色**走自己一套局部变量（`--mac-*`），不复用 `--mw-bg-topbar`**。
+      后者的语义是"应用顶栏的玻璃材质"：半透明 + blur + 要能透出极光。
+      而 macOS 窗口标题栏是**不透明的浅灰**，要的是与内容之间那条清晰的分割线。
+      拿 `--mw-bg-topbar` 当标题栏，亮色下是半透明白、暗色下是半透明黑 ——
+      看着差不多，但少了这一级台阶，标题栏就和窗口内容糊成一片。
+
+   ⚠️ 变量定义在 `.macwin-stage`（窗口与"停靠位"的共同祖先）而不是 `.macwin` 上：
+      最小化之后窗口已经 `visibility: hidden`，那颗停靠位胶囊要用同一套颜色。
+   ============================================================================ */
+
+/* ---------- 主题色：只出现在 macOS 自己也会用强调色的两处 ----------
+   标题栏**刻意保持中性灰**，不随模块染色。理由不是"懒得接"，而是：macOS 的标题栏
+   本来就不随窗口内容染色 —— 那是它一眼就能被认出"这是系统窗口"的关键。
+   染成模块色会立刻变成"彩色标题栏"，反而离 macOS 更远。
+
+   而"当前是哪个模块"这件事**在这幅画面里已经表达了**：窗框后面那片极光
+   （`.aurora-bg` 的 `--mw-m1/2/3`）就是当前模块那一组色。窗口浮在它上面，
+   标题栏中性、桌面有色，正是 macOS 的样子。
+
+   主题色只用在两处 —— 都是 macOS 自己会用强调色的地方：
+     · 键盘焦点环（`--mac-accent` 的两条 `:focus-visible`）；
+     · 停靠位那颗图标（最小化之后）。macOS 的 Dock 图标是彩色的，那一颗就是"应用图标"。
+
+   ⚠️ 一律写成 `var(--mw-m-main, <中性兜底>)`：这个组件是**可复用的**，未必挂在
+      `.mw-root` 里（模块色只定义在 `.mw-root[data-module]` 上）。没有兜底时，
+      脱离模块作用域会让整条 `outline` **静默失效** —— 焦点环直接消失，
+      而那恰好是最不该消失的东西。 */
+.macwin-stage {
+  --mac-accent: var(--mw-m-main, var(--mac-focus));
+
+  --mac-bar-bg: #E9EAEC;
+  --mac-bar-line: rgba(0, 0, 0, 0.14);
+  --mac-title: #5B5B60;
+  --mac-subtitle: #8A8A90;
+  --mac-focus: rgba(15, 23, 42, 0.45);
+  --mac-shadow: 0 28px 64px rgba(15, 23, 42, 0.28), 0 8px 20px rgba(15, 23, 42, 0.14),
+    0 0 0 0.5px rgba(0, 0, 0, 0.14);
+
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 窗口拖到边缘时不要冒出滚动条 —— 它是"贴着一张桌面"的浮动窗口，不是文档流内容 */
+  overflow: hidden;
+}
+
+html[data-theme='dark'] .macwin-stage {
+  --mac-bar-bg: #2C2D32;
+  --mac-bar-line: rgba(255, 255, 255, 0.09);
+  --mac-title: #A8A9AE;
+  --mac-subtitle: #70717A;
+  --mac-focus: rgba(148, 163, 184, 0.6);
+  --mac-shadow: 0 28px 64px rgba(0, 0, 0, 0.62), 0 8px 20px rgba(0, 0, 0, 0.4),
+    0 0 0 0.5px rgba(255, 255, 255, 0.1);
+}
+
+/* ---------- 窗口本体 ---------- */
+
+.macwin {
+  position: relative;
+  width: min(1240px, max(320px, calc(100% - 44px)));
+  height: min(820px, max(240px, calc(100% - 44px)));
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--mw-bg-page);
+  box-shadow: var(--mac-shadow);
+  transform: translate3d(var(--mac-x, 0px), var(--mac-y, 0px), 0);
+  transition:
+    transform 0.24s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.24s ease,
+    width 0.28s cubic-bezier(0.32, 0.72, 0, 1),
+    height 0.28s cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 0.28s ease,
+    visibility 0s;
+}
+
+/* 拖动期间**必须**关掉 transform 的过渡：否则窗口会追着鼠标跑（见组件文件头 ③）。
+   `will-change` 只在拖动时开 —— 常开等于让浏览器一直为这一层留一张合成层。 */
+.macwin[data-dragging] {
+  transition: none;
+  will-change: transform;
+}
+
+/* 最小化：往下缩走。`visibility` 的过渡延迟到动画结束再生效 ——
+   立刻 hidden 会看不到动画，而永不 hidden 会让隐藏的窗口仍然可聚焦（Tab 能走进去）。 */
+.macwin.is-min {
+  opacity: 0;
+  transform: translate3d(var(--mac-x, 0px), calc(var(--mac-y, 0px) + 64px), 0) scale(0.9);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 0.26s cubic-bezier(0.4, 0, 1, 1),
+    opacity 0.2s ease,
+    visibility 0s linear 0.26s;
+}
+
+/* 全屏：铺满视口。圆角与投影同时归零 —— 铺满之后它们只会变成两条压在屏幕边缘的缝。 */
+.macwin.is-zoomed {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.macwin-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---------- 标题栏 ---------- */
+
+.macwin-bar {
+  position: relative;
+  flex-shrink: 0;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: var(--mac-bar-bg);
+  border-bottom: 1px solid var(--mac-bar-line);
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  /* 触屏上别把拖动解释成滚动 */
+  touch-action: none;
+}
+
+.macwin-bar:active {
+  cursor: grabbing;
+}
+
+.macwin[data-dragging] .macwin-bar {
+  cursor: grabbing;
+}
+
+.macwin.is-zoomed .macwin-bar {
+  cursor: default;
+}
+
+/* ---------- 三颗圆钮 ---------- */
+
+.macwin-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.macwin-dot {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  /* 内描边而不是 border：border 占的是盒内尺寸，12px 会变成 10px 的圆 */
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.14);
+  transition: filter 0.15s ease;
+}
+
+.macwin-dot.close {
+  background: #ff5f57;
+}
+
+.macwin-dot.minimize {
+  background: #febc2e;
+}
+
+.macwin-dot.zoom {
+  background: #28c840;
+}
+
+.macwin-dot:hover {
+  filter: brightness(1.04);
+}
+
+.macwin-dot:active {
+  filter: brightness(0.82);
+}
+
+.macwin-dot:focus-visible {
+  outline: 2px solid var(--mac-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- 钮里的符号 ----------
+   ⚠️ 悬停的是**整组**而不是单颗（macOS 就是这样）：三颗一起露符号，
+      而不是鼠标扫到哪颗哪颗才有 —— 后者会让这一小片区域一直在闪。
+   符号是真实节点 + `aria-hidden`，不是 `::after { content }`：
+      伪元素的内容会被一些读屏念出来，而这里是纯装饰（按钮自己已有 aria-label）。 */
+
+.macwin-glyph {
+  font-family: -apple-system, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.macwin-dot.close .macwin-glyph {
+  color: #7a0c0a;
+  font-size: 10px;
+}
+
+.macwin-dot.minimize .macwin-glyph {
+  color: #90590b;
+}
+
+.macwin-dot.zoom .macwin-glyph {
+  color: #0a5a15;
+  font-size: 10px;
+}
+
+.macwin-dots:hover .macwin-glyph,
+.macwin-dot:focus-visible .macwin-glyph {
+  opacity: 1;
+}
+
+/* ---------- 标题 ---------- */
+
+.macwin-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: min(62%, 560px);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  /* 标题压在标题栏中间，但它是**拖不动的那部分**：命中测试直接穿过去交给整条 bar，
+     于是"按在标题上"和"按在空白处"是同一个动作 */
+  pointer-events: none;
+}
+
+.macwin-title-text {
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--mac-title);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.macwin-subtitle {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--mac-subtitle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 停靠位（最小化之后） ---------- */
+
+.macwin-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 34px;
+  padding: 0 14px 0 10px;
+  max-width: min(320px, calc(100% - 32px));
+  border: 1px solid var(--mac-bar-line);
+  border-radius: 11px;
+  background: var(--mac-bar-bg);
+  color: var(--mac-title);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22);
+  animation: macwin-dock-in 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.macwin-dock:hover {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.28);
+}
+
+.macwin-dock:focus-visible {
+  outline: 2px solid var(--mac-accent);
+  outline-offset: 2px;
+}
+
+/* 这一颗是"窗口在 Dock 上的图标"。macOS 的 Dock 图标是彩色的 —— 所以它是
+   全窗框里**唯一**常驻带主题色的地方（焦点环要按 Tab 才看得到）。 */
+.macwin-dock-ico {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1;
+  background: color-mix(in srgb, var(--mac-accent) 16%, transparent);
+}
+
+.macwin-dock-label {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[data-theme='dark'] .macwin-dock {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme='dark'] .macwin-dock:hover {
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+}
+
+@keyframes macwin-dock-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* ---------- 拖动期间的全局光标 ----------
+   鼠标很可能已经离开标题栏（窗口拖得太快），光标要一直是"抓取中"；
+   同时禁掉文字选中 —— 否则拖过一段文字会顺手选中它。 */
+
+body.is-macwin-drag {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.is-macwin-drag button,
+body.is-macwin-drag .macwin-bar {
+  cursor: grabbing;
+}
+
+/* ---------- 窄屏：把留边从 22px 收到 10px ----------
+   小屏上那 44px 的"桌面留边"就是白白吃掉的正文宽度。 */
+
+@media (max-width: 720px) {
+  .macwin {
+    width: min(1240px, max(300px, calc(100% - 20px)));
+    height: min(820px, max(220px, calc(100% - 20px)));
+    border-radius: 10px;
+  }
+}
+
+/* ---------- 减少动态效果 ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .macwin,
+  .macwin-dock,
+  .macwin-glyph,
+  .macwin-dot {
+    transition: none;
+  }
+
+  .macwin-dock {
+    animation: none;
+  }
+}

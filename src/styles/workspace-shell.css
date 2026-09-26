@@ -76,7 +76,7 @@
     inset: 0;
     z-index: 55;
     background: rgba(15, 23, 42, 0.3);
-    backdrop-filter: blur(3px);
+   
   }
 
   /* 抽屉里的菜单项要能被手指按住 —— 原型是鼠标尺寸的 9px 内边距 */
@@ -165,24 +165,17 @@
   flex-wrap: wrap;
 }
 
-/* ---------- 4 · 窄屏降弥散模糊（设计令牌 §九） ---------- */
-
-/* 文档 §九：「移动端降 blur 80px / 90px」。原型里没有这条分断点覆盖（静态页只按桌面视口
-   验收过），所以它是"应用级补充"，放这一层而不是生成物里。
-   ⚠️ **只动 --mw-blob-blur**：三个色团各是 480~560px 的圆，110/130px 的模糊在窄屏上
-      每帧都要重算一大片，是移动端最贵的一项。
-   ⚠️ 卡片自身那支 `--mw-blur-card` **不动**：它决定"能不能读出玻璃"，
-      降下来会改变观感，而 §九 给的两个数（80/90）是色团尺度的。
-   ⚠️ 选择器与 module-workspace.css 里那两个**完全一致**，靠"本文件在后面导入"取胜
-      （同特异性、后到者赢）。改导入顺序会让这条静默失效。 */
-@media (max-width: 768px) {
-  html:not([data-theme='dark']) {
-    --mw-blob-blur: 80px;
-  }
-  html[data-theme='dark'] {
-    --mw-blob-blur: 90px;
-  }
-}
+/* ---------- ⚠️ 4 · 原来的「窄屏降弥散模糊」整段已删（2026-09-25 纯色化） ----------
+   那一段原本是：
+     @media (max-width: 768px) { html:not([data-theme='dark']) { --mw-blob-blur: 80px } … }
+   它只做一件事 —— 在窄屏把 `--mw-blob-blur` 从 110/130 降到 80/90，
+   理由是"三个色团各是 480~560px 的圆，大半径模糊在移动端每帧重算一大片"。
+   纯色化把那三个色团（`.aurora-bg` / `.blob-1~3`）整组删掉，`--mw-blob-blur`
+   这支令牌也跟着删了。于是这段媒体查询变成了**给一个不存在的变量赋值**：
+   不报错、不生效、也不影响任何像素 —— 正是本项目最烦的那类"看着还在工作"的死代码。
+   ⚠️ 保留这条记录而不是直接抹掉，是因为它同时说明了一件事：
+   **`.rail-round--tile` 那类"取不到的 var()"和这类"赋给不存在的变量"是反向的两种失效** ——
+   前者会让整条声明被丢弃，后者完全静默。查"少了一条样式"时两种都要想到。 */
 
 /* ============================================================
    5 · 新外壳（`design/sidebar/sidebar_index.html`）的应用级补充
@@ -254,45 +247,19 @@
   }
 }
 
-/* ---------- 5c · 项目域的三栏 ---------- */
+/* ---------- 5c · 项目域：**不再有右栏**（2026-09-25 整段删掉） ----------
+   这里原来重写了一条「三栏」的栅格（`var(--sb-w) 1fr 260px` + `aside` 区），
+   因为旧的项目详情页有一个常驻右栏（`.rail`：里程碑轨与未完成清单）。
 
-/* 内核给项目域写的是 `.mw-root[data-module='projects'] .app`（220px 1fr 260px + aside 区）。
-   新壳的容器叫 `.sb-app`，那条规则**匹配不到** —— 右栏会掉进栅格的下一个空格里。
-   所以这里按新壳的栅格形状重写一遍，并且顶栏改成**通栏**（原型是顶栏只盖右两列）。
+   那一页在 2026-09-25 换成了 `design/work/work_product-detail.html` 的版式
+   （可折叠 Hero + 下划线 Tab 栏 + 7 个分区），**右栏被取消** ⇒ 第三列没有任何东西
+   落进去，白白吃掉 260px。实测代价（1440 视口）：主区只剩 **816px**（本该 1092），
+   于是概览的 `repeat(auto-fit, minmax(300px, 1fr))` 从 3 列掉成 2 列、
+   文档卡的四枚书脊被挤到第二行 —— 而几何/内容/类名**全都不会报错**。
 
-   ⚠️ 列宽用 `var(--sb-w)` 而不是把内核那串 220px 抄过来：侧栏宽度是外壳的刻度，
-      抄一份死值会在"收起/展开"和 ≤1100px 两处同时错位。 */
-.mw-root.sb-root[data-module='projects'] .sb-app {
-  grid-template-columns: var(--sb-w) 1fr 260px;
-  grid-template-rows: var(--sb-topbar-h) 1fr;
-  grid-template-areas:
-    'topbar topbar topbar'
-    'sidebar main aside';
-}
-
-/* ≤1200px 收掉右栏 —— 内核那条同断点，但也匹配不到 `.sb-app`，所以必须重写 */
-@media (max-width: 1200px) {
-  .mw-root.sb-root[data-module='projects'] .sb-app {
-    grid-template-columns: var(--sb-w) 1fr;
-    grid-template-areas:
-      'topbar topbar'
-      'sidebar main';
-  }
-
-  .mw-root.sb-root[data-module='projects'] .aside {
-    display: none;
-  }
-}
-
-/* ≤768px：抽屉态，单列（侧栏已脱离栅格，不进列） */
-@media (max-width: 768px) {
-  .mw-root.sb-root[data-module='projects'] .sb-app {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      'topbar'
-      'main';
-  }
-}
+   ⇒ 整段删除，回到 `.sb-app` 的基础两列。**项目域现在与其余七域同形。**
+   ⚠️ 若将来某个域又要右栏，照 `5d · 工作台` 那条写（它有自己的四栏规则与自己的断点），
+      别把这里按 260px 复原 —— 复原之前先量一遍主区宽度。 */
 
 /* ---------- 5d · 工作台（dashboard）---------- */
 

@@ -38,7 +38,10 @@ export function FocusPanel({ items, emptyHint }: FocusPanelProps) {
           return (
             <li
               key={`${item.name}-${item.tag}`}
-              className="flex items-start gap-2.5 rounded-xl border border-line g g3 g--refr px-3 py-2.5"
+              // ⚠️ 这里原本还带 `g--refr`（Prism 的"边缘折射"层：一条 160° 的斜向
+              // 白/暖色罩，`::before` 画的）。纯色化把它连同令牌一起删了 ——
+              // 实底上那道折射只会读成"卡片右上角有一片洗不掉的暖灰"。
+              className="flex items-start gap-2.5 rounded-xl border border-line g g3 px-3 py-2.5"
             >
               <i className={cn('mt-[6px] h-[6px] w-[6px] shrink-0 rounded-full', tone.dot)} />
               <div className="min-w-0 flex-1">

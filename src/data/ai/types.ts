@@ -83,6 +83,76 @@ export interface AiMessage {
   suggestions?: string[]
   attachments?: AiAttachment[]
   quickPrompts?: AiQuickPrompt[]
+
+  /* ---------- 第二轮原型新增：状态进数据 ---------- */
+
+  /**
+   * 正在生成。
+   *
+   * ⚠️ 原型第二轮把"生成中"从**全局变量**搬进了**消息自身**
+   *    （`state.generating` → `msg.generating`，注释写的是「#17 存入数据」）。
+   *    这一步是"继续生成"与"切会话不丢"能成立的前提：
+   *    原来那条生成中的消息是临时 DOM，切走再切回来就没了。
+   */
+  generating?: boolean
+  /** 生成进行到第几拍（配合 `AI_STAGE_DURATIONS`） */
+  stageIdx?: number
+  /** 思考卡的展开态。原型把它存进数据（「#2 记住偏好」），切会话再回来不会折回去 */
+  thoughtOpen?: boolean
+  /** 实时思考流的展开态 */
+  liveOpen?: boolean
+  /** 被用户停下来了（可「继续生成」） */
+  stopped?: boolean
+  /** 重新生成产生的多个版本；长度 > 1 时消息上出现版本切换器 */
+  versions?: AiReplyVersion[]
+  /** 当前展示第几版 */
+  versionIdx?: number
+}
+
+/**
+ * 一个回答版本。
+ *
+ * ⚠️ 与原型的关键差别：原型的「重新生成」是 `buildReply(userText)` 再跑一遍 ——
+ *    而它是**确定性**的，所以新版本和旧版本**文本完全一样**（唯一不同的是
+ *    `totalTime` 那个 `Math.random()` 造出来的数）。也就是说原型的版本切换
+ *    切了个寂寞，还顺带编了一个耗时。
+ *    本页的处置见 `data/ai/reply.ts` 的 `variant`：事实同源，换的是**讲法**
+ *    （摘要 / 逐项 / 精简），于是版本切换真的有东西可切，且没有任何新数字。
+ */
+export interface AiReplyVersion {
+  /** 讲法名，用在切换器的 title 上（"摘要 / 逐项 / 精简"） */
+  variantName: string
+  variant: ReplyVariant
+  text: TextRun[]
+  quote?: AiQuote
+  thought?: AiThoughtStep[]
+}
+
+export type ReplyVariant = 0 | 1 | 2
+
+/** 「上下文」目录里用到的图标（都在精灵里，不新增资产） */
+export type AiContextOptionIcon = 'i-list' | 'i-grid' | 'i-project' | 'i-alert'
+
+/** 「添加上下文」选择器里的一项。目录的构造见 `data/ai/contexts.ts` */
+export interface AiContextOption {
+  /** 稳定 id：`src:<key>` 或 `p:<项目 id>` */
+  id: string
+  name: string
+  sub: string
+  icon: AiContextOptionIcon
+}
+
+/**
+ * 生成中排队的消息（第二轮原型新增的"队列"）。
+ *
+ * ⚠️ 它是**输入区的内容**而不是消息：入队时用户还没"发出去"，
+ *    原型也是把队列放在 `state` 顶层（不是 `sessions` 里）。
+ *    下一轮开始时才把 `text`/`attachments` 变成一条真正的用户消息。
+ */
+export interface AiQueueItem {
+  id: string
+  text: string
+  attachments: AiAttachment[]
 }
 
 /** 会话分组。顺序即渲染顺序（原型 `order = ['今天','昨天','更早']`） */
@@ -95,6 +165,14 @@ export interface AiSession {
   pinned: boolean
   group: AiSessionGroup
   messages: AiMessage[]
+  /**
+   * 这一轮问答复用的上下文（第二轮原型新增）。
+   *
+   * ⚠️ 存的是**目录项的 id**，不是名字 —— 原型存的是 `['支付系统重构', 'React 19 笔记']`
+   *    这类写死的字符串。名字当主键有两个毛病：改名就对不上、以及**它只能是演示数据**。
+   *    本页的目录来自 `data/ai/contexts.ts`，里面每一项都有真实来源（项目表 / 事实层）。
+   */
+  contexts: string[]
 }
 
 /** 模型档位（原型 `.model-option`）。`grad` 是**模型品牌标记**，不是应用状态色 —— 见 aside 的注释 */

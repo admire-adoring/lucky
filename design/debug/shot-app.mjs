@@ -20,13 +20,18 @@
    --probe 会在页面里注入一段脚本（读计算值用），它**不参与**业务逻辑。
    --dump 不写图片，而是把渲染后的 DOM 打到 stdout。
 
-   ⚠️ 为什么要有一个 --dump 模式：截图依赖 Chrome 能把 png 写进磁盘，
-      而这件事在受限环境里会**静默失败**（Chrome 退出码 0、只有一堆
-      CVDisplayLink 警告，文件根本不出现）。DOM dump 走的是 stdout，
-      不走文件写入 —— 于是"页面到底渲染出了什么"仍然可验。
-      它验的是**内容与结构**（某段文案在不在、渲染了几个节点），
-      验不了观感；观感仍然要靠人眼或能出图的环境。 */
+   --dump 模式不写图片，而是把渲染后的 DOM 打到 stdout —— 它验的是**内容与结构**
+   （某段文案在不在、渲染了几个节点），验不了观感。
+
+   ⚠️ 已更正一条旧结论：**本机的 `--screenshot` 一直是好用的。**
+      上一轮记的"静默不落盘"是这个脚本自己的毛病 —— `--out` 不给扩展名时，
+      Chrome 的 `--screenshot=<路径>` **既不写文件也不报错**。
+      默认值 `/tmp/app-shot.png` 带扩展名，所以默认路径从没暴露过这个问题；
+      而当时每一次调用都写成 `--out /tmp/ai-1440`（无扩展名）⇒ 全部"落不了盘"，
+      于是绕道去做了 PDF 通道。现在 OUT 会**自动补扩展名**，
+      `--print` 只作为"想一次拿整页长图"的备选，不再是唯一退路。 */
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -42,7 +47,16 @@ function arg(name, fallback) {
   return i === -1 ? fallback : process.argv[i + 1]
 }
 
-const OUT = arg('out', '/tmp/app-shot.png')
+/** 出图路径。**必须带图片扩展名**：Chrome 的 `--screenshot=<路径>` 不认没有
+ *  扩展名的路径 —— 它既不写文件、也不报错（退出码 0，只有 CVDisplayLink 警告）。
+ *  实测：`--out /tmp/ai-1440` 什么都没有，`--out /tmp/ai-1440.png` 正常。
+ *  这里统一补上，免得下一个调用者把"路径写错"误判成"环境不支持截图"。 */
+const OUT = (() => {
+  const raw = arg('out', '/tmp/app-shot.png')
+  return /\.[a-zA-Z0-9]+$/.test(raw) ? raw : `${raw}.png`
+})()
+/** 出图路径去掉扩展名的那一截（PDF 通道、`-p1.png` 提示都从它派生） */
+const OUT_BASE = OUT.replace(/\.[a-zA-Z0-9]+$/, '')
 const THEME = arg('theme', 'light')
 const GLASS = arg('glass', 'strong')
 const SERIES = arg('series', '')
@@ -55,8 +69,11 @@ const PROBE = arg('probe', '')
 const HASH = arg('hash', '')
 /** `--dump`：只把渲染后的 DOM 打出来，不写图片（受限环境里截图会静默失败） */
 const DUMP = process.argv.includes('--dump')
-/** `--print`：把渲染结果打成 PDF（本环境下 `--screenshot` 会**静默不落盘**，见文件头）。
- *  PDF 可以再 `sips -s format png` 转成图看 —— 这是"真的看一眼"的退路。 */
+/** `--print`：把渲染结果打成 PDF。**不是**"截图不能用"的退路（那条旧结论已更正），
+ *  它现在的用途是"一次拿整页长图"与"打印版式"。
+ *  ⚠️ 但有一条实测约束：**打印时媒体查询视口 ≠ 版面宽度** ——
+ *      版面按 `--size` 的宽铺，而媒体查询按打印视口算（量到的是 ≤768 那一档）。
+ *      ⇒ 这个通道**只能用来核对窄屏**；宽屏的观感要用 `--screenshot` 看。 */
 const PRINT = process.argv.includes('--print')
 
 if (!fs.existsSync(path.join(DIST, 'index.html'))) {
@@ -132,7 +149,14 @@ const page = path.join(DIST, '__shot.html')
       用它探测会"第一次永远探不到"，于是每次都试图再起一个服务、撞端口。
       探一个**一定存在**的文件，才是"这个端口上有没有服务"的正确判据。 */
 function serving() {
-  const r = spawnSync('curl', ['-s', '-o', '/dev/null', '-w', '%{http_code}', `http://127.0.0.1:${PORT}/index.html`], { encoding: 'utf8' })
+  /* `--noproxy '*'`：本机 `HTTP_PROXY` 指着 127.0.0.1 上的一个代理，
+     它会把 `127.0.0.1:PORT` 也接管掉并回 502 "upstream connect failed" ——
+     于是这里永远读不到 200、脚本每跑一次都去重起服务、撞端口。 */
+  const r = spawnSync(
+    'curl',
+    ['-s', '--noproxy', '*', '-o', '/dev/null', '-w', '%{http_code}', `http://127.0.0.1:${PORT}/index.html`],
+    { encoding: 'utf8' },
+  )
   return (r.stdout || '').trim() === '200'
 }
 if (!serving()) {
@@ -167,66 +191,88 @@ fs.writeFileSync(page, html)
 const [w, h] = SIZE.split('x')
 const target = `http://127.0.0.1:${PORT}/__shot.html` + (HASH ? `#${HASH}` : '')
 
+/* ⚠️ `--virtual-time-budget` **只能出现一次**：给两个时 Chrome 取先出现的那个，
+   于是"切模块"多要的那段时间根本没生效 —— 截出来仍是切换前的画面，
+   而画面看起来完全正常（就是个首页），最容易误判成"点击没生效"。 */
+const budget = SERIES ? 7000 : 4000
+
+/* ============================================================================
+   调 Chrome 一律走这里。四件事都是"看起来像脚本坏了、其实是环境"，
+   2026-09-24 一次性踩齐，记在这里免得下次再查一遍。
+   ============================================================================
+   1. **必须有自己的 `--user-data-dir`**。本机同时开着 GUI Chrome（很常见）时，
+      无头实例会去共用同一个 profile：页面渲染完了、DOM 也产出了，**进程却不退出**。
+      `spawnSync` 只能等 ⇒ 整个脚本卡住、一行输出都没有（连错误都没有）。
+   2. **要 `timeout` 兜住**。第 1 条没法从 JS 侧解决（spawnSync 不给"先读再杀"的钩子），
+      所以交给 `timeout`：产物该落的已经落了，杀掉进程不影响结果。
+      因此**返回码 124 是正常的**，判据是"产物有没有内容"，不是退出码。
+   3. **产物走文件、不走管道**。被 timeout 杀掉时管道里可能还有没被读走的字节，
+      而文件是 Chrome 自己写下去的，杀它不影响已写入的内容。
+   4. **`--no-proxy-server`**。本机 `HTTP_PROXY` 指着 `127.0.0.1:52350`（一个本地代理），
+      `127.0.0.1:8791` 会被它接管并返回 502 "upstream connect failed" ——
+      症状是页面永远白屏，而 curl 明明能取到 200。同理 `serving()` 里的 curl
+      要加 `--noproxy '*'`，否则它会误判"服务没起"，再起一个、撞端口、退出。
+   ============================================================================ */
+const CHROME_PROFILE = path.join(os.tmpdir(), 'lucky-y-chrome-profile')
+const CHROME_TIMEOUT_S = Math.ceil(budget / 1000) + 25
+function runChrome(args, stdoutFile) {
+  const cmd = [
+    'timeout',
+    String(CHROME_TIMEOUT_S),
+    JSON.stringify(CHROME),
+    '--headless=new',
+    '--disable-gpu',
+    '--no-sandbox',
+    '--hide-scrollbars',
+    '--no-proxy-server',
+    /* 这两条别丢：dsf 决定截图的像素尺寸（丢了在 Retina 上会出 2× 的图），
+       file-access 是早期调试 file:// 留下的，去掉它不影响 http 通道但也没必要动。 */
+    '--force-device-scale-factor=1',
+    '--allow-file-access-from-files',
+    `--user-data-dir=${JSON.stringify(CHROME_PROFILE)}`,
+    ...args.map((a) => JSON.stringify(a)),
+    JSON.stringify(target),
+    stdoutFile ? `> ${JSON.stringify(stdoutFile)}` : '',
+    '2>/dev/null',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  return spawnSync('sh', ['-c', cmd], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+}
+
 /* --dump：不截图，把渲染后的 DOM 打到 stdout（见文件头的说明） */
 if (DUMP) {
-  const dumped = spawnSync(
-    CHROME,
-    [
-      '--headless=new',
-      '--disable-gpu',
-      '--no-sandbox',
-      '--hide-scrollbars',
-      `--virtual-time-budget=${SERIES ? 7000 : 4000}`,
-      `--window-size=${w},${h}`,
-      '--dump-dom',
-      target,
-    ],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-  )
-  const dom = dumped.stdout || ''
+  const tmp = path.join(os.tmpdir(), 'lucky-y-dump.html')
+  if (fs.existsSync(tmp)) fs.unlinkSync(tmp)
+  runChrome(['--virtual-time-budget=' + budget, `--window-size=${w},${h}`, '--dump-dom'], tmp)
+  const dom = fs.existsSync(tmp) ? fs.readFileSync(tmp, 'utf8') : ''
   if (!dom) {
-    console.error('✗ DOM 取不到：' + (dumped.stderr || '').slice(0, 300))
+    console.error('✗ DOM 取不到（Chrome 连第一段都没写出来）—— 看上面的说明第 1/4 条')
     process.exit(1)
   }
   process.stdout.write(dom)
   process.exit(0)
 }
-/* ⚠️ `--virtual-time-budget` **只能出现一次**：给两个时 Chrome 取先出现的那个，
-   于是"切模块"多要的那段时间根本没生效 —— 截出来仍是切换前的画面，
-   而画面看起来完全正常（就是个首页），最容易误判成"点击没生效"。 */
-const budget = SERIES ? 7000 : 4000
-const CHROME_ARGS = [
-  '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
-  '--force-device-scale-factor=1', '--allow-file-access-from-files',
-  `--virtual-time-budget=${budget}`, `--window-size=${w},${h}`,
-]
+
+const CHROME_ARGS = [`--virtual-time-budget=${budget}`, `--window-size=${w},${h}`]
 
 if (PRINT) {
   /* PDF 通道。`--no-pdf-header-footer` 去掉页眉页脚（否则会多出 URL 与日期两条）。 */
-  const out = `${OUT}.pdf`
-  const r = spawnSync(
-    CHROME,
-    [...CHROME_ARGS, '--no-pdf-header-footer', `--print-to-pdf=${out}`, target],
-    { encoding: 'utf8' },
-  )
+  const out = `${OUT_BASE}.pdf`
+  runChrome([...CHROME_ARGS, '--no-pdf-header-footer', `--print-to-pdf=${out}`])
   if (!fs.existsSync(out)) {
-    console.error('✗ 出 PDF 失败：' + (r.stderr || '').slice(0, 300))
+    console.error('✗ 出 PDF 失败')
     process.exit(1)
   }
   const size = fs.statSync(out).size
   console.log(`✓ ${out}（${(size / 1024 / 1024).toFixed(1)} MB · ${SIZE} · ${THEME}/${GLASS}${SERIES ? ' · ' + SERIES : ''}）`)
-  console.log(`  看图：sips -s format png --resampleWidth ${w} ${out} --out ${OUT}-p1.png`)
+  console.log(`  看图：sips -s format png --resampleWidth ${w} ${out} --out ${OUT_BASE}-p1.png`)
   process.exit(0)
 }
 
-const r = spawnSync(CHROME, [
-  '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
-  '--force-device-scale-factor=1', '--allow-file-access-from-files',
-  `--virtual-time-budget=${budget}`, `--window-size=${w},${h}`,
-  `--screenshot=${OUT}`, target,
-], { encoding: 'utf8' })
+runChrome([...CHROME_ARGS, `--screenshot=${OUT}`])
 if (!fs.existsSync(OUT)) {
-  console.error('✗ 截图失败：' + (r.stderr || '').slice(0, 300))
+  console.error('✗ 截图失败')
   process.exit(1)
 }
 const size = fs.statSync(OUT).size

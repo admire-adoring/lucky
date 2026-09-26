@@ -1,0 +1,748 @@
+/* ============================================================================
+   src/styles/ai-sidebar.css —— AI 助手（全局抽屉）
+   ----------------------------------------------------------------------------
+   ⚠️ 这是**生成物**，不要手改。事实源是
+      「design/ai-assistant/ai-assistant-sidebar.html」的 <style>，改原型后跑：
+        node design/build-ai-css.mjs          # 写盘（**两份一起写**）
+        node design/build-ai-css.mjs --check  # 门禁：产物是否过期
+
+   本脚本产出**两份** CSS（完整页 /ai 与全局抽屉），共用一台转换机器，参数见 JOBS：
+     · module-workspace.css（内核）= 8 个模块原型共用的**内容**层（.card / .btn / .tabs / .panel）
+     · sidebar-shell.css（外壳）= 顶栏九域导航 / 侧栏分区环 / 命令面板
+     · **本文件** = AI 助手这一层自己的正文
+
+   所有选择器收在 「.ai-drawer」 之下，撞车的类名已改名（见 JOBS 里那一份 rename 表），
+   所以它与内核、与外壳**零冲突** —— 导入顺序不再承担任何隐含前提。
+
+   产出统计：保留 115 块 · 丢弃 26 块
+   ========================================================================= */
+
+/* ---------- 抽屉层：令牌载体与色指针 ---------- */
+
+/* ⚠️ wrapper 上这两个宿主类**都是必须的**，不是顺手加的 —— 少一个就丢一批令牌，
+   而且**一条都不报错**（var() 取不到值 ⇒ 整条声明被丢弃，页面照常渲染）。
+   抽屉挂在路由之外（应用根），于是它不在任何页面那棵树里，得自己把两个作用域补齐：
+
+     · .mw-root —— 内核的中性色板（--mw-bg-* / --mw-text-* / --mw-border-* /
+       --mw-blur-* / --mw-shadow-*）与模块色 --mw-s-*，作用域在 .mw-root 上；
+     · .sb-root —— 外壳那 14 支 --sb-*：浮层底衬 --sb-bg-float / 悬停底 --sb-bg-hover /
+       浮动投影 --sb-shadow-float / 强调色柔底与辉光 --sb-m-soft · --sb-m-glow。
+       ⚠️ 这几支**不在 html 上**（本项目旧笔记里记反过）——
+          代价实测：只带 .mw-root 时，抽屉里 **21 条声明**被静默丢弃，
+          包括 .ai-panel 自己的 background 与 box-shadow ⇒ 面板变全透明、
+          底下的页面直接透上来，而探针当时全绿（因为没人查过面板的底衬）。
+
+   这与 /ai 那一页的根类是同一处置：那里是 mw-root sb-root ai-root 三个，
+   也是"页面的正文要同时读内核与外壳的令牌"。
+
+   ⚠️ 宿主类同时还带着 background / height:100% / overflow-x:hidden（.mw-root 那一条）。
+      抽屉只要它的**令牌**，不要它的**盒子**。与其逐条 undo（内核哪天多一条几何声明就
+      又漏一次），不如让"没有盒子"成为**结构事实**：display:contents 的元素不生成盒子，
+      那几条几何声明就无处可施，而自定义属性照常按元素树继承下去。
+      这条也是探针的判据：wrapper 的 getBoundingClientRect() 必须是全 0。 */
+.mw-root.sb-root.ai-drawer {
+  display: contents;
+
+  /* 色指针：抽屉是 AI 的一件东西、不是九域之一 ⇒ 固定借 dashboard 那一组
+     （与 /ai 那一页同一个来源，没有第二份色值）。
+     ⚠️ 必须写在抽屉自己的元素上，而且它是**声明**不是继承 ——
+        声明永远赢过继承，所以抽屉在任何模块页上都不会被那一页的强调色改掉
+        （工作页是玫瑰红 #E11D48、项目页是橙 #F97316）。反过来若只靠继承，
+        抽屉的颜色会随所在页面变 —— 那是"同一个东西有两种颜色"。 */
+  --mw-m-main: var(--mw-s-dashboard);
+}
+
+/* 抽屉宽度（原型 --panel-w: 400px）。亮暗同值 ⇒ 只写一次。
+   ⚠️ 与页面那一层的 --ai-sidebar-w / --ai-aside-w 分开：那是"页面内的两栏"，
+      这是"浮层" —— 两者的取值会各自变，合并没有收益。 */
+.ai-drawer {
+  --ai-drawer-w: 400px;
+
+  /* 面板的上边 = 外壳**内容区那一行的上边** = 内边距 + 顶栏那一行 + 行距。
+     宽屏三项都是 --sb-gap（16）；≤768 外壳把内边距与行距都收成 **12**（写死的字面量，
+     不是令牌）—— 所以下面那条断点里跟着写 24 = 12 × 2，并在注释里点明它抄自哪里。
+     ⚠️ 这确实是一处**耦合**（外壳改窄屏那 12，这里要跟着改）。处置是让**探针守着它**：
+        探针断言「面板上边缘 == .main 的上边缘」，外壳一动就会红 ——
+        比"两边都写 16、看起来对齐、实际差 8px"要好。
+     ⚠️ 为什么不写成「顶栏高 + 8」这种估计值：实测那个值（76）会落进顶栏那一行内部，
+        屏幕上看像贴住了顶栏。**要对齐就对齐到位。** */
+  --ai-drawer-top: calc(var(--sb-topbar-h) + var(--sb-gap) * 2);
+}
+
+@media (max-width: 768px) {
+  /* 与外壳 ≤768 的 padding/gap:12px 对应。选择器抬到 .mw-root.ai-drawer（0,2,0），
+     免得与上面那条同分时靠"谁在后面"决定。 */
+  .mw-root.ai-drawer {
+    --ai-drawer-top: calc(var(--sb-topbar-h) + 24px);
+  }
+}
+
+/* 面板**上边缘要让开顶栏那一行**。原型是 top: 16px —— 它没有常驻顶栏
+   （演示页只有一段提示和一颗浮球），所以 16px 在它那里什么问题都没有。
+   应用里顶栏是**常驻的全局 chrome**，而且右上角就是**窗口控制**：
+   在 Windows 上，关窗键（.win-close）就在那儿 —— 面板压上去 = **窗口关不掉**。
+   macOS 的三人组在左上角，压不到；但"只在某些平台坏"比"两个平台都让开"更难查。
+
+   ⚠️ 这是**主动偏离原型的一处几何**，判据是"原型没有这一层，应用有"。
+   ⚠️ 选择器抬到 .mw-root.sb-root.ai-drawer（0,4,0）不是装饰：
+      生成物里那条是 .ai-drawer .ai-panel（0,2,0），**同分且排在前面** ⇒
+      同分时后面的赢，写 0,2,0 等于没写（本项目在 .main 上踩过同一个坑）。
+      抬到 0,4,0 之后，连 ≤480 那条「top: 0」（0,2,0）也一并压过 ——
+      这正是想要的：窄窗口在 Windows 上同样要留着关窗键。
+   ⚠️ 用外壳的刻度算，不要写死数字：顶栏高（--sb-topbar-h 68）、内边距与行距
+      都是 --sb-gap（16）—— 三者相加正好是**内容区那一行的上边**，
+      于是抽屉与主内容**齐平**（探针就是这么断言的：面板上边缘 == .main 的上边缘）。
+      ⚠️ 为什么不是「顶栏高 + 8」：那是**凭感觉**估的，实测会落进顶栏那一行内部
+      （顶栏元素自己 62 高、居中在一个 68 的行里 ⇒ 它的底边在 81，而 76 < 81），
+      屏幕上看着像"贴住了顶栏"。要末就真的对齐，要末就明写留 8px，别估。 */
+.mw-root.sb-root.ai-drawer .ai-panel {
+  top: var(--ai-drawer-top);
+}
+
+
+
+.ai-drawer .ai-panel {
+  position: fixed;
+  top: 16px; right: 16px; bottom: 16px;
+  z-index: 70;
+  width: var(--ai-drawer-w);
+  max-width: calc(100vw - 32px);
+  background: var(--sb-bg-float);
+ 
+ 
+  border: 1px solid var(--mw-border-card);
+  border-radius: 22px;
+  box-shadow: var(--sb-shadow-float);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  transform: translateX(calc(100% + 24px)) scale(0.98);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.4s cubic-bezier(0.32,0.72,0,1), opacity 0.3s ease;
+}
+
+.ai-drawer .ai-panel.open {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ai-drawer .ai-panel-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 14px 14px 16px;
+  border-bottom: 1px solid var(--mw-border-subtle);
+  flex-shrink: 0;
+}
+
+.ai-drawer .ai-panel-logo {
+  width: 34px; height: 34px;
+  border-radius: 11px;
+  background: var(--grad-ai);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px var(--sb-m-glow);
+}
+
+.ai-drawer .ai-panel-logo svg{ width: 17px; height: 17px; }
+
+.ai-drawer .ai-panel-head-info{ flex: 1; min-width: 0; }
+
+.ai-drawer .ai-panel-head-title {
+  font-size: 14px; font-weight: 700;
+  display: flex; align-items: center; gap: 7px;
+}
+
+.ai-drawer .ai-panel-head-title .status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--c-success);
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.15);
+}
+
+.ai-drawer .ai-panel-head-sub {
+  font-size: 11px; color: var(--mw-text-muted); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.ai-drawer .ai-panel-head-actions{ display: flex; gap: 2px; flex-shrink: 0; }
+
+.ai-drawer .ai-icon-btn {
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--mw-text-secondary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.16s ease;
+}
+
+.ai-drawer .ai-icon-btn:hover{ background: var(--sb-bg-hover); color: var(--mw-text-primary); }
+
+.ai-drawer .ai-icon-btn svg{ width: 16px; height: 16px; }
+
+.ai-drawer .ai-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 16px 8px;
+  display: flex; flex-direction: column; gap: 16px;
+  scroll-behavior: smooth;
+}
+
+.ai-drawer .ai-panel-body::-webkit-scrollbar{ width: 5px; }
+
+.ai-drawer .ai-panel-body::-webkit-scrollbar-thumb{ background: var(--mw-border-subtle); border-radius: 4px; }
+
+.ai-drawer .msg {
+  display: flex; gap: 9px;
+  max-width: 94%;
+  animation: aid-msg-in 0.3s ease backwards;
+}
+
+@keyframes aid-msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ai-drawer .msg.assistant{ align-self: flex-start; }
+
+.ai-drawer .msg.user{ align-self: flex-end; flex-direction: row-reverse; }
+
+.ai-drawer .msg-avatar {
+  width: 28px; height: 28px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.ai-drawer .msg.assistant .msg-avatar {
+  background: var(--grad-ai);
+  color: #fff;
+  box-shadow: 0 3px 9px var(--sb-m-glow);
+}
+
+.ai-drawer .msg.assistant .msg-avatar svg{ width: 14px; height: 14px; }
+
+.ai-drawer .msg.user .msg-avatar{ background: var(--sb-bg-hover); color: var(--mw-text-secondary); }
+
+.ai-drawer .msg-content{ flex: 1; min-width: 0; }
+
+.ai-drawer .msg-bubble {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  word-wrap: break-word;
+}
+
+.ai-drawer .msg.assistant .msg-bubble {
+  background: var(--mw-bg-card);
+  border: 1px solid var(--mw-border-subtle);
+  border-top-left-radius: 4px;
+  color: var(--mw-text-primary);
+}
+
+.ai-drawer .msg.user .msg-bubble {
+  background: var(--grad-ai);
+  color: #fff;
+  border-top-right-radius: 4px;
+  box-shadow: 0 4px 14px var(--sb-m-glow);
+}
+
+.ai-drawer .msg-bubble strong{ font-weight: 700; }
+
+.ai-drawer .msg-meta {
+  font-size: 10.5px;
+  color: var(--mw-text-muted);
+  margin-top: 5px;
+  padding: 0 4px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+.ai-drawer .msg.user .msg-meta{ justify-content: flex-end; }
+
+.ai-drawer .msg-actions {
+  display: flex; gap: 2px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.ai-drawer .msg:hover .msg-actions{ opacity: 1; }
+
+.ai-drawer .msg-action {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--mw-text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.14s ease;
+}
+
+.ai-drawer .msg-action:hover{ background: var(--sb-bg-hover); color: var(--mw-m-main); }
+
+.ai-drawer .msg-action svg{ width: 13px; height: 13px; }
+
+.ai-drawer .thinking-live {
+  margin-bottom: 10px;
+  border: 1px solid var(--mw-border-subtle);
+  border-radius: 12px;
+  background: var(--mw-bg-card);
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.ai-drawer .thinking-live.open {
+  border-color: var(--mw-m-main);
+  box-shadow: 0 0 0 3px var(--sb-m-soft);
+}
+
+.ai-drawer .stage-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  flex-wrap: wrap;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.ai-drawer .stage-indicator:hover{ background: var(--sb-bg-hover); }
+
+.ai-drawer .stage-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--mw-text-muted);
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.ai-drawer .stage-item .stage-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.ai-drawer .stage-item .stage-dot svg{ width: 8px; height: 8px; }
+
+.ai-drawer .stage-item.done{ color: var(--c-success); }
+
+.ai-drawer .stage-item.done .stage-dot {
+  background: var(--c-success);
+  border-color: var(--c-success);
+  color: #fff;
+}
+
+.ai-drawer .stage-item.active{ color: var(--mw-m-main); }
+
+.ai-drawer .stage-item.active .stage-dot {
+  border-color: var(--mw-m-main);
+  background: var(--sb-m-soft);
+  color: var(--mw-m-main);
+  position: relative;
+}
+
+.ai-drawer .stage-item.active .stage-dot::before {
+  content: "●";
+  font-size: 10px;
+  line-height: 1;
+  animation: aid-stage-pulse 1.2s ease-in-out infinite;
+}
+
+.ai-drawer .stage-item.pending .stage-dot::before{ content: "○"; }
+
+@keyframes aid-stage-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.ai-drawer .stage-arrow{ color: var(--mw-text-muted); font-size: 10px; opacity: 0.5; }
+
+.ai-drawer .thinking-expand {
+  margin-left: auto;
+  width: 24px; height: 24px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--mw-text-muted);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.ai-drawer .thinking-expand:hover {
+  background: var(--sb-m-soft);
+  color: var(--mw-m-main);
+}
+
+.ai-drawer .thinking-expand svg {
+  width: 14px; height: 14px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-drawer .thinking-live.open .thinking-expand svg{ transform: rotate(180deg); }
+
+.ai-drawer .thinking-live-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+  padding: 0 14px;
+  border-top: 1px solid transparent;
+}
+
+.ai-drawer .thinking-live.open .thinking-live-body {
+  max-height: 320px;
+  padding: 12px 14px 14px;
+  border-top-color: var(--mw-border-subtle);
+  overflow-y: auto;
+}
+
+.ai-drawer .thinking-live-body::-webkit-scrollbar{ width: 3px; }
+
+.ai-drawer .thinking-live-body::-webkit-scrollbar-thumb{ background: var(--mw-border-subtle); border-radius: 3px; }
+
+.ai-drawer .live-step {
+  display: flex; gap: 10px;
+  padding: 7px 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--mw-text-secondary);
+  animation: aid-live-step-in 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes aid-live-step-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.ai-drawer .live-step .live-num {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--sb-m-soft);
+  color: var(--mw-m-main);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ai-drawer .live-step.done .live-num {
+  background: rgba(16,185,129,0.15);
+  color: var(--c-success);
+}
+
+.ai-drawer .live-step.active .live-num {
+  background: var(--mw-m-main);
+  color: #fff;
+  position: relative;
+}
+
+.ai-drawer .live-step.active .live-num::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--mw-m-main);
+  opacity: 0;
+  animation: aid-live-ripple 1.4s ease-out infinite;
+}
+
+@keyframes aid-live-ripple {
+  0% { opacity: 0.6; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+.ai-drawer .live-step.pending{ opacity: 0.45; }
+
+.ai-drawer .live-step.pending .live-num {
+  background: transparent;
+  border: 1.5px solid var(--mw-border-subtle);
+  color: var(--mw-text-muted);
+}
+
+.ai-drawer .live-step .live-body{ flex: 1; }
+
+.ai-drawer .live-step .live-title {
+  font-weight: 600;
+  color: var(--mw-text-primary);
+  margin-bottom: 2px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.ai-drawer .live-step.pending .live-title{ color: var(--mw-text-muted); font-weight: 500; }
+
+.ai-drawer .live-step .live-desc{ color: var(--mw-text-secondary); font-size: 12px; }
+
+.ai-drawer .live-step .live-status {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--sb-m-soft);
+  color: var(--mw-m-main);
+  letter-spacing: 0.04em;
+}
+
+.ai-drawer .live-step.done .live-status {
+  background: rgba(16,185,129,0.15);
+  color: var(--c-success);
+}
+
+.ai-drawer .live-step.pending .live-status {
+  background: transparent;
+  color: var(--mw-text-muted);
+  border: 1px solid var(--mw-border-subtle);
+}
+
+.ai-drawer .thought-card {
+  margin-bottom: 10px;
+  border: 1px solid var(--mw-border-subtle);
+  border-radius: 12px;
+  background: var(--mw-bg-card);
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.ai-drawer .thought-card-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mw-m-main);
+  transition: background 0.15s ease;
+}
+
+.ai-drawer .thought-card-head:hover{ background: var(--sb-bg-hover); }
+
+.ai-drawer .thought-card-head .tc-chev {
+  width: 14px; height: 14px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  color: var(--mw-text-muted);
+}
+
+.ai-drawer .thought-card.open .thought-card-head .tc-chev{ transform: rotate(90deg); }
+
+.ai-drawer .thought-card-head .tc-icon {
+  width: 16px; height: 16px;
+  color: var(--mw-m-main);
+  flex-shrink: 0;
+}
+
+.ai-drawer .thought-card-head .tc-summary{ flex: 1; }
+
+.ai-drawer .thought-card-head .tc-time {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mw-text-muted);
+  margin-left: auto;
+}
+
+.ai-drawer .thought-card-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease, padding 0.3s ease;
+  padding: 0 12px;
+  border-top: 1px solid transparent;
+}
+
+.ai-drawer .thought-card.open .thought-card-body {
+  max-height: 400px;
+  padding: 10px 12px 14px;
+  border-top-color: var(--mw-border-subtle);
+  overflow-y: auto;
+}
+
+.ai-drawer .thought-card-body::-webkit-scrollbar{ width: 3px; }
+
+.ai-drawer .thought-card-body::-webkit-scrollbar-thumb{ background: var(--mw-border-subtle); border-radius: 3px; }
+
+.ai-drawer .tc-step {
+  display: flex; gap: 9px;
+  padding: 5px 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--mw-text-secondary);
+}
+
+.ai-drawer .tc-step .tc-num {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--sb-m-soft);
+  color: var(--mw-m-main);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ai-drawer .tc-step .tc-text{ flex: 1; }
+
+.ai-drawer .tc-step .tc-text strong{ color: var(--mw-text-primary); font-weight: 600; }
+
+.ai-drawer .quick-row {
+  display: flex; flex-wrap: wrap; gap: 7px;
+  margin-top: 4px;
+}
+
+.ai-drawer .quick-chip {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--mw-border-subtle);
+  background: transparent;
+  color: var(--mw-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+.ai-drawer .quick-chip:hover {
+  border-color: var(--mw-m-main);
+  color: var(--mw-m-main);
+  background: var(--sb-m-soft);
+}
+
+.ai-drawer .stop-row{ margin-top: 8px; }
+
+.ai-drawer .stop-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--mw-border-subtle);
+  background: var(--mw-bg-card);
+  color: var(--mw-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.ai-drawer .stop-btn:hover {
+  border-color: var(--c-error);
+  color: var(--c-error);
+  background: rgba(239,68,68,0.08);
+}
+
+.ai-drawer .stop-btn svg{ width: 11px; height: 11px; }
+
+.ai-drawer .ai-panel-foot {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--mw-border-subtle);
+  flex-shrink: 0;
+  background: var(--sb-bg-float);
+}
+
+.ai-drawer .input-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 7px 7px 7px 14px;
+  border-radius: 18px;
+  background: var(--mw-bg-card);
+  border: 1px solid var(--mw-border-subtle);
+  transition: all 0.18s ease;
+}
+
+.ai-drawer .input-box:focus-within {
+  border-color: var(--mw-m-main);
+  box-shadow: 0 0 0 3px var(--sb-m-soft);
+}
+
+.ai-drawer .input-box textarea {
+  flex: 1;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--mw-text-primary);
+  font-size: 13.5px;
+  font-family: inherit;
+  line-height: 1.55;
+  max-height: 120px;
+  min-height: 22px;
+  padding: 4px 0;
+}
+
+.ai-drawer .input-box textarea::placeholder{ color: var(--mw-text-muted); }
+
+.ai-drawer .send-btn {
+  height: 32px;
+  min-width: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: none;
+  background: var(--grad-ai);
+  color: #fff;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  gap: 5px;
+  transition: all 0.18s ease;
+  box-shadow: 0 4px 12px var(--sb-m-glow);
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.ai-drawer .send-btn:hover:not(:disabled){ transform: scale(1.05); }
+
+.ai-drawer .send-btn:disabled{ opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+
+.ai-drawer .send-btn svg{ width: 15px; height: 15px; stroke-width: 2.4; }
+
+.ai-drawer .send-btn.stop {
+  /* 与 `ai-assistant.css` 的 `.send-btn.stop` 同一支（图标按钮，白图标 ≥3:1）：
+     取渐变两端里合规的那一端 #DC2626（4.82:1），不取中间。
+     ⚠️ 这两份 CSS 是同一命名空间下的两份产物，同名规则必须一起改 ——
+     「停止」键在抽屉里和完整页里各有一份样式。 */
+  background: #DC2626;
+  box-shadow: 0 4px 12px rgba(239,68,68,0.4);
+}
+
+.ai-drawer .foot-hint {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 7px;
+  font-size: 10.5px;
+  color: var(--mw-text-muted);
+  padding: 0 4px;
+}
+
+.ai-drawer .foot-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--sb-bg-hover);
+  border: 1px solid var(--mw-border-subtle);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 9.5px;
+}
+
+@media (max-width: 480px) {
+  .ai-drawer .ai-panel {
+    top: 0; right: 0; bottom: 0;
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: 0;
+    border: none;
+  }
+
+  .ai-drawer .ai-panel:not(.open){ transform: translateX(100%); }
+
+}
