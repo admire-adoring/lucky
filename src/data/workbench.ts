@@ -7,9 +7,9 @@ import type { WorkbenchAggregates, WorkbenchModule } from '../types/workbench'
  * 工作台的数据入口。
  *
  * 分三层，各自职责单一（这也是它不并进 `projects.ts` 的原因）：
- *   · `projects.ts`         —— 项目本身，**唯一事实源**
+ *   · `projects.ts`         —— 项目本身，唯一事实源
  *   · `workbench-content.ts` —— 由 `design/export-workbench-content.mjs` 从设计原型导出的内容树（生成物）
- *   · 本文件                 —— 把前两者接起来，并**守住它们不许漂**
+ *   · 本文件                 —— 把前两者接起来，并守住它们不许漂
  *
  * 为什么要守：生成物里的数字是从生成器那份项目投影（`gen-modules.mjs` 的 `P`）算出来的，
  * 而 `P` 又是 `src/data/projects.ts` 的手工投影。两处 → 会漂。漂了之后页面照常渲染，
@@ -30,7 +30,7 @@ export const WORKBENCH_KEYS: string[] = WORKBENCH_MODULES.map((m) => m.key)
 
 /**
  * 取一个模块。未知 key 回落到工作台 —— 而不是抛错或返回 undefined：
- * 这个函数的下游是路由参数，而路由参数是**用户可控**的（改地址栏 / 老书签）。
+ * 这个函数的下游是路由参数，而路由参数是用户可控的（改地址栏 / 老书签）。
  * 回落到首页与 `api/projects.ts` 里"id 不匹配回落 p1"是同一个口径。
  */
 export function getModule(key: string | undefined): WorkbenchModule {
@@ -55,7 +55,7 @@ export function projectById(id: string): Project | undefined {
 /**
  * 把 `Project` 投影成生成器里那份 `P` 的等价字段并压成指纹。
  *
- * ⚠️ 字段映射必须与 `design/export-workbench-content.mjs` 的 `fpFields` **逐字对应**，
+ * 字段映射必须与 `design/export-workbench-content.mjs` 的 `fpFields` 逐字对应，
  * 包括：
  *   · `risk` 取 `risk?.title`（`Project.risk` 是对象，生成器里是字符串）
  *   · `budget` 从 `'¥32,000'` 解析成数字；`'—'` 视为无预算（生成器里是 `null`）

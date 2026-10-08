@@ -26,10 +26,10 @@ function StatCard({
 }) {
   return (
     <div className="glass-panel relative overflow-hidden rounded-xl border border-line bg-surface p-5 shadow-sm transition-all duration-[220ms] ease-out hover:-translate-y-0.5 hover:border-line-strong hover:bg-surface-raised hover:shadow-md">
-      {/* ⚠️ 2026-09-25 纯色化：这里原本是一颗**角部内光源** ——
+      {/* 2026-09-25 纯色化：这里原本是一颗角部内光源 ——
           一个 112px 的圆，`bg-[radial-gradient(circle,rgba(99,102,241,.24)_0%,
           rgba(99,102,241,0)_70%)]`，原注释写明它的用途是"暗示这片材质是透光的"。
-          它的**存在理由就是玻璃**，所以随玻璃一并删除 ——
+          它的存在理由就是玻璃，所以随玻璃一并删除 ——
           纯色底上它不是"透光"，只是"卡片右上角有一块洗不掉的淡蓝"。 */}
       <div className="relative flex items-center gap-[7px] text-12-5 font-semibold text-ink-500">
         <Icon name={icon} className="h-[15px] w-[15px] text-ink-400" />

@@ -4,7 +4,7 @@ import type { IconName, Priority, ProjectStatus, Scope, TaskStatus } from '../ty
  * 三域语义色 —— 贯穿 badge / 进度条填充 / 卡片左侧指示条 / 看板列头，
  * 是全局唯一的“归属”信号；品牌色只用于可交互状态（焦点环、链接、激活指示）。
  *
- * ⚠️ badge 用 -strong 色阶而不是主色阶：badge 是"承载文字"的表面，
+ * badge 用 -strong 色阶而不是主色阶：badge 是"承载文字"的表面，
  * 主色阶（#0f9d76 等）压在 13% 半透明同色底上实测只有 2.8:1；
  * -strong 把它拉到 5.3:1。色条 / 填充 / 圆点仍用主色阶，因为不承载文字。
  */
@@ -12,11 +12,11 @@ export const SCOPE_META: Record<
   Scope,
   { label: string; badge: string; fill: string; bar: string; avatar: string; icon: IconName; hex: string }
 > = {
-  /* ⚠️ `fill` **原来是一条域色渐变**（`bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]` 这类），
-     2026-09-25 纯色化时改成**域色令牌本身**（`bg-life` / `bg-work` / `bg-learn`）。
-     取令牌而不是取"渐变两端的中间色"，理由是**令牌本来就存在**：
+  /* `fill` 原来是一条域色渐变（`bg-[linear-gradient(90deg,#34d3a6,#0f9d76)]` 这类），
+     2026-09-25 纯色化时改成域色令牌本身（`bg-life` / `bg-work` / `bg-learn`）。
+     取令牌而不是取"渐变两端的中间色"，理由是令牌本来就存在：
      这三个域色贯穿全站的徽标底 / 圆点 / 色条 / 头像，浅→深那道渐变只是给进度条加的
-     "从左到右越来越深"的光泽，不承载任何数据（进度条的数据是**长度**）。
+     "从左到右越来越深"的光泽，不承载任何数据（进度条的数据是长度）。
      现在 fill 与 bar 取值相同 —— 它们是两个角色（进度填充 / 3px 色标）、同一个域色，
      不是两份描述。 */
   life: {
@@ -63,6 +63,9 @@ export const STATUS_META: Record<
   },
   risk: { label: '风险阻塞', chip: 'bg-danger-bg text-danger-strong', dot: 'bg-danger', hex: '#dc2626', rank: 2 },
   done: { label: '已完成', chip: 'bg-brand-50 text-brand-600', dot: 'bg-brand-500', hex: '#4f46e5', rank: 3 },
+  /* 归档与"待启动"同用中性灰：两者都是"还没（或不再）进到台面中央"，只是方向相反。
+     与原型那张徽标表同一条判据（`STATUS_BADGE.archived = 'badge-neutral'`）。 */
+  archived: { label: '已归档', chip: 'bg-ink-100 text-ink-600', dot: 'bg-ink-400', hex: '#8b93a1', rank: 4 },
 }
 
 export const PRIORITY_META: Record<Priority, { label: string; dot: string; rank: number }> = {

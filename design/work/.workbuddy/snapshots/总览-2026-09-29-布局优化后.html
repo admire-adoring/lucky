@@ -1,0 +1,3372 @@
+<!DOCTYPE html>
+<!-- ============================================================================
+     工作 · 项目 · 项目详情 · 总览（`工作-项目-项目详情-总览-index.html`）
+     ----------------------------------------------------------------------------
+     这是**一个项目的总览分区** —— 项目详情七个分区里的第一个：
+     一屏看全"这个项目现在的六个面"（任务 / Bug / 文档 / 运维 / 会议 / 账户），
+     每张卡都通向它自己的详细页。
+
+     ⚠️ 它与别的页的分工（别把它们的清单搬过来）：
+          · **本页** = **一个项目**的六个面；
+          · `工作-任务-总览-index.html` = 工作这一摊的**全部任务**（跨项目）；
+          · `工作-项目-项目详情-运维-index.html` = 同一个项目的**运维**分区；
+          · `工作-项目-项目详情-账户-index.html` / `work_project_detail_document.html` = 另两个分区。
+        ⇒ 本页只给"这个项目有几条 / 几台 / 几篇"，不搬它们各自的清单。
+
+     ⚠️ 骨架与兄弟分区页**逐字相同**：② Hero（跟着**项目**走，不跟选中态变）→
+        ③ tabs 菜单栏（项目的七个分区）→ 内容。换个分区，Hero 与 tab 栏一个字都不该动。
+        ⚠️ Hero 里**没有**「最后检查 / 重新检查」那一格 —— 运维页有，是因为它的页头被撤掉后
+           那一格没别处放；本页照用户给的截图，没有它。
+
+     ⚠️ 内容区照用户给的截图重建（他说的"这是之前的布局"）：三列网格、六张卡。
+        ⚠️ 材质走本仓当前口径（纯色 + 令牌），**不照抄截图里的玻璃质感**。
+        ⚠️ **一处有意偏离**：截图里每张卡的图标带彩色底（绿勾 / 紫虫 / 蓝文档…），这里不搬：
+           ① 那几支亮色（如 #10B981）压白只有 2.54:1，够不到图形档的 3:1；
+           ② 卡头已经有"图标形状 + 卡名 + 计数徽标"三重线索，再加一支色是第四重；
+           ③ 本页的强调色要留给"进度条 / 活跃 tab / 紧急标记"——六支分区色一进来，
+              红色就不再显眼。
+           要改回去：给 `.ov-icon` 按卡加一支 `color`（那几支得**逐支复算**对比度）。
+
+     ⚠️ 六张卡的数字与 ③ 菜单栏那排 tab 的计数**是同一批数**（截图里本来就有两处表达）
+        ⇒ 都从 `STATS` 现算、一处写回两处，绝不手改两遍。
+     ⚠️ 侧栏圆盘的分区 = **本页的六张卡**（定位 + 随滚动同步），与 ③ 那排 tab
+        不是一回事：tab 是**项目的七个分区**（跨页导航，一页一个），圆盘是**页内**的六块。
+        运维页也是同一套两级分工。
+
+     材质 / 令牌 / 图标 / 导航壳**逐字承接**兄弟分区页（本仓当前口径）。
+     ---------------------------------------------------------------------------- -->
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>项目详情 · 总览</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* [hidden] 必须始终生效 —— 否则会被 .skeleton-list / .empty-state 的 display:flex 覆盖 */
+        [hidden] { display: none !important; }
+
+
+        :root {
+            /* ══ 纯色范式 ═══════════════════════════════════════════════
+               2026-09-26：整套材质从「毛玻璃 + 极光底衬」换成纯色。四条口径，全轮取舍都引它：
+
+               ① **面一律不透明**。层次 = 底色明度差 + 1px 实描边 + 两段小阴影。
+                  毛玻璃期同一支令牌压在不同底衬上，量出来的对比度能差一倍 ——
+                  换成实底后"底衬是什么"变成可穷举的几块面，这才是纯色真正买到的东西。
+               ② **强调色的薄染保留**（每个分组各显其色），但叠层对象从 transparent 改成
+                  具体的面令牌 —— 混 transparent 得到的仍是半透明色，它最终长什么样
+                  依旧取决于叠在谁上面，而换层的意义就是把这个变量消掉。
+               ③ 判据不是"有没有 gradient 这个词"，而是"**这道渐变里有没有信息**"：
+                  进度/仪表弧（弧长 = 数据）保留；弥散光斑、贴顶高光、边缘折射、扫光全删。
+               ④ 对比度只增不减（实底比合成后的半透明底衬更极端），但每块面都算过再宣布。
+
+               面阶三档 + 一档悬停，指派给角色，**不给每个组件单独选色**：
+                   页 #F4F5F7 < 区块底 #F7F8FA < 悬停 #E9ECF1（压深）/ 卡面 #FFFFFF
+               亮暗两套是各自定出来的，不是同一个数按比例缩放 —— 只有"方向"共用。 */
+            --bg-page: #F4F5F7;        /* 页 */
+            --bg-subtle: #F7F8FA;      /* 区块底：卡里的子块、胶囊底、轨道 */
+            --bg-hover: #E9ECF1;       /* 悬停底：整行 / 整块的 hover */
+            --bg-card: #FFFFFF;        /* 卡面 */
+            --bg-card-solid: #FFFFFF;  /* 语义与 --bg-card 同；"必定不透明"的调用点用它 */
+            --bg-sidebar: #FFFFFF;
+
+            /* 白描边只在毛玻璃上成立（玻璃自带明暗底衬）；实底卡片必须换实色描边 */
+            --border-card: #E6E9EE;
+            --border-subtle: rgba(15,23,42,0.07);
+            --border-strong: rgba(15,23,42,0.13);
+
+            --text-primary: #0F172A;
+            /* 浅色主题下二级/三级文字必须 ≥4.5:1 */
+            --text-secondary: #4A5A72;
+            --text-muted: #5B6A82;
+
+            /* 阴影写成两段：近距细影定轮廓、远距柔影给高度。
+               单段 0 4px 24px 那种大漫影是给毛玻璃配的，纯色底上发虚。 */
+            --shadow-card: 0 1px 2px rgba(15,23,42,0.04), 0 6px 18px rgba(15,23,42,0.06);
+            --shadow-card-hover: 0 2px 4px rgba(15,23,42,0.06), 0 14px 32px rgba(15,23,42,0.10);
+
+            /* ── v5 导航壳用的令牌（2026-09-26 挂载）────────────────────────
+               壳与浮层单独一档：浅色与卡面同白，深色比卡面暗一档（#111827）——
+               顶栏 / 侧栏 / 下拉面板因此是"沉下去的一层"，不会和内容卡糊在一起。
+               --m-soft / --m-fill 是强调色的另两个用途：
+                   soft = 薄染（圆盘中心门、当前项底、名称条）
+                   fill = 实底（主按钮 / 选中胶囊 / logo / 头像），其上字色一律 --ink-on-accent
+               ⚠️ 这两支是**派生令牌**（color-mix 引用 --m-main），暗色块里必须原样再写一遍。 */
+            --bg-float: #FFFFFF;
+            --shadow-float: 0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04);
+            --ink-on-accent: #FFFFFF;
+            --m-soft: color-mix(in srgb, var(--m-main) 10%, var(--bg-float));
+            --m-fill: color-mix(in srgb, var(--m-main) 86%, #0B1220);
+            --gap-page: 16px;
+            --sidebar-w: 240px;
+            --sidebar-w-collapsed: 64px;
+
+            /* 遮罩：毛玻璃期靠"压暗 + 背景模糊"两件事分层，删掉 blur 后 α 必须补厚
+               （实测 0.35 显得太薄：分层的另一半没了，弹窗不再"浮在另一个世界"）。
+               ⚠️ 这一支在 .dark 里必须原样再写一遍（它是派生令牌）。 */
+            --scrim: rgba(15,23,42,0.52);
+
+            --r-sm: 8px; --r-md: 12px; --r-lg: 18px;
+
+            --s-work: #E11D48;
+            --m-main: var(--s-work);
+            /* 强调色的第三档：**文字档**。--m-main 压白卡 4.70:1 够用，但压页底只有 4.31:1、
+               压它自己的 12% 薄染底只有 4.02:1 —— 所以"当前项的名字""hover 的链接文字"
+               这类常驻彩字要混一档再算。比例 55% 是算出来的（66% 只有约 3.5:1）。 */
+            --m-ink: color-mix(in srgb, var(--m-main) 55%, var(--text-primary));
+
+            /* 运维模块功能色，分两档用（与日志页同一组值）：
+               --rc     图形（色条 / 描边 / 焦点环 / 进度填充）—— 门槛 3:1；
+               --rc-fg  文字（常驻彩字、hover 的按钮字）—— 门槛 4.5:1，同色相压深一档。
+               ⚠️ --rc 自己压白只有 2.54:1，**当文字用是不达标的**，别再直接写 color: var(--rc)。 */
+            --rc: #10B981;
+            --rc-fg: #047857;
+            /* （这里原来有一支 --spine = #047857，是"部署文档书脊"的封面色。
+               书换成「精装封面」之后，封面色改由 `.doc-book` 上的 `--book` 决定、
+               不设时走 `var(--text-muted)` 兜底 —— 与 `--rc-fg` 那个值再无关系 ⇒ 删掉。
+               别把 #047857 再写进 `--book`：那会退回"绿封面"，而参考页这一格是深蓝灰。） */
+
+            /* 语义状态令牌（浅色）—— 全部 ≥4.5:1 */
+            --info-fg: #0E7490;    --info-bg: rgba(14,116,144,0.14);
+            --ok-fg: #047857;      --ok-bg: rgba(16,185,129,0.14);
+            --warn-fg: #9A4708;    --warn-bg: rgba(245,158,11,0.16);
+            --danger-fg: #B91C1C;  --danger-bg: rgba(239,68,68,0.13);
+            /* （参考页这里还有 --idle-* 与 --info-* 两档，供它的徽标词表用。
+               本页的语义色只有 ok / warn / danger 三支的消费者 ⇒ 一起没搬进来：
+               留一个没人消费的令牌，等于留一份"看着像事实源、其实没人用"的第二描述。） */
+
+            /* 图表 / 进度色块（非文本，需 ≥3:1） */
+            /* 进度条轨道（--bar-track）与监控一起撤掉了：本页再没有进度/仪表类图形，
+               留一个没人消费的令牌等于留一份"看着像事实源、其实没人用"的第二描述 */
+            --bar-ok: #10B981;
+            --bar-warn: #F59E0B;
+            --bar-danger: #EF4444;
+
+            --focus-ring: var(--text-primary);
+        }
+
+        .dark {
+            /* 深色同样三档：页 #0A0F1C < 区块底 #131A2A < 卡面 #171F32，
+               悬停 #1E2840 —— 亮色下"悬停"是压深、深色下是提亮，只有方向共用。 */
+            --bg-page: #0A0F1C;
+            --bg-subtle: #131A2A;
+            --bg-hover: #1E2840;
+            --bg-card: #171F32;
+            --bg-card-solid: #171F32;
+            --bg-sidebar: #171F32;
+
+            --border-card: rgba(255,255,255,0.10);
+            --border-subtle: rgba(255,255,255,0.06);
+            --border-strong: rgba(255,255,255,0.15);
+
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            /* 卡面变实心后 #8695AB 只剩 4.81:1（毛玻璃期卡面半透明、叠在更深的页底上）⇒ 提亮一档留余量 */
+            --text-muted: #8B9AB0;
+
+            --shadow-card: 0 1px 2px rgba(0,0,0,0.32), 0 8px 22px rgba(0,0,0,0.26);
+            --shadow-card-hover: 0 2px 6px rgba(0,0,0,0.40), 0 16px 36px rgba(0,0,0,0.42);
+
+            /* ⚠️ --scrim 是"派生令牌"，**必须在暗色块里原样再写一遍**，不能只覆写它的输入：
+               var() 是在"声明这条自定义属性的那个元素"上解析的，继承下去的是**结果**而不是表达式。
+               只在 :root 声明的话，.dark 挂到 html 元素上还算对，一旦挂到 body 上就会拿到浅色的值。 */
+            --scrim: rgba(0,0,0,0.62);
+            --bg-float: #111827;
+            --shadow-float: 0 2px 6px rgba(0,0,0,0.45);
+            --ink-on-accent: #0B1220;
+            --m-soft: color-mix(in srgb, var(--m-main) 16%, var(--bg-float));
+            --m-fill: var(--m-main);
+
+            --s-work: #FB7185;
+            /* 深色下 #FB7185 压卡面已经 6.10:1，文字直接用亮档即可（同日志页的做法） */
+            --m-ink: #FDA4AF;
+            --rc: #34D399;
+            /* 深色下 --rc 压卡面已经 7.6:1，文字直接用亮档即可 */
+            --rc-fg: #6EE7B7;
+            /* （同上：--spine 随绿封面一起删。封面色不随主题换 —— 它是"深底白字"的实底，
+               白字压 #374151 / #61708A 都过 4.5:1，换浅反而压不住。） */
+
+            --info-fg: #67E8F9;    --info-bg: rgba(34,211,238,0.18);
+            --ok-fg: #6EE7B7;      --ok-bg: rgba(16,185,129,0.20);
+            --warn-fg: #FCD34D;    --warn-bg: rgba(245,158,11,0.22);
+            --danger-fg: #FCA5A5;  --danger-bg: rgba(239,68,68,0.22);
+
+            --bar-ok: #34D399;
+            --bar-warn: #FBBF24;
+            --bar-danger: #F87171;
+
+            --focus-ring: var(--text-primary);
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, "SF Pro Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: background 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        /* 焦点环：用主文本色，浅/深色底与彩色底上都可见 */
+        :focus-visible {
+            outline: 2px solid var(--focus-ring);
+            outline-offset: 2px;
+            border-radius: 6px;
+        }
+
+        /* ============================================================
+           图标容器（`data-ico`）
+           —— 放在**最前面**：`[data-ico]` 与 `.card-icon / .kpi-ico / .empty-icon` 特异性相同
+              （都是 0,1,0），同特异性时后定义者赢 ⇒ 这条必须在它们之前，各组件才覆得动它。
+           `inline-flex` + 居中是为了消掉 svg 的基线空隙：`display:inline` 的 svg 底边会多出
+           3~4px，一行里混着图标和文字就会被顶得忽高忽低。
+           ============================================================ */
+        [data-ico] {
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0; line-height: 0;
+        }
+        [data-ico] > svg { display: block; }
+
+        /* ═══════════════════════════════════════════════════════════
+           导航壳 —— 整套照搬 `design/index/导航-v5.html`（2026-09-26 挂载）
+           顶栏胶囊（一级模块）+ 侧栏圆盘（本模块的分区）+ 收起态图标列
+           + 侧栏槽面板（最近 / 快捷 / KPI / AI）+ 命令面板（⌘K）。
+           只截「导航段」导入：`.card/.section/.list-item/.btn` 那一批不进 ——
+           目标页自己有同名类，整份拷会串。
+           ⚠️ 与 v5 的三处偏差：① 二级圆盘不再自动下钻（本模块的分区没有 children，
+              点非当前项只切面板）；② 一级模块里只有「工作」可进，其余给提示且不改状态；
+              ③ 面包屑只给上级，当前分区交给页内标题。
+           ═══════════════════════════════════════════════════════════ */
+
+        /* 布局 */
+        .app {
+            position: relative; z-index: 1;
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 68px 1fr;
+            grid-template-columns: var(--sidebar-w) 1fr;
+            grid-template-areas:
+      "topbar topbar"
+      "sidebar main";
+            gap: var(--gap-page);
+            padding: var(--gap-page);
+            transition: grid-template-columns 0.32s cubic-bezier(0.4,0,0.2,1);
+        }
+        .app.sidebar-collapsed {
+            grid-template-columns: var(--sidebar-w-collapsed) 1fr;
+        }
+
+        /* ========== 顶栏 ========== */
+        .topbar-wrap {
+            grid-area: topbar;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none;
+            min-width: 0;
+            /* 超级菜单要浮到侧栏（z-index: 30）与主内容卡之上。
+               不给这一层定 z-index 的话，DOM 在后的 .sidebar-wrap 会盖住面板。 */
+            position: relative; z-index: 40;
+        }
+
+        .topbar {
+            pointer-events: auto;
+            display: flex; align-items: center;
+            gap: 10px;
+            padding: 10px 12px 10px 14px;
+            background: var(--bg-float);
+            border: 1px solid var(--border-card);
+            border-radius: 999px;
+            box-shadow: var(--shadow-float);
+            width: 100%;
+            /* 不设 max-width：顶栏两端必须与下方「侧栏左沿 / 正文右沿」严格对齐。
+               曾写死 1400px —— 1440 视口错位 4px，1920 视口错位 244px（顶栏缩成居中长条，
+               而下面两栏铺满 1888px，整页像两套坐标系）。 */
+            transition: all 0.3s ease;
+            position: relative;
+            min-width: 0;
+        }
+
+
+        .logo-mark {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: var(--m-fill);
+            color: var(--ink-on-accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; font-weight: 800;
+            flex-shrink: 0;
+            letter-spacing: -0.5px;
+            cursor: pointer;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .logo-mark:hover { transform: rotate(-8deg) scale(1.08); }
+
+        .divider-v {
+            width: 1px; height: 22px;
+            background: var(--border-subtle);
+            flex-shrink: 0;
+            margin: 0 2px;
+        }
+
+        .nav-primary {
+            display: flex; align-items: center;
+            gap: 1px; flex: 1;
+            overflow-x: auto;
+            scrollbar-width: none;
+            height: 40px;
+            min-width: 0;
+        }
+        .nav-primary::-webkit-scrollbar { display: none; }
+
+        .nav-p-item {
+            position: relative;
+            display: flex; align-items: center; gap: 7px;
+            padding: 0 12px; height: 36px;
+            border-radius: 999px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+
+            white-space: nowrap; user-select: none;
+            flex-shrink: 0;
+        }
+        .nav-p-item:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+        .nav-p-item.active {
+            color: var(--ink-on-accent);
+            background: var(--m-fill);
+            font-weight: 600;
+        }
+        .nav-p-icon {
+            width: 15px; height: 15px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .nav-p-icon svg { width: 15px; height: 15px; stroke-width: 2; }
+        .nav-p-item:hover .nav-p-icon { transform: scale(1.15); }
+
+        .nav-p-badge {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.25);
+            color: inherit;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+        .nav-p-item:not(.active) .nav-p-badge {
+            background: var(--m-soft);
+            color: var(--m-ink);
+        }
+        .nav-p-badge.warn {
+            background: var(--danger-bg);
+            color: var(--danger-fg);
+        }
+        /* 实底胶囊上的徽标改成「实白底 + 深字」：半透明白底压白字实测只有 3.82:1，
+           而徽标字 10px 属小字，门槛是 4.5:1 */
+        .nav-p-item.active .nav-p-badge {
+            background: rgba(255,255,255,0.92);
+            color: #0B1220;
+        }
+        .nav-p-item.active .nav-p-badge.warn {
+            background: rgba(255,255,255,0.92);
+            color: #B91C1C;
+        }
+        .dark .nav-p-item:not(.active) .nav-p-badge.warn { color: var(--danger-fg); }
+
+        /* ========== 超级菜单（顶栏二级下拉）==========
+           ⚠️ 面板必须挂在 .topbar 上（它已是 position: relative），**不能**放进 .nav-primary：
+              后者是 overflow-x: auto ⇒ 计算出的 overflow-y 也是 auto，面板会被裁、还会顶出竖滚动条。
+              实测把 260×160 的面板挂进 .nav-primary：导航 scrollHeight 40 → 198、
+              面板底 228 > 导航底 70、命中测试拿到的是 topbar 而不是面板。 */
+        .mega {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;                      /* JS 按触发项定位并夹在顶栏内 */
+            z-index: 50;
+            width: max-content;
+            max-width: calc(100vw - 40px);
+            padding: 12px;
+            background: var(--bg-float);
+            border: 1px solid var(--border-card);
+            border-radius: 14px;
+            box-shadow: var(--shadow-float);
+            opacity: 0; visibility: hidden;
+            transform: translateY(-4px);
+            pointer-events: none;
+            transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+        }
+        /* 4px 缝的"桥"：面板与顶栏之间不能有死区，否则指针横跨时会触发 mouseleave */
+        .mega::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; height: 6px; }
+        .mega.is-open { opacity: 1; visibility: visible; transform: translateY(0); pointer-events: auto; }
+
+        .mega-head {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 18px; margin-bottom: 10px; padding: 0 2px;
+        }
+        .mh-title { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); }
+        .mh-all {
+            border: none; background: none; cursor: pointer; padding: 0;
+            font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--m-ink);
+        }
+        .mh-all:hover { text-decoration: underline; }
+
+        .mega-grid { display: grid; grid-template-columns: repeat(var(--cols, 3), 116px); gap: 2px; }
+        .mega-item {
+            display: flex; align-items: center; gap: 7px;
+            padding: 6px 8px; border-radius: 8px;
+            border: none; background: none; cursor: pointer; text-align: left;
+            font-family: inherit; font-size: 12.5px; font-weight: 500;
+            color: var(--text-primary); white-space: nowrap;
+        }
+        .mega-item:hover { background: var(--bg-hover); }
+        .mega-item.is-current { background: var(--m-soft); color: var(--m-ink); font-weight: 600; }
+        .mi-icon {
+            width: 15px; height: 15px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-secondary);
+        }
+        .mega-item.is-current .mi-icon { color: var(--m-main); }
+        .mi-icon svg { width: 15px; height: 15px; stroke-width: 2; }
+
+        /* 面板打开时，它的触发项保持高亮 —— 否则鼠标移进面板后就看不出这面板是谁的 */
+        .nav-p-item.mega-on { color: var(--text-primary); background: var(--bg-hover); }
+
+        /* 窄屏没有 hover：面板改成整条全宽，点项开、点外部或 Esc 关 */
+        @media (max-width: 900px) {
+            .mega { left: 8px !important; right: 8px; width: auto; max-width: none; }
+            .mega-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        .topbar-right {
+            display: flex; align-items: center; gap: 4px;
+            flex-shrink: 0;
+        }
+        .icon-btn {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .icon-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+        .icon-btn svg { width: 17px; height: 17px; stroke-width: 1.9; }
+        .icon-btn .dot {
+            position: absolute;
+            top: 7px; right: 7px;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--bar-danger);
+            border: 1.5px solid var(--bg-float);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+            50%      { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+        }
+        /* AI 助手：实底撞色 + 双层闪光 glyph + 悬停辉光 */
+        .icon-btn.ai {
+            background: var(--m-fill);
+            color: var(--ink-on-accent);
+            box-shadow: 0 2px 8px color-mix(in srgb, var(--m-main) 30%, transparent);
+            transition: transform .22s cubic-bezier(.34, 1.4, .64, 1), box-shadow .24s ease;
+        }
+        .icon-btn.ai:hover {
+            transform: translateY(-1px) scale(1.06);
+            box-shadow: 0 5px 16px color-mix(in srgb, var(--m-main) 48%, transparent),
+                        0 0 0 5px color-mix(in srgb, var(--m-main) 16%, transparent);
+        }
+        .icon-btn.ai:active { transform: translateY(0) scale(.94); }
+        .icon-btn.ai svg { width: 18px; height: 18px; overflow: visible; }
+        /* 副星常驻呼吸：静止时也在“活”，悬停时加快 */
+        .icon-btn.ai .ai-spark-mini {
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: aiTwinkle 3.6s ease-in-out infinite;
+        }
+        .icon-btn.ai:hover .ai-spark-mini { animation-duration: 1.1s; }
+        @keyframes aiTwinkle {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: .5; transform: scale(.78); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .icon-btn.ai .ai-spark-mini { animation: none; }
+        }
+
+        .avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--m-fill);
+            color: var(--ink-on-accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            margin-left: 4px;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .avatar:hover { transform: scale(1.1); }
+        .avatar::after {
+            content: "";
+            position: absolute;
+            right: -1px; bottom: -1px;
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: var(--bar-ok);
+            border: 2px solid var(--bg-float);
+        }
+
+        /* ========== 侧栏 ========== */
+        .sidebar-wrap {
+            grid-area: sidebar;
+            display: flex;
+            overflow: hidden;
+            min-width: 0;
+            position: relative;
+            /* 收起态的悬停提示要浮到主内容卡之上：.sidebar 是 relative 定位，
+               若不抬这一层，DOM 在后的主内容卡会盖住提示。 */
+            z-index: 30;
+        }
+        /* 收起态整列都不能裁：.sidebar 自己已放开，这一层不放开会把提示按列宽剪掉 */
+        .app.sidebar-collapsed .sidebar-wrap { overflow: visible; }
+
+        .sidebar {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-float);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            width: 100%;
+            transition: background 0.4s ease;
+            position: relative;
+        }
+        /* 收起态内部没有滚动内容，放开裁剪，好让图标列的悬停提示浮到侧栏之外 */
+        .sidebar.collapsed { overflow: visible; }
+
+        .sidebar-head {
+            padding: 14px 16px 0;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .sidebar.collapsed .sidebar-head { padding: 12px 12px 0; }
+
+        .sidebar-title {
+            font-size: 14px; font-weight: 800;
+            letter-spacing: -0.3px;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            transition: opacity 0.2s ease;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .sidebar-title .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--m-main);
+            flex-shrink: 0;
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+        }
+        /* 这里原来是渐变裁切文字（background-clip:text）。它的对比度无法用「前景透明化」量出来
+           —— 字形像素本身就取自背景渐变，透明化动不到它 —— 等于留了个永久不可验证的元素，
+           而它是 14px 小字。改成实色，品牌色交给左边的 .dot。 */
+        .sidebar-title .name {
+            color: var(--text-primary);
+            transition: color 0.4s ease;
+        }
+        .sidebar-subtitle {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            transition: opacity 0.2s ease;
+            margin-left: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .sidebar.collapsed .sidebar-title,
+        .sidebar.collapsed .sidebar-subtitle { opacity: 0; overflow: hidden; height: 0; margin: 0; }
+
+        /* ========== 展开态：圆盘 ========== */
+        .radial-stage {
+            flex-shrink: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 2px;
+            position: relative;
+            /* 上提贴住侧栏头。这个值 = 期望的视觉间距 − 容器自带的顶部空白。
+               容器顶部空白 = 容器半宽 −（环半径 + 咬合 5px + 半个图标）—— 图标一变大它就变小，
+               所以这个值**必须跟着图标尺寸重算**：图标 30px 时 −2px 刚好，图标 36px 时就贴脸了。 */
+            margin-top: 1px;
+            padding: 0 0 2px;
+            transition: opacity 0.2s ease, margin 0.3s ease, padding 0.3s ease, height 0.3s ease;
+        }
+        .sidebar.collapsed .radial-stage { opacity: 0; overflow: hidden; height: 0; margin: 0; padding: 0; }
+
+        .radial {
+            /* 三个值都由 JS 按项数写入（见 radiusFor / iconFor）：
+               --r 环半径 · --icon 图标直径 · --dial 中心门。
+               「项数少 ⇒ 盘小、刻度少」—— 尺寸本身携带信息，不再是一个固定大小的圈。
+               容器边长由「环半径 + 图标半径 + 10px 呼吸」推出；10px 同时要留给选中项的向外咬合。
+
+               ⚠️ 容器宽度是硬约束，不是可以随便长的：容器居中在 .sidebar 的内容盒里，
+                  侧栏 240 → 内容 238；≤1100px 断点侧栏收到 220 → 内容 218。
+                  即 **容器必须 ≤ 218**。当前最大值 201（n=11）／198（n=12），两侧各余 ~8.5px。
+                  想再放大图标，要么抬 R（吃余量），要么压这里的 10px 呼吸位（会挤掉咬合）。 */
+            --r: 74px;
+            --icon: 36px;
+            --dial: 53px;
+            position: relative;
+            width: calc(2 * (var(--r) + var(--icon) / 2 + 10px));
+            height: calc(2 * (var(--r) + var(--icon) / 2 + 10px));
+            flex-shrink: 0;
+            transition: opacity 0.2s ease;
+        }
+
+
+        .hub-ripple {
+            position: absolute; left: 50%; top: 50%;
+            width: var(--dial); height: var(--dial);
+            margin-left: calc(var(--dial) / -2);
+            margin-top: calc(var(--dial) / -2);
+            border-radius: 999px;
+            border: 1.5px solid var(--m-main);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hub-door {
+            position: absolute; left: 50%; top: 50%;
+            width: var(--dial); height: var(--dial);
+            transform: translate(-50%, -50%);
+            border-radius: 999px;
+            appearance: none; border: 0; padding: 0; margin: 0;
+            background: none; color: inherit; font: inherit;
+            cursor: pointer;
+            z-index: 5;
+        }
+        .hub-dial {
+            position: absolute; inset: 0;
+            border-radius: 999px;
+            background: var(--m-soft);
+            border: 1px solid color-mix(in srgb, var(--m-main) 32%, transparent);
+            transition: background 0.24s ease, border-color 0.24s ease;
+        }
+        .hub-door:hover .hub-dial {
+            background: color-mix(in srgb, var(--m-main) 20%, transparent);
+            border-color: color-mix(in srgb, var(--m-main) 58%, transparent);
+        }
+
+        /* 分段刻度弧：停靠点由 JS 生成（段数 = 该模块的分区数，已过的段用强调色填满）。
+           它是这个界面里「形状携带信息」的主要载体 —— 一眼能看出「共几格、走到第几格」。
+           ⚠️ 未填充的那几格是**纯装饰**（总数由图标本身可见），故不适用 3:1 的图形门槛。 */
+        .hub-arc {
+            position: absolute; inset: 0;
+            border-radius: 999px;
+            background: conic-gradient(from 0deg, var(--arcs, var(--m-main) 0deg 0deg, transparent 0deg 360deg));
+            -webkit-mask: radial-gradient(closest-side, transparent 90%, #000 96%);
+            mask: radial-gradient(closest-side, transparent 90%, #000 96%);
+        }
+
+        .hub-compass {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            opacity: 0.85;
+            transition: opacity 0.3s ease;
+        }
+        .hub-compass__petals path {
+            fill: color-mix(in srgb, var(--m-main) 10%, transparent);
+            stroke: color-mix(in srgb, var(--m-main) 55%, transparent);
+            stroke-width: 0.9;
+            stroke-dasharray: 1.5 1.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .hub-compass__star {
+            transform-box: view-box;
+            transform-origin: 50% 50%;
+            transform: rotate(var(--na, 0deg));
+            transition: opacity 0.3s ease;
+        }
+        .hub-compass__star path {
+            fill: color-mix(in srgb, var(--m-main) 16%, transparent);
+            stroke: color-mix(in srgb, var(--m-main) 70%, transparent);
+            stroke-width: 0.9;
+            stroke-dasharray: 1.4 1.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .hub-compass__star path.is-main {
+            fill: color-mix(in srgb, var(--m-main) 28%, transparent);
+            stroke: var(--m-main);
+            stroke-width: 1.1;
+        }
+
+        .hub-back {
+            position: absolute;
+            inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .hub-back svg { width: 19px; height: 19px; color: var(--m-main); stroke-width: 2.4; }
+
+
+        /* 中心门不再放文字：名称统一由下方的 .radial-caption 承担（悬停才出现）。
+           "我在哪"由上方的 sidebar-subtitle 给，不在这里重复。 */
+
+        /* 环上的图标 */
+        .radial__item {
+            position: absolute;
+            left: 50%; top: 50%;
+            width: var(--icon, 36px); height: var(--icon, 36px);
+            border-radius: 999px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            background: transparent;
+            border: 1px solid transparent;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--r)) rotate(calc(-1 * var(--a)));
+            z-index: 2;
+        }
+
+        .radial__item.enter-from-center {
+            animation: ring-in 0.5s cubic-bezier(0.16, 0.9, 0.3, 1) backwards;
+            animation-delay: calc(var(--i) * 35ms);
+        }
+        @keyframes ring-in {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) rotate(var(--a)) translateX(0px) rotate(calc(-1 * var(--a))) scale(0.4);
+            }
+        }
+
+
+        /* 名称退场后，悬停反馈要扛起「这是哪个」的全部提示 —— 底色 + 描边 + 放大一起上 */
+        .radial__item:hover {
+            color: var(--m-main);
+            background: var(--m-soft);
+            border-color: color-mix(in srgb, var(--m-main) 34%, transparent);
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(calc(var(--r) + 3px)) rotate(calc(-1 * var(--a))) scale(1.16);
+        }
+        /* 实底加深一档：原 --m-main 上白字仅 4.47:1 */
+        .radial__item.active {
+            color: var(--ink-on-accent);
+            background: var(--m-fill);
+            border-color: var(--m-fill);
+            /* 沿半径向外咬合 5px —— 让「当前项」不只是一块颜色，而是真的从盘面里探出来 */
+            transform: translate(-50%, -50%) rotate(var(--a)) translateX(calc(var(--r) + 5px)) rotate(calc(-1 * var(--a))) scale(1.15);
+        }
+        .radial__item:focus-visible {
+            outline: 2px solid var(--m-main);
+            outline-offset: 2px;
+        }
+        .radial__item.active::after {
+            content: ''; position: absolute; inset: -1px;
+            border-radius: inherit;
+            border: 1.2px solid var(--m-main);
+            animation: sel-pulse 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes sel-pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            70%, 100% { transform: scale(1.5); opacity: 0; }
+        }
+        /* 字形占比 0.54：按钮直径决定「能不能放得下」，这个比例决定「看起来多大」。
+           纯色化后图标没有底色衬托，0.48 会让 36px 的按钮里只躺一个 17px 的字形，显得空。 */
+        .radial__item svg { width: calc(var(--icon, 36px) * 0.54); height: calc(var(--icon, 36px) * 0.54); flex-shrink: 0; }
+
+        /* 有子菜单的标记：底部小圆点 */
+        .radial__item[data-has-children="true"]::before {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px; height: 4px;
+            border-radius: 999px;
+            background: var(--m-main);
+            z-index: 3;
+            transition: all 0.2s ease;
+        }
+        .radial__item.active[data-has-children="true"]::before {
+            background: var(--ink-on-accent);
+            box-shadow: none;
+        }
+
+        /* 名称条：悬停/聚焦时出现，位置固定在圆盘正下方。
+           不用「沿角度外推的气泡」——那是极坐标定位，宽名字在最左/最右必然与图标叠或被侧栏裁，
+           而且每项方向不同，看起来就是"歪"的。固定一条，永远居中、永远放得下。 */
+        .radial-caption {
+            flex-shrink: 0;
+            max-width: 100%;
+            min-height: 20px;
+            padding: 2px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: -0.2px;
+            color: var(--m-ink);
+            background: var(--m-soft);
+            border: 1px solid color-mix(in srgb, var(--m-main) 22%, transparent);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(-3px);
+            transition: opacity 0.16s ease, transform 0.16s ease;
+        }
+        .radial-caption.is-on {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ========== 收起态：平铺图标列 ========== */
+        /* 与圆盘是同一份数据（当前模块的分区），两种形态互斥显示 */
+        .rail {
+            display: none;
+            flex: 1;
+            min-height: 0;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 2px;
+            padding: 4px 0 6px;
+        }
+        .sidebar.collapsed .rail { display: flex; animation: rail-in 0.28s ease; }
+        /* 纯透明度过渡：不动 rect，将来做几何验收时不会被入场动画污染数值 */
+        @keyframes rail-in { from { opacity: 0; } to { opacity: 1; } }
+
+        .rail__item {
+            position: relative;
+            width: 100%;
+            flex: 1 1 auto;
+            min-height: 34px;
+            max-height: 46px;
+            display: flex; align-items: center; justify-content: center;
+            border: 0; padding: 0; margin: 0;
+            background: none;
+            color: var(--text-secondary);
+            font: inherit;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        /* 激活指示条贴侧栏内沿，不用左侧 padding 位移，避免整列抖动 */
+        .rail__item::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 50%;
+            width: 3px; height: 0;
+            border-radius: 0 3px 3px 0;
+            background: var(--m-main);
+            transform: translateY(-50%);
+            transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .rail__item.active { color: var(--m-main); }
+        .rail__item.active::before { height: 20px; }
+
+        .rail__btn {
+            position: relative;
+            width: 34px; height: 34px;
+            border-radius: 11px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid transparent;
+            transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .rail__btn svg { width: 17px; height: 17px; }
+        .rail__item:hover .rail__btn {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+            border-color: var(--border-subtle);
+            transform: scale(1.08);
+        }
+        .rail__item.active .rail__btn {
+            color: var(--m-main);
+            background: var(--m-soft);
+            border-color: color-mix(in srgb, var(--m-main) 26%, transparent);
+        }
+        .rail__item[data-has-children="true"] .rail__btn::after {
+            content: '';
+            position: absolute;
+            right: 4px; bottom: 4px;
+            width: 4px; height: 4px;
+            border-radius: 50%;
+            background: var(--m-main);
+        }
+
+
+        /* 提示浮到侧栏之外：依赖 .sidebar.collapsed { overflow: visible } */
+        .rail__tip {
+            position: absolute;
+            left: calc(100% + 6px);
+            top: 50%;
+            transform: translateY(-50%) translateX(-5px);
+            padding: 5px 10px;
+            border-radius: 9px;
+            background: var(--bg-float);
+            border: 1px solid var(--border-card);
+            box-shadow: var(--shadow-float);
+            font-size: 12px; font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.16s ease, transform 0.16s ease;
+            z-index: 200;
+        }
+        .rail__item:hover .rail__tip {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0);
+        }
+
+        /* 矮窗口：靠压缩图标节奏容纳，而不是给 .rail 加滚动
+           （加滚动会裁掉浮出侧栏的悬停提示） */
+        @media (max-height: 720px) {
+            .rail__item { min-height: 28px; max-height: 34px; }
+            .rail__item.active::before { height: 16px; }
+            .rail__btn { width: 28px; height: 28px; border-radius: 9px; }
+            .rail__btn svg { width: 15px; height: 15px; }
+            .rail__item[data-has-children="true"] .rail__btn::after { right: 3px; bottom: 3px; }
+        }
+        @media (max-height: 620px) {
+            .rail__item { min-height: 24px; }
+            .rail__btn { width: 24px; height: 24px; border-radius: 8px; }
+            .rail__btn svg { width: 14px; height: 14px; }
+            .rail__item[data-has-children="true"] .rail__btn::after { right: 2px; bottom: 2px; }
+        }
+
+        /* ========== 可切换的槽 ========== */
+        .sidebar-slot {
+            flex: 1;
+            min-height: 0;
+            display: flex; flex-direction: column;
+            border-top: 1px solid var(--border-subtle);
+            margin-top: 2px;
+        }
+        .sidebar.collapsed .sidebar-slot { display: none; }
+
+        .slot-tabs {
+            display: flex; align-items: center;
+            gap: 2px;
+            padding: 8px 10px 6px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            flex-shrink: 0;
+        }
+        .slot-tabs::-webkit-scrollbar { display: none; }
+        .slot-tab {
+            flex-shrink: 0;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .slot-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+        .slot-tab.active {
+            color: var(--m-ink);
+            background: var(--m-soft);
+        }
+
+        .slot-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 0 14px 14px;
+        }
+        .slot-body::-webkit-scrollbar { width: 4px; }
+        .slot-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
+        .slot-body:hover::-webkit-scrollbar-thumb { background: var(--border-subtle); }
+
+        .slot-panel { display: none; }
+        .slot-panel.active { display: block; animation: slot-in 0.25s ease backwards; }
+        @keyframes slot-in {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 最近 */
+        .recent-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px;
+            margin: 0 -8px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .recent-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            padding-left: 12px;
+        }
+        .recent-icon {
+            width: 20px; height: 20px;
+            border-radius: 6px;
+            background: var(--m-soft);
+            color: var(--m-main);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .recent-icon svg { width: 11px; height: 11px; }
+        .recent-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .recent-time { font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; }
+
+        /* 快捷 */
+        .quick-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .quick-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 11.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: left;
+            width: 100%;
+        }
+        .quick-btn:hover {
+            border-color: var(--m-main);
+            color: var(--m-ink);
+            background: var(--m-soft);
+        }
+        .quick-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+
+
+        /* AI */
+        .ai-chat { display: flex; flex-direction: column; gap: 8px; }
+        .ai-msg {
+            padding: 8px 10px;
+            border-radius: 10px;
+            font-size: 11.5px;
+            line-height: 1.6;
+        }
+        .ai-msg.bot {
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            border-top-left-radius: 3px;
+        }
+        .ai-msg.user {
+            background: var(--m-soft);
+            color: var(--m-ink);
+            border-top-right-radius: 3px;
+            align-self: flex-end;
+            max-width: 85%;
+        }
+        .ai-input {
+            display: flex; align-items: center; gap: 4px;
+            margin-top: 6px;
+            padding: 4px 4px 4px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-subtle);
+        }
+        .ai-input input {
+            flex: 1; min-width: 0;
+            border: none; outline: none; background: transparent;
+            font-size: 11.5px;
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+        .ai-input input::placeholder { color: var(--text-muted); }
+        .ai-send {
+            width: 24px; height: 24px;
+            border-radius: 999px;
+            border: none;
+            background: var(--m-main);
+            color: var(--ink-on-accent);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .ai-send svg { width: 12px; height: 12px; }
+
+        /* 侧栏底部 */
+        .sidebar-foot {
+            padding: 8px 14px 14px;
+            flex-shrink: 0;
+        }
+        .collapse-btn {
+            width: 100%;
+            padding: 8px;
+            border-radius: 9px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 11.5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .collapse-btn:hover {
+            border-color: var(--m-main);
+            color: var(--m-main);
+            background: var(--m-soft);
+        }
+        .collapse-btn svg {
+            width: 12px; height: 12px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sidebar.collapsed .collapse-btn svg { transform: rotate(180deg); }
+        .sidebar.collapsed .collapse-text { display: none; }
+
+
+
+        @media (max-width: 1100px) { :root { --sidebar-w: 220px; } }
+        /* 全label 需要 757px；导航可用宽 = 视口 − 319 ⇒ 理论下限 1076px。
+           取 1140 作为切换点，留 64px 余量：低于它只保留**当前项**的文字，
+           其余收成图标 —— 而不是靠无滚动条的 overflow-x 静默把末位截掉。 */
+        @media (max-width: 1140px) {
+            .nav-p-item:not(.active) .nav-p-text { display: none; }
+            .nav-p-item { padding: 0 11px; }
+        }
+
+        @media (max-width: 900px) {
+            .app {
+                grid-template-columns: 1fr;
+                grid-template-areas: "topbar" "main";
+                grid-template-rows: 68px 1fr;
+                gap: 12px;
+                padding: 12px;
+            }
+            .sidebar-wrap { display: none; }
+            .nav-p-item span:not(.nav-p-icon):not(.nav-p-badge) { display: none; }
+            .nav-p-item { padding: 0 12px; }
+            .topbar { padding: 8px 10px 8px 12px; }
+            .topbar-right .icon-btn:not(.ai):not(#themeBtn) { display: none; }
+        }
+
+        /* ========== 主内容 ========== */
+        .main-wrap { grid-area: main; overflow: hidden; display: flex; min-width: 0; }
+
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            box-shadow: var(--shadow-float);
+            transition: background 0.4s ease, padding 0.3s ease;
+            min-width: 0;
+        }
+        .main::-webkit-scrollbar { width: 6px; }
+        .main::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+        /* 命令面板 */
+        .cmd-mask {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.5);
+            z-index: 1000;
+            display: none;
+            align-items: flex-start; justify-content: center;
+            padding: 120px 20px 20px;
+            animation: fadeIn 0.2s ease;
+        }
+        .cmd-mask.open { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .cmd-panel {
+            width: 100%;
+            max-width: 560px;
+            background: var(--bg-float);
+            border: 1px solid var(--border-card);
+            border-radius: 18px;
+            box-shadow: var(--shadow-float);
+            overflow: hidden;
+            animation: cmdIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes cmdIn {
+            from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .cmd-input {
+            width: 100%;
+            padding: 18px 20px;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .cmd-input::placeholder { color: var(--text-muted); }
+        .cmd-list { max-height: 320px; overflow-y: auto; padding: 8px; }
+        .cmd-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .cmd-item:hover, .cmd-item.active {
+            background: var(--m-soft);
+            color: var(--m-ink);
+        }
+        .cmd-item-icon {
+            width: 28px; height: 28px;
+            border-radius: 8px;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .cmd-item-icon svg { width: 14px; height: 14px; stroke-width: 2; }
+        .cmd-item:hover .cmd-item-icon,
+        .cmd-item.active .cmd-item-icon { color: var(--m-main); }
+        .cmd-item-text { flex: 1; }
+        .cmd-kbd {
+            font-size: 10.5px;
+            padding: 2px 7px;
+            border-radius: 5px;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        }
+
+        .dark .cmd-mask { background: rgba(3,7,18,0.66); }
+        /* 主区（本模块的内容容器）：v5 的 .main 是"一张大卡"，内容收口交给 .detail。
+           ⚠️ 只写 max-width 不写 width:100% 会让子项退化成 shrink-to-fit
+              （1440 下正文列会从 992 掉到 594，看着像"内容被塞在中间一条"）。 */
+        .detail {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        /* （这里原来还有第二段一模一样的 `.detail`，只少一行 width:100% ——
+           上一轮"旧壳整段替换"留下的残片。同特异性下后定义者覆盖前定义者，
+           这类残片平时看不出问题，等真去改前一段时才会发现"改了没反应"。） */
+        /* ============================================================
+           按钮
+           —— 定义在本轮"旧壳整段替换"时被一并带走（那段从 .app 一路到 .detail，
+              中间夹着这一族，而它们是**内容区**的按钮，不属于壳）。
+              补回时按 v5 的口径：主按钮走强调色**实底档** --m-fill，其上字色 --ink-on-accent。
+           ============================================================ */
+        .btn {
+            border: none; border-radius: 10px;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; font-family: inherit; white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+        .btn-primary { background: var(--m-fill); color: var(--ink-on-accent); }
+        .btn-primary:hover { background: color-mix(in srgb, var(--m-main) 74%, #0B1220); transform: translateY(-1px); }
+        /* 次按钮的形靠描边（--border-strong ≥ 分区的门槛），底色白 */
+        .btn-ghost { background: var(--bg-card-solid); color: var(--text-primary); border: 1px solid var(--border-strong); }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-ink); background: var(--bg-hover); }
+        .btn-danger { background: var(--danger-fg); color: #fff; }
+        .btn-danger:hover { filter: brightness(1.08); transform: translateY(-1px); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        /* ============================================================
+           弹窗 / Toast
+           ============================================================ */
+        .modal-mask {
+            position: fixed; inset: 0;
+            background: var(--scrim);
+            z-index: 200;
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-mask.open { display: flex; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal {
+            background: var(--bg-card-solid);
+            border-radius: var(--r-lg);
+            width: 100%; max-width: 460px;
+            max-height: 88vh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            /* 弹窗是唯一真的浮很高的东西，阴影该留 —— 但换成两段式 */
+            box-shadow: 0 2px 6px rgba(15,23,42,0.08), 0 24px 60px rgba(15,23,42,0.26);
+            animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: none; } }
+
+        .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--border-subtle); }
+        .modal-title { font-size: 16px; font-weight: 700; }
+        .modal-close {
+            width: 32px; height: 32px; border-radius: var(--r-sm); flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--text-secondary); background: transparent;
+            border: none; font-size: 14px; font-family: inherit;
+            transition: background 0.18s ease, color 0.18s ease;
+        }
+        .modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .modal-body { padding: 22px; overflow-y: auto; }
+        .modal-body p { font-size: 13.5px; color: var(--text-secondary); line-height: 1.75; }
+        .modal-warn {
+            margin-top: 14px; padding: 12px 14px; border-radius: var(--r-md);
+            background: var(--danger-bg); color: var(--danger-fg);
+            font-size: 12.5px; line-height: 1.65;
+        }
+        .modal-warn strong { font-weight: 800; margin-right: 2px; }
+
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 22px; border-top: 1px solid var(--border-subtle); }
+
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--bg-card-solid); color: var(--text-primary);
+            padding: 12px 20px; border-radius: var(--r-md);
+            box-shadow: 0 12px 32px rgba(15,23,42,0.2);
+            font-size: 13px; font-weight: 600; z-index: 300;
+            opacity: 0; transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex; align-items: center; gap: 8px;
+            border: 1px solid var(--border-subtle);
+            max-width: calc(100vw - 32px);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast[data-type="ok"] { border-color: color-mix(in srgb, var(--bar-ok) 40%, transparent); }
+        .toast[data-type="warn"] { border-color: color-mix(in srgb, var(--bar-warn) 45%, transparent); }
+        .toast[data-type="ok"] .toast-ico { color: var(--ok-fg); }
+        .toast[data-type="warn"] .toast-ico { color: var(--warn-fg); }
+        .toast-ico { color: var(--text-primary); }   /* info 态原来没有颜色 */
+        /* 带动作的 toast（删除后的「撤销」）：这是个"要看清再点"的动作，
+           所以按钮要够明显、停留时间也从 2.4s 拉到 6s（见 toast()）。 */
+        .toast-act {
+            margin-left: 6px; padding: 3px 10px; border-radius: 6px;
+            border: 1px solid var(--rc-fg); background: transparent;
+            color: var(--rc-fg); font-family: inherit; font-size: 12px; font-weight: 700;
+            cursor: pointer; white-space: nowrap;
+        }
+        .toast-act:hover { background: color-mix(in srgb, var(--rc) 12%, var(--bg-card-solid)); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+        @media (max-width: 768px) {
+            .main { padding: 16px; }
+            .detail { gap: 16px; }
+        }
+        @media (max-width: 560px) {
+            .modal-actions { flex-direction: column-reverse; }
+            .modal-actions .btn { justify-content: center; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        /* ============================================================
+           ② 右侧头部 · 项目级 Hero（可折叠）
+           —— 整块搬自项目详情页（用户要求：运维页菜单栏上面要有同一个项目头部）。
+              这块属于**项目**，不跟着 ③ 菜单栏的选中态变 ⇒ 换个分区它一个字都不该动，
+              所以运维分区上它就是同一个东西。标记与行为一一对应，只把颜色换成本页令牌层
+              （项目详情页那套 --line / --line-strong / --bg-slot / --bg-deep /
+              --m-tint / --warn 在本页不存在，按下表对应：
+                 --line → --border-subtle   --line-strong → --border-strong
+                 --bg-slot → --bg-subtle    --bg-deep → --bg-hover
+                 --m-tint → --m-soft        --warn → --warn-fg  --danger → --danger-fg
+                 --shadow-pop → --shadow-card-hover）
+           ⚠️ 卡片上**没有** overflow: hidden —— ⋯ 菜单是绝对定位在卡片内部的，
+              加了就会被整条裁掉（菜单点开了、DOM 也 open 了，屏幕上什么都没有）。
+              真正需要收紧的是 .hero-body。
+           ============================================================ */
+        .hero-card {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: var(--r-lg);
+            box-shadow: var(--shadow-card);
+            transition: box-shadow 0.3s ease;
+        }
+        .hero-card:hover { box-shadow: var(--shadow-card-hover); }
+        .hero-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 16px; padding: 10px 16px; min-height: 52px;
+            cursor: pointer; user-select: none;
+        }
+        .hero-bar-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+        .hero-tag {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+            padding: 3px 8px; border-radius: 8px;
+            background: var(--m-soft); color: var(--m-ink);
+            text-transform: uppercase; flex-shrink: 0;
+        }
+        .hero-name {
+            font-size: 16px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+        }
+        .hero-bar-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+        .hero-progress {
+            display: flex; align-items: center; gap: 8px;
+            cursor: pointer; padding: 3px 5px; margin: -3px -5px;
+            border-radius: 6px; transition: background 0.18s ease;
+        }
+        .hero-progress:hover { background: var(--bg-subtle); }
+        .hero-progress:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+        .hp-pct { font-size: 13px; font-weight: 700; color: var(--m-ink); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+        /* 轨道用 --bg-hover（悬停底那档）：压白卡 1.09:1 —— 轨道是**形状线索**不是分隔线，
+           再浅一档（--bg-subtle 1.03:1）就只剩一条填充能看见，比例读不出来 */
+        .hp-track { width: 72px; height: 5px; background: var(--bg-hover); border-radius: 999px; overflow: hidden; }
+        .hp-fill { height: 100%; background: var(--m-main); border-radius: 999px; transition: width 0.6s ease; }
+        .hero-deadline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+        .hd-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+        .hd-value { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .hd-urgent { font-weight: 600; font-size: 11px; padding: 2px 7px; border-radius: 5px; background: var(--warn-bg); color: var(--warn-fg); }
+        .fold-toggle {
+            width: 28px; height: 28px; border-radius: var(--r-sm);
+            border: 1px solid var(--border-strong); background: var(--bg-subtle);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--text-secondary); flex-shrink: 0;
+            transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1), border-color 0.18s ease, color 0.18s ease;
+        }
+        .fold-toggle:hover { border-color: var(--m-ink); color: var(--m-ink); }
+        .hero-card.open .fold-toggle { transform: rotate(180deg); }
+        .hero-body { max-height: 0; overflow: hidden; transition: max-height 0.45s cubic-bezier(0.34, 1.1, 0.64, 1); }
+        .hero-card.open .hero-body { max-height: 400px; }
+        .hero-body-inner {
+            padding: 16px 20px 20px;
+            border-top: 1px solid var(--border-subtle);
+            opacity: 0; transform: translateY(-6px);
+            transition: opacity 0.35s ease 0.1s, transform 0.35s ease 0.1s;
+        }
+        .hero-card.open .hero-body-inner { opacity: 1; transform: none; }
+        .body-label { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+        .body-text { font-size: 13.5px; line-height: 1.75; color: var(--text-secondary); text-indent: 2em; }
+        .body-meta {
+            margin-top: 14px; padding-top: 12px;
+            border-top: 1px dashed var(--border-strong);
+            font-size: 12px; color: var(--text-muted);
+            display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+        }
+        .body-meta .sep { opacity: 0.5; }
+
+        /* Hero 右侧那格「⋯」菜单 */
+        .more-menu { position: relative; }
+        .more-btn {
+            width: 28px; height: 28px; border-radius: var(--r-sm);
+            border: 1px solid var(--border-strong); background: var(--bg-subtle);
+            cursor: pointer; color: var(--text-secondary);
+            display: flex; align-items: center; justify-content: center;
+            transition: border-color 0.18s ease, color 0.18s ease;
+        }
+        .more-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+        .more-dropdown {
+            position: absolute; top: calc(100% + 6px); right: 0; min-width: 158px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: var(--r-md); box-shadow: var(--shadow-card-hover);
+            padding: 6px; display: none; z-index: 20;
+        }
+        .more-dropdown.open { display: block; animation: dropIn 0.15s ease; }
+        @keyframes dropIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+        .more-item {
+            padding: 8px 12px; border-radius: 8px; font-size: 13px;
+            cursor: pointer; transition: background 0.15s ease;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .more-item:hover { background: var(--bg-subtle); }
+        .more-item.danger { color: var(--danger-fg); }
+        .more-sep { height: 1px; background: var(--border-subtle); margin: 6px 4px; }
+
+        /* （这里原来是一整段「页头两行」：大标题「运维」+ 页级动作 / 面包屑 + 副标题。
+           它有三处重复表达，Hero 就位后全都可以撤：
+             ① h1「运维」= 菜单栏里那个 active tab；
+             ② 面包屑末段又是「运维」= 同一件事的第三次；
+             ③ 面包屑里的项目名 = Hero 里那个项目名的第二次。
+           ⇒ 页头整段删掉，本页唯一的大标题交给 Hero 的 .hero-name，
+             本页没有页面级动作那一格（照用户给的截图）。） */
+        /* ============================================================
+           按钮
+           —— 定义在本轮"旧壳整段替换"时被一并带走（那段从 .app 一路到 .detail，
+              中间夹着这一族，而它们是**内容区**的按钮，不属于壳）。
+              补回时按 v5 的口径：主按钮走强调色**实底档** --m-fill，其上字色 --ink-on-accent。
+           ============================================================ */
+        .btn {
+            border: none; border-radius: 10px;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; font-family: inherit; white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+        .btn-primary { background: var(--m-fill); color: var(--ink-on-accent); }
+        .btn-primary:hover { background: color-mix(in srgb, var(--m-main) 74%, #0B1220); transform: translateY(-1px); }
+        /* 次按钮的形靠描边（--border-strong ≥ 分区的门槛），底色白 */
+        .btn-ghost { background: var(--bg-card-solid); color: var(--text-primary); border: 1px solid var(--border-strong); }
+        .btn-ghost:hover { border-color: var(--m-main); color: var(--m-ink); background: var(--bg-hover); }
+        .btn-danger { background: var(--danger-fg); color: #fff; }
+        .btn-danger:hover { filter: brightness(1.08); transform: translateY(-1px); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+
+        /* Tab 导航（项目详情的七个分区；本页的**模块**分区在侧栏圆盘上，两级各司其职） */
+        .tabs-wrap {
+            position: sticky; top: 0; z-index: 10;
+            /* ⚠️ 必须是**它压着的那个面**的颜色：sticky 条在 `.main`（=`--bg-card` 白）里，
+               原来涂的是 `--bg-page`（灰）⇒ 白卡正中横着一条灰带子（换成纯色后才暴露）。
+               要压住从下面滚过的内容，就等于 `.main` 的底色。 */
+            background: var(--bg-card);
+            padding: 4px 0 10px;
+            margin-bottom: -6px;
+        }
+        .tabs {
+            display: flex; gap: 4px; overflow-x: auto;
+            padding: 6px; border-radius: var(--r-md);
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            box-shadow: var(--shadow-card);
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab {
+            flex-shrink: 0; display: flex; align-items: center; gap: 7px;
+            padding: 9px 14px; border-radius: 10px;
+            font-size: 13px; font-weight: 600; color: var(--text-secondary);
+            cursor: pointer; transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+            white-space: nowrap; user-select: none;
+            border: none; background: transparent; font-family: inherit;
+        }
+        .tab:hover { color: var(--text-primary); background: var(--bg-hover); }
+        .tab.active { background: var(--m-fill); color: var(--ink-on-accent); box-shadow: 0 4px 12px color-mix(in srgb, var(--m-main) 35%, transparent); }
+        .tab .tab-count {
+            font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px;
+            background: var(--bg-subtle); color: var(--text-muted); min-width: 18px; text-align: center;
+        }
+        /* 实底上的计数胶囊：半透明白压白字只有 3.82:1，而它是 10px 小字 ⇒ 实白底 + 深字 */
+        .tab.active .tab-count { background: rgba(255,255,255,0.92); color: #0B1220; }
+
+        .badge {
+            font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+            flex-shrink: 0; white-space: nowrap; letter-spacing: 0.01em;
+        }
+        .badge.info { background: var(--info-bg); color: var(--info-fg); }
+
+
+        /* ============================================================
+           总览 · 六张卡（本页专有）
+           —— 布局照用户给的截图（他说的"这是之前的布局"），不重新设计：
+              三列网格，六张卡各回答这个项目的一个面。
+           ⚠️ 材质走本仓当前口径（纯色 + 令牌），**不照抄截图里的玻璃质感**。
+           ⚠️ 截图里每张卡的图标带**彩色底**（绿勾 / 紫虫 / 蓝文档…）—— 这一处**不搬**：
+              ① 那几支亮色（如 #10B981）压白只有 2.54:1，够不到"图形档 ≥ 3:1"；
+              ② 卡头已经有"图标形状 + 卡名 + 计数徽标"三重线索，再加一支色是第四重；
+              ③ 本页的强调色要留给"进度条 / 活跃 tab / 紧急标记"，
+                 六支分区色一进来，红色就不再显眼。
+              要改回彩色：给 `.ov-icon` 按卡加一支 `color`（那几支得逐支复算对比度）。
+           ============================================================ */
+        /* 勾选框要做成"形状"，`--border-subtle`(7% 黑，只够分隔相邻区域)撑不起来
+           ⇒ 单给一支 ≥3:1 的场域描边（与任务总览页、日志页取同一个值）。 */
+        :root { --border-field: #7F899B; }
+        .dark { --border-field: rgba(255,255,255,0.36); }
+
+        .ov-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            /* ⚠️ **不许写 `1fr`**：容器高度由内容定 ⇒ 各行的 `1fr` 会解析成"全局最高那张卡"，
+               两行于是都被它拉平（实测：第二排被 BUG 卡拉高约 90px）。
+               `auto` 才是"同一排等高（`align-items` 默认 stretch 管）、排与排各自贴合"。 */
+            grid-auto-rows: auto;
+            gap: 16px;
+            align-items: stretch;
+        }
+        /* ⚠️ 网格的 stretch 只到网格项那一层 ⇒ 卡自己 flex 纵向、
+           卡体 `flex:1` 才吃得满 —— 六张卡的"查看全部"才会落在同一水平线上。 */
+        .ov-card {
+            display: flex; flex-direction: column;
+            min-width: 0;
+            padding: 14px 16px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: var(--r-lg);
+            box-shadow: var(--shadow-card);
+        }
+
+        /* 卡头：图标 + 卡名 + 计数 —— 正好回答"这个分区有什么、多少"。
+           ⚠️ 「查看全部」**不在卡头**，在卡脚（`.ov-foot`）—— 理由见那里的注释。 */
+        .ov-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .ov-icon {
+            width: 24px; height: 24px; border-radius: 8px; flex-shrink: 0;
+            background: var(--bg-subtle); color: var(--text-secondary);
+        }
+        .ov-title { font-size: 13px; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+        .ov-count {
+            font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+            background: var(--bg-subtle); color: var(--text-muted);
+            white-space: nowrap; font-variant-numeric: tabular-nums;
+        }
+        /* 卡脚：只有一颗「查看全部」。⚠️ 它原来在卡头，挪下来的两个理由：
+           ① 卡头回到"图标 + 卡名 + 计数"三件 —— 一行放得下，也不用 `space-between` 把它推走；
+           ② **卡有了页脚，`margin-top: auto` 才有落点** —— 同一排里矮卡底部那片空白
+              从此是"页脚上方的呼吸"，而不是"内容没铺满"（判据同本仓卡片墙：
+              等高 = 卡自己 flex 纵向 + 正文段 `flex:1` + 页脚 `margin-top:auto`）。
+           发丝线只在页脚上 —— 一页六张卡，六条线落在同一水平线上，是横向的对齐线索。 */
+        .ov-foot {
+            margin-top: auto; padding-top: 11px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex; align-items: center;
+        }
+        .ov-more {
+            margin-left: auto; margin-right: -6px; flex-shrink: 0;
+            padding: 4px 6px; border-radius: 7px;
+            font-size: 11.5px; font-weight: 600; color: var(--m-ink);
+            text-decoration: none; white-space: nowrap;
+        }
+        .ov-more:hover { background: var(--m-soft); }
+        .ov-more:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+        .ov-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+        /* ---------- ① 任务行（勾选框 + 标题 + 行尾时间 + 优先级） ----------
+           与任务总览页同一套分层：第一行放**会变的状态**（时间 / 优先级），
+           第二行放不变的身份 —— 这里每条只有一行，所以时间与优先级都靠右成一列。 */
+        .ov-task {
+            display: flex; align-items: center; gap: 9px;
+            padding: 7px 8px; margin: 0 -8px;
+            border-radius: 9px;
+            transition: background 0.18s ease;
+        }
+        .ov-task:hover { background: var(--bg-hover); }
+        .ov-chk {
+            width: 17px; height: 17px; flex-shrink: 0;
+            border-radius: 5px; border: 1.5px solid var(--border-field);
+            background: var(--bg-card); cursor: pointer; padding: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: transparent;
+            transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+        }
+        .ov-chk:hover { border-color: var(--m-main); }
+        .ov-chk svg { width: 11px; height: 11px; stroke-width: 3; }
+        .ov-chk[aria-pressed="true"] { background: var(--m-fill); border-color: var(--m-fill); color: var(--ink-on-accent); }
+        .ov-task-t {
+            flex: 1; min-width: 0;
+            font-size: 13px; color: var(--text-primary);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .ov-task.is-done .ov-task-t { text-decoration: line-through; color: var(--text-muted); }
+        .ov-when {
+            flex-shrink: 0; font-size: 11.5px; color: var(--text-secondary);
+            white-space: nowrap; font-variant-numeric: tabular-nums;
+        }
+        /* 优先级：只有「高」上色 —— 一条清单里颜色只承载一种语义，
+           低 / 中 用中性胶囊（形状区分），把那一支留给"该先动哪件"。 */
+        .ov-pri {
+            flex-shrink: 0; padding: 1px 7px; border-radius: 6px;
+            font-size: 10.5px; font-weight: 700;
+            background: var(--bg-subtle); color: var(--text-muted);
+        }
+        .ov-pri.is-high { background: var(--danger-bg); color: var(--danger-fg); }
+
+        /* ---------- ② Bug 条目 ----------
+           ⚠️ 左侧那道"严重度"色条用 `box-shadow: inset`，**不用 `border-left`** ——
+              后者会把整块内容右移 1px（每一行都差一点，看着像没对齐）。 */
+        .ov-bug {
+            padding: 9px 10px 9px 12px; margin-bottom: 8px;
+            border-radius: 10px;
+            background: var(--bg-subtle);
+            box-shadow: inset 3px 0 0 var(--text-muted);
+        }
+        .ov-bug:last-child { margin-bottom: 0; }
+        .ov-bug.is-fatal { box-shadow: inset 3px 0 0 var(--danger-fg); }
+        .ov-bug.is-major { box-shadow: inset 3px 0 0 var(--warn-fg); }
+        .ov-bug-top { display: flex; align-items: center; gap: 8px; }
+        .ov-sev {
+            padding: 1px 6px; border-radius: 5px;
+            font-size: 10px; font-weight: 800; letter-spacing: 0.02em;
+            background: var(--bg-card); color: var(--text-secondary);
+        }
+        .ov-bug.is-fatal .ov-sev { color: var(--danger-fg); }
+        .ov-bug.is-major .ov-sev { color: var(--warn-fg); }
+        .ov-bug-state { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+        .ov-bug-t { margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .ov-bug-meta { margin-top: 4px; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); }
+        .ov-avatar {
+            margin-left: auto; flex-shrink: 0;
+            width: 20px; height: 20px; border-radius: 50%;
+            background: var(--bg-card); color: var(--text-secondary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10.5px; font-weight: 700;
+        }
+
+        /* ---------- ③ 文档书封 ---------- */
+        .ov-docs { display: flex; gap: 12px; }
+        .ov-doc { flex: 1; min-width: 0; }
+        /* ⚠️ 固定宽度的物不随容器变形 ⇒ 书封走 `flex:1` 会随卡片宽度伸缩，
+           这里固定 100% 但**内容**（书名）自己截断，高度锁死 76px */
+        .ov-book {
+            position: relative;
+            height: 76px; border-radius: 4px 9px 9px 4px;
+            padding: 9px 9px 9px 13px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            color: #fff;
+            overflow: hidden;
+        }
+        /* 书脊：一条内阴影，不用额外元素 */
+        .ov-book::before {
+            content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+            background: rgba(0, 0, 0, 0.22);
+        }
+        .ov-book-i { display: flex; justify-content: flex-end; opacity: 0.9; }
+        .ov-book-t {
+            font-size: 11.5px; font-weight: 700; line-height: 1.35;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        /* 三支书封色：压白字都过 4.5:1（#2563EB 5.1 / #B45309 5.0 / #7C3AED 6.3） */
+        .ov-book.c-1 { background: #2563EB; }
+        .ov-book.c-2 { background: #B45309; }
+        .ov-book.c-3 { background: #7C3AED; }
+        .ov-doc-meta { margin-top: 7px; font-size: 10.5px; color: var(--text-muted); }
+        .ov-doc-meta b { color: var(--text-secondary); font-weight: 600; }
+
+        /* ---------- ④ 运维 ---------- */
+        .ov-srv {
+            display: flex; align-items: center; gap: 9px;
+            padding: 9px 10px; border-radius: 10px;
+            background: var(--bg-subtle);
+        }
+        .ov-srv-i { width: 20px; height: 20px; flex-shrink: 0; color: var(--text-secondary); }
+        .ov-srv-n { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ov-srv-s { margin-left: auto; flex-shrink: 0; font-size: 11px; color: var(--ok-fg); font-weight: 600; }
+        .ov-sub {
+            margin: 14px 0 8px;
+            font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+            color: var(--text-muted);
+        }
+        .ov-ver { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+        .ov-ver-t { font-size: 12.5px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .ov-badge {
+            padding: 1px 7px; border-radius: 999px;
+            font-size: 10px; font-weight: 700;
+        }
+        .ov-badge.ok { background: var(--ok-bg); color: var(--ok-fg); }
+        .ov-badge.back { background: var(--warn-bg); color: var(--warn-fg); }
+        .ov-ver-w { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+
+        /* ---------- ⑤ 会议 ---------- */
+        .ov-meet { display: flex; align-items: center; gap: 11px; }
+        .ov-date {
+            width: 42px; flex-shrink: 0; text-align: center;
+            padding: 5px 0; border-radius: 9px;
+            background: var(--bg-subtle);
+        }
+        .ov-date b { display: block; font-size: 17px; font-weight: 800; line-height: 1.1; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .ov-date span { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-muted); }
+        .ov-meet-b { flex: 1; min-width: 0; }
+        .ov-meet-t { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+        .ov-meet-m { margin-top: 3px; font-size: 11.5px; color: var(--text-muted); }
+        .ov-meet-r { flex-shrink: 0; text-align: right; }
+        .ov-meet-r b { display: block; font-size: 13px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .ov-meet-r span { display: block; margin-top: 3px; font-size: 10.5px; color: var(--text-muted); }
+
+        /* ---------- ⑥ 账户 ---------- */
+        .ov-acc { display: flex; align-items: flex-start; gap: 9px; }
+        .ov-acc-i { width: 22px; height: 22px; flex-shrink: 0; color: var(--text-secondary); }
+        .ov-acc-b { min-width: 0; }
+        .ov-acc-n { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+        .ov-acc-tag {
+            padding: 1px 7px; border-radius: 999px;
+            font-size: 10px; font-weight: 700;
+            background: var(--m-soft); color: var(--m-ink);
+        }
+        .ov-acc-m { margin-top: 4px; font-size: 11.5px; color: var(--text-secondary); }
+        .ov-acc-note { margin-top: 5px; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+
+        /* 从侧栏定位到某张卡时的一闪 —— 与别的页同一套，只改描边不改尺寸 */
+        .ov-card.is-spot { animation: ovSpot 1.6s ease; }
+        @keyframes ovSpot {
+            0%   { box-shadow: 0 0 0 2px var(--m-main), var(--shadow-card); }
+            100% { box-shadow: var(--shadow-card); }
+        }
+
+        /* ⚠️ 三列 → 两列 → 一列：**按容器宽度断，不按视口宽度断**。
+           判据：视口里还压着侧栏 220 + 页栅格 16×3 + 主卡内距 24×2 一共 316px ——
+           `@media` 量的是"窗口有多大"，容器查询量的是"这张卡现在有多宽"，后者才是
+           真正决定排不下的那个量（侧栏折叠/展开、页边距变化都会自动算进去）。
+           档位由"卡里最不能压的那样东西"反推 —— 本页是**文档卡那三本书**
+           （书封是 `flex:1`、没有 min-width，会一路缩到认不出）：
+              · W ≥ 848 ⇒ 卡 ≥ 272 ⇒ 三列（三本书各 ≥ 72px；卡头三件只要 210，宽裕）
+              · W ≥ 560 ⇒ 卡 ≥ 272 ⇒ 两列
+              · W < 560 ⇒ 一列
+           换到实际窗口：侧栏在场时三列要到视口 ≥ 1164（与改前的 1180 基本同档），
+           侧栏在 ≤900 收起 ⇒ 那一段的主区反而更宽，能多放一列。 */
+        @container (max-width: 847px) {
+            .ov-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @container (max-width: 559px) {
+            .ov-grid { grid-template-columns: 1fr; }
+        }
+        /* 「换容器」这一步：`.detail` 从共享壳里来，本页给它加一行容器声明
+           （⚠️ 写在 CSS_BODY 里 = 在本页所有壳 CSS **之后**，同特异性后者胜）。 */
+        .detail { container-type: inline-size; }
+    </style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+    <!-- ========== 顶栏（一级模块：v5 照搬） ========== -->
+<div class="topbar-wrap">
+        <div class="topbar">
+            <div class="logo-mark" onclick="openCmd()" title="lucky-y · 打开命令面板（⌘K）">L</div>
+            <div class="divider-v"></div>
+
+            <nav class="nav-primary" id="navPrimary">
+                <div class="nav-p-item" data-module="dashboard">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="9" rx="1.5"></rect>
+              <rect x="14" y="3" width="7" height="5" rx="1.5"></rect>
+              <rect x="14" y="12" width="7" height="9" rx="1.5"></rect>
+              <rect x="3" y="16" width="7" height="5" rx="1.5"></rect>
+            </svg>
+          </span>
+                    <span class="nav-p-text">工作台</span>
+                </div>
+                <div class="nav-p-item" data-module="tasks">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">任务</span>
+                </div>
+                <div class="nav-p-item" data-module="calendar">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </span>
+                    <span class="nav-p-text">日程</span>
+                </div>
+                <div class="nav-p-item" data-module="life">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12l2-2 4 4 7-7 3 3"></path>
+              <path d="M3 21h18"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">生活</span>
+                </div>
+                <div class="nav-p-item active" data-module="work">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">工作</span>
+                    <span class="nav-p-badge warn" title="1 条致命 Bug 待修复">1</span>
+                </div>
+                <div class="nav-p-item" data-module="learning">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 4l10 5 10-5-10-5z"></path>
+              <path d="M2 20l10 5 10-5"></path>
+              <path d="M2 12l10 5 10-5"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">学习</span>
+                </div>
+                <div class="nav-p-item" data-module="projects">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7l9-4 9 4-9 4-9-4z"></path>
+              <path d="M3 12l9 4 9-4"></path>
+              <path d="M3 17l9 4 9-4"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">项目</span>
+                    <span class="nav-p-badge">4</span>
+                </div>
+                <div class="nav-p-item" data-module="knowledge">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">知识库</span>
+                </div>
+                <div class="nav-p-item" data-module="settings">
+          <span class="nav-p-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </span>
+                    <span class="nav-p-text">设置</span>
+                </div>
+            </nav>
+
+            <!-- 超级菜单面板：挂在 .topbar 上（不能放进 .nav-primary，会被裁） -->
+            <div class="mega" id="mega" aria-label="二级导航"></div>
+
+            <div class="topbar-right">
+                <button class="icon-btn" title="搜索 ⌘K" onclick="openCmd()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+                <button class="icon-btn" title="通知" onclick="alert('原型演示：通知')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <span class="dot"></span>
+                </button>
+                <button class="icon-btn" id="themeBtn" title="切换主题">
+                    <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+                <button class="icon-btn ai" title="AI 助手 ⌘K" onclick="alert('原型演示：AI 助手')">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M9.5 2.5 C9.5 7.3 11.7 9.5 16.5 9.5 C11.7 9.5 9.5 11.7 9.5 16.5 C9.5 11.7 7.3 9.5 2.5 9.5 C7.3 9.5 9.5 7.3 9.5 2.5 Z"></path>
+                        <path class="ai-spark-mini" d="M17.5 13 C17.5 15.75 18.75 17 21.5 17 C18.75 17 17.5 18.25 17.5 21 C17.5 18.25 16.25 17 13.5 17 C16.25 17 17.5 15.75 17.5 13 Z"></path>
+                    </svg>
+                </button>
+                <div class="avatar" onclick="alert('原型演示：用户菜单')">杨</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 侧栏（圆盘 = 本页的六张卡） ========== -->
+<div class="sidebar-wrap">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-head">
+                <div class="sidebar-title">
+                    <span class="dot"></span>
+                    <span class="name" id="sidebarTitle">总览</span>
+                </div>
+                <div class="sidebar-subtitle" id="sidebarSubtitle">任务 · 26/36</div>
+            </div>
+
+            <!-- 圆盘 -->
+            <div class="radial-stage">
+                <div class="radial" id="moduleRing" role="group" aria-label="环形导航">
+                    <i class="hub-ripple" aria-hidden="true"></i>
+
+                    <button type="button" class="hub-door" data-hub-door aria-label="进入 / 返回">
+            <span class="hub-dial" aria-hidden="true">
+              <i class="hub-arc" data-hub-arc></i>
+              <svg class="hub-compass" viewBox="0 0 100 100" aria-hidden="true">
+                <g class="hub-compass__petals">
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(0 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(30 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(60 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(90 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(120 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(150 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(180 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(210 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(240 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(270 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(300 50 50)"/>
+                  <path d="M50 17 Q44.9 11.3 50 5 Q55.1 11.3 50 17 Z" transform="rotate(330 50 50)"/>
+                </g>
+                <g class="hub-compass__star">
+                  <path class="is-main" d="M50 50 L46.4 50 L50 26 L53.6 50 Z" transform="rotate(0 50 50)"/>
+                  <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(90 50 50)"/>
+                  <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(180 50 50)"/>
+                  <path d="M50 50 L46.8 50 L50 29 L53.2 50 Z" transform="rotate(270 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(45 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(135 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(225 50 50)"/>
+                  <path d="M50 50 L47.6 50 L50 38 L52.4 50 Z" transform="rotate(315 50 50)"/>
+                </g>
+              </svg>
+              <span class="hub-back" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 12H5"></path>
+                  <path d="m12 19-7-7 7-7"></path>
+                </svg>
+              </span>
+            </span>
+                    </button>
+
+                    <div data-radial-items></div>
+                </div>
+
+                <!-- 名称条：悬停/聚焦图标时才出现 -->
+                <div class="radial-caption" id="ringCaption" aria-hidden="true"></div>
+            </div>
+
+            <!-- 平铺图标列（收起态）：与圆盘同源，只是换一种排列 -->
+            <div class="rail" id="moduleRail" role="navigation" aria-label="分区快捷导航"></div>
+
+            <!-- 可切换的槽 -->
+            <div class="sidebar-slot">
+                <div class="slot-tabs" id="slotTabs">
+                    <div class="slot-tab active" data-slot="recent">最近</div>
+                    <div class="slot-tab" data-slot="quick">快捷</div>
+                    <div class="slot-tab" data-slot="ai">AI</div>
+                </div>
+
+
+                <div class="slot-body">
+                    <!-- 最近：最近看过的**这一页内的几块**。带的是块名 ——
+                         这一槽回答的是"我刚才在弄哪一块"，不是"我滚到哪一节了"。
+                         本页只有六块，取前三块就够了（一屏内它们本来都看得见）。 -->
+                    <div class="slot-panel active" data-panel="recent">
+                        <button class="recent-item" type="button" onclick="focusCard('tasks')">
+                            <span class="recent-icon" aria-hidden="true" data-ico="task" data-ico-size="11"></span>
+                            <span class="recent-text">任务</span>
+                            <span class="recent-time">26/36</span>
+                        </button>
+                        <button class="recent-item" type="button" onclick="focusCard('bugs')">
+                            <span class="recent-icon" aria-hidden="true" data-ico="bug" data-ico-size="11"></span>
+                            <span class="recent-text">Bug</span>
+                            <span class="recent-time">3 条</span>
+                        </button>
+                        <button class="recent-item" type="button" onclick="focusCard('ops')">
+                            <span class="recent-icon" aria-hidden="true" data-ico="rocket" data-ico-size="11"></span>
+                            <span class="recent-text">运维</span>
+                            <span class="recent-time">v3.3.4</span>
+                        </button>
+                    </div>
+
+                    <!-- 快捷：四个各干一件事的入口。不放"归档 / 删除项目"这类破坏性动作 ——
+                         它们只该出现在 Hero 右上那个 ⋯ 菜单里（那里已经有一份）。 -->
+                    <div class="slot-panel" data-panel="quick">
+                        <div class="quick-grid">
+                            <button class="quick-btn" type="button" onclick="location.href='工作-任务-总览-index.html'">
+                                <span aria-hidden="true" data-ico="task" data-ico-size="12"></span>
+                                全部任务
+                            </button>
+                            <button class="quick-btn" type="button" onclick="focusCard('bugs')">
+                                <span aria-hidden="true" data-ico="bug" data-ico-size="12"></span>
+                                看 Bug
+                            </button>
+                            <button class="quick-btn" type="button" onclick="location.href='工作-项目-项目详情-运维-index.html'">
+                                <span aria-hidden="true" data-ico="rocket" data-ico-size="12"></span>
+                                去看运维
+                            </button>
+                            <button class="quick-btn" type="button" onclick="openCmd()">
+                                <span aria-hidden="true" data-ico="keyboard" data-ico-size="12"></span>
+                                命令面板
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- AI：示例对话跟着这一页的口径走（这个项目最急的是什么 → 各自的读数）。
+                         原来那版问的是"这台测试机在上什么版本"，而这一页上根本没有那台机器
+                         ⇒ 那会是一句页面上没有依据的话。 -->
+                    <div class="slot-panel" data-panel="ai">
+                        <div class="ai-chat">
+                            <div class="ai-msg bot">这个项目有一条致命 Bug「对账金额精度丢失」，还在待修复，要现在看吗？</div>
+                            <div class="ai-msg user">任务那边还剩多少</div>
+                            <div class="ai-msg bot">任务 36 条里完成 26 条，卡上那三条是最近要交的；另外两台机器都连着，最近一次发布 v3.3.4 是成功的。</div>
+                        </div>
+                        <div class="ai-input">
+                            <input type="text" placeholder="问点什么…" />
+                            <button class="ai-send" type="button" aria-label="发送">
+                                <span aria-hidden="true" data-ico="chevR" data-ico-size="12"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-foot">
+                <button class="collapse-btn" id="collapseBtn">
+                    <span aria-hidden="true" data-ico="chevL" data-ico-size="12"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m14.5 6-6 6 6 6"/></svg></span>
+                    <span class="collapse-text">收起</span>
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ========== 主内容 ========== -->
+
+    <div class="main-wrap">
+        <main class="main">
+        <div class="detail">
+
+            <!-- ===== ② 右侧头部 · 可折叠 Hero（整块搬自项目详情页）=====
+                 只属于当前这个项目：它是谁 / 到哪了 / 能对它做什么。
+                 ⚠️ 它不跟着 ③ 菜单栏的选中态变 —— 换个分区，这一块一个字都不该动。
+                 ⚠️ 默认收起（`.hero-card` 上不加 `.open`）—— 与项目详情页同一个默认；
+                    运维页要做的是部署文件 / 看日志，项目说明是次要信息，不该常驻占位。 -->
+            <div class="hero-card" id="heroCard">
+                <!-- ⚠️ 这一条不给 role="button"：里面还有一排真控件（进度 / 编辑 / ⋯ / 折叠），
+                     在一个 role=button 里嵌按钮是无效 ARIA。键盘入口由 .fold-toggle 承担。 -->
+                <div class="hero-bar" id="heroBar">
+                    <div class="hero-bar-left">
+                        <span class="hero-tag" id="heroTag">P0</span>
+                        <h1 class="hero-name" id="heroName">Q4 客户交付系统重构</h1>
+                        <span class="badge info" id="heroStatus">进行中</span>
+                    </div>
+
+                    <!-- 右侧自成一块：里面每个控件都有自己的动作，
+                         点它们不该顺手把 Hero 收起来 -->
+                    <div class="hero-bar-right" id="heroBarRight">
+                        
+                        <div class="hero-progress" id="heroProgress" role="button" tabindex="0" title="调整进度">
+                            <span class="hp-pct" id="hpPct">72%</span>
+                            <div class="hp-track"><div class="hp-fill" id="hpFill" style="width:72%"></div></div>
+                        </div>
+
+                        <div class="hero-deadline">
+                            <span class="hd-label">截止</span>
+                            <span class="hd-value" id="hdValue">11月15日</span>
+                            <span class="hd-urgent" id="hdUrgent">剩 58 天</span>
+                        </div>
+
+                        <button class="btn btn-ghost btn-sm" type="button" data-demo="编辑项目">编辑</button>
+
+                        <div class="more-menu" id="moreMenu">
+                            <button class="more-btn" id="moreBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="更多项目操作"><span data-ico="more" data-ico-size="14"></span></button>
+                            <div class="more-dropdown" id="moreDropdown" role="menu">
+                                <div class="more-item" role="menuitem" tabindex="0" data-demo="复制项目链接"><span data-ico="copy" data-ico-size="14"></span> 复制链接</div>
+                                <div class="more-item" role="menuitem" tabindex="0" data-demo="归档项目"><span data-ico="archive" data-ico-size="14"></span> 归档项目</div>
+                                <div class="more-item" role="menuitem" tabindex="0" data-demo="暂停项目"><span data-ico="pause" data-ico-size="14"></span> 暂停项目</div>
+                                <div class="more-sep" role="separator"></div>
+                                <div class="more-item" role="menuitem" tabindex="0" data-back-list><span data-ico="arrowLeft" data-ico-size="14"></span> 全部项目</div>
+                                <div class="more-item danger" role="menuitem" tabindex="0" data-demo="删除项目"><span data-ico="trash" data-ico-size="14"></span> 删除项目</div>
+                            </div>
+                        </div>
+
+                        <button class="fold-toggle" id="foldToggle" type="button" title="展开" aria-label="展开" aria-expanded="false">
+                            <span data-ico="chevD" data-ico-size="14"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="hero-body">
+                    <div class="hero-body-inner">
+                        <div class="body-label">项目说明</div>
+                        <p class="body-text" id="heroDesc">拆分单体模块，统一鉴权与审计链路，保障 Q4 版本按期交付。</p>
+                        <div class="body-meta" id="heroMeta">
+                            <span>创建 2026-07-01</span><span class="sep">·</span>
+                            <span>负责人 刘阳 · 张琪 · 何敏</span><span class="sep">·</span>
+                            <span>里程碑 灰度发布</span><span class="sep">·</span>
+                            <span>仓库 git@internal:core-platform.git</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- ========== Tab 导航 ========== -->
+            <div class="tabs-wrap">
+                <div class="tabs" role="tablist" aria-label="项目详情分区">
+                    <button class="tab active" role="tab" aria-selected="true" onclick="toast('已在本页','info')"><span data-ico="dashboard" data-ico-size="15"></span> 总览</button>
+                    <button class="tab" role="tab" onclick="toast('任务 Tab · 原型占位','info')"><span data-ico="task" data-ico-size="15"></span> 任务 <span class="tab-count" data-count="tasks">26/36</span></button>
+                    <button class="tab" role="tab" onclick="toast('Bug Tab · 原型占位','info')"><span data-ico="bug" data-ico-size="15"></span> Bug <span class="tab-count" data-count="bugs">3</span></button>
+                    <button class="tab" role="tab" onclick="location.href='work_project_detail_document.html'"><span data-ico="doc" data-ico-size="15"></span> 文档 <span class="tab-count" data-count="docs">11</span></button>
+                    <button class="tab" role="tab" onclick="location.href='工作-项目-项目详情-运维-index.html'"><span data-ico="rocket" data-ico-size="15"></span> 运维 <span class="tab-count" data-count="ops">2·3·4</span></button>
+                    <button class="tab" role="tab" onclick="toast('会议 Tab · 原型占位','info')"><span data-ico="calendar" data-ico-size="15"></span> 会议 <span class="tab-count" data-count="meets">2</span></button>
+                    <button class="tab" role="tab" onclick="location.href='工作-项目-项目详情-账户-index.html'"><span data-ico="key" data-ico-size="15"></span> 账户 <span class="tab-count" data-count="accs">8</span></button>
+                </div>
+            </div>
+
+
+            <!-- ========== 总览 · 六张卡 ==========
+                 布局照用户给的截图（"这是之前的布局"）：三列网格，每张卡回答
+                 **这个项目的一个面**。六张卡各自的门都通向对应的那一页。
+                 ⚠️ 六张卡的数字与 ③ 菜单栏上那排 tab 的计数**是同一份**（截图里就是两处）
+                    ⇒ 都从下面的 `STATS` 现算，改一个数两处一起变，绝不手改两遍。
+                 ⚠️ 卡片**等高**靠"卡自己 flex 纵向 + 卡体 `flex:1`"，
+                    不是靠给卡写死高度。 -->
+            <div class="ov-grid" id="ovGrid">
+
+                <!-- ① 任务 -->
+                <section class="ov-card" data-section="tasks">
+                    <div class="ov-head">
+                        <span class="ov-icon" aria-hidden="true" data-ico="task" data-ico-size="14"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="m8 12 2.5 2.5L16 9"/></svg></span>
+                        <span class="ov-title">任务</span>
+                        <span class="ov-count" id="cntTasks">26 / 36</span>
+                    </div>
+                    <div class="ov-body">
+                        <div class="ov-task">
+                            <button class="ov-chk" type="button" aria-pressed="false" aria-label="完成：性能基线对比" onclick="toggleOvTask(this)"><span aria-hidden="true" data-ico="check" data-ico-size="11"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+                            <span class="ov-task-t">性能基线对比</span>
+                            <span class="ov-when">3 天后</span>
+                            <span class="ov-pri">低</span>
+                        </div>
+                        <div class="ov-task">
+                            <button class="ov-chk" type="button" aria-pressed="false" aria-label="完成：准备上线演练" onclick="toggleOvTask(this)"><span aria-hidden="true" data-ico="check" data-ico-size="11"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+                            <span class="ov-task-t">准备上线演练</span>
+                            <span class="ov-when">4 天后</span>
+                            <span class="ov-pri">中</span>
+                        </div>
+                        <div class="ov-task">
+                            <button class="ov-chk" type="button" aria-pressed="false" aria-label="完成：设计统一鉴权方案" onclick="toggleOvTask(this)"><span aria-hidden="true" data-ico="check" data-ico-size="11"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+                            <span class="ov-task-t">设计统一鉴权方案</span>
+                            <span class="ov-when">1 天后</span>
+                            <span class="ov-pri is-high">高</span>
+                        </div>
+                    </div>
+                    <div class="ov-foot">
+                        <a class="ov-more" href="工作-任务-总览-index.html">查看全部 →</a>
+                    </div>
+                </section>
+
+                <!-- ② Bug -->
+                <section class="ov-card" data-section="bugs">
+                    <div class="ov-head">
+                        <span class="ov-icon" aria-hidden="true" data-ico="bug" data-ico-size="14"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="13" r="6"/><path d="M12 7V4M8 8 6 6M16 8l2-2M6 13H3M21 13h-3M8 18l-2 2M16 18l2 2"/></svg></span>
+                        <span class="ov-title">BUG</span>
+                        <span class="ov-count" id="cntBugs">3 条</span>
+                    </div>
+                    <div class="ov-body">
+                        <div class="ov-bug is-fatal">
+                            <div class="ov-bug-top"><span class="ov-sev">致命</span><span class="ov-bug-state">待修复</span></div>
+                            <div class="ov-bug-t">对账金额精度丢失</div>
+                            <div class="ov-bug-meta"><span>v2.2.8</span><span>·</span><span>2 小时前</span><span class="ov-avatar">刘</span></div>
+                        </div>
+                        <div class="ov-bug is-major">
+                            <div class="ov-bug-top"><span class="ov-sev">严重</span><span class="ov-bug-state">修复中</span></div>
+                            <div class="ov-bug-t">鉴权 token 刷新竞态</div>
+                            <div class="ov-bug-meta"><span>v2.2.7</span><span>·</span><span>3 天前</span><span class="ov-avatar">Z</span></div>
+                        </div>
+                    </div>
+                    <div class="ov-foot">
+                        <a class="ov-more" href="#" onclick="event.preventDefault();toast('Bug 分区还没有独立页面','info')">查看全部 →</a>
+                    </div>
+                </section>
+
+                <!-- ③ 文档 -->
+                <section class="ov-card" data-section="docs">
+                    <div class="ov-head">
+                        <span class="ov-icon" aria-hidden="true" data-ico="doc" data-ico-size="14"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span>
+                        <span class="ov-title">文档</span>
+                        <span class="ov-count" id="cntDocs">11</span>
+                    </div>
+                    <div class="ov-body">
+                        <div class="ov-docs">
+                            <a class="ov-doc" href="work_project_detail_document.html" style="text-decoration:none;">
+                                <div class="ov-book c-1">
+                                    <span class="ov-book-i" aria-hidden="true" data-ico="external" data-ico-size="12"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 4h6v6"/><path d="m20 4-8.5 8.5"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 18.5v-10A1.5 1.5 0 0 1 6.5 7H11"/></svg></span>
+                                    <span class="ov-book-t">技术方案 v3</span>
+                                </div>
+                                <div class="ov-doc-meta"><b>刘阳</b> · 昨天</div>
+                            </a>
+                            <a class="ov-doc" href="work_project_detail_document.html" style="text-decoration:none;">
+                                <div class="ov-book c-2">
+                                    <span class="ov-book-i" aria-hidden="true" data-ico="external" data-ico-size="12"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 4h6v6"/><path d="m20 4-8.5 8.5"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 18.5v-10A1.5 1.5 0 0 1 6.5 7H11"/></svg></span>
+                                    <span class="ov-book-t">接口契约说明</span>
+                                </div>
+                                <div class="ov-doc-meta"><b>ZQ</b> · 3 小时前</div>
+                            </a>
+                            <a class="ov-doc" href="work_project_detail_document.html" style="text-decoration:none;">
+                                <div class="ov-book c-3">
+                                    <span class="ov-book-i" aria-hidden="true" data-ico="external" data-ico-size="12"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 4h6v6"/><path d="m20 4-8.5 8.5"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 18.5v-10A1.5 1.5 0 0 1 6.5 7H11"/></svg></span>
+                                    <span class="ov-book-t">灰度发布预案</span>
+                                </div>
+                                <div class="ov-doc-meta"><b>HIM</b> · 2 天前</div>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="ov-foot">
+                        <a class="ov-more" href="work_project_detail_document.html">查看全部 →</a>
+                    </div>
+                </section>
+
+                <!-- ④ 运维 -->
+                <section class="ov-card" data-section="ops">
+                    <div class="ov-head">
+                        <span class="ov-icon" aria-hidden="true" data-ico="rocket" data-ico-size="14"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3c3.5 1.5 5.5 4.6 5.5 8.2L12 21l-5.5-9.8C6.5 7.6 8.5 4.5 12 3z"/><circle cx="12" cy="10" r="1.6"/></svg></span>
+                        <span class="ov-title">运维</span>
+                        <span class="ov-count" id="cntOps">2 服务器 · 3 文档 · 4 记录</span>
+                    </div>
+                    <div class="ov-body">
+                        <div class="ov-srv">
+                            <span class="ov-srv-i" aria-hidden="true" data-ico="server" data-ico-size="20"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>
+                            <span class="ov-srv-n">prod-web-01</span>
+                            <span class="ov-srv-s">运行中</span>
+                        </div>
+                        <div class="ov-sub">版本记录</div>
+                        <div class="ov-ver">
+                            <span class="ov-ver-t">v3.3.4</span>
+                            <span class="ov-badge ok">成功</span>
+                            <span class="ov-ver-w">昨天</span>
+                        </div>
+                        <div class="ov-ver">
+                            <span class="ov-ver-t">v3.3.3</span>
+                            <span class="ov-badge back">回滚</span>
+                            <span class="ov-ver-w">5 天前</span>
+                        </div>
+                    </div>
+                    <div class="ov-foot">
+                        <a class="ov-more" href="工作-项目-项目详情-运维-index.html">查看全部 →</a>
+                    </div>
+                </section>
+
+                <!-- ⑤ 会议 -->
+                <section class="ov-card" data-section="meets">
+                    <div class="ov-head">
+                        <span class="ov-icon" aria-hidden="true" data-ico="calendar" data-ico-size="14"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
+                        <span class="ov-title">会议</span>
+                        <span class="ov-count" id="cntMeets">2</span>
+                    </div>
+                    <div class="ov-body">
+                        <div class="ov-meet">
+                            <span class="ov-date"><b>5</b><span>NOV</span></span>
+                            <div class="ov-meet-b">
+                                <div class="ov-meet-t">周会</div>
+                                <div class="ov-meet-m">60 分钟 · 会议室 A</div>
+                            </div>
+                            <div class="ov-meet-r"><b>14:00</b><span>刘 Z H</span></div>
+                        </div>
+                    </div>
+                    <div class="ov-foot">
+                        <a class="ov-more" href="#" onclick="event.preventDefault();toast('会议分区还没有独立页面','info')">查看全部 →</a>
+                    </div>
+                </section>
+
+                <!-- ⑥ 账户 -->
+                <section class="ov-card" data-section="accs">
+                    <div class="ov-head">
+                        <span class="ov-icon" aria-hidden="true" data-ico="key" data-ico-size="14"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8"/><path d="m16 7 3 3"/></svg></span>
+                        <span class="ov-title">账户</span>
+                        <span class="ov-count" id="cntAccs">8 · 3 平台</span>
+                    </div>
+                    <div class="ov-body">
+                        <div class="ov-acc">
+                            <span class="ov-acc-i" aria-hidden="true" data-ico="key" data-ico-size="22"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8"/><path d="m16 7 3 3"/></svg></span>
+                            <div class="ov-acc-b">
+                                <div class="ov-acc-n">阿里云 <span class="ov-acc-tag">生产</span></div>
+                                <div class="ov-acc-m">ops@lucky.com</div>
+                                <div class="ov-acc-note"><span aria-hidden="true" data-ico="shield" data-ico-size="12"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 20 6v6c0 5.2-4.4 8.4-8 9.6C8.4 20.4 4 17.2 4 12V6z"/></svg></span> 密码已加密</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ov-foot">
+                        <a class="ov-more" href="工作-项目-项目详情-账户-index.html">查看全部 →</a>
+                    </div>
+                </section>
+
+            </div>
+
+        </div>
+        </main>
+    </div>
+</div>
+
+
+<!-- ============================================================
+     浮层：命令面板 / 二次确认 / Toast（照搬运维页那一套）
+     ============================================================ -->
+
+<div class="cmd-mask" id="cmdMask" onclick="if(event.target===this)closeCmd()">
+    <div class="cmd-panel">
+        <input class="cmd-input" id="cmdInput" placeholder="跳到某一格、切换模块，或输入命令（⌘K）" />
+        <!-- 条目由 renderCmdList() 从 SECTIONS / MODULES 现算 —— 桶名不是写死的常量，
+             改一处 SECTIONS，这里跟着变。 -->
+        <div class="cmd-list" id="cmdList"></div>
+    </div>
+</div>
+
+<!-- 弹窗（仅用于破坏性操作的二次确认） -->
+<div class="modal-mask" id="modalMask">
+    <div class="modal" id="modalBox" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-head">
+            <div class="modal-title" id="modalTitle">标题</div>
+            <button class="modal-close" onclick="closeModal()" aria-label="关闭"><span data-ico="x" data-ico-size="15"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg></span></button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" id="modalCancel" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" id="modalConfirm">确定</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>    /* ============================================================
+       主题
+       —— 与运维页同一套（localStorage 持久化 + URL 参数优先）。
+          URL 参数那条留着：无头验收脚本只走 URL，不依赖 localStorage。
+       ============================================================ */
+    const root = document.documentElement;
+    const themeBtn = document.getElementById('themeBtn');
+    const themeIcon = document.getElementById('themeIcon');
+    const SUN = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+    const MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+
+    function applyTheme(dark) {
+        root.classList.toggle('dark', dark);
+        if (themeIcon) themeIcon.innerHTML = dark ? SUN : MOON;
+        themeBtn.setAttribute('aria-pressed', String(dark));
+        themeBtn.setAttribute('aria-label', dark ? '切换到浅色主题' : '切换到深色主题');
+        try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) { /* file:// 下可能不可用 */ }
+    }
+    function readTheme() {
+        const q = new URLSearchParams(location.search).get('theme');
+        if (q === 'dark' || q === 'light') return q === 'dark';
+        try { return localStorage.getItem('theme') === 'dark'; } catch (e) { return false; }
+    }
+    applyTheme(readTheme());
+    themeBtn.addEventListener('click', () => applyTheme(!root.classList.contains('dark')));
+
+    /* ============================================================
+       图标：一张表 + 一次灌（24 网格 / 2 描边 / currentColor）
+       三条硬约束（踩过，与运维页同）：
+         ① 每个容器必须有显式 color —— `<button>` 不吃继承；
+         ② 缓存记的是"灌的是哪一个"而不是"灌过没有"（后者让运行期改 data-ico 静默失效）；
+         ③ 开关类图标随状态换形状，不能只靠换色。
+       ⚠️ 这张表必须在任何"初始化时就求值"的地方之前 —— TOAST_ICON 直接用 svgIcon() 拼串，
+          表放在它后面会撞上 const 的 TDZ（不报"未定义"，而是"初始化前不可访问"）。
+       ============================================================ */
+    const ICON = {
+        /* 标签页 / 卡片头 / 实体 */
+        /* 项目详情分区页用的那一批（服务器页那张表里没有） */
+        dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+        task: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="m8 12 2.5 2.5L16 9"/>',
+        bug: '<circle cx="12" cy="13" r="6"/><path d="M12 7V4M8 8 6 6M16 8l2-2M6 13H3M21 13h-3M8 18l-2 2M16 18l2 2"/>',
+        doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+        key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8"/><path d="m16 7 3 3"/>',
+        more: '<circle cx="5.6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.4" cy="12" r="1.4"/>',
+        pause: '<rect x="7" y="4.5" width="3.6" height="15" rx="1.2"/><rect x="13.4" y="4.5" width="3.6" height="15" rx="1.2"/>',
+        arrowLeft: '<path d="M19 12H5"/><path d="m11 6-6 6 6 6"/>',
+        server: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+        database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/>',
+        project: '<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/>',
+        users: '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3.6"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        graph: '<circle cx="6" cy="6" r="2.6"/><circle cx="18" cy="6" r="2.6"/><circle cx="12" cy="18" r="2.6"/><path d="M8.2 7.3 10.4 16M15.8 7.3 13.6 16M8.6 6h6.8"/>',
+        folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+        file: '<path d="M13.5 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z"/><path d="M13.5 3v5.5H19"/>',
+        rocket: '<path d="M12 3c3.5 1.5 5.5 4.6 5.5 8.2L12 21l-5.5-9.8C6.5 7.6 8.5 4.5 12 3z"/><circle cx="12" cy="10" r="1.6"/>',
+        window: '<rect x="2.6" y="4.6" width="18.8" height="14.8" rx="2.6"/><path d="m7 10 3 2.9-3 3"/><path d="M13.4 15.9h3.6"/>',
+        /* 动作 */
+        plus: '<path d="M12 5v14M5 12h14"/>',
+        refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/>',
+        check: '<path d="m4 12.5 5 5L20 6.5"/>',
+        info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6h.01"/>',
+        alert: '<path d="M12 4.5 21 20H3z"/><path d="M12 10v4M12 17h.01"/>',
+        x: '<path d="M6 6l12 12M18 6 6 18"/>',
+        copy: '<rect x="9" y="9.5" width="11" height="11" rx="2"/><path d="M15 9.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3.5"/>',
+        edit: '<path d="M17.4 3.9l2.7 2.7-11.3 11.3-3.7 1 .9-3.7z"/><path d="M15.6 5.7l2.7 2.7"/>',
+        trash: '<path d="M4.5 6.5h15"/><path d="M9.5 6.5V4.6a1.1 1.1 0 0 1 1.1-1.1h2.8a1.1 1.1 0 0 1 1.1 1.1v1.9"/><path d="M6.9 6.5l.9 12.1a1.1 1.1 0 0 0 1.1 1h6.2a1.1 1.1 0 0 0 1.1-1l.9-12.1"/>',
+        plug: '<path d="M9.5 3v4.6M14.5 3v4.6"/><path d="M6.7 7.6h10.6v4.5a5.3 5.3 0 0 1-10.6 0z"/><path d="M12 17.4V21"/>',
+        shield: '<path d="M12 3 20 6v6c0 5.2-4.4 8.4-8 9.6C8.4 20.4 4 17.2 4 12V6z"/>',
+        keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6.5 10h.01M10.2 10h.01M13.9 10h.01M17.6 10h.01M8.4 14h7.2"/>',
+        external: '<path d="M14.5 4H20v5.5"/><path d="M20 4l-8.5 8.5"/><path d="M18 14v5a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V7.5A1.5 1.5 0 0 1 5 6h5"/>',
+        /* 方向 */
+        chevD: '<path d="m6 9.5 6 6 6-6"/>',
+        chevR: '<path d="m9.5 6 6 6-6 6"/>',
+        chevL: '<path d="m14.5 6-6 6 6 6"/>'
+    };
+
+    function svgIcon(name, size) {
+        const px = size || 16;
+        if (!ICON[name] && window.console) console.warn('[icon] 未知图标名:', name);
+        return '<svg width="' + px + '" height="' + px + '" viewBox="0 0 24 24" fill="none"'
+             + ' stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
+             + ' aria-hidden="true" focusable="false">' + (ICON[name] || '') + '</svg>';
+    }
+
+    /* 缓存记的必须是「灌的是哪一个」—— 记"灌过没有"会让运行期改 data-ico 静默失效 */
+    function paintIcons(scope) {
+        (scope || document).querySelectorAll('[data-ico]').forEach(function (el) {
+            const n = el.getAttribute('data-ico');
+            if (el.dataset.painted === n) return;
+            el.innerHTML = svgIcon(n, el.dataset.icoSize ? +el.dataset.icoSize : 16);
+            el.dataset.painted = n;
+        });
+    }
+    function setIcon(el, name) {
+        if (!el) return;
+        el.setAttribute('data-ico', name);
+        paintIcons(el.parentNode || document);
+    }
+
+    /* 导航壳自带的那张表：圆盘 / 图标列 / 超级菜单 / 命令面板都从它取图。
+       与上面 ICON 并存是**壳的既有事实**（v5 照搬），不是本页新引入的第二套 ——
+       两者都画在同一张 24 网格上，描边也一致。 */
+    const icons = {
+        grid: '<rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect>',
+        list: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>',
+        sun: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>',
+        inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>',
+        kanban: '<rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line>',
+        matrix: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect>',
+        calendar: '<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+        leaf: '<path d="M3 12l2-2 4 4 7-7 3 3"></path><path d="M3 21h18"></path>',
+        briefcase: '<rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>',
+        book: '<path d="M2 4l10 5 10-5-10-5z"></path><path d="M2 20l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path>',
+        check: '<polyline points="20 6 9 17 4 12"></polyline>',
+        target: '<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>',
+        heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>',
+        run: '<circle cx="13" cy="4" r="2"></circle><path d="M4 17l5-5 3 3 5-7"></path><path d="M13 12v8"></path>',
+        food: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"></path>',
+        wallet: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>',
+        pen: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>',
+        paw: '<circle cx="11" cy="4" r="2"></circle><circle cx="18" cy="8" r="2"></circle><circle cx="20" cy="16" r="2"></circle><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10z"></path>',
+        home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
+        project: '<path d="M3 7l9-4 9 4-9 4-9-4z"></path><path d="M3 12l9 4 9-4"></path><path d="M3 17l9 4 9-4"></path>',
+        folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>',
+        file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>',
+        server: '<rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line>',
+        rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>',
+        users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+        clock: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
+        refresh: '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>',
+        sparkle: '<path stroke-width="1.5" d="M12 3C12 9.2 14.8 12 21 12C14.8 12 12 14.8 12 21C12 14.8 9.2 12 3 12C9.2 12 12 9.2 12 3Z"></path>',
+        play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>',
+        tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line>',
+        graph: '<circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="12" cy="18" r="3"></circle><line x1="8.5" y1="7.5" x2="10.5" y2="16.5"></line><line x1="15.5" y1="7.5" x2="13.5" y2="16.5"></line>',
+        star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>',
+        archive: '<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>',
+        user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>',
+        palette: '<circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path>',
+        bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>',
+        keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"></rect><line x1="6" y1="10" x2="6" y2="10"></line><line x1="10" y1="10" x2="10" y2="10"></line><line x1="14" y1="10" x2="14" y2="10"></line><line x1="18" y1="10" x2="18" y2="10"></line><line x1="8" y1="14" x2="16" y2="14"></line>',
+        database: '<ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>',
+        link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
+        shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>',
+        info: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>',
+        activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
+        alert: '<path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path>',
+        flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line>',
+        send: '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>',
+        trend: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>'
+    };
+
+    /* 图标是圆盘的唯一内容：`iconSvg` 找不到名字会静默回落到 grid ⇒ N 个分区全长一样，
+       而页面不报任何错。所以这里打印警告，并在收尾自检里按数量去重。 */
+    function iconSvg(name) {
+        if (!icons[name] && window.console) console.warn('[nav] 未知图标 key:', name);
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' + (icons[name] || icons.grid) + '</svg>';
+    }
+
+
+    /* ============================================================
+       数据
+       —— 这一份就是"这个项目现在长什么样"的读数源。
+          ⚠️ 六张卡的卡头徽标与 ③ 菜单栏那排 tab 的计数**是同一批数**
+             （用户给的截图里本来就是两处表达）⇒ 都从 `STATS` 现算，
+             改一个数两处一起变，绝不手改两遍。
+          ⚠️ 卡里的**条目**（三条任务 / 两条 Bug / 三本书 / 两条版本记录…）是
+             静态标记 —— 它们是"项目现在的样子"，不是可计算的聚合。
+       ⚠️ 与项目详情其他分区页共用同一个 Hero ⇒ 项目名 / 进度 / 截止日
+          那一组读数不在这里（它们写在 Hero 的标记里，换个分区一个字都不该动）。
+       ============================================================ */
+    const STATS = {
+        tasks: { done: 26, all: 36 },
+        bugs: 3,
+        docs: 11,
+        ops: { servers: 2, docs: 3, records: 4 },
+        meets: 2,
+        accs: { total: 8, platforms: 3 }
+    };
+
+    /* ============================================================
+       侧栏圆盘的分区 = 本页的**六张卡**
+       —— 判据还是那一句：这几块**能不能同时成立**？能 —— 它们本来就是
+          "这个项目现在的六个面"，当然要一起看 ⇒ 定位 + 当前项随滚动同步，
+          不做 display 互斥切换。
+       ⚠️ 与 ③ 菜单栏那排 tab 不是一回事：tab 是**项目的七个分区**（跨页导航，
+          一页一个），圆盘是**本页内部**的六块。运维页也是同一套两级分工。
+       ============================================================ */
+    let SECTIONS = [
+        { key: 'tasks', label: '任务', icon: 'task',     desc: '这个项目还要做什么' },
+        { key: 'bugs',  label: 'Bug',  icon: 'bug',      desc: '坏了哪几处、修到哪了' },
+        { key: 'docs',  label: '文档', icon: 'doc',      desc: '方案、契约与预案' },
+        { key: 'ops',   label: '运维', icon: 'rocket',   desc: '机器、部署文档与发布记录' },
+        { key: 'meets', label: '会议', icon: 'calendar', desc: '排在这个项目下的会' },
+        { key: 'accs',  label: '账户', icon: 'key',      desc: '这个项目用到的账号与平台' }
+    ];
+
+    /* 计数拼进圆盘悬停名称条与侧栏副标题 —— 圆盘上只有图标，计数是
+       "值不值得点"的唯一线索。这里是**分区级**读数（不跟任何筛选，本页也没有筛选栏）。 */
+    function sectionCount(sec) {
+        const C = countsSnapshot();
+        return C[sec.key] ? C[sec.key].tab : '';
+    }
+    /* 导航壳的分区（SECTIONS）在「数据」段里定义 —— 五个时间桶。 */
+
+    /* 一级模块。9 个都保留（顶栏 + 超级菜单要有真内容可展开）。
+       ⚠️ 偏差②：只有「工作」有承载内容，其余点击时给提示且**不改 active、不换色、不重建环**。
+       工作那一支的二级项 = SECTIONS（本页的五个时间桶）。
+       ⚠️ 顶栏那个顶层「任务」模块（全部 / 今天 / 收件箱 / 看板 / 四象限 / 日历）是**另一页**的事 ——
+          本页是"工作这一摊的任务"，两者不重名、也不重内容。 */
+    function buildModules() {
+        return [
+            { key: 'dashboard', name: '工作台', icon: 'grid', items: [
+                { label: '今日概览', icon: 'grid' }, { label: 'AI 简报', icon: 'sparkle' }, { label: '最近活动', icon: 'activity' } ] },
+            { key: 'tasks', name: '任务', icon: 'check', items: [
+                { label: '全部', icon: 'list' }, { label: '今日', icon: 'sun' }, { label: '收件箱', icon: 'inbox' },
+                { label: '看板', icon: 'kanban' }, { label: '四象限', icon: 'matrix' }, { label: '日历', icon: 'calendar' } ] },
+            { key: 'calendar', name: '日程', icon: 'calendar', items: [
+                { label: '月视图', icon: 'calendar' }, { label: '周视图', icon: 'calendar' }, { label: '日视图', icon: 'calendar' },
+                { label: '议程', icon: 'list' }, { label: '里程碑', icon: 'flag' } ] },
+            { key: 'life', name: '生活', icon: 'leaf', items: [
+                { label: '概览', icon: 'grid' }, { label: '习惯', icon: 'check' }, { label: '健康', icon: 'heart' },
+                { label: '运动', icon: 'run' }, { label: '食谱', icon: 'food' }, { label: '财务', icon: 'wallet' },
+                { label: '日记', icon: 'pen' }, { label: '家庭', icon: 'home' } ] },
+            { key: 'work', name: '工作', icon: 'briefcase', items: SECTIONS.map(s => ({ key: s.key, label: s.label, icon: s.icon })) },
+            { key: 'learning', name: '学习', icon: 'book', items: [
+                { label: '概览', icon: 'grid' }, { label: '目标', icon: 'target' }, { label: '技能', icon: 'sparkle' },
+                { label: '资源', icon: 'folder' }, { label: '笔记', icon: 'pen' }, { label: '复习', icon: 'refresh' },
+                { label: '实践', icon: 'project' }, { label: '输出', icon: 'send' } ] },
+            { key: 'projects', name: '项目', icon: 'project', items: [
+                { label: '全部', icon: 'grid' }, { label: '生活', icon: 'leaf' },
+                { label: '工作', icon: 'briefcase' }, { label: '学习', icon: 'book' } ] },
+            { key: 'knowledge', name: '知识库', icon: 'file', items: [
+                { label: '笔记', icon: 'file' }, { label: '主题', icon: 'folder' }, { label: '标签', icon: 'tag' },
+                { label: '图谱', icon: 'graph' }, { label: '收藏', icon: 'star' }, { label: '归档', icon: 'archive' } ] },
+            { key: 'settings', name: '设置', icon: 'user', items: [
+                { label: '账户', icon: 'user' }, { label: '模块', icon: 'grid' }, { label: '外观', icon: 'palette' },
+                { label: '通知', icon: 'bell' }, { label: '快捷键', icon: 'keyboard' }, { label: '数据', icon: 'database' },
+                { label: '集成', icon: 'link' }, { label: 'AI', icon: 'sparkle' }, { label: '隐私', icon: 'shield' } ] }
+        ];
+    }
+    let MODULES = buildModules();
+    let MODULE = Object.fromEntries(MODULES.map(m => [m.key, m]));
+
+    /* `sectionCount()` 跟着 SECTIONS 一起放在「数据」段里 —— 圆盘悬停名称条
+       与侧栏副标题读的是同一份 SECTIONS。 */
+
+    /* ============ 状态 ============ */
+    let currentPrimary = 'work';
+    let activeKey = SECTIONS.length ? SECTIONS[0].key : '';
+    const START = -90;
+
+    const ringEl = document.getElementById('moduleRing');
+    const radialItemsWrap = ringEl.querySelector('[data-radial-items]');
+    const arcEl = ringEl.querySelector('[data-hub-arc]');
+    const hubDoor = ringEl.querySelector('[data-hub-door]');
+    const railEl = document.getElementById('moduleRail');
+    const sidebarEl = document.getElementById('sidebar');
+    const subtitleEl = document.getElementById('sidebarSubtitle');
+    const captionEl = document.getElementById('ringCaption');
+    /* 本页的滚动容器是 .main（不是 window）—— 定位与"当前项跟着滚动走"都挂在它身上 */
+    const scroller = document.querySelector('.main');
+    const reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+    const sectionIdx = key => Math.max(0, SECTIONS.findIndex(s => s.key === key));
+
+    /* 几何：环半径与图标直径都由项数推出。项少 ⇒ 盘小，尺寸本身携带信息。 */
+    const R_MIN = 52, R_MAX = 74, ICON_MAX = 36;
+    function radiusFor(n) {
+        return Math.max(R_MIN, Math.min(R_MAX, Math.round(44 / (2 * Math.sin(Math.PI / n)))));
+    }
+    function iconFor(n, R) {
+        const chord = 2 * R * Math.sin(Math.PI / n);
+        return Math.max(26, Math.min(ICON_MAX, Math.floor((chord - 3) / 1.155)));
+    }
+
+    /* 分段刻度：每段一个分区，已过的段填强调色 —— 一眼看出"共几格 / 走到第几格" */
+    function arcStops(n, activeIdx) {
+        const step = 360 / n;
+        const gap = Math.min(6, step * 0.22);
+        const out = [];
+        for (let i = 0; i < n; i++) {
+            const a = i * step, b = a + step - gap;
+            const color = i <= activeIdx ? 'var(--m-main)' : 'color-mix(in srgb, var(--text-primary) 14%, transparent)';
+            out.push(color + ' ' + a.toFixed(2) + 'deg ' + b.toFixed(2) + 'deg');
+            out.push('transparent ' + b.toFixed(2) + 'deg ' + (a + step).toFixed(2) + 'deg');
+        }
+        return out.join(', ');
+    }
+
+    /* 名称条只有显隐两态，不参与布局（用 opacity + translateY，任何时候都不改别人的 rect） */
+    function showCaption(text) {
+        if (!captionEl) return;
+        if (captionEl.textContent === text && captionEl.classList.contains('is-on')) return;
+        captionEl.textContent = text;
+        captionEl.classList.add('is-on');
+    }
+    function hideCaption() { if (captionEl) captionEl.classList.remove('is-on'); }
+
+    /* ============ 唯一的切换函数（本页 = 定位，不是切视图） ============
+       圆盘 / 收起态图标列 / 超级菜单 / 命令面板 / 侧栏槽 —— 全部汇到 activatePanel。
+       ⚠️ 本页五个桶**同时可见** ⇒ 这里做的是"滚到它 + 更新当前项"。
+          绝不要再改回 display 切换 —— 那会把另外四块藏到一个只有图标的圆盘后面。 */
+
+    /* 分区元素 = 本页的分组（五个时间桶 + 已完成折叠小节），**同页并列、没有视角**。
+       ⚠️ 限定在 .detail 里找：圆盘、侧栏槽、命令面板都可能有同名 data-section。 */
+    const sectionEl = key => document.querySelector('.detail [data-section="' + key + '"]');
+
+    /* 程序滚动期间锁住滚动的回声：smooth 滚动会一路经过中间那块 */
+    let spyLock = 0;
+    const SMOOTH = reduce ? 'auto' : 'smooth';
+
+    function activatePanel(key) {
+        if (!SECTIONS.some(s => s.key === key)) return;
+        /* ⚠️ 本页**不需要**"先放开筛选再滚"那一套：圆盘说的是**时间桶**，
+           筛选栏说的是**项目** —— 两个正交维度，谁也藏不住谁，因此不存在
+           "滚到一个 display:none 的元素上"那次死点击。
+           （服务器页那两处放开，是因为它的圆盘与筛选说的是同一个维度"项目"。） */
+        activeKey = key;        const el = card;
+        if (el && scroller) {
+            const box = scroller.getBoundingClientRect();
+            const r = el.getBoundingClientRect();
+            const inView = r.top >= box.top + 20 && r.top <= box.top + box.height * 0.5;
+            if (!inView) {
+                spyLock = Date.now() + 600;
+                el.scrollIntoView({ behavior: SMOOTH, block: 'start' });
+            }
+        }
+        syncChrome(false);
+    }
+
+    function syncChrome(animate) {
+        const sec = SECTIONS[sectionIdx(activeKey)] || SECTIONS[0];
+        if (sec && subtitleEl) subtitleEl.textContent = sec.label + ' · ' + sectionCount(sec);
+        renderRing(animate);
+    }
+
+    /* ============ 当前项跟着滚动走 ============
+       取法：以滚动口顶部往下 130px 画一条判据线，取最后一个顶边越过它的分区。
+       ⚠️ 必须跳过被藏起来的分区：`display:none`（自己是、或祖先之一是）的元素
+          `getBoundingClientRect()` **全是 0** ⇒ `0 - 顶部 <= 130` 恒真，
+          最后一个被藏起来的会把"当前项"抢过去（圆盘与侧栏副标题指着屏幕上看不见的东西）。
+          所以判据用 `closest('[hidden]')` —— 它同时覆盖"自己被藏"与"祖先被藏"。
+          本页五个桶不会被藏（筛选只藏行，不藏桶），但这条守卫要留着：
+          它是"圆盘说在看 A、眼睛已经在 B"那类走散的唯一防线。 */
+    function spy() {
+        if (!scroller || Date.now() < spyLock) return;
+        const top = scroller.getBoundingClientRect().top;
+        let cur = '';
+        SECTIONS.forEach(s => {
+            const el = sectionEl(s.key);
+            if (!el || el.closest('[hidden]')) return;
+            if (!cur) cur = s.key;                                     /* 兜底：第一个可见的分区 */
+            if (el.getBoundingClientRect().top - top <= 130) cur = s.key;   /* 越过判据线就往后跟 */
+        });
+        if (cur && cur !== activeKey) { activeKey = cur; syncChrome(false); }
+    }
+    if (scroller) {
+        let raf = 0;
+        scroller.addEventListener('scroll', () => {
+            if (raf) return;
+            raf = requestAnimationFrame(() => { raf = 0; spy(); });
+        }, { passive: true });
+    }
+
+    /* ============ 渲染环 ============ */
+    function renderRing(animate) {
+        const list = SECTIONS;
+        const n = Math.max(1, list.length);
+        const step = 360 / n;
+        const activeIdx = sectionIdx(activeKey);
+        const R = radiusFor(n);
+        const iconPx = iconFor(n, R);
+
+        ringEl.style.setProperty('--r', R + 'px');
+        ringEl.style.setProperty('--icon', iconPx + 'px');
+        if (arcEl) arcEl.style.setProperty('--arcs', arcStops(n, activeIdx));
+
+        let html = '';
+        list.forEach(function (item, i) {
+            const a = START + step * i;
+            const isActive = i === activeIdx;
+            /* 本页的分区没有 children ⇒ data-has-children 恒为 false，小圆点永不出现。
+               这是**正确**的，不是漏了（v5 里它表示"可下钻"）。
+               三级机制整段保留、当前一次也不会触发：删掉它会丢掉 v5 的契约
+               （下次给某个分区加 children 就得重写导航），留着又不说清，
+               下一个人会以为这里是漏了。 */
+            html += `
+        <button type="button"
+          class="radial__item ${isActive ? 'active' : ''} ${animate ? 'enter-from-center' : ''}"
+          style="--a:${a}deg; --i:${i}"
+          data-idx="${i}"
+          data-key="${item.key}"
+          data-has-children="false"
+          aria-label="${item.label}"
+          aria-current="${isActive ? 'true' : 'false'}">
+          ${iconSvg(item.icon)}
+        </button>`;
+        });
+        radialItemsWrap.innerHTML = html;
+
+        let stillHovered = false;
+        radialItemsWrap.querySelectorAll('[data-idx]').forEach(function (btn) {
+            const i = parseInt(btn.dataset.idx, 10);
+            const item = list[i];
+            const cap = item.label + ' · ' + sectionCount(item);
+            btn.title = item.desc;      /* 图标上没有字，desc 是这一节"是什么"的唯一说明 */
+            btn.addEventListener('click', () => { if (i !== sectionIdx(activeKey)) activatePanel(item.key); });
+            btn.addEventListener('mouseenter', () => showCaption(cap));
+            btn.addEventListener('focus', () => showCaption(cap));
+            btn.addEventListener('mouseleave', hideCaption);
+            btn.addEventListener('blur', hideCaption);
+            /* 重渲染后鼠标可能还停在原地（元素已换新），补一次，免得名称条闪没 */
+            if (btn.matches(':hover')) { showCaption(cap); stillHovered = true; }
+        });
+        if (!stillHovered) hideCaption();
+
+        renderRail(list, activeIdx);
+        hubDoor.setAttribute('aria-label', '回到「' + (list[0] ? list[0].label : '第一格') + '」');
+        pointTo(START + step * activeIdx);
+    }
+
+    /* ============ 收起态：平铺图标列 ============ */
+    function renderRail(list, activeIdx) {
+        railEl.innerHTML = list.map((item, i) => `
+        <button type="button"
+          class="rail__item ${i === activeIdx ? 'active' : ''}"
+          data-idx="${i}"
+          data-has-children="false"
+          aria-label="${item.label}"
+          aria-current="${i === activeIdx ? 'true' : 'false'}">
+          <span class="rail__btn">${iconSvg(item.icon)}</span>
+          <span class="rail__tip">${item.label} · ${sectionCount(item)}</span>
+        </button>`).join('');
+        railEl.querySelectorAll('[data-idx]').forEach(function (btn) {
+            const i = parseInt(btn.dataset.idx, 10);
+            btn.addEventListener('click', () => activatePanel(list[i].key));
+        });
+    }
+
+    /* ============ 中心门 ============
+       v5 里它承担"进入三级 / 返回二级"。本页的分区没有三级、各项目卡又都在同一页上，
+       所以让它承担一件确定的事：把页面送回最上面。 */
+    hubDoor.addEventListener('click', () => {
+        if (SECTIONS.length) activatePanel(SECTIONS[0].key);
+        if (scroller) {
+            spyLock = Date.now() + 600;
+            scroller.scrollTo({ top: 0, behavior: SMOOTH });
+        }
+    });
+
+    /* ============ 指针 ============ */
+    let needleAngle = START + 90;
+    function pointTo(deg) {
+        const target = deg + 90;
+        const delta = ((target - needleAngle + 540) % 360) - 180;
+        needleAngle += delta;
+        if (sidebarEl) sidebarEl.style.setProperty('--na', needleAngle + 'deg');
+    }
+
+    /* ============================================================
+       Toast
+       ============================================================ */
+    const TOAST_ICON = { ok: svgIcon('check', 14), info: svgIcon('info', 14), warn: svgIcon('alert', 14) };
+    let toastTimer;
+
+    /* action = { label, onClick }：给破坏性操作留一条退路（移除后的「撤销」）。
+       带动作时停留时间从 2.4s 拉到 6s —— 撤销是个"要看清再点"的动作。 */
+    function toast(msg, type, action) {
+        const t = document.getElementById('toast');
+        t.dataset.type = type || 'ok';
+        t.innerHTML = '';
+        const ico = document.createElement('span');
+        ico.className = 'toast-ico';
+        ico.setAttribute('aria-hidden', 'true');
+        /* ⚠️ 必须 innerHTML：TOAST_ICON 是 svg 字符串，textContent 会把它**当文字打出来** */
+        ico.innerHTML = TOAST_ICON[t.dataset.type] || TOAST_ICON.ok;
+        const txt = document.createElement('span');
+        txt.textContent = msg;
+        t.append(ico, txt);
+        if (action) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'toast-act';
+            b.textContent = action.label;
+            b.onclick = function () {
+                clearTimeout(toastTimer);
+                t.classList.remove('show');
+                action.onClick();
+            };
+            t.appendChild(b);
+        }
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), action ? 6000 : 2400);
+    }
+
+    /* ============================================================
+       二次确认弹窗 —— 破坏性操作不再"一键成功"
+       ============================================================ */
+    const mask = document.getElementById('modalMask');
+    const mTitle = document.getElementById('modalTitle');
+    const mBody = document.getElementById('modalBody');
+    const mConfirm = document.getElementById('modalConfirm');
+    let lastFocused = null;
+
+    function openConfirm(opt) {
+        lastFocused = document.activeElement;
+        mTitle.textContent = opt.title;
+        mBody.innerHTML = '';
+        if (opt.desc) {
+            const p = document.createElement('p');
+            p.textContent = opt.desc;
+            mBody.appendChild(p);
+        }
+        if (opt.warn) {
+            const box = document.createElement('div');
+            box.className = 'modal-warn';
+            box.setAttribute('role', 'note');
+            const strong = document.createElement('strong');
+            strong.textContent = '影响：';
+            const span = document.createElement('span');
+            span.textContent = opt.warn;
+            box.append(strong, span);
+            mBody.appendChild(box);
+        }
+        mConfirm.textContent = opt.confirmText || '确定';
+        mConfirm.className = 'btn ' + (opt.danger ? 'btn-danger' : 'btn-primary');
+        mConfirm.onclick = function () {
+            /* onConfirm 返回 false = 校验没过 ⇒ 弹窗留着让人补 */
+            if (opt.onConfirm && opt.onConfirm() === false) return;
+            closeModal();
+        };
+        mask.classList.add('open');
+        mConfirm.focus();
+    }
+
+    function closeModal() {
+        if (!mask.classList.contains('open')) return;
+        mask.classList.remove('open');
+        if (lastFocused && lastFocused.focus) lastFocused.focus();
+    }
+    mask.addEventListener('click', e => { if (e.target === mask) closeModal(); });
+
+    /* ============================================================
+       侧栏槽切换
+       ============================================================ */
+    document.querySelectorAll('.slot-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            const key = tab.dataset.slot;
+            document.querySelectorAll('.slot-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelectorAll('.slot-panel').forEach(function (p) {
+                p.classList.toggle('active', p.dataset.panel === key);
+            });
+        });
+    });
+
+    /* ============================================================
+       超级菜单
+       —— 存在理由：≤900 时侧栏整条隐藏、圆盘也不可见 ⇒ **二级完全够不到**。
+          ≥900 悬停展开；≤900 点击展开（窄屏没有 hover）。面板必须挂在 .topbar 上，
+          放进 .nav-primary 会被 overflow-x:auto 裁掉。
+       ============================================================ */
+    const megaEl = document.getElementById('mega');
+    const topbarEl = document.querySelector('.topbar');
+    const navItemEls = [...document.querySelectorAll('.nav-p-item')];
+    let megaMod = null, megaTimer = null;
+    const megaCols = n => (n <= 4 ? 2 : 3);
+
+    function megaHtml(mod) {
+        const cfg = MODULE[mod];
+        const items = cfg.items;
+        const body = items.map(function (it, i) {
+            /* 当前项：只有工作模块才有"当前分区"可言（其余模块本原型没有承载内容） */
+            const cur = mod === 'work' && currentPrimary === 'work' && activeKey === it.key;
+            return '<button type="button" class="mega-item' + (cur ? ' is-current' : '') + '" data-idx="' + i + '"'
+                + (cur ? ' aria-current="true"' : '') + '><span class="mi-icon">' + iconSvg(it.icon) + '</span>'
+                + it.label + '</button>';
+        }).join('');
+        return '<div class="mega-head"><span class="mh-title">' + cfg.name + ' · 二级 ' + items.length + ' 项</span>'
+            + '<button type="button" class="mh-all" data-all="1">全部 ›</button></div>'
+            + '<div class="mega-grid" style="--cols:' + megaCols(items.length) + '">' + body + '</div>';
+    }
+    function positionMega(anchorEl) {
+        const tb = topbarEl.getBoundingClientRect();
+        const a = anchorEl.getBoundingClientRect();
+        const w = megaEl.offsetWidth;
+        const left = a.left - tb.left + a.width / 2 - w / 2;
+        megaEl.style.left = Math.round(Math.max(8, Math.min(left, tb.width - w - 8))) + 'px';
+    }
+    function openMega(mod, anchorEl) {
+        clearTimeout(megaTimer);
+        megaMod = mod;
+        megaEl.innerHTML = megaHtml(mod);
+        positionMega(anchorEl);
+        megaEl.classList.add('is-open');
+        navItemEls.forEach(function (el) {
+            const on = el.dataset.module === mod;
+            el.classList.toggle('mega-on', on);
+            el.setAttribute('aria-expanded', String(on));
+        });
+        megaEl.querySelectorAll('.mega-item').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const i = parseInt(btn.dataset.idx, 10);
+                closeMega();
+                if (mod === 'work') activatePanel(MODULE[mod].items[i].key);
+                else toast('原型演示：切到「' + MODULE[mod].name + ' · ' + MODULE[mod].items[i].label + '」（需该模块的原型承载内容）', 'info');
+            });
+        });
+        const all = megaEl.querySelector('[data-all]');
+        if (all) all.addEventListener('click', function () {
+            closeMega();
+            if (mod === 'work' && SECTIONS.length) activatePanel(SECTIONS[0].key);
+        });
+    }
+    function closeMega() {
+        clearTimeout(megaTimer);
+        megaMod = null;
+        megaEl.classList.remove('is-open');
+        navItemEls.forEach(function (el) {
+            el.classList.remove('mega-on');
+            el.setAttribute('aria-expanded', 'false');
+        });
+    }
+    const scheduleCloseMega = () => { clearTimeout(megaTimer); megaTimer = setTimeout(closeMega, 180); };
+
+    navItemEls.forEach(function (el) {
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('aria-haspopup', 'true');
+        el.setAttribute('aria-expanded', 'false');
+        el.addEventListener('mouseenter', function () { if (window.innerWidth > 900) openMega(el.dataset.module, el); });
+        el.addEventListener('focus', function () { openMega(el.dataset.module, el); });
+        el.addEventListener('click', function () { openMega(el.dataset.module, el); });
+    });
+    topbarEl.addEventListener('mouseleave', function () { if (megaMod) scheduleCloseMega(); });
+    megaEl.addEventListener('mouseenter', function () { clearTimeout(megaTimer); });
+    document.addEventListener('click', function (e) { if (megaMod && !topbarEl.contains(e.target)) closeMega(); });
+    window.addEventListener('resize', function () { if (megaMod) closeMega(); });
+
+    /* ============================================================
+       折叠侧栏
+       ============================================================ */
+    const appEl = document.getElementById('app');
+    const collapseBtn = document.getElementById('collapseBtn');
+    collapseBtn.addEventListener('click', function () {
+        const collapsed = sidebarEl.classList.toggle('collapsed');
+        appEl.classList.toggle('sidebar-collapsed', collapsed);
+        collapseBtn.title = collapsed ? '展开侧栏' : '收起侧栏';
+        collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+        /* 收起会把圆盘整块收掉，名称条要一起复位，否则展开后留个过期名字 */
+        if (collapsed) hideCaption();
+    });
+
+    /* ============================================================
+       命令面板
+       —— 条目从 SECTIONS / MODULES 现算：桶名不是写死的常量，
+          改一处 SECTIONS，这里跟着变。
+       ============================================================ */
+    const cmdMask = document.getElementById('cmdMask');
+    const cmdInput = document.getElementById('cmdInput');
+    let cmdItems = [];
+
+    function renderCmdList() {
+        const box = document.getElementById('cmdList');
+        if (!box) return;
+        cmdItems = [];
+        SECTIONS.forEach(function (s, i) {
+            cmdItems.push({ icon: s.icon, text: '跳到「' + s.label + '」', kbd: 'G ' + (i + 1), run: function () { activatePanel(s.key); } });
+        });
+        MODULES.forEach(function (m) {
+            if (m.key === 'work') return;
+            cmdItems.push({ icon: m.icon, text: m.name + ' · 模块', kbd: '', run: function () {
+                toast('原型演示：切到「' + m.name + '」模块（需该模块的原型承载内容）', 'info');
+            } });
+        });
+        cmdItems.push({ icon: 'plus', text: '新建项目', kbd: '', run: newProject });
+        cmdItems.push({ icon: 'refresh', text: '重新检查全部项目', kbd: '', run: refreshAll });
+        cmdItems.push({ icon: 'sparkle', text: '切换主题', kbd: '', run: function () { applyTheme(!root.classList.contains('dark')); } });
+
+        box.innerHTML = cmdItems.map(function (it, i) {
+            return '<div class="cmd-item' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '">'
+                + '<div class="cmd-item-icon" data-ico="' + it.icon + '" data-ico-size="14"></div>'
+                + '<div class="cmd-item-text">' + it.text + '</div>'
+                + (it.kbd ? '<span class="cmd-kbd">' + it.kbd + '</span>' : '') + '</div>';
+        }).join('');
+        paintIcons(box);
+        box.querySelectorAll('.cmd-item').forEach(function (el) {
+            el.addEventListener('click', function () {
+                const it = cmdItems[parseInt(el.dataset.idx, 10)];
+                closeCmd();
+                if (it) it.run();
+            });
+        });
+    }
+    function cmdFilter() {
+        const kw = cmdInput.value.trim().toLowerCase();
+        document.querySelectorAll('#cmdList .cmd-item').forEach(function (el) {
+            const it = cmdItems[parseInt(el.dataset.idx, 10)];
+            el.hidden = !!kw && it.text.toLowerCase().indexOf(kw) < 0;
+        });
+    }
+    function openCmd() {
+        cmdMask.classList.add('open');
+        cmdFilter();
+        setTimeout(function () { cmdInput.focus(); }, 50);
+    }
+    function closeCmd() {
+        cmdMask.classList.remove('open');
+        cmdInput.value = '';
+        cmdFilter();
+    }
+    cmdInput.addEventListener('input', cmdFilter);
+    cmdInput.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        const first = [...document.querySelectorAll('#cmdList .cmd-item')].find(el => !el.hidden);
+        if (first) { first.click(); }
+    });
+
+    /* ============================================================
+       键盘
+       ============================================================ */
+    /* ⚠️ Enter / Space 触发 `[role="button"]` 的那条**已经在下面对话框那段里**
+       （`e.target.matches('[role="button"]')`）—— 这里不要再写一条委托：
+       两条同时命中时一次按键会 `.click()` **两次**（卡片会连开两遍抽屉）。
+       它只在"目标自己就是 role=button"时触发，所以焦点落在内部的 `.conn`（真 <button>）上
+       不会误伤卡片 —— 那条判据由它一个承担就够了。 */
+
+    document.addEventListener('keydown', function (e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') return;    /* 交给命令面板 */
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            /* 只在焦点不在圆盘上时才接管：圆盘自己的 Tab 顺序不乱跳 */
+            if (ringEl.contains(document.activeElement) || railEl.contains(document.activeElement)) return;
+            if (!SECTIONS.length) return;
+            e.preventDefault();
+            const dir = e.key === 'ArrowRight' ? 1 : -1;
+            const i = (sectionIdx(activeKey) + dir + SECTIONS.length) % SECTIONS.length;
+            activatePanel(SECTIONS[i].key);
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            cmdMask.classList.contains('open') ? closeCmd() : openCmd();
+        }
+        if (e.key === 'Escape') {
+            if (cmdMask.classList.contains('open')) { closeCmd(); return; }
+            /* 卡片浮层是最上面那层（它挂在卡片里、压着卡片）⇒ 先收它 */
+            if (document.querySelector('.sv-pop.is-open')) { closeCardPop(); return; }
+            if (mask.classList.contains('open')) { closeModal(); return; }
+            if (megaMod) { closeMega(); return; }
+            hideCaption();
+        }
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"]')) {
+            e.preventDefault();
+            e.target.click();
+        }
+    });
+
+    /* 点卡片区**以外**的任何地方收起浮层（参考的做法）。
+       判据取 `closest('.sv-card-wrap')`：浮层本身也在这一层里 ⇒ 点浮层内部不会误关
+       （参考里专门为"点浮层内部不关"写了一行 `stopPropagation`，用范围判断可以省掉它）。
+       ⚠️ 与"整卡点击 = 打开浮层"不冲突：那一句是卡片元素上的内联 onclick，
+          先于本监听器触发；而它自己会调 `closeCardPop()` —— 两条路都收得干净。 */
+    document.addEventListener('click', function (e) {
+        const t = e.target;
+        if (t && t.closest && t.closest('.sv-card-wrap')) return;
+        closeCardPop();
+    });
+    /* 弹窗内 Tab 焦点循环 */
+    mask.addEventListener('keydown', function (e) {
+        if (e.key !== 'Tab') return;
+        const focusables = mask.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+
+
+    /* ============================================================
+       总览页的交互 —— 只有三件：计数同源、勾任务、定位
+       ⚠️ 六张卡的标记是**静态的**（预览面板走静态 HTML 视图，主内容不许依赖脚本）
+          ⇒ 这里不重建任何一张卡，只改数字与 class。
+       ============================================================ */
+
+    const groupEl = key => document.querySelector('.detail [data-section="' + key + '"]');
+    const secOf = key => SECTIONS.filter(s => s.key === key)[0];
+    const labelOf = key => { const s = secOf(key); return s ? s.label : key; };
+
+    /* ---------- 两份口径的计数快照（卡头徽标 / tab 计数各一份写法） ----------
+       ⚠️ 卡的计数写「26 / 36」「2 服务器 · 3 文档 · 4 记录」，tab 里要短
+          （「26/36」「2·3·4」）—— 两个格式**同源**，所以放在一处算。
+       ⚠️ 勾掉一条任务 = 完成数 +1（而不是"总数 −1"）：那三条在卡里是
+          "该先动的"，勾上是"做完了"，26 变 27。 */
+    function countsSnapshot() {
+        const host = groupEl('tasks');
+        const extra = host ? host.querySelectorAll('.ov-task.is-done').length : 0;
+        const d = STATS.tasks.done + extra, a = STATS.tasks.all;
+        return {
+            tasks: { tab: d + '/' + a, card: d + ' / ' + a },
+            bugs:  { tab: String(STATS.bugs),  card: STATS.bugs + ' 条' },
+            docs:  { tab: String(STATS.docs),  card: String(STATS.docs) },
+            ops:   { tab: STATS.ops.servers + '·' + STATS.ops.docs + '·' + STATS.ops.records,
+                     card: STATS.ops.servers + ' 服务器 · ' + STATS.ops.docs + ' 文档 · ' + STATS.ops.records + ' 记录' },
+            meets: { tab: String(STATS.meets), card: String(STATS.meets) },
+            accs:  { tab: String(STATS.accs.total), card: STATS.accs.total + ' · ' + STATS.accs.platforms + ' 平台' }
+        };
+    }
+
+    /* ---------- 唯一的统计函数 ----------
+       一处现算，**两处写回**：六张卡的卡头徽标 + ③ 菜单栏那六个 tab 计数。 */
+    function syncCounts() {
+        const C = countsSnapshot();
+        Object.keys(C).forEach(function (k) {
+            const id = 'cnt' + k.charAt(0).toUpperCase() + k.slice(1);
+            const el = document.getElementById(id);
+            if (el) el.textContent = C[k].card;
+        });
+        document.querySelectorAll('.tabs [data-count]').forEach(function (el) {
+            const k = el.dataset.count;
+            if (C[k]) el.textContent = C[k].tab;
+        });
+        syncChrome(false);
+    }
+
+    /* ---------- 勾一条任务 ----------
+       勾上的行**留在原地**（划线降级），不移走 —— 移走之后要还原就得把它搬回去，
+       而它还牵着计数。留原地 ⇒ 取消勾选天然可逆。 */
+    function toggleOvTask(btn) {
+        const row = btn.closest('.ov-task');
+        if (!row) return;
+        const done = row.classList.toggle('is-done');
+        btn.setAttribute('aria-pressed', String(done));
+        const t = row.querySelector('.ov-task-t');
+        toast((done ? '已完成：' : '已取消完成：') + (t ? t.textContent : ''), 'ok');
+        syncCounts();
+    }
+
+    /* ---------- 侧栏「最近」/ 命令面板的定位落点 ---------- */
+    function focusCard(key) {
+        const el = groupEl(key);
+        if (!el) return;
+        activatePanel(key);
+        el.classList.remove('is-spot');
+        void el.offsetWidth;               /* 强制回流：连着点两次也要重放动画 */
+        el.classList.add('is-spot');
+        toast('已定位到：' + labelOf(key), 'info');
+    }
+
+    /* ---------- 刷新 ----------
+       ⚠️ 本页的 Hero 里**没有**「最后检查 / 重新检查」那一格（截图里就没有）
+          ⇒ 这里只重算一遍读数。命令面板里那条"重新检查"仍然走它。 */
+    function refreshAll() {
+        syncCounts();
+        toast('已重新检查全部读数', 'ok');
+    }
+
+    /* ---------- 一次把页面立起来 ----------
+       ⚠️ 顺序不能反：图标要在 DOM 就位之后灌（先灌等于灌了个空容器）；
+          计数要在图标之后。 */
+    function renderAll() {
+        paintIcons(document);
+        syncCounts();
+        renderCmdList();
+    }
+
+    /* ============================================================
+       ② 项目 Hero 的交互（整块搬自项目详情页，绑定方式一模一样）
+       两条要点：
+         ① 右侧那一整块自己 stopPropagation —— 里面每个控件都有自己的动作，
+            点它们不该顺手把 Hero 收起来；也正因为拦在这里，里面的 [data-demo]
+            必须自己接一手（挂在文档上的委托收不到它）。
+         ② 进度那一格是 role=button 的 div，键盘可得 ⇒ Enter / Space 也要能按，
+            少了这一段键盘用户就够不到它。
+       ============================================================ */
+    (function () {
+        const heroCard = document.getElementById('heroCard');
+        const heroBar = document.getElementById('heroBar');
+        const heroBarRight = document.getElementById('heroBarRight');
+        const foldToggle = document.getElementById('foldToggle');
+        const heroProgress = document.getElementById('heroProgress');
+        const moreBtn = document.getElementById('moreBtn');
+        const moreDropdown = document.getElementById('moreDropdown');
+        if (!heroCard || !heroBar) return;
+
+        function toggleHero() {
+            const open = !heroCard.classList.contains('open');
+            heroCard.classList.toggle('open', open);
+            foldToggle.setAttribute('aria-expanded', String(open));
+            foldToggle.title = open ? '收起' : '展开';
+            foldToggle.setAttribute('aria-label', foldToggle.title);
+        }
+        function closeMore() {
+            moreDropdown.classList.remove('open');
+            moreBtn.setAttribute('aria-expanded', 'false');
+        }
+
+        heroBar.addEventListener('click', toggleHero);
+        heroBarRight.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const demo = e.target.closest('[data-demo]');
+            if (demo) toast('原型演示：' + demo.dataset.demo, 'info');
+        });
+        foldToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleHero(); });
+
+        heroProgress.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toast('原型演示：调整进度（应用里还没有写接口）', 'info');
+        });
+        heroProgress.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault(); e.stopPropagation();
+            toast('原型演示：调整进度（应用里还没有写接口）', 'info');
+        });
+
+        moreBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = !moreDropdown.classList.contains('open');
+            moreDropdown.classList.toggle('open', open);
+            moreBtn.setAttribute('aria-expanded', String(open));
+        });
+        moreDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (e.target.closest('[data-back-list]')) {
+                closeMore();
+                toast('原型演示：返回全部项目（列表层不在本页）', 'info');
+                return;
+            }
+            const demo = e.target.closest('[data-demo]');
+            if (demo) { closeMore(); toast('原型演示：' + demo.dataset.demo, 'info'); }
+        });
+        /* 点别处 / 按 Esc 收起 ⋯ 菜单 */
+        document.addEventListener('click', (e) => { if (!e.target.closest('#moreMenu')) closeMore(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMore(); });
+    })();
+
+
+    /* 窄屏（≤900）顶栏只剩图标，补 title 作为悬停提示 */
+    navItemEls.forEach(function (el) {
+        const m = MODULE[el.dataset.module];
+        if (m) el.title = m.name;
+    });
+    collapseBtn.title = '收起侧栏';
+    collapseBtn.setAttribute('aria-expanded', 'true');
+
+    renderAll();
+
+    /* 自检：圆盘的图标必须两两不同 —— 全都一样时页面不报任何错，只有肉眼能看出来。
+       （`iconSvg()` 对未定义的 key 会静默回落成 grid，这条是唯一能自动抓住它的方式。） */
+    if (window.console && console.assert) {
+        const bodies = [...document.querySelectorAll('#moduleRing .radial__item svg')].map(s => s.innerHTML.trim());
+        console.assert(new Set(bodies).size === bodies.length, '[nav] 圆盘图标重复了：有分区的 icon key 写错或漏写');
+    }
+</script>
+</body>
+</html>

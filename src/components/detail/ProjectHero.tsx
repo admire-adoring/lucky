@@ -1,4 +1,5 @@
 import { SCOPE_META } from '../../data/meta'
+import { isClosed } from '../../data/derive'
 import { cn } from '../../lib/cn'
 import type { IconName, Project } from '../../types'
 import { Icon } from '../icons/Icon'
@@ -22,7 +23,7 @@ export function ProjectHero({
   onAction: (message: string) => void
 }) {
   const scope = SCOPE_META[project.scope]
-  const dueSoon = project.status !== 'done' && project.daysLeft <= 14
+  const dueSoon = !isClosed(project) && project.daysLeft <= 14
 
   const metaItems: MetaItem[] = [
     { icon: 'i-users', label: '负责人', value: `${project.owners.length} 人` },

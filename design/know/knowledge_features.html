@@ -731,7 +731,7 @@
                         <tr><td>收件箱</td><td>为什么还没走完（未归类 / 待补全 / 待提炼 / 待判断）</td><td>5</td><td>✅ 有三级</td></tr>
                         <tr><td>主题</td><td><strong>分组</strong>（技术 / 产品与系统 / 生活）</td><td>3</td><td>✅ 有三级</td></tr>
                         <tr><td>标签</td><td><strong>治理状态</strong>（高频 / 沉睡 / 待合并）</td><td>4</td><td>✅ 有三级</td></tr>
-                        <tr><td>图谱</td><td><strong>看什么</strong>（局部图 / 全库统计 / 孤儿巡检 / 黑洞巡检）</td><td>4</td><td>✅ 有三级</td></tr>
+                        <tr><td>图谱</td><td><strong>看什么</strong>（局部图 / 全局图 / 时间轴 / 白板 / 全库统计 / 孤儿巡检 / 黑洞巡检）</td><td>7</td><td>✅ 有三级</td></tr>
                         <tr><td>归档</td><td>阶段（已归档 / 候选清单）</td><td><strong>2</strong></td><td>❌ 不足 3 类，两块在面板里并列堆叠</td></tr>
                     </table>
                 </div>
@@ -741,7 +741,7 @@
                     <div class="cell-label">四条硬约束</div>
                     <ul>
                         <li><strong>三级项永远不能是"某一个具体对象"</strong>：主题有 42~上百个，把主题名塞进环上就废了 —— 所以主题的三级是<strong>分组</strong>，不是"某个主题"。同理，标签的三级是"状态"而不是 96 个标签名。</li>
-                        <li><strong>两种实现别混用</strong>：同一份数据的子集 → 行上 <code>data-*</code> + <code>row.hidden</code>（主题分组 / 标签状态 / 收件箱状态）；<strong>换一份内容</strong> → <code>.sub-view[data-view]</code> + <code>.active</code>（图谱的四种看法）。用错的症状是"点进去面板空白"。</li>
+                        <li><strong>两种实现别混用</strong>：同一份数据的子集 → 行上 <code>data-*</code> + <code>row.hidden</code>（主题分组 / 标签状态 / 收件箱状态）；<strong>换一份内容</strong> → <code>.sub-view[data-view]</code> + <code>.active</code>（图谱的七种看法）。用错的症状是"点进去面板空白"。</li>
                         <li>三级项数上限 <strong>7±2</strong>（圆盘几何上限约 10），超过就合并同类。</li>
                         <li>离开分区时视图要<strong>复位</strong>，否则从"收件箱 · 待补全"切走再回来会停在过滤态，像丢了数据。<strong>⚠️ 复位值必须是该分区合法的视图名</strong>：图谱没有"全部"这个视图，复位值要落到默认的"局部图" —— 否则四个子视图会被一起关掉、面板全空（已踩过一次）。</li>
                     </ul>
@@ -878,33 +878,60 @@
                 <div class="feat-head">
                     <span class="feat-no">19</span>
                     <h3>图谱（关系视图 · 三级 = 看什么）</h3>
-                    <span class="badge">已实现</span> <span class="badge visual">图内节点点击未接</span>
+                    <span class="badge">已实现</span> <span class="badge">主页面与独立页同一份实现</span>
                 </div>
                 <div class="cells two">
-                    <div class="cell"><div class="cell-label">作用</div><p>四种"看法"：<strong>局部图</strong>（以中心节点 1 跳）· <strong>全库统计</strong>（6 个数字）· <strong>孤儿巡检 12</strong> · <strong>黑洞巡检 3</strong>。</p></div>
-                    <div class="cell"><div class="cell-label">适用场景</div><p>沿关系走一段（局部图）；判断"整库链接够不够密"（统计）；专门收拾两类坏点（巡检）。</p></div>
+                    <div class="cell"><div class="cell-label">作用</div><p>7 种看法（见下表）。整块由 <code>知识图谱.html?embed=1</code> 承载 —— 知识库主页面的图谱分区里放的是<strong>同一个文件的嵌入版</strong>（<code>?embed=1</code> 只出内容、不出外壳），所以两处永远一致，不存在"两份图谱"。</p></div>
+                    <div class="cell"><div class="cell-label">适用场景</div><p>沿关系走一段（局部图）；判断"整库链接够不够密"（统计）；专门收拾两类坏点（巡检）；整库找结构（全局图）；按时间回顾（时间轴）；手工整理（白板）。</p></div>
                 </div>
                 <div class="cells two" style="margin-top:12px;">
                     <div class="cell">
                         <div class="cell-label">操作步骤</div>
                         <ol>
-                            <li>切到「图谱」→ 默认<strong>局部图</strong>，读图例（实底 = 中心节点，描边 = 关联笔记，连线 = 双向链接）。</li>
-                            <li><strong>再点一次「图谱」</strong>→ 环上出现三级：<strong>局部图 / 全库统计 / 孤儿巡检 12 / 黑洞巡检 3</strong>。</li>
-                            <li>选「全库统计」→ 六个数字：286 笔记 / 348 双链 / 平均出链 1.2 / 零入链 12 / 孤儿 12 / 黑洞 3。</li>
-                            <li>选「孤儿巡检」或「黑洞巡检」→ 列出具体笔记，<strong>点一条能打开详情</strong>（详情里写明它为什么被命中）。</li>
+                            <li>主页面：切到「图谱」→ 直接就是<strong>局部图</strong>（嵌入的那份）。<strong>再点一次「图谱」</strong>→ 三级变成七项：<strong>局部图 / 全局图 / 时间轴 / 白板 / 全库统计 / 孤儿巡检 12 / 黑洞巡检 3</strong>。</li>
+                            <li>选任意一种 → 圆盘把选择<strong>转发给嵌入页</strong>（<code>postMessage</code>），iframe 内部换视图；区块标题右侧的计数文案同步更新。</li>
+                            <li>单独打开 <code>知识图谱.html</code>（不带 <code>?embed=1</code>）→ 得到带自己顶栏与圆盘的独立页，功能完全一样。</li>
+                            <li>⌘K 打开命令面板可直达任意一种看法；顶栏搜索框按 <code>⌘K</code> 聚焦，<code>Esc</code> 关闭。</li>
                         </ol>
                     </div>
                     <div class="cell warn">
                         <div class="cell-label">注意事项</div>
                         <ul>
                             <li>这是<strong>唯一</strong>允许占分区的关系视图：它不是"同一列表的筛选"，而是另一种导航方式（沿关系走）。</li>
-                            <li><strong>上千条时只画局部</strong>：286 个节点同屏只剩一团毛线，全库层面只出统计。这也是把"图"和"统计"分成两级的根本原因。</li>
-                            <li>四种看法是<strong>四份内容</strong>（不是一份数据的四个子集），所以用 <code>.sub-view</code> 换块 —— 与主题 / 标签的 <code>hidden</code> 过滤是两套实现，别混。</li>
-                            <li>为避免"每次刷新图都不一样、标签叠字"，节点位置用固定百分比 + SVG 直线，不依赖力导向布局；连线用非缩放描边保持 1px。</li>
+                            <li><strong>七种看法是七份内容</strong>（不是一份数据的七个子集），所以用 <code>.sub-view</code> 换块 —— 与主题 / 标签的 <code>hidden</code> 过滤是两套实现，别混。</li>
+                            <li>主页面里<strong>不再有</strong>那张静态示意 SVG（7 个 `.graph-node` 钉死位置、点不动）—— 它已被嵌入的真图取代；旧 CSS 按本仓口径留规则不清。</li>
                             <li>两个巡检的判据不同：<strong>孤儿</strong> = 入链和出链都为 0 且 >30 天；<strong>黑洞</strong> = 被引用 ≥3 次但出链为 0。前者是"没人知道它"，后者是"只进不出"。</li>
+                            <li><strong>一份实现、两处使用</strong>：嵌入页用 <code>?embed=1</code>（<code>&lt;html class="embed"&gt;</code>）藏掉自己的顶栏与圆盘，只出内容；高度由它 <code>postMessage</code> 上报、外层据此给 iframe 定高；主题跟随外层。⚠️ 主页面在图谱分区时把通用右栏让开（嵌入页自带详情轨），否则会出现两条详情栏。</li>
                         </ul>
                     </div>
                 </div>
+
+                <h3 style="margin-top:18px;">完整图谱页（<code>知识图谱.html</code>）的七种看法</h3>
+                <table>
+                    <thead><tr><th>看法</th><th>回答什么</th><th>关键操作</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>局部图</strong></td><td>从这条笔记出发，附近连着谁</td><td>深度 1 / 2 / 3 跳（<strong>双击节点 = 展开一跳</strong>）；圈层（位置 = 跳数，同一份数据永远同一张图）与力导向（d3 自由迭代）两种布局；节点拖动只记偏移、可一键复位布局；悬停出 tooltip（成熟度 / 主题 / <strong>标签</strong> / 正文 / 入出链数 / 日期）；点节点 = 换中心；画布拖动 = 平移，⌘/Ctrl + 滚轮 = 缩放，双击空白 = 复位视图；下方列出"这一批里没入链的"，可点。<br><strong>版面（对齐参考件）</strong>：画布上只浮三块 —— 左下<strong>图例</strong>、右下<strong>统计胶囊</strong>（节点 / 链接 / 孤岛）、右上缩放；「中心是谁 + 回到个人系统」在<strong>卡头</strong>（原文案在画布左上，参考件那个位置是空的）。工具条上<strong>只有「深度」一组</strong>，布局 / 标签 / 透镜 / 搜索收进卡头的<strong>「显示设置」</strong>（默认收起）。<br><strong>节点形态（对齐参考件）</strong>：一律<strong>实心彩圆、圈里不写字、不做浓淡</strong> —— 颜色 = <strong>主题</strong>，半径 = 被引用次数，虚线描边 = 孤点，外环 = 当前中心。被引用几次、在哪一层成熟度，看 tooltip 或右侧详情。<br><strong>为什么按主题而不按主题组上色</strong>：参考件的「文件夹」有 6 项、颜色各不相同；本页同粒度的是<strong>主题</strong>（9 个）。主题组只有 3 个，而示例 28 条里 22 条属技术组 —— 按组上色整张图会读成一片青。<strong>图例只列「这张图里真的出现了的主题」</strong>，按 `TOPIC_GROUP` 固定顺序排，所以图上颜色与图例永远一致。</td></tr>
+                        <tr><td><strong>全局图</strong></td><td>整库的结构长什么样</td><td>6 种着色：主题组 / 主题 / <strong>Louvain 社区</strong> / 标签 / 孤岛高亮 / 枢纽高亮；节点大小 = 度数，度数 ≥ 3 才显示标签；时间过滤（手选起止 / 近 7·30·90 天 / 今年）；统计 8 格（节点 / 链接 / 社区数 / <strong>模块度 Q</strong> / 孤岛 / 枢纽 / 零入链 / 平均度）；拖节点微调、滚轮缩放、可重排布局。<br><strong>配色口径</strong>：数据编码取<strong>参考件的六组模块色</strong>（紫 / 橙 / 青 / 绿 / 黄 / 蓝 —— 就是它按「文件夹」上色的那一套），三个主题组固定用「青 = 技术 / 蓝 = 产品与系统 / 绿 = 生活」；孤岛高亮用红、枢纽高亮用橙。局部图节点一律是<strong>实心彩圆</strong>（颜色 = 主题、半径 = 被引用次数），跟参考件一致；成熟度不进图，留在右侧详情与笔记列表。</td></tr>
+                        <tr><td><strong>时间轴</strong></td><td>我什么时候想通了什么</td><td>列表 / 横向两种排法；<strong>按月 / 按周 / 按年 / 全部</strong>四档缩放；顶部标签过滤（与全局过滤条叠加）；卡片带主题、成熟度、入出链徽标；点卡片回到局部图并把它换到中心。</td></tr>
+                        <tr><td><strong>白板</strong></td><td>手工整理（与自动布局无关）</td><td>移动 / 连线两种模式；分组框（可拖动、可缩放、可删除，卡片拖入即归属，拖分组时组内卡片跟着走）；便签（可编辑）；单卡折叠 + 全部折叠 / 展开；自动排列；清除连线；导出 PNG；悬停卡片时"双链邻居 + 手动连线邻居"一起高亮。</td></tr>
+                        <tr><td><strong>全库统计</strong></td><td>宏观数字（不画图）</td><td>12 格：笔记 / 双链 / 平均出链 / 被引用 / 未链接 / 孤儿 / 黑洞 / 主题 / 标签 / 收件箱 / 已归档 / 归档候选；外加成熟度与主题组分布条。</td></tr>
+                        <tr><td><strong>孤儿巡检 12</strong></td><td>没人知道它的笔记</td><td>逐条列出（0 入链 · 0 出链 · 主题），行内动作：建立双链 / 归档；点一条打开详情。</td></tr>
+                        <tr><td><strong>黑洞巡检 3</strong></td><td>只进不出的笔记</td><td>逐条列出（被 N 条引用 · 0 出链），行内动作：补 1 条出链。</td></tr>
+                    </tbody>
+                </table>
+
+                <h3 style="margin-top:18px;">完整图谱页的全局能力</h3>
+                <table>
+                    <thead><tr><th>能力</th><th>说明</th><th>入口</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>全局过滤条</strong></td><td>页头下方常驻：<strong>范围</strong>（技术 / 产品与系统 / 生活，对应参考件的"文件夹"）· <strong>主题</strong> · <strong>标签</strong>，三者可多选叠加，右侧实时显示「命中 N / 共 M」。与顶栏搜索、全局图的时间过滤<strong>四者叠加生效</strong>；不命中的节点只被调淡、不重排（空间记忆不丢），白板卡片降为半透明。</td><td>点 chip 即开 / 关，「清除全部」一键复原；切分区与切视图都不清空</td></tr>
+                        <tr><td><strong>全文搜索</strong></td><td>模糊匹配，权重：标题 ×2 / 标签 ×1.5 / 正文 ×1 / 主题 ×0.5（有 Fuse.js 时用它排序，离线走内置打分兜底）；结果显示匹配片段并高亮关键词；结果同样受全局过滤条约束。</td><td>顶栏搜索框；<code>⌘K</code> 聚焦，<code>Esc</code> 关闭；点结果即选中该笔记</td></tr>
+                        <tr><td><strong>笔记管理</strong></td><td>新建 / 编辑 / 删除 / 版本历史 / 单条导出。每次保存把上一版压入历史（<strong>每篇上限 20 个版本</strong>，可一键恢复）；正文里的 <code>[[标题]]</code> 自动解析成出链。</td><td>右侧详情轨的 编辑 / 版本 / 导出 / 删除；<code>⌘N</code> 新建</td></tr>
+                        <tr><td><strong>导入</strong></td><td>三种来源：粘贴 Markdown / 选择文件夹（递归读 <code>.md</code>）/ 选择文件。识别 <code># 标题</code>、<code>topic:</code>、<code>tags:</code>、<code>date:</code>、<code>[[链接]]</code>，多条用 <code>---</code> 分隔；<strong>没写 topic 的先落收件箱</strong>。</td><td>页面动作区「导入」</td></tr>
+                        <tr><td><strong>导出</strong></td><td>JSON（笔记 + 双链 + 版本历史 + 白板状态）或 Markdown（按标题写成独立 <code>.md</code>；支持 File System Access API 时直接写入所选文件夹，否则汇总成一个文件下载）；白板另可导出 PNG。</td><td>页面动作区「导出」；白板工具条的「导出 PNG」</td></tr>
+                        <tr><td><strong>本地文件夹同步</strong></td><td>递归读取本地文件夹里的 <code>.md</code> 并建库，之后编辑自动写回、新建自动建文件、删除同步删文件；顶栏状态提示。</td><td>页面动作区「同步文件夹」（再点一次断开）。需 Chrome / Edge 且页面在 https 或 localhost 下</td></tr>
+                    </tbody>
+                </table>
             </div>
 
             <div class="feat" id="f20">
@@ -1027,7 +1054,7 @@
                             <tr><th>位置</th><th>现状</th><th>落地时要做</th></tr>
                             <tr><td>笔记筛选行上方的搜索框</td><td>可输入，不过滤</td><td>接全文检索（标题 / 正文 / 标签），并支持 <code>tag:</code> <code>topic:</code> 语法</td></tr>
                             <tr><td>标签云点击</td><td>只有悬停态</td><td>点标签 → 切到「笔记」并按标签过滤</td></tr>
-                            <tr><td>图谱节点点击</td><td>只有悬停态</td><td>点节点 → 过滤出该概念的关联笔记</td></tr>
+                            <tr><td>图谱节点点击</td><td>已可点：换中心 / 选中 / 拖动 / 缩放 / 双击展开一跳（主页面与独立页是同一份实现，行为一致）</td><td>若要接真实数据，改嵌入页那一份即可，主页面不用动</td></tr>
                             <tr><td>新建 / 编辑 / 归档 / 快捷按钮</td><td>弹演示提示</td><td>接表单与写库；归档要真的从检索与图谱里摘掉</td></tr>
                             <tr><td>顶栏 AI 按钮</td><td>弹演示提示（侧栏的 AI 槽已因重复而删除）</td><td>接检索增强问答（回答里带引用来源）</td></tr>
                             <tr><td>主题详情里的笔记列表</td><td>三条占位</td><td>接该主题下的真实笔记，按更新时间倒序</td></tr>
@@ -1089,6 +1116,7 @@
                             <tr><td>计数文案 / 数字</td><td>面板内的 <code>.section-count</code> / 卡片 / 下方栏的 <code>.todo-count</code></td><td>四处必须一起改：圆盘计数、侧栏头部「量」、主区 KPI 卡、下方栏「今日」计数</td></tr>
                             <tr><td>某个分区的三级子菜单</td><td><code>knowledgeSections</code> 里该分区的 <code>children</code>（带 <code>view</code>）</td><td>三处一起改：① <code>children</code>；② JS 的 <code>setXxxView()</code> + 计数表；③ <code>syncSectionView()</code> 里那张 <code>APPLY</code> 表挂一笔。⚠️ <code>setSection()</code> 的复位值必须是<strong>合法视图名</strong>（图谱没有"全部"）</td></tr>
                             <tr><td>主题分组 / 标签状态</td><td>行上的 <code>data-group</code> / <code>data-state</code></td><td>分组与状态的<strong>计数要加起来等于全库数</strong>（3 组 = 42；高频+沉睡+待合并 = 96），否则界面上对不上账</td></tr>
+                            <tr><td>图谱页（<code>知识图谱.html</code>）的视觉语言</td><td><strong>对齐应用</strong>（<code>src/styles/module-workspace.css</code>）：区块 <code>.card</code>（20px 圆角 + 卡阴影）/ 标题 <code>.card-title</code>（12px 大写灰）/ 计数 <code>.card-count</code>；工具条 <code>.kg-toolbar</code> + <code>.kg-group</code> + <code>.kg-label</code>；<strong>分段按钮 <code>.seg</code> + <code>.seg-btn</code>（不再自造 chip）</strong>；小按钮 <code>.kg-mini</code>；模块主色取 <code>--mw-s-knowledge</code> = <code>#14B8A6</code></td><td>判据：<strong>看控件形态，不看色值</strong> —— 同一件事不养两套控件；应用已有的（<code>.seg</code> / <code>.card</code> / <code>.kg-mini</code>）直接用，应用还没有的（时间轴 / 白板 / 过滤条）才新造，且一律用 <code>--mw-*</code> 令牌。多选过滤（主题 / 标签）仍用 <code>.chip</code>，因为应用里没有对应控件</td></tr>
                         </table>
                     </div>
                 </div>

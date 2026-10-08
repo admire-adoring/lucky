@@ -1,5 +1,5 @@
 /* ============================================================
-   模块工作区 · 应用级补充样式（**手写**）
+   模块工作区 · 应用级补充样式（手写）
    ------------------------------------------------------------
    与 `module-workspace.css` 的分工：
 
@@ -7,15 +7,15 @@
      · 本文件                = 手写层，只放"原型没做、做成应用必须有"的那几件事
 
    放在一起会让"下次重新生成"覆盖掉应用级补充；放在这就不冲突。
-   本文件必须在 `module-workspace.css` **之后**导入（见 styles/index.css）。
+   本文件必须在 `module-workspace.css` 之后导入（见 styles/index.css）。
 
   里面只有四件事，每件都是原型作为静态页时不成立、变成应用后才成立的问题：
 
-  1. **窄屏抽屉**。原型的 `@media (max-width: 768px)` 直接把 `.sidebar`
+  1. 窄屏抽屉。原型的 `@media (max-width: 768px)` 直接把 `.sidebar`
      `display: none` 掉 —— 那不是"响应式取舍"，是窄屏上整页没有任何导航入口。
-  2. **抽屉遮罩**。抽屉打开时下面那层要能点走，并明确"现在是覆盖层"。
-  3. **抽屉开关**。宽屏下必须消失（侧栏本来就常驻，多一个按钮是噪音）。
-  4. **窄屏降弥散模糊**。设计令牌文档 §九 要求"移动端降 blur 80px / 90px"，
+  2. 抽屉遮罩。抽屉打开时下面那层要能点走，并明确"现在是覆盖层"。
+  3. 抽屉开关。宽屏下必须消失（侧栏本来就常驻，多一个按钮是噪音）。
+  4. 窄屏降弥散模糊。设计令牌文档 §九 要求"移动端降 blur 80px / 90px"，
      而 8 个原型里没有这条分断点覆盖 —— 原型只按桌面视口验收过。
    ============================================================ */
 
@@ -36,18 +36,18 @@
   min-width: 0;
 }
 
-/* ⚠️ 选择器要写成 `.mw-root .workspace-drawer-toggle`（0,2,0）。
+/* 选择器要写成 `.mw-root .workspace-drawer-toggle`（0,2,0）。
    写成单个类名（0,1,0）会被 `.mw-root .btn` 的 `display: inline-flex` 压过 ——
-   症状是**宽屏下顶栏里多出一个汉堡按钮**，而它看起来很像"设计就是这样"，
+   症状是宽屏下顶栏里多出一个汉堡按钮，而它看起来很像"设计就是这样"，
    是一类不容易被当成 bug 的缺陷。 */
 .mw-root .workspace-drawer-toggle {
   display: none;
 }
 
 @media (max-width: 768px) {
-  /* ⚠️ 选择器写成 `.app > .sidebar`（多一节）而不是 `.sidebar`：
+  /* 选择器写成 `.app > .sidebar`（多一节）而不是 `.sidebar`：
      原型的 `display: none` 是 `.mw-root .sidebar`（特异性 0,2,0），
-     同特异性下谁生效取决于**导入顺序**这一条隐含前提。
+     同特异性下谁生效取决于导入顺序这一条隐含前提。
      多挂一节 `.app` 把特异性抬到 0,3,0，就不再依赖顺序了。 */
   .mw-root .app > .sidebar {
     display: flex;
@@ -98,101 +98,1086 @@
    这里不是"藏起来"，只是保证抽屉本身（60）在遮罩之上。 */
 
 /* ============================================================
-   2 · 项目列表页缺的那一小块
+   2 · 项目列表页（`/projects`）—— 照 `design/project/project_index.html` 的列表态
    ------------------------------------------------------------
-   原型里**没有列表页**（`design/project/project_index.html` 是单项目工作区），
-   所以这一页的视觉是"参考原型"而不是"照搬"：其余部分全部复用生成的那套类名
-   （`.ov-kpi` / `.toolbar` / `.seg` / `.card` / `.task-row` / `.kanban`），
-   只有下面三样是生成物里确实没有的：
+   2026-09-27：这一页原来记的是"原型里没有列表页，所以视觉是参考原型"。
+   现在原型补上了列表态（那份文件里 `#viewList` 那一段），于是本段改成照搬：
+   类名、数值都取自原型，只把令牌换成内核那一套。
 
-     · 项目卡的栅格（原型只有两列的 `.ov-grid`，装不下 N 个项目）
-     · 搜索框与下拉（`projects` 模块没有 `.form-input` —— 它的原型没有表单弹窗）
+   令牌对照（原型 → 本仓）—— 全段只认这三行，别再各自发明：
+     `--bg-card`     → `--mw-bg-card`
+     `--line`        → `--mw-border-subtle`（`--bg-slot` / `--bg-deep` 这两个"面"
+                        在本仓被收进同一支 —— 见内核 `.seg` / `.kanban-col` / `.progress-bar`）
+     `--line-strong` → `--mw-border-card`
+     `--text-*`      → `--mw-text-*`
+     `--m-main`      → `--mw-m-main`
+     `--m-tint`      → `color-mix(in srgb, var(--mw-m-main) 14%, transparent)`（与内核 `.seg-btn.active` 同值）
+     `--m-ink`       → `color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary))`
+                        （"强调色的文字档"。内核没有 `--mw-m-ink` 这一支 ——
+                          它只在 `.sb-root` 下以 `--sb-m-ink` 存在，所以这里就地写出来）
 
-   判据：**能用已有类名拼出来的，就不要新写样式**。新写的每一条都是将来要单独维护的。
+   所有选择器都收在 `[data-module='projects']` 下。这一页只存在于项目模块，
+      而下面有几条是要覆盖内核同分规则的（`.card` 的 padding、`.task-row` 的 padding、
+      `.task-due` 的宽度…）。写成 `.mw-root .xxx`（0,2,0）与内核同分时，胜负取决于
+      导入顺序（`workspace-shell.css` 排在 `module-workspace.css` 之后，靠这个赢）——
+      那正是本项目反复在消灭的"隐含前提"。多带一个 `[data-module]` 就变成确定性覆盖。
    ============================================================ */
 
-.mw-root .proj-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 14px;
-}
-
-/* 卡片本身沿用 `.card`，这里只补"它是一张可点的卡"这件事 */
-.mw-root .proj-card {
+/* ---------- 页头 ---------- *
+   与详情态的 Hero 同构：一行大字说"我在哪"、一行小字说"这一层是干什么的"、
+   右侧同一位置放这一态的动作。所以 `.page-title` 要压回 16px/700 ——
+   内核那条（23px/800，给别的模块的页面标题）在项目域这一页不适用。 */
+.mw-root .page-header {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  cursor: pointer;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.mw-root .proj-card .ov-card-head {
-  margin-bottom: 0;
+/* 抬一档（多带 `.page-header`）压过内核的 `.mw-root[data-module] .page-title`（0,3,0） */
+.mw-root[data-module='projects'] .page-header .page-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 
-.mw-root .proj-card .task-row-sub {
-  margin-bottom: 0;
+.mw-root .page-head-sub {
+  font-size: 12.5px;
+  color: var(--mw-text-muted);
+  margin-top: 5px;
 }
 
-/* 搜索框与下拉：与各模块的 `.form-input` 同一套观感（描边 + 卡片底色 + 圆角 10），
-   只是 scope 落在内核上 —— 这一页属于 projects 模块，而 projects 没有表单样式。 */
-.mw-root .proj-input {
+.mw-root .page-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---------- 筛选栏：一块卡、两行、两组筛选用同一个 chip ---------- *
+   上行"筛什么"（状态 × 类型，组内互斥、组间取与），下行"怎么看"（视图 / 搜索 / 排序 / 显示 N/M）。
+   两行的控件不一样是有意的；两组筛选项之间必须一模一样，它们干的是同一件事。 */
+.mw-root[data-module='projects'] .filter-bar {
+  padding: 14px 16px;
+}
+
+.mw-root .filter-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mw-root .filter-bar-row + .filter-bar-row {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--mw-border-subtle);
+}
+
+/* 上行整行都是分组，组间距由 `.filter-group + .filter-group` 的竖线给，不用 gap */
+.mw-root .filter-bar-row.is-groups {
+  gap: 0;
+}
+
+.mw-root .filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mw-root .filter-group-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mw-text-muted);
+  margin-right: 2px;
+}
+
+/* 两组之间一条竖线：说"从这里开始是另一组"。不靠间距猜 ——
+   组间距与 chip 间距一样大的话，根本看不出分组 */
+.mw-root .filter-group + .filter-group {
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 1px solid var(--mw-border-subtle);
+}
+
+.mw-root .facet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
   border: 1px solid var(--mw-border-subtle);
-  background: var(--mw-bg-card);
+  background: var(--mw-border-subtle);
+  /* 它是 <button>（键盘 Enter / Space 归浏览器管，不用另写 keydown）。
+     原生外观要显式关掉：Safari 上只设 background / border 时，
+     border-radius 的胶囊会被原生外观压掉。 */
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--mw-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.16s ease;
+}
+
+.mw-root .facet:hover {
+  border-color: var(--mw-border-card);
   color: var(--mw-text-primary);
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-family: inherit;
+}
+
+/* 它是真按钮 ⇒ Tab 能到，那就要看得见落点 */
+.mw-root .facet:focus-visible {
+  outline: 2px solid var(--mw-m-main);
+  outline-offset: 2px;
+}
+
+/* 选中态两组共用同一个强调色，不给状态那一组另配四种颜色 ——
+   那样两组又会变得不一样。状态的颜色照常由卡片 / 看板列上的徽标承担。 */
+.mw-root .facet.is-on {
+  background: color-mix(in srgb, var(--mw-m-main) 14%, transparent);
+  border-color: color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
+  color: var(--mw-text-primary);
+  font-weight: 600;
+}
+
+.mw-root .facet-count {
+  font-size: 11px;
+  color: var(--mw-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 选中态下标签用 --mw-text-primary 而不是"文字档强调色"：
+   后者压 14% 的淡染只有 4.47，差 4.5 那口气；而 11px 的计数用它有 6.1，
+   小字更不能省这口气 —— 所以两支分开给。 */
+.mw-root .facet.is-on .facet-count {
+  color: color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
+}
+
+/* ---------- 搜索框（列表工具栏里的那一份） ---------- *
+   前置放大镜是"这是搜索"的唯一标识。⛔ 注意它与内核没有交集：
+   全仓 `.search` 目前只有这一处消费者（顶栏与 ⌘K 面板走的是别的标记）。 */
+.mw-root .search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: var(--mw-bg-card);
+  border: 1px solid var(--mw-border-card);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.mw-root .search:focus-within {
+  border-color: color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mw-m-main) 14%, transparent);
+}
+
+.mw-root .search-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--mw-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 线宽写死 1.9（与顶栏那枚放大镜同一个值）。不写的话 SVG 默认 1，会细一圈 */
+.mw-root .search-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.9;
+}
+
+/* height:100% 不是为了好看：外层是 34px 的 flex 盒，输入框只按内容高（约 18px）
+   居中的话，上下各 8px 是点了没反应的死区。撑满之后整条都能点。 */
+.mw-root .search input {
+  flex: 1;
   min-width: 0;
-}
-
-.mw-root input.proj-input {
-  flex: 1 1 220px;
-}
-
-.mw-root .proj-input:focus {
+  height: 100%;
+  border: none;
   outline: none;
-  border-color: var(--mw-m-main);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mw-m-main) 18%, transparent);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--mw-text-primary);
 }
 
-.mw-root .proj-input::placeholder {
+.mw-root .search input::placeholder {
   color: var(--mw-text-muted);
 }
 
-/* 工具栏在窄屏要能换行 —— 三个控件 + 视图切换横排会溢出 */
+/* 搜索框在工具栏里是"占一行的一部分"。min-width 按框内文字反推：
+   框里除文字还有 10px 内距 ×2 + 一枚 14px 放大镜 + 8px 间距，留给 placeholder 的是
+   min-width − 42；"搜索 名称 / 描述 / 标签 / 里程碑" 约 140px ⇒ 下限取 200 才不切字。 */
+.mw-root .proj-search {
+  flex: 1 1 260px;
+  min-width: 200px;
+}
+
+/* 排序下拉。它不复用 `input.proj-input` 那支宽度（那是给输入框的），
+   两者共用类名、各自一条定位规则。 */
+.mw-root[data-module='projects'] .proj-input {
+  font: inherit;
+  font-size: 13px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: var(--mw-bg-card);
+  color: var(--mw-text-primary);
+  border: 1px solid var(--mw-border-card);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  min-width: 0;
+}
+
+.mw-root[data-module='projects'] .proj-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mw-m-main) 14%, transparent);
+}
+
+/* 工具栏在窄屏要能换行 —— 四个控件横排会溢出 */
 .mw-root .toolbar {
   flex-wrap: wrap;
 }
 
-/* ---------- ⚠️ 4 · 原来的「窄屏降弥散模糊」整段已删（2026-09-25 纯色化） ----------
+/* ---------- 卡片视图 ---------- *
+   每张卡外面还包一层 `.proj-card-item`，三个动作是它的另一个孩子（见下）。 */
+.mw-root .proj-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.mw-root .proj-card-item {
+  position: relative;
+  display: flex;
+}
+
+.mw-root .proj-card-item .proj-card {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 悬停 / 焦点落在卡片上时整张抬起来。焦点那一支是给键盘用户的：
+   Tab 进动作栏时卡片也必须显形，否则按钮浮在一张"没被指向"的卡上。 */
+.mw-root .proj-card-item:hover .proj-card,
+.mw-root .proj-card-item:focus-within .proj-card {
+  border-color: color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
+  transform: translateY(-2px);
+  box-shadow: var(--mw-shadow-card-hover);
+}
+
+/* 已归档：整体压一层透明度。身份仍然可读，但一眼能看出"这一张不在台面上" ——
+   归档是软删除，它还会出现在「已归档」那一项里（也被「全部」排除在外）。 */
+.mw-root .proj-card-item.is-archived .proj-card {
+  opacity: 0.72;
+}
+
+/* 卡片本身沿用 `.card`。这里不给 gap：原型的间距是逐个 `margin-top` 给的，
+   加一条 gap 会与它们叠加（`.proj-card-name` 的 10px、`.proj-card-desc` 的 6px…）。 */
+.mw-root .proj-card {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.mw-root .proj-card:hover {
+  border-color: color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
+}
+
+/* 位移只给"整张卡就是一个对象"的那种（项目卡：点它进项目）。
+   内核的 `.mw-root .card:hover`（0,3,0）给所有卡都写了 translateY(-2px) ——
+   筛选栏 / 表格 / 看板这些容器卡里装的全是控件与行，鼠标扫过任何一处都会命中
+   "卡 hover"，整块跟着上浮 2px，读成"整页在抖"（一边打字、一边往行上移，整块都在动）。
+   所以项目域把内核那条按下去，只给对象卡留着。
+   判据：这张卡有没有"整张可点"。 */
+.mw-root[data-module='projects'] .card:hover {
+  transform: none;
+}
+
+.mw-root[data-module='projects'] .card.proj-card:hover {
+  transform: translateY(-2px);
+}
+
+/* 头部不留动作栏的位（原型的桌面档就是这样）：徽标在 hover 时淡出，把那一角让给按钮 ——
+   两者在同一个位置交替出现，卡片内容不会跟着动。
+   只有"动作常驻"那一档才必须留位（触屏 / ≤768px，见文件末尾那段媒体查询）：
+   那一档动作不再淡出、徽标也不淡出，不预留 92px 它们必然重叠
+   （92 = 3×26 + 2×4 间距 + 14 右边距）。 */
+.mw-root .proj-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- 卡片右上角那三个动作（编辑 / 归档·恢复 / 删除） ----------
+   它们定位在卡片右上角、视觉上落在卡里，但不是卡片的子节点（见 `.proj-card-item`）——
+   于是"点删除顺手把项目打开了"在结构上不可能发生，不需要 stopPropagation。 */
+.mw-root .proj-card-acts {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  /* 必须抬一层：卡片的 hover 位移（`transform: translateY(-2px)`）与
+     `.is-archived` 的 `opacity: .72` 都会让 `.proj-card` 建立自己的层叠上下文 ——
+     于是它与动作栏落在同一绘制层，而动作栏在 DOM 里排在卡片前面（它是兄弟，见上）
+     ⇒ 卡片那块不透明底色把按钮整个盖住：按钮在 DOM 里、也在产物 CSS 里，
+     但一个也看不见（`.is-archived` 更狠，任何状态都盖着）。
+     抬一层之后：卡片照旧浮起，按钮在它之上。 */
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+  /* 默认藏着：卡片是"读"的对象，三个动作是"改"的入口 —— 一屏八张卡都摆着九个按钮，
+     读者先看到的是操作而不是项目。hover / 键盘聚焦时才出现。 */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.14s ease, visibility 0s linear 0.14s;
+}
+
+.mw-root .proj-card-item:hover .proj-card-acts,
+.mw-root .proj-card-item:focus-within .proj-card-acts {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.14s ease, visibility 0s;
+}
+
+/* 优先级徽标在动作出现时淡出：那个位置要让给按钮，而两者同时可见必然重叠。
+   淡出而不是"移开"：徽标的位置在两种状态下一样，卡片内容不会跟着动。 */
+.mw-root .proj-card-head .prio {
+  transition: opacity 0.14s ease;
+}
+
+.mw-root .proj-card-item:hover .proj-card-head .prio,
+.mw-root .proj-card-item:focus-within .proj-card-head .prio {
+  opacity: 0;
+}
+
+.mw-root .proj-act {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--mw-border-card);
+  border-radius: 8px;
+  background: var(--mw-bg-card);
+  color: var(--mw-text-secondary);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.mw-root .proj-act .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.mw-root .proj-act:hover {
+  background: var(--mw-border-subtle);
+  color: var(--mw-text-primary);
+  border-color: color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
+}
+
+.mw-root .proj-act:focus-visible {
+  outline: 2px solid var(--mw-m-main);
+  outline-offset: 2px;
+}
+
+/* 删除那一颗：红色只在指向它自己时出现。让它常红等于把三个动作里最危险的一个
+   标成"最显眼的一个"，而这三颗按钮的默认权重应当相同。 */
+.mw-root .proj-act.danger:hover {
+  background: var(--mw-danger-bg);
+  color: var(--mw-danger);
+  border-color: var(--mw-danger);
+}
+
+.mw-root .proj-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 10px;
+}
+
+/* 描述固定两行。行数不一时，下面那三行（标签 / 进度条 / 剩几天）在同一行的不同卡片上
+   会上下错开 —— 而栅格只保证"同一行的卡等高"，内容不会自己贴底。
+   同一行里可比的读数必须横着能比。 */
+.mw-root .proj-card-desc {
+  font-size: 12.5px;
+  color: var(--mw-text-secondary);
+  line-height: 1.6;
+  margin-top: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 3.2em;
+}
+
+.mw-root .proj-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* 底部这一组贴底：`margin-top: auto` 加在这一组的第一个元素（进度那一行）上。
+   进度条与它的读数同一行 —— 条单独一行时只是一根橙线，读不出"到哪了"：
+   0% 与 100% 在条形上会被读成"没有条"和"画满了"，而这一页的主语就是进度
+   （另外两个视图也能读到百分数：表格是右对齐的数字列、看板是短条 + 数字）。 */
+.mw-root[data-module='projects'] .proj-card-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: auto 0 10px;
+}
+
+/* 条在这一行里吃掉除读数以外的宽度 —— 内核那条 `.progress-bar { flex: 1 }`
+   正好是这个意思（它在纵向的卡里会吃掉富余高度，进了这一行才是对的），
+   所以这里只压高度。 */
+.mw-root[data-module='projects'] .proj-card-progress .progress-bar {
+  height: 6px;
+}
+
+/* 数字定宽右对齐：不定宽时 `0%` 与 `100%` 宽度差一个字，条的右端会跟着飘 ——
+   同一行几张卡的条要能横着比长短。 */
+.mw-root .proj-card-pct {
+  min-width: 32px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mw-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.mw-root .proj-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--mw-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 表格视图 ---------- *
+   它是"横着比"的形态，所以末四列定宽：头与行共用同一组宽度，
+   否则每一行的"优先级 / 状态"跟着文字长短飘，就没有比较的基准。 */
+.mw-root .proj-table .task-row[role='button'] {
+  cursor: pointer;
+}
+
+.mw-root[data-module='projects'] .proj-table .task-due {
+  width: 88px;
+}
+
+/* 进度列自己一个类，不借 `.task-quad-tag`：那个是"四象限的象限标签"
+   （96px + 省略号），而窄屏那条 `.task-quad-tag{display:none}` 是为矩阵省宽度写的 ——
+   借过来用，窄屏时表格的"进度"整列会被顺手删掉（表头与每一行的格一起消失，
+   看起来不报错，只是那一列没了）。
+   数字列的两条铁律：右对齐 + 等宽数字，否则一列数字的个位参差，扫不起来。 */
+.mw-root .proj-progress {
+  width: 64px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mw-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.mw-root[data-module='projects'] .proj-table .prio {
+  width: 52px;
+  justify-content: center;
+}
+
+.mw-root[data-module='projects'] .proj-table .pill {
+  width: 70px;
+  justify-content: center;
+}
+
+/* 表头：没有它 6 列全靠猜。复用 `.task-row` 的栅格，只换字号与分隔线 */
+.mw-root[data-module='projects'] .proj-table .task-row.is-head {
+  padding: 0 20px 8px;
+  border-bottom: 1px solid var(--mw-border-card);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--mw-text-muted);
+}
+
+.mw-root[data-module='projects'] .proj-table .task-row.is-head:hover {
+  background: none;
+}
+
+/* 表头那几格是"标签"不是"读数"：底色与颜色都跟着表头走，
+   否则同一行里只有它们还带着读数样式 */
+.mw-root[data-module='projects'] .proj-table .task-row.is-head .prio,
+.mw-root[data-module='projects'] .proj-table .task-row.is-head .pill,
+.mw-root[data-module='projects'] .proj-table .task-row.is-head .proj-progress {
+  background: none;
+  color: inherit;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+/* 表格那张卡不给内距（`.card.is-flush`），内距交给每一行：
+   卡里再套一层 20px 的话，首列文字会落在 X+32 —— 而卡片视图里卡片自己的内距是 20
+   （文字在 X+20），切视图时整列右移 12px。现在行内距 = 20 ⇒ 两者同轴。
+   行于是贴到卡的边上，靠 `overflow: hidden` 兜住圆角（行自己的 radius 比卡小，
+   不会被卡的曲线切到）。 */
+.mw-root[data-module='projects'] .card.is-flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.mw-root[data-module='projects'] .proj-table .task-row {
+  padding: 11px 20px;
+}
+
+/* ---------- 看板视图 ---------- *
+   卡片视图 10 项读数、表格 6 项，看板原来只有项目名一项 —— 同一栏里比不出任何东西，
+   所以补一行"进度 + 剩几天"。 */
+.mw-root .kanban-card-name {
+  font-size: 13px;
+}
+
+.mw-root .kanban-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--mw-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 原型走 `--bg-deep`（最深的那一档"进度条槽"），本仓把它与 `--bg-slot` 收在同一支上，
+   所以与内核 `.progress-bar` 同色 */
+.mw-root .progress-mini {
+  flex: 1;
+  min-width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--mw-border-subtle);
+  overflow: hidden;
+}
+
+.mw-root .progress-mini i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mw-m-main);
+}
+
+.mw-root[data-module='projects'] .kanban-card.is-done .progress-mini i {
+  background: var(--mw-ok);
+}
+
+/* `.kanban-card` 的 `cursor: grab` 是给任务看板的拖拽写的；项目看板借用了同一个类
+   ⇒ 鼠标显示"可拖"却拖不动。这一页是"点开"，换成 pointer。 */
+.mw-root[data-module='projects'] .kanban-card[role='button'] {
+  cursor: pointer;
+}
+
+/* 看板在列表态是"按状态分四栏"，不是任务那三栏 */
+.mw-root[data-module='projects'] .kanban.is-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* ---------- 项目弹窗（编辑 / 删除确认）用到的刻度 ----------
+   弹窗外壳与字段刻度都是应用已有的那一套（`WorkspaceModal` → `.modal-mask > .modal`，
+   字段 → `.form-field` / `.form-label` / `.form-input`…），这里只补 projects 这一域缺的几条：
+   内核里表单刻度只给到 tasks / calendar / life（projects 之前没有表单弹窗）。
+   取值与那几域逐字相同 —— 不是新刻度，只是这个作用域里还没有。 */
+.mw-root[data-module='projects'] .form-field {
+  margin-bottom: 14px;
+}
+
+.mw-root[data-module='projects'] .form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mw-text-secondary);
+  margin-bottom: 6px;
+}
+
+.mw-root[data-module='projects'] .form-input,
+.mw-root[data-module='projects'] .form-select,
+.mw-root[data-module='projects'] .form-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--mw-border-subtle);
+  background: var(--mw-bg-card);
+  color: var(--mw-text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.mw-root[data-module='projects'] .form-input:focus,
+.mw-root[data-module='projects'] .form-select:focus,
+.mw-root[data-module='projects'] .form-textarea:focus {
+  outline: none;
+  border-color: var(--mw-m-main);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mw-m-main) 14%, transparent);
+}
+
+.mw-root[data-module='projects'] .form-textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+/* 两列一行（类型 / 优先级、状态 / 截止日期）。窄屏落成一列，见文件末尾那段媒体查询 */
+.mw-root[data-module='projects'] .form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+/* 弹窗盒子本体 —— 这一条曾经漏了，症状是"弹窗裸奔"：
+   透明底、铺满整宽（1080px）、无圆角无阴影，后面那一页整个透出来（用户直接截图来问）。
+
+   为什么会漏：`.modal-mask` / `.modal-head` / `.modal-title` / `.modal-close` / `.modal-body`
+   是内核级（`.mw-root …`），而 `.modal`（面/边/圆角/阴影/最大宽度）在本仓是
+   按模块各写一份的六个 —— `tasks` / `calendar` / `life` / `work` / `learning` / `knowledge`，
+   每个模块都因为"自己页里有个弹窗"补过一条。`projects` 此前没有 `WorkspaceModal` 的消费者
+   （它的弹窗只出现在详情页里，走 `.proj-detail .modal` 那一条）⇒ 列表页一开始用弹窗就裸奔。
+
+   `max-height: 100%` 而不是同族那个 `88vh`：这一页在窗框里（`.macwin-stage` 带 `transform`），
+   带 transform 的祖先是 `position: fixed` 的包含块 ⇒ `vh` 按视口算而不是按窗口算，
+   弹窗会高过窗口、底部按钮被裁掉。`.proj-detail` / `lg-root` / `dp-root` 三处用的都是 `100%`，
+   这里与它们一致（88vh 那几处是没有窗框的模块页，属于既有写法）。
+   640px 与同族取齐（`tasks` / `calendar` 是 560px：它们只有两个字段；
+   这张表单十个字段 + 目录选择器，560 会挤）。 */
+.mw-root[data-module='projects'] .modal {
+  background: var(--mw-bg-card);
+  border: 1px solid var(--mw-border-card);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+  width: 100%;
+  max-width: 640px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 弹窗底部动作条 —— 内核只给到 proj-detail / 日志页 / 部署页那几处，
+   这一页要用就照同一套值补一条（底色与那几处一致：页色，与弹窗的卡面拉开一档） */
+.mw-root[data-module='projects'] .modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 16px 22px;
+  border-top: 1px solid var(--mw-border-subtle);
+  background: var(--mw-bg-page);
+}
+
+/* 危险按钮（删除确认里那一颗）。内核只给到 settings / 日志页 —— 取值同一套 */
+.mw-root[data-module='projects'] .btn-danger {
+  background: var(--mw-danger);
+  color: #fff;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--mw-danger) 28%, transparent);
+}
+
+.mw-root[data-module='projects'] .btn-danger:hover {
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--mw-danger) 40%, transparent);
+  transform: translateY(-1px);
+}
+
+/* 删除确认的正文：被删对象 + 影响范围。破坏性动作的说明不是废话 —— 它要说清
+   "连带的那些东西也会没"，而不只是"确定要删吗"。 */
+.mw-root[data-module='projects'] .proj-del-target {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mw-root[data-module='projects'] .proj-del-note {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--mw-danger-bg);
+  color: var(--mw-danger);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* ---------- 窄屏 ----------
+   断点都是原型算出来的，不是"看着差不多"：
+     · 1070：两组筛选并排放不下时整组换行（原型那段注释里有算式：两组并排实宽
+       ≈729px，加筛选卡的左右内距 ⇒ 视口 ≥1063 才放得下；加了「已归档」这一枚之后
+       从 1000 抬到 1070）。换行之后组间那条竖线必须收掉 —— 它会长在行首，
+       看起来像"上面一行的延续"，而它其实在说"这是另一组"。
+     · 1180 / 1070：看板四栏 → 两栏 → 一栏。
+     · 768：卡片栅格落成单列、筛选卡内距收一档。
+     · (hover: none)：没有 hover 的设备上三个动作常驻显示 —— 否则它们永远出不来
+       （那台设备上没有"移上去"这个动作）。 */
+@media (max-width: 1180px) {
+  .mw-root[data-module='projects'] .kanban.is-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1070px) {
+  .mw-root .filter-bar-row.is-groups {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .mw-root .filter-group + .filter-group {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .mw-root[data-module='projects'] .kanban,
+  .mw-root[data-module='projects'] .kanban.is-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ============================================================
+   2b · 弹窗里的两块新控件
+   ------------------------------------------------------------
+   多值字段（标签 / 负责人）与目录选择器。都在内核作用域（`.mw-root`）——
+   它们只用通用面阶与模块强调色，不依赖 `projects` 的私有令牌，
+   将来别的模块要用同一个控件，不必把这一整段再抄一遍。
+
+   为什么「浏览本地目录」不做成描边小胶囊：近白底上 `--mw-border-subtle` 与白卡
+   都看不出边界，按钮会退化成一段灰字。用有色文字 + hover 下划线。
+   ============================================================ */
+.mw-root .form-labelrow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* 「浏览本地目录」这类的"选择类"入口紧贴它所属的字段标签。
+   两个位置都别放：塞进输入框右侧（吃掉宽度、还会被当成清除按钮），
+   或者 `margin-left: auto` 推到行右端（中间那片空白会切断"它是这个字段的动作"
+   这层关系，看着像一句游离的说明）。 */
+.mw-root .form-link {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  /* 不能直接用模块强调色：它在卡片底上只有 2.8:1；混一档文字色 ≈6:1 ——
+     比例要现算，66% 只有 ≈3.5:1，不达标。 */
+  color: color-mix(in srgb, var(--mw-m-main) 55%, var(--mw-text-primary));
+  cursor: pointer;
+  text-underline-offset: 3px;
+}
+
+.mw-root .form-link:hover {
+  text-decoration: underline;
+}
+
+.mw-root .form-link:focus-visible {
+  outline: 2px solid var(--mw-m-main);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 一排可多选的胶囊 + 行尾一个虚线 ＋。
+   选中态与筛选栏的 `.facet.is-on` 同一套取值 —— 同一页里"选中"只有一种长相。
+   ＋ 用虚线：虚线 = "这里可以再加一个"，与已选中的实线胶囊一眼分得开。 */
+.mw-root .tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mw-root .tag-chip {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--mw-border-subtle);
+  background: var(--mw-bg-card);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--mw-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+
+.mw-root .tag-chip:hover {
+  border-color: var(--mw-border-card);
+  color: var(--mw-text-primary);
+}
+
+.mw-root .tag-chip:focus-visible {
+  outline: 2px solid var(--mw-m-main);
+  outline-offset: 2px;
+}
+
+.mw-root .tag-chip.is-on {
+  background: color-mix(in srgb, var(--mw-m-main) 14%, transparent);
+  border-color: color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
+  color: var(--mw-text-primary);
+  font-weight: 600;
+}
+
+.mw-root .tag-chip.is-add {
+  width: 30px;
+  padding: 4px 0;
+  justify-content: center;
+  border-style: dashed;
+  color: var(--mw-text-muted);
+}
+
+.mw-root .tag-chip.is-add:hover {
+  color: var(--mw-m-main);
+  border-color: var(--mw-m-main);
+}
+
+.mw-root .tag-chip.is-add .icon {
+  width: 13px;
+  height: 13px;
+}
+
+/* 点 ＋ 之后在同一个位置换成输入框（不做成"多长出来一个字段"） */
+.mw-root .tag-new {
+  width: 104px;
+  height: 25px;
+  font: inherit;
+  font-size: 12px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
+  background: var(--mw-bg-card);
+  color: var(--mw-text-primary);
+  outline: none;
+}
+
+/* ---------- 目录选择器 ----------
+   它是换掉弹窗正文的一个"态"，不是叠第二层浮层 ——
+   正文是 `.modal-body { overflow-y: auto }`，飘出来的下拉会被它裁掉。 */
+.mw-root .dsel-path {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--mw-text-muted);
+  padding: 2px 0 10px;
+}
+
+.mw-root .dsel-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mw-root .dsel-crumb {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mw-text-secondary);
+  cursor: pointer;
+}
+
+.mw-root .dsel-crumb:hover {
+  background: var(--mw-border-subtle);
+  color: var(--mw-text-primary);
+}
+
+/* 当前这一级不可点（它已经在看的那一级）—— 用属性选择器而不是加一个类：
+   这个状态与 `aria-current` 是同一件事，写两遍必然会有一处忘了同步。 */
+.mw-root .dsel-crumb[aria-current='true'] {
+  color: var(--mw-text-primary);
+  cursor: default;
+}
+
+.mw-root .dsel-crumb[aria-current='true']:hover {
+  background: none;
+}
+
+.mw-root .dsel-sep {
+  opacity: 0.55;
+}
+
+/* 筛选框复用 `.form-input`（宽度 / 描边 / 圆角都在那一条上），这里只补下边距 */
+.mw-root .dsel-filter {
+  margin-bottom: 8px;
+}
+
+.mw-root .dsel-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--mw-border-subtle);
+  border-radius: 12px;
+  background: var(--mw-bg-page);
+}
+
+.mw-root .dsel-row {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--mw-border-subtle);
+  background: none;
+  color: var(--mw-text-primary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mw-root .dsel-row:last-child {
+  border-bottom: 0;
+}
+
+.mw-root .dsel-row:hover {
+  background: var(--mw-bg-card);
+}
+
+.mw-root .dsel-row:focus-visible {
+  outline: 2px solid var(--mw-m-main);
+  outline-offset: -2px;
+}
+
+.mw-root .dsel-row .icon {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--mw-text-muted);
+}
+
+/* 路径用等宽：它是要逐字比对的值，不是要读的句子 */
+.mw-root .dsel-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mw-root .dsel-count {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--mw-text-muted);
+}
+
+.mw-root .dsel-empty {
+  padding: 14px 12px;
+  font-size: 12.5px;
+  color: var(--mw-text-muted);
+}
+
+.mw-root .dsel-note {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--mw-text-muted);
+}
+
+.mw-root .dsel-note code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--mw-text-secondary);
+}
+
+/* ---------- 列表空态 ----------
+   一句话 + 一个出路（只写"暂无数据"是把人留在死路口）。
+   居中靠 `text-align` 而不是 flex：`.form-input` 那一系的 `display` 一旦被改，
+      这里就会连带出问题；而 `.btn` 是 inline-flex（inline 级），受 `text-align` 管。 */
+.mw-root[data-module='projects'] .proj-empty {
+  padding: 34px 20px;
+  text-align: center;
+}
+
+.mw-root[data-module='projects'] .proj-empty .q-empty {
+  margin-bottom: 14px;
+  padding: 0;
+}
+
+@media (max-width: 768px) {
+  .mw-root[data-module='projects'] .filter-bar {
+    padding: 12px;
+  }
+
+  .mw-root .proj-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (hover: none), (max-width: 768px) {
+  .mw-root .proj-card-acts {
+    opacity: 1;
+    visibility: visible;
+    transition: none;
+  }
+
+  /* 动作常驻的那一档必须给头部留位 —— 桌面档靠"徽标淡出"让出那一角，这一档徽标不淡出 */
+  .mw-root .proj-card-head {
+    padding-right: 92px;
+  }
+
+  /* 动作常驻 ⇒ 优先级徽标不能再淡出（淡出等于它在这一档里永远看不见） */
+  .mw-root .proj-card-item:hover .proj-card-head .prio,
+  .mw-root .proj-card-item:focus-within .proj-card-head .prio {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 520px) {
+  .mw-root[data-module='projects'] .form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mw-root .proj-card-name {
+    font-size: 14px;
+  }
+}
+
+/* ---------- 4 · 原来的「窄屏降弥散模糊」整段已删（2026-09-25 纯色化） ----------
    那一段原本是：
      @media (max-width: 768px) { html:not([data-theme='dark']) { --mw-blob-blur: 80px } … }
    它只做一件事 —— 在窄屏把 `--mw-blob-blur` 从 110/130 降到 80/90，
    理由是"三个色团各是 480~560px 的圆，大半径模糊在移动端每帧重算一大片"。
    纯色化把那三个色团（`.aurora-bg` / `.blob-1~3`）整组删掉，`--mw-blob-blur`
-   这支令牌也跟着删了。于是这段媒体查询变成了**给一个不存在的变量赋值**：
+   这支令牌也跟着删了。于是这段媒体查询变成了给一个不存在的变量赋值：
    不报错、不生效、也不影响任何像素 —— 正是本项目最烦的那类"看着还在工作"的死代码。
-   ⚠️ 保留这条记录而不是直接抹掉，是因为它同时说明了一件事：
-   **`.rail-round--tile` 那类"取不到的 var()"和这类"赋给不存在的变量"是反向的两种失效** ——
+   保留这条记录而不是直接抹掉，是因为它同时说明了一件事：
+   `.rail-round--tile` 那类"取不到的 var()"和这类"赋给不存在的变量"是反向的两种失效 ——
    前者会让整条声明被丢弃，后者完全静默。查"少了一条样式"时两种都要想到。 */
 
 /* ============================================================
    5 · 新外壳（`design/sidebar/sidebar_index.html`）的应用级补充
    ------------------------------------------------------------
    生成物是 `styles/sidebar-shell.css`（全部收在 `.sb-root` 作用域里）。
-   本段只放**原型作为静态页时不成立、变成应用后才成立**的几件事 —— 与 1~4 段同一分工。
+   本段只放原型作为静态页时不成立、变成应用后才成立的几件事 —— 与 1~4 段同一分工。
 
    为什么不进生成物：
      · 抽屉：原型在 ≤900px 直接把侧栏 `display: none` 掉，"抽屉"这个概念它没有；
      · 抽屉开关：同上，原型没有这个按钮；
-     · 项目域三栏：**原型里没有项目右栏**，那是应用自己的模块版式；
+     · 项目域三栏：原型里没有项目右栏，那是应用自己的模块版式；
      · 窄屏豁免名单：只有"手机上没有别的入口"才会暴露的问题，静态页遇不到。
    ============================================================ */
 
 /* ---------- 5a · 窄屏抽屉 ---------- */
 
-/* ⚠️ 选择器抬到 0,4,0：生成物里 ≤768px 那条是 `.sb-root .sidebar-wrap{display:none}`
+/* 选择器抬到 0,4,0：生成物里 ≤768px 那条是 `.sb-root .sidebar-wrap{display:none}`
    （0,2,0）。同特异性下谁赢取决于导入顺序，而"能不能打开侧栏"不该由一个隐含前提决定。 */
 @media (max-width: 768px) {
   .mw-root.sb-root .sb-app > .sidebar-wrap {
@@ -225,12 +1210,12 @@
 /* ---------- 5b · 窄屏下"必须还能点到"的东西 ---------- */
 
 /* 生成物里 ≤768px 有一条 `.sb-icon-btn:not(.ai):not(.sb-narrow-keep){display:none}`
-   （窄屏别把标题挤没）。`.sb-narrow-keep` 是那条规则的**豁免名单**，
+   （窄屏别把标题挤没）。`.sb-narrow-keep` 是那条规则的豁免名单，
    挂在主题开关与账户入口上 —— 漏挂的症状是"手机上没法切主题 / 退不出登录"，且零报错。 */
 
 /* 抽屉开关：宽屏必须消失。
-   ⚠️ 选择器写成 `.mw-root .workspace-drawer-toggle`（0,2,0）而不是单个类名（0,1,0）——
-      后者会被 `.mw-root .btn` 的 `display: inline-flex` 压过，症状是**宽屏顶栏里多出一个汉堡**，
+   选择器写成 `.mw-root .workspace-drawer-toggle`（0,2,0）而不是单个类名（0,1,0）——
+      后者会被 `.mw-root .btn` 的 `display: inline-flex` 压过，症状是宽屏顶栏里多出一个汉堡，
       而它看起来很像"设计就是这样"。与第 1 段那条是同一个缺陷、同一个修法。 */
 .mw-root .workspace-drawer-toggle {
   display: none;
@@ -247,26 +1232,26 @@
   }
 }
 
-/* ---------- 5c · 项目域：**不再有右栏**（2026-09-25 整段删掉） ----------
+/* ---------- 5c · 项目域：不再有右栏（2026-09-25 整段删掉） ----------
    这里原来重写了一条「三栏」的栅格（`var(--sb-w) 1fr 260px` + `aside` 区），
    因为旧的项目详情页有一个常驻右栏（`.rail`：里程碑轨与未完成清单）。
 
    那一页在 2026-09-25 换成了 `design/work/work_product-detail.html` 的版式
-   （可折叠 Hero + 下划线 Tab 栏 + 7 个分区），**右栏被取消** ⇒ 第三列没有任何东西
-   落进去，白白吃掉 260px。实测代价（1440 视口）：主区只剩 **816px**（本该 1092），
+   （可折叠 Hero + 下划线 Tab 栏 + 7 个分区），右栏被取消 ⇒ 第三列没有任何东西
+   落进去，白白吃掉 260px。实测代价（1440 视口）：主区只剩 816px（本该 1092），
    于是概览的 `repeat(auto-fit, minmax(300px, 1fr))` 从 3 列掉成 2 列、
-   文档卡的四枚书脊被挤到第二行 —— 而几何/内容/类名**全都不会报错**。
+   文档卡的四枚书脊被挤到第二行 —— 而几何/内容/类名全都不会报错。
 
-   ⇒ 整段删除，回到 `.sb-app` 的基础两列。**项目域现在与其余七域同形。**
-   ⚠️ 若将来某个域又要右栏，照 `5d · 工作台` 那条写（它有自己的四栏规则与自己的断点），
+   ⇒ 整段删除，回到 `.sb-app` 的基础两列。项目域现在与其余七域同形。
+   若将来某个域又要右栏，照 `5d · 工作台` 那条写（它有自己的四栏规则与自己的断点），
       别把这里按 260px 复原 —— 复原之前先量一遍主区宽度。 */
 
 /* ---------- 5d · 工作台（dashboard）---------- */
 
 /* 强调色指针。
-   ⚠️ **内核里没有这一条**：§4 那段只写到八域（tasks/calendar/life/work/learning/projects/
+   内核里没有这一条：§4 那段只写到八域（tasks/calendar/life/work/learning/projects/
    knowledge/settings）—— dashboard 在 9 个原型里是"地图本身"，没有自己的页面，所以当年
-   不需要指针。现在它有了页面，缺这一条的后果是 `--mw-m-main` **没有值**：
+   不需要指针。现在它有了页面，缺这一条的后果是 `--mw-m-main` 没有值：
    外壳的环、按钮、卡片强调色会全部落回 `@property --accent` 的 initial-value（品牌紫）——
    页面上看起来"只是颜色不太对"，零报错。
    好在底料是齐的：`--mw-a-dashboard-*` / `--mw-s-dashboard` 两支在 §3a/§3b 里亮暗都有，
@@ -282,7 +1267,7 @@
    与项目域那条是同一套做法（内核那两条都挂在 `.app` 上、匹配不到 `.sb-app`），
    区别只有两处：这里第三列是助手栏（340px 的浮层），而项目域是 260px 的 aside。
 
-   ⚠️ 助手栏的根节点是 `.rail.rail-shell...`，它自己带 `w-[340px] shrink-0`
+   助手栏的根节点是 `.rail.rail-shell...`，它自己带 `w-[340px] shrink-0`
       （为"横向 flex 两列"写的）。落到栅格列里必须把宽度交还给列：
       `width: auto`。不覆盖的话 340px 会与列宽打架 —— 而 `w-[340px]` 是 Tailwind 工具类
       （0,1,0，在 `@layer utilities` 里），本文件不带 layer，所以这条稳赢。 */
@@ -300,8 +1285,8 @@
 }
 
 /* ≤1200px：助手栏落到主区下面一行，而不是被藏掉。
-   ⚠️ 这与项目域那条不同 —— 项目域 ≤1200 直接把右栏 `display:none`（那是一个只读的
-      里程碑轨道），而助手栏是**可折叠的功能件**，藏掉就等于把入口拿掉。
+   这与项目域那条不同 —— 项目域 ≤1200 直接把右栏 `display:none`（那是一个只读的
+      里程碑轨道），而助手栏是可折叠的功能件，藏掉就等于把入口拿掉。
       助手栏自己带 `max-[1180px]:w-full max-[1180px]:border-t`，本来就是按"落到下面"设计的。 */
 @media (max-width: 1200px) {
   .mw-root.sb-root[data-module='dashboard'] .sb-app {

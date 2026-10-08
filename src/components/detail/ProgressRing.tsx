@@ -33,7 +33,7 @@ export function ProgressRing({ progress, tasksDone, tasksTotal, daysLeft, classN
     >
       <div className="relative h-[132px] w-[132px]">
         <svg viewBox="0 0 132 132" width="132" height="132" aria-hidden="true">
-          {/* ⚠️ 2026-09-25 纯色化：这条弧原本是 `<linearGradient>`（#6366f1 → #7c3aed）。
+          {/* 2026-09-25 纯色化：这条弧原本是 `<linearGradient>`（#6366f1 → #7c3aed）。
               改成一个实色 `--brand-solid`；弧长（strokeDashoffset）才是数据，
               沿弧的色相推移不是。走 `style` 而不是表现属性 `stroke="var(--…)"`：
               SVG 表现属性里的 `var()` 各引擎支持不一致，静默失败会让整条弧变黑。 */}

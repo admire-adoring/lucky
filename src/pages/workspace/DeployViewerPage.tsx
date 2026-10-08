@@ -47,7 +47,7 @@ import { useThemeStore } from '../../stores/theme-store'
    部署查看器 —— 项目详情「运维 · 部署」
    原型 `design/work/工作-项目-项目详情-运维-部署-index.html`
    ----------------------------------------------------------------------------
-   原型是 `window.open` 出来的**独立窗口**（运维页 →「📦 打开部署面板」）。落在应用里
+   原型是 `window.open` 出来的独立窗口（运维页 →「📦 打开部署面板」）。落在应用里
    它是一条两段路由 `/deploy/:id`，套 `MacWindow` —— 理由与 `/logs/:id` 完全一样
    （见 `App.tsx` 里那两条注释与 `LogViewerPage.tsx` 文件头 ①）。
 
@@ -56,50 +56,50 @@ import { useThemeStore } from '../../stores/theme-store'
        目录树查找 / 大小与路径小工具）。这一页只管渲染与状态机。
      · 样式 → `styles/module-workspace.css` 的「部署查看器」段（作用域 `.dp-root`）。
      · 图标 → 页面自带的 `DP_ICON`（16 网格，原样搬原型那几条 path）。
-       ⚠️ 不复用 `IconSprite`（24 网格的公共资产，这一页要的箭头/方盒/刷新都在里面
+       不复用 `IconSprite`（24 网格的公共资产，这一页要的箭头/方盒/刷新都在里面
           找不到对应形状）；也不复用 `deploy.ts` 里的 `ICO` / `PICK_CHEV` ——
-          那是**字符串版**的内联 SVG，React 里用它得走 `dangerouslySetInnerHTML`。
+          那是字符串版的内联 SVG，React 里用它得走 `dangerouslySetInnerHTML`。
           为一个播放/加载按钮与一个箭头开这个口子不值得，这里用等价的 JSX。
 
    ============================================================================
-   与原型**有意不同**的地方（"静态页变成应用"必然要改的，不是审美）
+   与原型有意不同的地方（"静态页变成应用"必然要改的，不是审美）
    ============================================================================
-   ① **整窗页面**（`/deploy/:id`）+ `MacWindow`。原型那条 `#win` / `window.close()` /
+   ① 整窗页面（`/deploy/:id`）+ `MacWindow`。原型那条 `#win` / `window.close()` /
       "回跳运维页" 的分支全部删掉 —— 关窗交给窗框红钮，`onClose` 回项目详情的运维分区。
-   ② **目标主机与环境由项目派生**，不再读 URL 的 `?host=`：`buildServers(project)` 里
+   ② 目标主机与环境由项目派生，不再读 URL 的 `?host=`：`buildServers(project)` 里
       那台生产机（`prod-<role>-01`）。原型固定 `prod-web-01`，是因为它的假数据只有 web。
       「这次连接身份」仍然是页面状态（`deploy` / `root` / `appuser`），默认 `deploy`。
-   ③ **主题开关用应用的那份实现**（`theme-store`，切 `<html data-theme>`），但**外观**
+   ③ 主题开关用应用的那份实现（`theme-store`，切 `<html data-theme>`），但外观
       仍走原型的 `.theme-toggle` —— 与日志页同一条口径，照搬原型的 `.dark` + 自己的
       localStorage 会出现"设置页切成暗色、这一页还是亮的"。
-   ④ **`更新于` 初值不写死 11:20**：静态页没有"最后一次同步"这件事可读，所以初值是
+   ④ `更新于` 初值不写死 11:20：静态页没有"最后一次同步"这件事可读，所以初值是
       `更新于 —`，点「刷新」才写真实时刻。这与日志页 ③ 是同一条口径（只有"此刻发生的
       事"才读系统时钟）。控制台每行的时间戳同理 —— 它就是"这行什么时候打出来的"。
-   ⑤ **目录选择器是弹窗正文的第二种视图**（`dialog.kind === 'pick'`），不是第五种浮层。
-      从表单里进去时摘的是**表单状态**（`form` 那一份 state），返回原样还在 ——
+   ⑤ 目录选择器是弹窗正文的第二种视图（`dialog.kind === 'pick'`），不是第五种浮层。
+      从表单里进去时摘的是表单状态（`form` 那一份 state），返回原样还在 ——
       原型是把表单 DOM 摘下来暂存，React 里对应的就是"状态不在 dialog 里"。
-   ⑥ **实时跟随是本地状态**：控制台自动滚到底 / 手动往上翻就退出跟随，`↓ 回到底部`
+   ⑥ 实时跟随是本地状态：控制台自动滚到底 / 手动往上翻就退出跟随，`↓ 回到底部`
       恢复。"跟随"这件事在两端都是纯视图行为，与数据无关。
 
    ============================================================================
    四条容易写错、且错了不会报错的判据
    ============================================================================
-   ① **`hidden` 属性一律不许用**。原型靠 `[hidden]{display:none}` 这个全局规则藏
+   ① `hidden` 属性一律不许用。原型靠 `[hidden]{display:none}` 这个全局规则藏
       `.src-panel` / `.file-list` / `.btn-abort` / `.run-hint` / `.jump-btn` /
       `.state-pill` / `.task-count.done` / `.dp-spec-more` / `.src-opt .n` / `.field-err`。
-      移植时那条全局规则按惯例**丢掉了**（`module-workspace.css` 里没有全仓的
-      `[hidden]`），于是所有该藏的东西会同时显出来。⇒ 这里**一律条件渲染**。
-      例外是 `.dp-group-head[aria-expanded]` 那一套折叠：它靠**属性选择器**收 `max-height`，
+      移植时那条全局规则按惯例丢掉了（`module-workspace.css` 里没有全仓的
+      `[hidden]`），于是所有该藏的东西会同时显出来。⇒ 这里一律条件渲染。
+      例外是 `.dp-group-head[aria-expanded]` 那一套折叠：它靠属性选择器收 `max-height`，
       所以 `aria-expanded` 必须真的写上（写错 = 折叠按钮点了没反应）。
-   ② **`position: fixed` 在这页的包含块是「窗口」不是「视口」**（`MacWindow` 带
+   ② `position: fixed` 在这页的包含块是「窗口」不是「视口」（`MacWindow` 带
       `transform`）。所以弹窗 `max-height` 走 `100%` 而不是原型的 `88vh`（见 CSS 段里
-      那条 ④），字段说明气泡的定位也要夹在**遮罩矩形**里 —— 用 `window.innerWidth`
+      那条 ④），字段说明气泡的定位也要夹在遮罩矩形里 —— 用 `window.innerWidth`
       算出来的坐标会跑到窗口外面去。
-   ③ **步骤的三种"进行中"是三个类**：`step-run` / `step-wait`（等输入）/ `step-err`
+   ③ 步骤的三种"进行中"是三个类：`step-run` / `step-wait`（等输入）/ `step-err`
       （失败但可重试）。状态存在 `stepState[i].status`，类名由它推 —— 千万不要在别处
       再判定一次"这步是不是在跑"，两处一定会分叉。
-   ④ **`step-ok` 的折叠是"不显示"而不是"删掉"**（`.dp-tasks.folded .step-ok:not(.focused)`），
-      所以折叠后点某一步定位时，那一步要能**透出来** ⇒ 给它 `.focused`。
+   ④ `step-ok` 的折叠是"不显示"而不是"删掉"（`.dp-tasks.folded .step-ok:not(.focused)`），
+      所以折叠后点某一步定位时，那一步要能透出来 ⇒ 给它 `.focused`。
    ============================================================================ */
 
 /* ------------------------------------------------------------------ *
@@ -162,13 +162,13 @@ const DP_ICON: Record<string, ReactNode> = {
 /**
  * 16 网格的内联 SVG。
  *
- * ⚠️ **默认不带 class**：原型里这些图标的尺寸全由**父选择器**给
+ * 默认不带 class：原型里这些图标的尺寸全由父选择器给
  * （`.viewer-ico svg` / `.log-tool svg` / `.dz-ico svg` / `.btn-run .ic svg` …），
  * 给一个公共类名反而会让 CSS 段里凭空多出十几条没人用的规则。
  * 只有目录选择器那两枚要带 `pick-chev` / `pick-file` —— 它们由自己的类吃样式（含描边），
  * 所以那两处要 `outline={false}`，否则行内属性会与 CSS 打架。
  *
- * `outline={false}` 用于 `run` / `stop` 这两枚**自带填充**的（行内 `stroke` 会给填充形状
+ * `outline={false}` 用于 `run` / `stop` 这两枚自带填充的（行内 `stroke` 会给填充形状
  * 额外描一道边，看起来比原型粗一圈）。
  */
 function DpIcon({
@@ -321,7 +321,7 @@ interface AskLine {
   dots: boolean
 }
 
-/** 一条配置在弹窗里的编辑态。**它的生命周期比 `dialog` 长** —— 进目录选择器时它必须留着。 */
+/** 一条配置在弹窗里的编辑态。它的生命周期比 `dialog` 长 —— 进目录选择器时它必须留着。 */
 interface FormState {
   baseId: string | null
   name: string
@@ -399,9 +399,9 @@ const STEP_CLASS: Record<StepStatus, string> = {
 /* ------------------------------------------------------------------ *
  * 小组件：字段说明气泡
  *
- * 气泡挂在**页面根**下（`.tip-layer`）而不是字段里：弹窗正文是 `overflow-y:auto`，
+ * 气泡挂在页面根下（`.tip-layer`）而不是字段里：弹窗正文是 `overflow-y:auto`，
  * 挂在字段里的绝对定位气泡贴到底部会被裁掉一半。
- * ⚠️ 定位的边界取**遮罩矩形**而不是 `window.innerWidth/innerHeight` ——
+ * 定位的边界取遮罩矩形而不是 `window.innerWidth/innerHeight` ——
  *    这一页在 `MacWindow` 里，`position: fixed` 的包含块是窗口（见文件头 ②）。
  * ------------------------------------------------------------------ */
 function FieldHelp({ text, onShow, onHide }: { text: string; onShow: (rect: TipState['rect'], text: string) => void; onHide: () => void }) {
@@ -450,7 +450,7 @@ export function DeployViewerPage() {
    * 状态
    * ================================================================== */
 
-  /* ---- 配置与分组（会话内的增删改，**都不落盘**） ---- */
+  /* ---- 配置与分组（会话内的增删改，都不落盘） ---- */
   const [configs, setConfigs] = useState<DeployConfig[]>(() =>
     CONFIGS.map((c) => ({ ...c, cmd: c.cmd.map((x) => ({ ...x })) })),
   )
@@ -459,7 +459,7 @@ export function DeployViewerPage() {
   const [foldedGroups, setFoldedGroups] = useState<Record<string, boolean>>({})
   const groupSeq = useRef(0)
 
-  /* ---- 文件：两种来源**二选一**，两份各存一份（切换不清空） ---- */
+  /* ---- 文件：两种来源二选一，两份各存一份（切换不清空） ---- */
   const [fileSrc, setFileSrc] = useState<FileSrc>('pick')
   const [staged, setStaged] = useState<Record<FileSrc, StagedFile[]>>({ pick: [], local: [] })
   const [bindPath, setBindPath] = useState('')
@@ -579,7 +579,7 @@ export function DeployViewerPage() {
     .filter((g) => g.items.length > 0)
 
   /* 当前步骤的进行中耗时 —— 由 `clock` 每 100ms 推一次重算（原型是每步一个 interval）。
-     ⚠️ **只在真的有"进行中/等待中"那一格时才推**：无条件每 100ms setState 会让整棵
+     只在真的有"进行中/等待中"那一格时才推：无条件每 100ms setState 会让整棵
         组件树在空转时也一秒重渲十次（原型只在那两种情况挂着 interval）。 */
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -671,7 +671,7 @@ export function DeployViewerPage() {
 
   /**
    * 打一行。有 `stepKey` 的行是"点某一步能定位过去"的锚。
-   * ⚠️ 空态那一行先被摘掉 —— 否则第一行会永远停在「等待开始部署…」下面。
+   * 空态那一行先被摘掉 —— 否则第一行会永远停在「等待开始部署…」下面。
    */
   const logAt = useCallback(
     (text: string, kind: ConsoleLine['kind'] = '', stepKey?: string) => {
@@ -713,7 +713,7 @@ export function DeployViewerPage() {
   /* ================================================================== *
    * 执行：一步接一步地跑，带进度与终端输出
    *
-   * ⚠️ 这里是**命令式流程**（定时器 + 回调链），与 React 的声明式渲染混在一起。
+   * 这里是命令式流程（定时器 + 回调链），与 React 的声明式渲染混在一起。
    *    两条规矩让它可以推理：
    *      · 会被定时器读到的值一律走 ref（`stepsRef` / `cfgRef` / `linesRef` / `runRef`）；
    *      · 只影响渲染的一律走函数式 `setState(prev => …)`，不要从闭包里读旧 state。
@@ -1095,8 +1095,8 @@ export function DeployViewerPage() {
 
   /* 配置一变就重建步骤列，并把执行区复位（原型在每个改动它的入口里显式调 `resetRun`，
      React 里挂在"配置身份变了"这一件事上更可靠）。
-     ⚠️ 跑着的时候绝不能重建 —— 那会把正在推进的那一列换掉。
-     ⚠️ 与 `refreshFirstStep` 那个 effect 分工要清楚：**加/减文件不重建整列、也不清控制台**
+     跑着的时候绝不能重建 —— 那会把正在推进的那一列换掉。
+     与 `refreshFirstStep` 那个 effect 分工要清楚：加/减文件不重建整列、也不清控制台
         （那是"备料"，不是"改配置"），所以那两个动作不在这个 effect 的依赖里。 */
   useEffect(() => {
     if (runRef.current) return
@@ -1593,7 +1593,7 @@ export function DeployViewerPage() {
   }, [dialog])
 
   /**
-   * ⚠️ `take` 是**副作用**（写表单字段 / 直接绑定），所以只能在事件处理里调用，
+   * `take` 是副作用（写表单字段 / 直接绑定），所以只能在事件处理里调用，
    *    绝不能放进 `setDialog(prev => …)` 的更新函数里 —— StrictMode 会跑两遍更新函数，
    *    那样一次选择会把文件绑两次。
    */
@@ -1701,7 +1701,7 @@ export function DeployViewerPage() {
    * ================================================================== */
 
   /**
-   * 新建分组。**先收起输入态、再落分组**，并且这一整段刻意不放进 `setForm(cur => …)`
+   * 新建分组。先收起输入态、再落分组，并且这一整段刻意不放进 `setForm(cur => …)`
    * 的更新函数里 —— `addGroup` 会 `setGroups`，更新函数里调它会在 StrictMode 下建两组。
    */
   const commitGroup = () => {
@@ -1818,7 +1818,7 @@ export function DeployViewerPage() {
     )
   }
 
-  /** 一条命令下面的提示行。**只在"本来就说得上话"的时候出现** —— `nginx -t` 这种不该被多说一句。 */
+  /** 一条命令下面的提示行。只在"本来就说得上话"的时候出现 —— `nginx -t` 这种不该被多说一句。 */
   const cmdNote = (it: CmdItem, i: number): ReactNode => {
     const det = detectAsk(it.run)
     const info = autoInfo(it.run, sessionUser)
@@ -1840,7 +1840,7 @@ export function DeployViewerPage() {
       /* ⚠ = 一定会停下来要密码，ℹ = 可能（取决于免密配置）—— 这个区别由 detectAsk 判定 */
       head = det && det.sure ? '⚠' : 'ℹ'
       text = info.why
-      /* 只给建议、不代改：把针对**这条命令**的具体写法摆出来，用户能直接照抄 */
+      /* 只给建议、不代改：把针对这条命令的具体写法摆出来，用户能直接照抄 */
       if (info.to) extra = <code title={info.to}>{info.to}</code>
     } else if (info && info.level === 'external') {
       head = 'ℹ'
@@ -2522,7 +2522,7 @@ export function DeployViewerPage() {
                           {specCmdArr.length ? specCmdArr[0].run : '—'}
                         </span>
                         {/* 摘要先回答「这条配置要不要人盯着」：全自动 → 绿标；有要输入的 → 琥珀；
-                            能改但还没改 → 靛蓝提示。⚠️ 不用 `hidden`，见文件头 ① */}
+                            能改但还没改 → 靛蓝提示。不用 `hidden`，见文件头 ① */}
                         {specMoreShown ? (
                           <span className={cn('dp-spec-more', specClass)} title={`${specTitle}（当前连接身份 ${sessionUser}）`}>
                             {specMoreText}
@@ -2533,7 +2533,7 @@ export function DeployViewerPage() {
                   </div>
                 </div>
 
-                {/* 上传文件：两种来源**二选一**（一次部署只会用一种） */}
+                {/* 上传文件：两种来源二选一（一次部署只会用一种） */}
                 <div className="dp-upload">
                   <div className="dp-label">
                     <span>要上传的文件</span>
@@ -2624,7 +2624,7 @@ export function DeployViewerPage() {
                             }
                           }}
                         />
-                        {/* 同一个选择器，换成从本机树里挑**文件**。挑完直接绑定 ——
+                        {/* 同一个选择器，换成从本机树里挑文件。挑完直接绑定 ——
                             文件的选中语义就是"用它"，再让人点一次「绑定」等于把一步拆成两步 */}
                         <button
                           type="button"
@@ -2743,7 +2743,7 @@ export function DeployViewerPage() {
                       <span className="dp-tasks-title">执行任务</span>
                       <span className="dp-tasks-stats">
                         <span className="task-count">{taskCountText}</span>
-                        {/* ⚠️ 不用 `hidden`（见文件头 ①） */}
+                        {/* 不用 `hidden`（见文件头 ①） */}
                         {taskTotal ? <span className="task-count done">{taskTotal}</span> : null}
                         <button
                           type="button"
@@ -2933,7 +2933,7 @@ export function DeployViewerPage() {
 }
 
 /**
- * 步骤名：**长到被截断时**才挂 `.truncated`（它用 `::after` 把 `data-full` 放出来）。
+ * 步骤名：长到被截断时才挂 `.truncated`（它用 `::after` 把 `data-full` 放出来）。
  * 无条件挂会让没截断的行也冒出一个重复的浮层。
  */
 function StepName({ text }: { text: string }) {

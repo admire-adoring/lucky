@@ -20,63 +20,63 @@ import { useThemeStore } from '../../stores/theme-store'
    日志查看器 —— 项目详情「运维 · 日志」
    原型 `design/work/工作-项目-项目详情-运维-日志-index.html`（2026-09-25 19:54 版）
    ----------------------------------------------------------------------------
-   这一版是**照着原型补齐**的：上一版只落了核心（服务器分段 / 左栏列表 / 搜索 /
+   这一版是照着原型补齐的：上一版只落了核心（服务器分段 / 左栏列表 / 搜索 /
    级别筛选 / 实时跟随 / 增删改弹窗），原型在落地之后又长出一整套，这里一并补上：
 
      · 顶栏身份块（`.viewer-id`）与那条分隔（`.bar-sep`）
-     · 左栏：面板头的条数（`.log-side-num`）、**分组可折叠**（`.log-group-chev`
+     · 左栏：面板头的条数（`.log-side-num`）、分组可折叠（`.log-group-chev`
        + `.log-group-items`）、组头的色条与错误数（`.log-group-mark` / `-n` / `-err`）、
        条目行内动作（`.log-src-actions` → 编辑 / 移除）
      · 右栏标题行的动作区（`.log-main-actions`：实时徽标 + 统计 + 跟随/重命名/下载/复制路径）
-     · 工具条：**取数范围**（`.read-range`）、**时间范围**（`.time-range` + `.time-bar`）、
+     · 工具条：取数范围（`.read-range`）、时间范围（`.time-range` + `.time-bar`）、
        搜索框的图标与 ⌘F 提示（`.search-ico` / `.search-kbd`）、
-       这台机器的底细 chips（`.log-host-meta`）、**查找条**（`.find-bar`：
+       这台机器的底细 chips（`.log-host-meta`）、查找条（`.find-bar`：
        计数 + 上/下一处 + 定位/只看匹配）
-     · 正文：**加载更早的行**（`.load-more`）、一条路径都没有时的空态（`.log-empty`）
-     · 弹窗：字段级动作（`.field-head` / `.field-act`）、**目录选择器**（`.pick-*`）、
+     · 正文：加载更早的行（`.load-more`）、一条路径都没有时的空态（`.log-empty`）
+     · 弹窗：字段级动作（`.field-head` / `.field-act`）、目录选择器（`.pick-*`）、
        编辑路径 / 移除确认 + 「撤销」
-     · 提示条换成**页面局部**那一套（`.toast` + `.toast-ico` + `.toast-act`）——
+     · 提示条换成页面局部那一套（`.toast` + `.toast-ico` + `.toast-act`）——
        只有它支持图标与动作按钮，应用的全局 ToastHost 不支持
 
    ============================================================================
    三种查看方式 = 两个正交控件 + 一个搜索模式（原型 2026-09-25 定，别改成三个 tab）
    ============================================================================
-   · **取数范围** → 工具条最左的下拉（`tail -n N`）。列表**新的在上**，所以
-     「最近 N 行」是 DOM 里的**前 N 行**，被挡在范围外的是**末尾**那些。
+   · 取数范围 → 工具条最左的下拉（`tail -n N`）。列表新的在上，所以
+     「最近 N 行」是 DOM 里的前 N 行，被挡在范围外的是末尾那些。
      写反了会变成"只给你看最旧的一批"，而行数对得上、时间列也在走，看着还挺正常。
-   · **往回翻** → 正文末尾的「加载更早的 N 行」（`less` 的 `b`）。Web 里滚动条
-     本身就是分页器，`less` 真正的对应物是**往回取更早的行**。
-   · **搜索** → 默认「定位」（`less` 的 `/` 与 `n`）：保留全文、`<mark>` 标出、
+   · 往回翻 → 正文末尾的「加载更早的 N 行」（`less` 的 `b`）。Web 里滚动条
+     本身就是分页器，`less` 真正的对应物是往回取更早的行。
+   · 搜索 → 默认「定位」（`less` 的 `/` 与 `n`）：保留全文、`<mark>` 标出、
      Enter/↓ 与 `n` 跳下一个、Shift+Enter/`N` 跳上一个。切到「只看匹配」才是 grep 式过滤。
-   ⚠️ **范围之外的行不参与命中**（它压根没被取回来）。
+   范围之外的行不参与命中（它压根没被取回来）。
 
-   ⚠️ **时间范围是取数条件，不是又一层筛选**，所以它与「最近 N 行」是两个独立控件。
+   时间范围是取数条件，不是又一层筛选，所以它与「最近 N 行」是两个独立控件。
       计算顺序不能反：`先按时间圈 → 再取最近 N 行 → 再按级别/关键词筛`。反了的话
       「加载更早」会把时间范围外的行也算进计数。于是行有三种"不可见"，各走各的通道：
       时间范围外 → `hidden`（改回时间立刻可见）；这一段里没取回来 → `is-unloaded`；
       被级别/关键词筛掉 → `hidden`。
-      相对范围的基准取**本份日志最新一行的时刻**，不是系统当前时间 ——
+      相对范围的基准取本份日志最新一行的时刻，不是系统当前时间 ——
       日志流说的"最后 5 分钟"就是"从最新一条往前 5 分钟"，用 `Date.now()` 会得到空集。
-   ⚠️ 实时跟随与固定时间窗是**互斥的意图**，所以开跟随会自动切回「全部时间」并说明。
+   实时跟随与固定时间窗是互斥的意图，所以开跟随会自动切回「全部时间」并说明。
 
-   ⚠️ **0 命中的查找条必须说清"它没搜哪里"**：只搜当前这一份日志、只搜已载入的行、
+   0 命中的查找条必须说清"它没搜哪里"：只搜当前这一份日志、只搜已载入的行、
       匹配整行文本。不写这句，用户会把"没搜到"读成"日志里没有"。
 
    ============================================================================
-   与原型**有意不同**的四处（"静态页变成应用"必然要改的，不是审美）
+   与原型有意不同的四处（"静态页变成应用"必然要改的，不是审美）
    ============================================================================
-   ① **整窗页面**（路由 `/logs/:id`），套 `MacWindow`。原型是 `window.open` 出来的
+   ① 整窗页面（路由 `/logs/:id`），套 `MacWindow`。原型是 `window.open` 出来的
       独立窗口；落在应用里如果不给窗框，它就只是一张长得像日志的页面。
-   ② **主题开关用应用的那份实现**（`theme-store`，切 `<html data-theme>`），但**外观**
+   ② 主题开关用应用的那份实现（`theme-store`，切 `<html data-theme>`），但外观
       仍走原型的 `.theme-toggle`（所以它长得和原型一样）。原型自己持有 `.dark` 类 +
       自己的 localStorage，照搬会出现"设置页切成暗色、这一页还是亮的"。
-   ③ **不读系统时钟**：行的时刻由 `buildLogLines` 从声明基准往前数。唯一用真实时刻的
-      是「最后更新 HH:MM」与**实时跟随新插的行** —— 那两处本来就是"此刻发生的事"。
-   ④ **实时跟随是本地模拟**：每 2.4 秒从该格式的行模板池取一行插到最前，上限 200 行。
+   ③ 不读系统时钟：行的时刻由 `buildLogLines` 从声明基准往前数。唯一用真实时刻的
+      是「最后更新 HH:MM」与实时跟随新插的行 —— 那两处本来就是"此刻发生的事"。
+   ④ 实时跟随是本地模拟：每 2.4 秒从该格式的行模板池取一行插到最前，上限 200 行。
       原型的那几句 toast 里没有这句，这里保留 —— 这一次点击是用户形成
       "它连上了服务器"这个印象的唯一时刻，不能说成真的连上了。
 
-   ⚠️ 目录选择器是**按这台服务器声明过的日志路径**现搭的树，不是原型内置的那棵假目录树
+   目录选择器是按这台服务器声明过的日志路径现搭的树，不是原型内置的那棵假目录树
       （`LOG_FS`）。选择器的语义没变：逐级下钻、目录在前、文件显示大小与时间、
       已经加过的打「已添加」且点了只用提示条告诉你不重复加。
    ============================================================================ */
@@ -84,7 +84,7 @@ import { useThemeStore } from '../../stores/theme-store'
 /* ------------------------------------------------------------------ *
  * 图标：原型自带一套 16×16 的路径（`ICON` 表），这里原样搬过来。
  *
- * ⚠️ **不复用 `IconSprite`**：那是应用 24 网格的公共资产，这 18 枚里有 10 枚
+ * 不复用 `IconSprite`：那是应用 24 网格的公共资产，这 18 枚里有 10 枚
  *    （refresh / copy / rows / close / info / warn / chevronRight / arrowUp / arrowDown …）
  *    精灵里没有 —— 为一张页面往公共精灵里加十枚图标，收益与代价不成比例。
  *    画法照抄原型（`viewBox="0 0 16 16"` + `.ico-svg`），所以尺寸与线宽与原型一致。
@@ -173,7 +173,7 @@ const LG_ICON: Record<string, ReactNode> = {
     </>
   ),
   /* 顶栏身份方块的图标（日志 = 一份按行排的文件）。
-     ⚠️ 原来是 📋 emoji：它自带颜色、**不参与 `color`**，`.viewer-ico` 那层染底与文字色对它完全无效。 */
+     原来是 📋 emoji：它自带颜色、不参与 `color`，`.viewer-ico` 那层染底与文字色对它完全无效。 */
   doc: (
     <>
       <path d="M3.8 2.6h5.6l3 3v7.8H3.8z" />
@@ -197,13 +197,13 @@ function LgIcon({ name }: { name: LgIconName }) {
 /* ------------------------------------------------------------------ *
  * 分组（左栏那个分组 + 弹窗里的「分组」字段）
  *
- * ⚠️ 这一版原型的**分组是"名字"**，不是枚举：左栏的组由数据里出现的名字现算
+ * 这一版原型的分组是"名字"，不是枚举：左栏的组由数据里出现的名字现算
  *    （顺序 = 内置组的顺序 → 会话里新出现的名字 → 「自定义」永远最后），
- *    弹窗里的胶囊就是这台服务器**当前看得见的那些组名**。
+ *    弹窗里的胶囊就是这台服务器当前看得见的那些组名。
  *    与部署页把新组插在「其它」之前是同一条规矩 —— 兜底组必须永远在最后。
  * ------------------------------------------------------------------ */
 
-/** 内置六组的**显示名**（`LOG_GROUP_LABEL`）→ 组 key。用来把名字落回 `LogSource.group`。 */
+/** 内置六组的显示名（`LOG_GROUP_LABEL`）→ 组 key。用来把名字落回 `LogSource.group`。 */
 const GROUP_KEY_OF_LABEL: Record<string, LogGroupKey> = Object.fromEntries(
   LOG_GROUP_ORDER.map((k) => [LOG_GROUP_LABEL[k], k]),
 ) as Record<string, LogGroupKey>
@@ -212,12 +212,12 @@ const GROUP_KEY_OF_LABEL: Record<string, LogGroupKey> = Object.fromEntries(
 const BUILTIN_GROUP_LABELS = LOG_GROUP_ORDER.filter((k) => k !== 'custom').map((k) => LOG_GROUP_LABEL[k])
 
 /**
- * 从路径猜一个分组 —— 只在"用户自己还没选过"时用，而且**必须命中已有分组**才采用。
+ * 从路径猜一个分组 —— 只在"用户自己还没选过"时用，而且必须命中已有分组才采用。
  * 猜错的代价比猜不中高得多：猜错会把它悄悄塞进一个错误的组，而用户不会去逐个复查。
  * （点「浏览服务器目录」挑到 /var/log/nginx/… 时，分组自动落成「服务日志」——
  *   路径和分组本来就是同一件事的两面。）
  *
- * ⚠️ 名字用的是本项目的 `LOG_GROUP_LABEL`（原型那份写的是「Nginx」，本项目叫「服务日志」）。
+ * 名字用的是本项目的 `LOG_GROUP_LABEL`（原型那份写的是「Nginx」，本项目叫「服务日志」）。
  */
 const GROUP_HINTS: [RegExp, string][] = [
   [/(nginx|apache|httpd)/i, '服务日志'],
@@ -255,7 +255,7 @@ type LevelFilter = 'all' | LogLevel
 
 /**
  * 每台服务器各自记一份"看着哪一条、取多少、搜什么、筛哪一级、看哪一段时间"。
- * ⚠️ 切服务器不该把状态带过去（原型同样按 server 分开存）。
+ * 切服务器不该把状态带过去（原型同样按 server 分开存）。
  */
 interface ScopeState {
   activeId: string
@@ -293,7 +293,7 @@ function parseHM(value: string): number | null {
 
 /**
  * 行的时刻 → 当天第几分钟。
- * ⚠️ 解析不出时刻的行（如「昨天 22:41」）给 -1：跨天要完整日期才能比较，把它们排在
+ * 解析不出时刻的行（如「昨天 22:41」）给 -1：跨天要完整日期才能比较，把它们排在
  *    今天任何时刻之前，于是它们只在「全部时间」下出现。
  */
 function timeKeyOf(time: string): number {
@@ -301,7 +301,7 @@ function timeKeyOf(time: string): number {
   return m ? Number(m[1]) * 60 + Number(m[2]) : -1
 }
 
-/** 匹配的是**整行文本**（时间列、级别、正文都算）—— 原型明写了这条口径 */
+/** 匹配的是整行文本（时间列、级别、正文都算）—— 原型明写了这条口径 */
 function rowText(row: LogLine): string {
   return `${row.time} ${row.level} ${row.text} ${row.code ?? ''}`.toLowerCase()
 }
@@ -364,7 +364,7 @@ function fsNodeAt(root: FsNode, parts: string[]): FsNode | null {
 
 /**
  * 一行日志。
- * ⚠️ 级别徽标**只在"这份格式里本来就有级别字段"时才渲染**（`leveled`）——
+ * 级别徽标只在"这份格式里本来就有级别字段"时才渲染（`leveled`）——
  *    无级别的日志靠行类名（`is-warn` / `is-error`）的左侧色条表达注意度。
  *    反过来做（无级别也硬塞一个 INFO）是在编数据。
  */
@@ -388,7 +388,7 @@ function LogRow({
   const cls = codeClass(row.code)
   return (
     <div
-      /* ⚠️ `id` 是给 `gotoHit` 用的锚点（它只滚日志区自己的 scrollTop，
+      /* `id` 是给 `gotoHit` 用的锚点（它只滚日志区自己的 scrollTop，
          不用 `scrollIntoView` —— 那会连带滚动所有祖先，整页会跟着跳） */
       id={`lgrow-${row.id}`}
       className={cn(
@@ -445,7 +445,7 @@ export function LogViewerPage() {
 
   useDocumentTitle(`日志 · ${data?.project.name ?? ''} · Lucky-Y`)
 
-  /** 只列**有日志源**的机器：停机的测试机没有日志可看，列进分段就是永远空白一页 */
+  /** 只列有日志源的机器：停机的测试机没有日志可看，列进分段就是永远空白一页 */
   const servers = useMemo(
     () => (data ? buildServers(data.project).filter((s) => (LOG_SOURCES[s.role] ?? []).length > 0) : []),
     [data],
@@ -454,10 +454,10 @@ export function LogViewerPage() {
   const [serverId, setServerId] = useState<string | null>(null)
   const current: ServerItem | null = servers.find((s) => s.id === serverId) ?? servers[0] ?? null
 
-  /* ---- 会话内的改动：新增 / 移除 / 改名改路径 / 跟随进来的行。**都不落盘**（静态页） ---- */
+  /* ---- 会话内的改动：新增 / 移除 / 改名改路径 / 跟随进来的行。都不落盘（静态页） ---- */
   const [added, setAdded] = useState<Record<string, LogSource[]>>({})
   const [removed, setRemoved] = useState<Record<string, string[]>>({})
-  /* 改名 / 改路径 / 改分组。⚠️ `group` 存的是**组名**（可能不是内置那六个），所以它
+  /* 改名 / 改路径 / 改分组。`group` 存的是组名（可能不是内置那六个），所以它
      不能直接 spread 回 `LogSource.group`（那是 `LogGroupKey` 联合）—— 见下面的 `sources` 与
      `labelOf`，那两处各取各的字段。 */
   const [patches, setPatches] = useState<Record<string, { name?: string; path?: string; group?: string }>>({})
@@ -505,7 +505,7 @@ export function LogViewerPage() {
     const gone = new Set(removed[current.id] ?? [])
     return [...base, ...(added[current.id] ?? [])]
       .filter((s) => !gone.has(s.id))
-      /* ⚠️ 逐字段合并，**不要 `...patches[s.id]`** —— `patches.group` 是一个组名，
+      /* 逐字段合并，不要 `...patches[s.id]` —— `patches.group` 是一个组名，
          摊进 `LogSource.group`（`LogGroupKey` 联合）既是类型错误、也会污染分组推导 */
       .map((s) => {
         const p = patches[s.id]
@@ -523,11 +523,11 @@ export function LogViewerPage() {
   const following = liveSource === active?.id
 
   /**
-   * 左栏分组：**空组不渲染**（这是列表分组，不是筛选器）。
+   * 左栏分组：空组不渲染（这是列表分组，不是筛选器）。
    *
    * 顺序 = 内置组（`LOG_GROUP_ORDER` 排，去掉兜底的「自定义」）→ 会话里新出现的组名
    * （按它在数据里第一次出现的顺序）→「自定义」永远最后。
-   * ⚠️ 组名是**现算**的，不另存一份"分组清单"：那份清单在用户改了一条路径的分组之后
+   * 组名是现算的，不另存一份"分组清单"：那份清单在用户改了一条路径的分组之后
    *    立刻会和列表对不上。
    */
   const groups = useMemo(() => {
@@ -541,7 +541,7 @@ export function LogViewerPage() {
     const order = [...BUILTIN_GROUP_LABELS]
     sources.forEach((s) => {
       const label = labelOf(s)
-      /* ⚠️「自定义」不参与这一段：它必须**永远在最后**（与部署页把新组插在「其它」之前同一条）。
+      /* 「自定义」不参与这一段：它必须永远在最后（与部署页把新组插在「其它」之前同一条）。
          让它按"第一次出现的位置"排的话，某台机器上它可能排到用户新建的组前面去。 */
       if (label !== LOG_GROUP_LABEL.custom && !order.includes(label)) order.push(label)
     })
@@ -551,7 +551,7 @@ export function LogViewerPage() {
       .map((label) => ({ key: slug(label), label, items: buckets.get(label) ?? [] }))
   }, [sources, labelOf])
 
-  /** 弹窗里「分组」那排胶囊可选的名字：这台服务器**当前看得见的**组名 + 兜底的「自定义」 */
+  /** 弹窗里「分组」那排胶囊可选的名字：这台服务器当前看得见的组名 + 兜底的「自定义」 */
   const groupChoices = useMemo(() => {
     const names = groups.map((g) => g.label)
     if (!names.includes(LOG_GROUP_LABEL.custom)) names.push(LOG_GROUP_LABEL.custom)
@@ -563,9 +563,9 @@ export function LogViewerPage() {
   const allRows = useMemo(() => (active ? [...liveRows, ...active.lines] : []), [active, liveRows])
 
   /**
-   * 视图推导 —— 原型的 `refreshScope()` 那一段在这里变成**纯计算**。
+   * 视图推导 —— 原型的 `refreshScope()` 那一段在这里变成纯计算。
    *
-   * ⚠️ 顺序不能乱：`先按时间圈 → 再取最近 N 行 → 再按级别/关键词筛`。
+   * 顺序不能乱：`先按时间圈 → 再取最近 N 行 → 再按级别/关键词筛`。
    *    三个条件各走各的通道：时间外 → `hidden`；这一段里没取回 → `is-unloaded`；
    *    被筛掉 → `hidden`。混用会让"载入了多少"与"筛掉了多少"说不清。
    */
@@ -573,7 +573,7 @@ export function LogViewerPage() {
     const kw = scope.kw.trim().toLowerCase()
     const leveled = active?.leveled ?? false
 
-    /* ① 时间窗。基准是**本份日志最新一行的时刻**（定义见文件头） */
+    /* ① 时间窗。基准是本份日志最新一行的时刻（定义见文件头） */
     let win: { lo: number; hi: number } | null = null
     if (scope.time.mode === 'abs') {
       const lo = scope.time.from ? parseHM(scope.time.from) : null
@@ -592,7 +592,7 @@ export function LogViewerPage() {
     })
     const inWs = allRows.filter((_, i) => inWindow[i])
 
-    /* ② 取数范围。列表**新的在上**，所以「最近 N 行」是前 N 行 */
+    /* ② 取数范围。列表新的在上，所以「最近 N 行」是前 N 行 */
     const keep = scope.range > 0 ? Math.min(scope.range, inWs.length) : inWs.length
     const cut = inWs.length - keep
     const loaded = inWs.slice(0, keep)
@@ -607,18 +607,18 @@ export function LogViewerPage() {
       counts[row.level] += 1
     })
 
-    /* ④ 命中：范围之外的行**不参与命中**（它压根没被取回来） */
+    /* ④ 命中：范围之外的行不参与命中（它压根没被取回来） */
     const hitsAll = loaded.filter((r) => kw && rowText(r).includes(kw))
     const hiddenIds = new Set<string>()
     let shown = 0
     loaded.forEach((row) => {
       const okLevel = !leveled || scope.level === 'all' || row.level === scope.level
-      /* 默认（定位）**不隐藏任何行** —— 那正是 less 的 / 与 n。只有「只看匹配」才过滤 */
+      /* 默认（定位）不隐藏任何行 —— 那正是 less 的 / 与 n。只有「只看匹配」才过滤 */
       const okKw = !kw || !scope.onlyMatch || rowText(row).includes(kw)
       if (okLevel && okKw) shown += 1
       else hiddenIds.add(row.id)
     })
-    /* 可跳转的命中 = 当前**真的看得见**的那些：被级别筛选挡掉的不算，
+    /* 可跳转的命中 = 当前真的看得见的那些：被级别筛选挡掉的不算，
        否则「下一个」会跳到一条看不见的线上，表现成"点了没反应" */
     const hits = hitsAll.filter((r) => !hiddenIds.has(r.id))
     const hitIndex = hits.length ? scope.hit % hits.length : 0
@@ -637,7 +637,7 @@ export function LogViewerPage() {
     return { kw, leveled, inWindow, loaded, loadedIds, inWs: inWs.length, cut, counts, hits, hitIndex, currentHitId, hiddenIds, shown, missLoad, outTime, stat }
   }, [active, allRows, liveRows.length, scope])
 
-  /* 每台的告警/错误合计 —— 分段上那颗黄点要在**没选它的时候**也亮着 */
+  /* 每台的告警/错误合计 —— 分段上那颗黄点要在没选它的时候也亮着 */
   const tallies = useMemo(() => {
     const out: Record<string, { warn: number; error: number }> = {}
     if (!data) return out
@@ -658,7 +658,7 @@ export function LogViewerPage() {
     return out
   }, [data, servers, added, removed, live])
 
-  /* ---- 实时跟随：每 2.4 秒插一行，行文取自**这条日志自己的模板池** ---- */
+  /* ---- 实时跟随：每 2.4 秒插一行，行文取自这条日志自己的模板池 ---- */
   useEffect(() => {
     if (!liveSource) return
     const source = sources.find((s) => s.id === liveSource)
@@ -710,7 +710,7 @@ export function LogViewerPage() {
       const target = document.getElementById(`lgrow-${view.hits[next]?.id ?? ''}`)
       const box = contentRef.current
       if (!target || !box) return
-      /* ⚠️ 只动日志区自己的 scrollTop：`scrollIntoView` 会连带滚动所有祖先，整页会跟着跳 */
+      /* 只动日志区自己的 scrollTop：`scrollIntoView` 会连带滚动所有祖先，整页会跟着跳 */
       const b = box.getBoundingClientRect()
       const r = target.getBoundingClientRect()
       box.scrollTop += r.top - b.top - box.clientHeight / 2 + r.height / 2
@@ -721,7 +721,7 @@ export function LogViewerPage() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        /* ⚠️ 目录选择器里的 Escape 是"退回表单"，由 `LogDialog` 自己用**捕获阶段**
+        /* 目录选择器里的 Escape 是"退回表单"，由 `LogDialog` 自己用捕获阶段
            的监听处理掉（它先于这里这条冒泡监听），所以这里只当"弹窗还开着" */
         if (dialog) {
           setDialog(null)
@@ -734,7 +734,7 @@ export function LogViewerPage() {
       const target = event.target as HTMLElement
       const tag = (target.tagName || '').toLowerCase()
       const typing = tag === 'input' || tag === 'select' || tag === 'textarea'
-      /* less 的 n / N。⚠️ 只在"搜索有值 + 焦点不在输入类控件里"时接管，
+      /* less 的 n / N。只在"搜索有值 + 焦点不在输入类控件里"时接管，
          否则在搜索框里打字母 n 会被当成跳转 */
       if (!event.metaKey && !event.ctrlKey && !event.altKey && scope.kw && !typing) {
         if (event.key === 'n') {
@@ -795,7 +795,7 @@ export function LogViewerPage() {
     const bigger = RANGE_OPTS.filter((v) => v !== 0 && v > cur)
     const next = bigger.length ? Math.min(...bigger) : 0
     patch({ range: next, hit: 0 })
-    /* 报的是**时间范围内**的总行数 —— 时间范围就是这个视图的边界（与标题行同一个口径） */
+    /* 报的是时间范围内的总行数 —— 时间范围就是这个视图的边界（与标题行同一个口径） */
     showToast(`已加载${RANGE_LABEL[next]}（共 ${view.inWs} 行）`, 'info')
   }
 
@@ -808,13 +808,13 @@ export function LogViewerPage() {
       showToast('已停止实时跟随', 'info')
       return
     }
-    /* ⚠️ 实时跟随与固定时间窗是**互斥的意图**：一边接新写入的行、一边只让旧区间可见，
+    /* 实时跟随与固定时间窗是互斥的意图：一边接新写入的行、一边只让旧区间可见，
        结果是"看着像没反应"。所以开启跟随就把它切回全部时间，并说明为什么。 */
     const needReset = scope.time.mode !== 'all'
     if (needReset) patch({ time: { mode: 'all' }, hit: 0 })
     setLiveSource(active.id)
-    /* ⚠️「本地模拟」这句不能丢：这一次点击是用户形成"它连上了服务器"这个印象的
-       **唯一时刻**。路径不写进提示里 —— 它就在正文标题旁边。 */
+    /* 「本地模拟」这句不能丢：这一次点击是用户形成"它连上了服务器"这个印象的
+       唯一时刻。路径不写进提示里 —— 它就在正文标题旁边。 */
     showToast(`已开始实时跟随${needReset ? ' · 时间范围已切回全部' : ''}（本地模拟）`)
   }
 
@@ -859,13 +859,13 @@ export function LogViewerPage() {
       id: `${current.id}-custom-${Date.now().toString(36)}`,
       /* 新增的路径没有专属行模板 —— 跟随的行先按「应用日志」那一套出 */
       kind: 'app',
-      /* 但**分组**不能跟着 kind 走：它的格式未知，归到"应用日志"是编的。
+      /* 但分组不能跟着 kind 走：它的格式未知，归到"应用日志"是编的。
          内置六组之一就落回 key；用户新建的组名落不回 key ⇒ 记 `custom` + 下面的 patches 覆盖。
-         （左栏读的始终是**组名**，见 `labelOf`。） */
+         （左栏读的始终是组名，见 `labelOf`。） */
       group: GROUP_KEY_OF_LABEL[groupName] ?? 'custom',
       name: name || (path.split('/').filter(Boolean).pop() ?? path),
       path,
-      /* ⚠️ 大小未知 —— 显示 `—`，不编一个"18 MB" */
+      /* 大小未知 —— 显示 `—`，不编一个"18 MB" */
       sizeText: '—',
       updatedText: '刚刚',
       /* 也不假设它的格式里有级别字段 */
@@ -892,9 +892,9 @@ export function LogViewerPage() {
     return root
   }, [current, sources])
 
-  /* ---- 弹窗浮层。**必须作为 overlay 交给窗框**：窗框带 transform，
+  /* ---- 弹窗浮层。必须作为 overlay 交给窗框：窗框带 transform，
       `position: fixed` 的包含块就变成了窗口 —— 于是内核那条 `.modal-mask { inset: 0 }`
-      正好盖住**窗口**（macOS 的 sheet）。留在外面会连窗框一起压黑。 ---- */
+      正好盖住窗口（macOS 的 sheet）。留在外面会连窗框一起压黑。 ---- */
   const overlay = (
     <>
       {dialog ? (
@@ -990,7 +990,7 @@ export function LogViewerPage() {
           <header className="viewer-bar">
             {/* 身份块：哪个项目 / 这一页是什么。窗框标题栏也有它 —— 那是"窗口叫什么"，
                 这一条是"页面在说什么"，与浏览器里「标签页标题 + 页头」的关系一致。
-                ⚠️ 分区名是**一枚标签**（`.viewer-scope`），不拼进标题——拼进去会占掉项目名的宽度 */}
+                分区名是一枚标签（`.viewer-scope`），不拼进标题——拼进去会占掉项目名的宽度 */}
             <div className="viewer-id">
               <span className="viewer-ico" aria-hidden="true">
                 <LgIcon name="doc" />
@@ -1084,7 +1084,7 @@ export function LogViewerPage() {
                     </button>
                   </div>
 
-                  {/* ⚠️ 分组包装层是 `role="presentation"`：`tablist` 的语义子节点应当只有 tab，
+                  {/* 分组包装层是 `role="presentation"`：`tablist` 的语义子节点应当只有 tab，
                       中间这一层不该冒出一个"无名分组"让读屏多念一遍 */}
                   <div className="log-src-list" role="tablist" aria-label="日志文件列表">
                     {groups.map((group) => {
@@ -1101,7 +1101,7 @@ export function LogViewerPage() {
                             onClick={() => setCollapsedGroups((prev) => ({ ...prev, [gkey]: open }))}
                           >
                             <span className="log-group-mark" aria-hidden="true" />
-                            {/* 组名是**算出来的那个名字**（可能是用户新建的组），不是 `kind` —— 左栏是给人扫的 */}
+                            {/* 组名是算出来的那个名字（可能是用户新建的组），不是 `kind` —— 左栏是给人扫的 */}
                             <span className="log-group-name">{group.label}</span>
                             <span className="log-group-n">{group.items.length} 项</span>
                             <span className="log-group-err" hidden={err === 0}>
@@ -1240,7 +1240,7 @@ export function LogViewerPage() {
                   </div>
 
                   <div className="log-toolbar" data-lvl={!isEmpty && active?.leveled ? 'full' : 'none'}>
-                    {/* 取数范围（tail -n N）。⚠️ 它是**唯一真相源**，「加载更早」只是它的快捷方式 */}
+                    {/* 取数范围（tail -n N）。它是唯一真相源，「加载更早」只是它的快捷方式 */}
                     <span className="read-range">
                       <span className="rr-ico" aria-hidden="true">
                         <LgIcon name="rows" />
@@ -1263,7 +1263,7 @@ export function LogViewerPage() {
                       </span>
                     </span>
 
-                    {/* 时间范围。⚠️ 它是取数条件、不是又一层筛选，所以与上面那个是两个独立控件 */}
+                    {/* 时间范围。它是取数条件、不是又一层筛选，所以与上面那个是两个独立控件 */}
                     <span className="time-range">
                       <span className="rr-ico" aria-hidden="true">
                         <LgIcon name="clock" />
@@ -1276,7 +1276,7 @@ export function LogViewerPage() {
                         onChange={(event) => {
                           const value = event.target.value
                           if (value === 'custom') {
-                            /* 打开自定义行时预填**当前可见的整段跨度** —— 从"看全部"起步
+                            /* 打开自定义行时预填当前可见的整段跨度 —— 从"看全部"起步
                                比从空的输入框起步少想两步 */
                             const keys = allRows.map((r) => timeKeyOf(r.time)).filter((x) => x >= 0)
                             patch({
@@ -1297,7 +1297,7 @@ export function LogViewerPage() {
                         <option value="all">全部时间</option>
                         <option value="3">最近 3 分钟</option>
                         <option value="10">最近 10 分钟</option>
-                        {/* 下拉框是唯一真相源：自定义时把这一项的文案改成**真实范围**，
+                        {/* 下拉框是唯一真相源：自定义时把这一项的文案改成真实范围，
                             否则控件会一直显示"自定义时间…"，而它是个动作、不是当前值 */}
                         <option value="custom">
                           {scope.time.mode === 'abs' ? `${scope.time.from} – ${scope.time.to}` : '自定义时间…'}
@@ -1362,9 +1362,9 @@ export function LogViewerPage() {
                       </div>
                     ) : null}
 
-                    {/* 这台机器的底细。⚠️ 标签里带「本机」—— 这两个数是**该服务器全部日志**
+                    {/* 这台机器的底细。标签里带「本机」—— 这两个数是该服务器全部日志
                         的合计，无标签会与标题行那个「共 N 行」（当前这一份）混为一谈。
-                        ⚠️ 两个数字都只在 >0 时才出现（0 是噪音）。 */}
+                        两个数字都只在 >0 时才出现（0 是噪音）。 */}
                     <div className="log-host-meta">
                       {current ? (
                         <>
@@ -1392,7 +1392,7 @@ export function LogViewerPage() {
                       ) : null}
                     </div>
 
-                    {/* 查找条。⚠️ 定位模式下即使 0 命中也不弹空态（正文还在，只是没高亮到），
+                    {/* 查找条。定位模式下即使 0 命中也不弹空态（正文还在，只是没高亮到），
                         那句话由这一条去说 */}
                     <div className="find-bar" hidden={!scope.kw}>
                       <span className="find-count" aria-live="polite">
@@ -1403,7 +1403,7 @@ export function LogViewerPage() {
                         ) : (
                           <>
                             没有匹配的内容
-                            {/* 0 命中时最要紧的一件事：**是不是有没搜到的地方** */}
+                            {/* 0 命中时最要紧的一件事：是不是有没搜到的地方 */}
                             {view.missLoad > 0 ? ` · 还有 ${view.missLoad} 行未载入` : ''}
                             {view.outTime > 0 ? ` · 时间范围外还有 ${view.outTime} 行` : ''}
                           </>
@@ -1493,7 +1493,7 @@ export function LogViewerPage() {
                   </div>
 
                   <div className={cn('log-content', refreshing && 'is-loading')} id={`logContent-${current?.id}`} ref={contentRef}>
-                    {/* ⚠️ 行必须装在 `.log-pane.active` 里：原型用这一个类同时管三件事 ——
+                    {/* 行必须装在 `.log-pane.active` 里：原型用这一个类同时管三件事 ——
                         切 display、把行切成两列（无级别字段的日志不占级别那一格）、
                         以及把没有级别字段的正文换成等宽字体。少这一层会"看着还行但排版全错"。 */}
                     {active ? (
@@ -1530,7 +1530,7 @@ export function LogViewerPage() {
                       </div>
                     ) : null}
 
-                    {/* ⚠️ 定位模式下 0 命中不弹空态（正文还在，只是没高亮到）——
+                    {/* 定位模式下 0 命中不弹空态（正文还在，只是没高亮到）——
                         只有「只看匹配」才可能"正文被筛空" */}
                     {active && scope.onlyMatch && !!scope.kw && view.counts.all > 0 && view.shown === 0 ? (
                       <div className="log-noresult">
@@ -1554,7 +1554,7 @@ export function LogViewerPage() {
                       </div>
                     ) : null}
 
-                    {/* 往回翻（`less` 的 b）。⚠️ 只有"这一段里还有没取回来的行"时才出现 */}
+                    {/* 往回翻（`less` 的 b）。只有"这一段里还有没取回来的行"时才出现 */}
                     <div className="load-more" hidden={!view.cut}>
                       <button type="button" className="load-more-btn" onClick={loadEarlier}>
                         <span className="lm-ico" aria-hidden="true">
@@ -1579,8 +1579,8 @@ export function LogViewerPage() {
  * ================================================================== */
 
 /**
- * 弹窗。四个形态共用**同一个**头/正文/底：新增、编辑路径、重命名、移除确认；
- * 目录选择器是**在同一个弹窗里换视图**（原型就是这样，不叠第二层浮层）——
+ * 弹窗。四个形态共用同一个头/正文/底：新增、编辑路径、重命名、移除确认；
+ * 目录选择器是在同一个弹窗里换视图（原型就是这样，不叠第二层浮层）——
  * 所以它是这个组件内部的一份 state，不是第五种 dialog。
  */
 function LogDialog({
@@ -1647,9 +1647,9 @@ function LogDialog({
   }, [initialName, initialPath, currentGroup, dialog.kind])
 
   /**
-   * 把还开着的「新建分组」输入框落定，**并返回最终组名**。
+   * 把还开着的「新建分组」输入框落定，并返回最终组名。
    *
-   * ⚠️ 返回值是同步算出来的：`setGroup` 不会立刻生效，`submit()` 不能指望读到新 state
+   * 返回值是同步算出来的：`setGroup` 不会立刻生效，`submit()` 不能指望读到新 state
    *    （原型那边也是同一个坑 —— 它的 `commit()` 是同步改 `picked` 变量）。
    * 空名 = 取消（点开又后悔是常事，不该因此建出一个空名的分组）；撞名直接复用已有那一枚。
    */
@@ -1672,7 +1672,7 @@ function LogDialog({
   /**
    * 选择器里 Escape 是"退回上一步"：先回表单，再按一次才关弹窗。
    *
-   * ⚠️ 这一条必须挂在**捕获阶段**并 `stopPropagation`：页面那条 Escape 监听挂在
+   * 这一条必须挂在捕获阶段并 `stopPropagation`：页面那条 Escape 监听挂在
    *    `document` 的冒泡阶段，而捕获阶段先跑 —— 不拦下来，第一次 Escape 就会
    *    把整个弹窗关掉，"退回表单"这一步永远走不到。
    */
@@ -1792,7 +1792,7 @@ function LogDialog({
                           return
                         }
                         /* 选中即回表单：把路径填进去，名称留空就用文件名兜底。
-                           ⚠️ 不在这里提交 —— 用户还要看一眼名称对不对（原型同一条） */
+                           不在这里提交 —— 用户还要看一眼名称对不对（原型同一条） */
                         setPath(entryPath)
                         setName((prev) => prev.trim() || entry.name)
                         setInvalid(false)
@@ -1878,7 +1878,7 @@ function LogDialog({
       setInvalid(true)
       return
     }
-    /* 还开着的新建输入框先落定，并**同步**拿到最终组名（`setGroup` 还没生效） */
+    /* 还开着的新建输入框先落定，并同步拿到最终组名（`setGroup` 还没生效） */
     const finalGroup = isForm ? takeGroup() : ''
     const finalName = name.trim() || (path.split('/').filter(Boolean).pop() ?? path)
     onSubmit(isRename ? name.trim() || (dialog.source.name ?? '') : finalName, path.trim(), finalGroup)
@@ -1903,7 +1903,7 @@ function LogDialog({
 
         <div className="modal-body">
           {/* 说明段刻意不写：三个一眼就懂的字段不需要注解（原型把"格式要求"交给 placeholder 了）。
-              ⚠️ 字段顺序 = 想事情的顺序（原型 2026-09-26 定）：先给它起个名 → 再说文件在哪 →
+              字段顺序 = 想事情的顺序（原型 2026-09-26 定）：先给它起个名 → 再说文件在哪 →
                  最后归到哪一组。上一版是"路径在前"，别改回去。 */}
           <div className="modal-field">
             <div className="field-head">
@@ -1926,7 +1926,7 @@ function LogDialog({
               <div className="field-head">
                 <label htmlFor="logPathInput">路径</label>
                 {/* 字段级动作放标题右侧，不占输入框的宽度。
-                    ⚠️ 打开时定位到**当前已填路径所在的目录**（而不是根）—— 从根开始逐级下钻
+                    打开时定位到当前已填路径所在的目录（而不是根）—— 从根开始逐级下钻
                        是"重新找一遍"，而从当前值的父目录开始才是"改一下" */}
                 {canBrowse ? (
                   <button
@@ -1951,7 +1951,7 @@ function LogDialog({
                   setInvalid(false)
                   /* 路径与分组是同一件事的两面：路径落到 nginx 目录，分组就默认成「服务日志」。
                      只在用户自己没动过分组时跟随 —— 手动选过的值不能被路径改写。
-                     ⚠️ 猜不中时**保持原选择**，不退回「自定义」——否则用户刚选的组会被打字抹掉 */
+                     猜不中时保持原选择，不退回「自定义」——否则用户刚选的组会被打字抹掉 */
                   if (!groupAuto) return
                   const guessed = guessGroup(next.trim(), chips)
                   if (guessed && guessed !== group) setGroup(guessed)
@@ -1961,7 +1961,7 @@ function LogDialog({
           ) : null}
 
           {isForm ? (
-            /* 「分组」：一排单选胶囊 + 行尾「＋」（与部署页**同一套做法**，兄弟页口径要一致）。
+            /* 「分组」：一排单选胶囊 + 行尾「＋」（与部署页同一套做法，兄弟页口径要一致）。
                为什么不是下拉：分组通常只有 3~5 个，胶囊能一次全看见、点一下就换；
                为什么不是自由文本：自由文本会立刻长出「Nginx / nginx / NgInx」三个组。 */
             <div className="modal-field">

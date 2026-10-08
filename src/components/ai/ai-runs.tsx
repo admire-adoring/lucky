@@ -4,13 +4,13 @@ import type { TextRun } from '../../types/workbench'
 /**
  * 富文本片段渲染。
  *
- * 项目口径：**不拼 HTML、不用 `dangerouslySetInnerHTML`** —— 原型的强调是字符串里的
+ * 项目口径：不拼 HTML、不用 `dangerouslySetInnerHTML` —— 原型的强调是字符串里的
  * `<b>…</b>`，由脚本 `innerHTML` 进去；那等于把一段文本当代码执行，而这段文本
  * 将来会来自用户自己的输入。
  *
- * ⚠️ 渲染成 `<strong>` 而不是 `<b>`，配套要求生成物把原型 CSS 里的 `b` 选择器
+ * 渲染成 `<strong>` 而不是 `<b>`，配套要求生成物把原型 CSS 里的 `b` 选择器
  *    一起改道（见 `design/build-ai-css.mjs` 的 TAG_REMAP）。两边不对齐的后果是
- *    「渲染 `<strong>`、CSS 配 `b`」—— 一个元素都匹配不到，强调色与字重**静默失效**。
+ *    「渲染 `<strong>`、CSS 配 `b`」—— 一个元素都匹配不到，强调色与字重静默失效。
  */
 export function Runs({ runs }: { runs: TextRun[] }) {
   return (
@@ -48,7 +48,7 @@ export function QuoteBlock({ quote }: { quote: AiQuote }) {
 /**
  * 多行纯文本。
  *
- * ⚠️ 原型的消息文本里是**真的有 `\n`** 的（脚本拼 `<br/>`，或模板串里换行）。
+ * 原型的消息文本里是真的有 `\n` 的（脚本拼 `<br/>`，或模板串里换行）。
  *    到了 React，文本节点里的 `\n` 会被 CSS 折叠成空格 —— 症状是
  *    「本来分段的回答挤成一整段」，而没有任何报错。所以按 `\n` 切开、逐段渲染。
  *    与 `QuoteBlock` 的分工：那里是"结构化的列表块"，这里是"段落内的换行"。

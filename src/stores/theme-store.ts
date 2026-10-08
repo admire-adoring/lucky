@@ -11,8 +11,8 @@ interface ThemeState {
 /**
  * 主题状态。
  *
- * ⚠️ 这里**不用** zustand 的 `persist` 中间件，尽管 auth-store 用了它。
- * 原因是时序：`persist` 的回填发生在 store 创建之后，而主题必须在**首帧前**生效，
+ * 这里不用 zustand 的 `persist` 中间件，尽管 auth-store 用了它。
+ * 原因是时序：`persist` 的回填发生在 store 创建之后，而主题必须在首帧前生效，
  * 否则会先渲染一帧亮色。所以持久化拆在 lib/theme.ts 里由 main.tsx 提前执行，
  * store 只负责"当前值 + 切换"，两件事各归各位。
  */

@@ -785,7 +785,7 @@
         <nav class="breadcrumb" aria-label="面包屑">
             <a role="button" tabindex="0" onclick="toast('返回项目列表','info')">项目</a>
             <span class="sep" aria-hidden="true">/</span>
-            <a role="button" tabindex="0" onclick="toast('返回项目详情','info')">支付系统重构</a>
+            <a role="button" tabindex="0" onclick="toast('返回项目详情','info')">Q4 客户交付系统重构</a>
             <span class="sep" aria-hidden="true">/</span>
             <a role="button" tabindex="0" onclick="goOps()">运维</a>
             <span class="sep" aria-hidden="true">/</span>
@@ -807,8 +807,8 @@
                     <div class="hero-mini-back" role="button" tabindex="0" onclick="goOps()">
                         <span data-ico="back" data-ico-size="14"></span>返回
                     </div>
-                    <span class="hero-mini-tag">CORE</span>
-                    <h1 class="hero-mini-name">支付系统重构 · 添加服务器</h1>
+                    <span class="hero-mini-tag">P0</span>
+                    <h1 class="hero-mini-name">Q4 客户交付系统重构 · 添加服务器</h1>
                 </div>
                 <div class="hero-mini-right">
                     <span class="dirty-chip" id="dirtyChip">
@@ -828,8 +828,8 @@
                         <span data-ico="dashboard" data-ico-size="14"></span>总览</button>
                     <button class="tab" role="tab" onclick="toast('任务 Tab · 原型占位','info')">
                         <span data-ico="task" data-ico-size="14"></span>任务 <span class="tab-count">5/8</span></button>
-                    <button class="tab" role="tab" onclick="toast('Bug Tab · 原型占位','info')">
-                        <span data-ico="bug" data-ico-size="14"></span>Bug <span class="tab-count">2</span></button>
+                    <button class="tab" role="tab" onclick="location.href='工作-项目-项目详情-Bug-index.html'">
+                        <span data-ico="bug" data-ico-size="14"></span>Bug <span class="tab-count">12</span></button>
                     <button class="tab" role="tab" onclick="location.href='work_project_detail_document.html'">
                         <span data-ico="doc" data-ico-size="14"></span>文档 <span class="tab-count">9</span></button>
                     <button class="tab active" role="tab" aria-selected="true" onclick="toast('已在运维分区','info')">
@@ -1155,7 +1155,7 @@
                             </div>
                             <div class="sub-item">
                                 <span data-ico="folder" data-ico-size="13"></span>
-                                <span class="sub-name">支付系统重构</span>
+                                <span class="sub-name">Q4 客户交付系统重构</span>
                                 <span class="sub-ip" id="pvTags">Web · API</span>
                             </div>
                         </div>
@@ -1389,7 +1389,7 @@ function applyEdit() {
     if (EDIT.spec) HW.spec = EDIT.spec;
     if (EDIT.os) HW.os = EDIT.os;
 
-    document.querySelector('.hero-mini-name').textContent = '支付系统重构 · 编辑服务器';
+    document.querySelector('.hero-mini-name').textContent = 'Q4 客户交付系统重构 · 编辑服务器';
     document.getElementById('pvTitle').textContent = '保存后';
     [document.getElementById('submitBtn'), document.getElementById('submitBtnTop')].forEach(function (b) {
         b.querySelector('.btn-txt').textContent = '保存修改';

@@ -5,7 +5,7 @@
  * 事实源：design/candle/candle_index.html
  * 重新生成：node design/gen-workspace-pages.mjs
  *
- * 这里**只有标记**，没有行为：每个 onclick 都被翻译成 `handlers.xxx(...)`，
+ * 这里只有标记，没有行为：每个 onclick 都被翻译成 `handlers.xxx(...)`，
  * 实现写在手写的 <CalendarWorkspace />（同目录）。
  */
 
@@ -428,7 +428,7 @@ export function SettingsPanel({ handlers: _handlers }: { handlers: Handlers }) {
 /**
  * 顶栏动作区 —— 原型的 `.topbar-actions` 里的按钮。
  *
- * 为什么要生成：这排按钮**每个模块都不一样**（任务页是「AI 拆解 / 新建任务」，
+ * 为什么要生成：这排按钮每个模块都不一样（任务页是「AI 拆解 / 新建任务」，
  * 生活页是「快速记录」，设置页一个都没有）。只把它们交给外壳会全丢掉 ——
  * 而且丢得没有声响：外壳照常渲染，只是那排主入口不存在了。
  * 主题开关已从这里剔掉（外壳自己提供一份，全站只能有一个主题开关）。

@@ -4,18 +4,18 @@ import type { WorkbenchModule } from '../../types/workbench'
 /**
  * 环的几何常量 —— 与生成器 `gen-modules.mjs` 的 `RING` 逐字一致。
  *
- * ⚠️ 这五个数**彼此牵制**，改任何一个都要重新量：
+ * 这五个数彼此牵制，改任何一个都要重新量：
  *     r   92   瓦片中心的半径
  *     rl  130  标签半径 —— 必须比 r 更外一圈，否则 40° 间隔下标签会撞到邻座瓦片
  *     step 40  九项铺满 360°
  *     dial 82  表盘直径（要能塞进 r − item/2 = 70 的内圈里）
- *     所以它们**不是令牌**（没有跨页面复用的含义），是这一屏的一次性空间关系。
+ *     所以它们不是令牌（没有跨页面复用的含义），是这一屏的一次性空间关系。
  */
 const RING = { r: 92, rl: 130, step: 40, start: -90, item: 44, dial: 82, mark: 1.12 }
 
 const r1 = (v: number) => Math.round(v * 10) / 10
 
-/** 第 i 项的**固定**角度（12 点起顺时针）。不随当前项变化 —— 地图不动，只有指针转 */
+/** 第 i 项的固定角度（12 点起顺时针）。不随当前项变化 —— 地图不动，只有指针转 */
 export const ringAngle = (i: number) => RING.start + RING.step * i
 
 /** 标签相对瓦片中心的偏移：沿同一方向再外推 rl − r */
@@ -49,8 +49,8 @@ const spikePath = (len: number, half: number) => `M50 50 L${50 - half} 50 L50 ${
 /**
  * 罗盘 —— 表盘内的花瓣花环 + 八芒星。
  *
- * ⚠️ **导出**（不只是本文件内部用）：侧栏环形导航（`components/shell/RingNav`）
- *    复用同一份罗盘。它是**一件资产**，不是"两个环各自的装饰"——
+ * 导出（不只是本文件内部用）：侧栏环形导航（`components/shell/RingNav`）
+ *    复用同一份罗盘。它是一件资产，不是"两个环各自的装饰"——
  *    两处各画一份，下次调花瓣数量就得记得改两处（而且看起来只有一处会生效）。
  */
 export function Compass() {
@@ -87,19 +87,19 @@ interface ModuleRingProps {
   /** 当前模块的 key */
   current: string
   onSelect: (key: string) => void
-  /** 「进门」：进入当前模块的主页面。**跳不跳得成由调用方决定** ——
+  /** 「进门」：进入当前模块的主页面。跳不跳得成由调用方决定 ——
    *  路由存在于 `docs/模块设计.md`，但代码里未必已经实现，
    *  所以这里只上报意图，不自己 navigate。 */
   onEnter: (module: WorkbenchModule) => void
 }
 
 /**
- * 模块径向菜单 —— 九个模块**全部**在环上，指针指向当前项，表盘 + 中心名合成"进门"按钮。
+ * 模块径向菜单 —— 九个模块全部在环上，指针指向当前项，表盘 + 中心名合成"进门"按钮。
  *
  * 三处分工，互不重复（这是它能成立的关键）：
  *   环上被标记的那一格 —— 我是谁 ｜ 指针 —— 我在哪 ｜ 中心名 —— 叫什么
  *
- * ⚠️ `data-accent` 挂在**最外层**（由页面写在 section 上），环本身**不挂**。
+ * `data-accent` 挂在最外层（由页面写在 section 上），环本身不挂。
  *    因为 `[data-accent]` 的默认规则会把强调色写回品牌紫，环上再挂一份就会盖掉继承来的域色。
  *    这里只消费 `--s`（由上层 [data-series] 提供的模块色槽）。
  */
@@ -118,7 +118,7 @@ export function ModuleRing({ modules, current, onSelect, onEnter }: ModuleRingPr
       aria-label="模块切换"
       style={{ ['--na' as string]: `${pointerAngle}deg` }}
     >
-      {/* 光晕（hub-aura）**已撤掉**（用户 2026-09-21：「不要渐变了，就正常的白色就行」）——
+      {/* 光晕（hub-aura）已撤掉（用户 2026-09-21：「不要渐变了，就正常的白色就行」）——
           它是一圈「中心偏白 + 外圈强调色」的径向渐变，白底上要么看不见、要么把底重新染回去。
           判据与恢复参数见 workbench-hero.css 里那段同名注释。 */}
       <i className="hub-ripple" aria-hidden="true" />

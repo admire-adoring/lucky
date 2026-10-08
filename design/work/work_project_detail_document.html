@@ -1136,7 +1136,7 @@
         <div class="breadcrumb">
             <a>项目</a>
             <span>/</span>
-            <a>支付系统重构</a>
+            <a>Q4 客户交付系统重构</a>
             <span>/</span>
             <strong>文档</strong>
         </div>
@@ -1154,8 +1154,8 @@
                     <div class="hero-mini-back" onclick="toast('返回项目详情')">
                         ← 返回
                     </div>
-                    <span class="hero-mini-tag">CORE</span>
-                    <span class="hero-mini-name">支付系统重构 · 文档</span>
+                    <span class="hero-mini-tag">P0</span>
+                    <span class="hero-mini-name">Q4 客户交付系统重构 · 文档</span>
                 </div>
                 <button class="btn btn-primary btn-sm" onclick="openNewDoc()">+ 新建文档</button>
             </div>
@@ -1348,7 +1348,7 @@
     };
 
     const DOCS = [
-        { id: 'd1', title: '支付系统重构方案', type: 'plan', updated: '昨天', updatedDays: 1, ver: 'v3',
+        { id: 'd1', title: 'Q4 客户交付系统重构方案', type: 'plan', updated: '昨天', updatedDays: 1, ver: 'v3',
             summary: '拆分订单/支付/对账三个域，含时序图与迁移方案。', tags: ['支付', '重构'], isNew: false, author: '杨刘' },
         { id: 'd2', title: '对账域设计方案', type: 'design', updated: '2 小时前', updatedDays: 0, ver: 'v2',
             summary: '对账域拆分与补偿机制，覆盖异常场景。', tags: ['对账', '架构'], isNew: true, author: '杨刘' },
@@ -1683,7 +1683,7 @@
         document.getElementById('modalIcon').textContent = '📄';
         document.getElementById('modalIcon').style.setProperty('--modal-color', 'var(--m-main)');
         document.getElementById('modalTitle').textContent = '新建文档';
-        document.getElementById('modalSubtitle').textContent = '支付系统重构';
+        document.getElementById('modalSubtitle').textContent = 'Q4 客户交付系统重构';
 
         document.getElementById('modalBody').innerHTML = `
         <div class="form-field">

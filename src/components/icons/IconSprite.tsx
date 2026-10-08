@@ -81,6 +81,11 @@ export function IconSprite() {
       <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         <path d="m6 9 6 6 6-6" />
       </symbol>
+      {/* 向右的 chevron：目录选择器那一行用它当形状线索 ——
+          "点它会往里走"这件事遮住颜色也读得出来（`i-arrow-right` 太重，是"跳转"的语汇） */}
+      <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m9 6 6 6-6 6" />
+      </symbol>
       <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 12h14" />
         <path d="m13 6 6 6-6 6" />
@@ -154,6 +159,22 @@ export function IconSprite() {
         <path d="m2 17 10 5 10-5" />
         <path d="m2 12 10 5 10-5" />
       </symbol>
+      <symbol id="i-archive" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="21 8 21 21 3 21 3 8" />
+        <rect x="1" y="3" width="22" height="5" />
+        <line x1="10" y1="12" x2="14" y2="12" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+        <path d="M10 11v6M14 11v6" />
+        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      </symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15" />
+      </symbol>
       <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
         <path d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6" />
         <path d="M18.4 2.6a2 2 0 0 1 2.8 2.8L12 14.6l-3.5.7.7-3.5Z" />
@@ -182,7 +203,7 @@ export function IconSprite() {
             macOS   → 12px 圆点内的细字形（按钮本身是圆点，见 WindowControls）
             Windows → 极细的线段/方格/叉（Windows 11 caption 的字形就是 1px 细线）
             Linux   → 复用 Windows 那三个字形，只是按钮本身做成圆形
-          ⚠️ 笔画宽度要按"最终渲染尺寸"倒推：sprite 的 viewBox 是 24，
+          笔画宽度要按"最终渲染尺寸"倒推：sprite 的 viewBox 是 24，
           渲染到 10px 时 strokeWidth:2 只剩 0.83px（正好接近 Windows 的 1px）；
           而 macOS 圆点里的字形只有 7px，必须给到 4 才相当于 1.17px。 */}
       <symbol id="i-win-min" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -207,16 +228,16 @@ export function IconSprite() {
       <symbol id="i-mac-min" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round">
         <path d="M6 12h12" />
       </symbol>
-      {/* ⚠️ 补记：`i-mac-full` 一直在 `IconName` 里、也被 WindowControls 引用，
-          但雪碧图里**从来没有这个 symbol** —— 于是 macOS 全屏圆点 hover 时字形是空的，
+      {/* 补记：`i-mac-full` 一直在 `IconName` 里、也被 WindowControls 引用，
+          但雪碧图里从来没有这个 symbol —— 于是 macOS 全屏圆点 hover 时字形是空的，
           而空字形不报错，看着就像"这个圆点本来就没有字形"。 */}
       <symbol id="i-mac-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 19 19 5" />
         <path d="M12 5h7v7" />
       </symbol>
       {/* 工作台专用：主题切换（日/月）与助手头像（星芒）。
-          日/月是**线稿**（stroke），因为要跟顶栏其它图标同一套笔触；
-          星芒是**实心**（fill），它要做助手头像的底纹，线稿在 16px 下会糊。 */}
+          日/月是线稿（stroke），因为要跟顶栏其它图标同一套笔触；
+          星芒是实心（fill），它要做助手头像的底纹，线稿在 16px 下会糊。 */}
       <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="4.1" />
         <path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.4 5.4l1.5 1.5M17.1 17.1l1.5 1.5M18.6 5.4l-1.5 1.5M6.9 17.1l-1.5 1.5" />

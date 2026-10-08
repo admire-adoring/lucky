@@ -15,11 +15,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 type DesktopWindow = ReturnType<typeof getCurrentWindow>
 
 /**
- * 宿主平台。窗口控制要**长得像那个系统的原生控制**，所以必须先知道自己在哪。
+ * 宿主平台。窗口控制要长得像那个系统的原生控制，所以必须先知道自己在哪。
  *
  * 判据优先级：`navigator.userAgentData.platform`（Chromium 系，值形如 "macOS" / "Windows"）
  * → 回落 `navigator.userAgent`。
- * 注意这里判的是**宿主操作系统**，浏览器预览跑在 macOS 上也会得到 'macos' ——
+ * 注意这里判的是宿主操作系统，浏览器预览跑在 macOS 上也会得到 'macos' ——
  * 这正是我们想要的：预览里看到的就是该平台的分支，不必等打包到真机才发现不对。
  */
 export type DesktopPlatform = 'macos' | 'windows' | 'linux'
@@ -126,20 +126,37 @@ export async function subscribeWindowState(onChange: (state: WindowState) => voi
  * 拖拽区标记（Tauri 的 `data-tauri-drag-region`）。
  *
  * 取值有三档（来自 tauri 的 `src/window/scripts/drag.js`，不是猜的）：
- *   - 裸属性 / "" / "true" → **只认自身**：只有直接按在这个元素上才拖
+ *   - 裸属性 / "" / "true" → 只认自身：只有直接按在这个元素上才拖
  *   - "deep"               → 认整棵子树：子树里任意一处按下都拖（可点元素除外）
  *   - "false"              → 在该元素处禁用拖拽
  * 判定方式是沿 `event.composedPath()` 从事件目标往上走，遇到
  * 「可点元素（button/a/input/select/textarea/label/summary、带 tabindex、交互 role）
- *  且自身没有这个属性」就**直接返回 false** 阻断。
+ *  且自身没有这个属性」就直接返回 false 阻断。
  *
- * 所以外壳用 `deep` 一档就够了：写在顶栏与侧栏品牌行的**容器**上，
+ * 所以外壳用 `deep` 一档就够了：写在顶栏与侧栏品牌行的容器上，
  * 空白处、文字、图标都能拖；搜索框与各种按钮因为是可点元素，自动不触发拖拽，
  * 不需要额外加 stopPropagation，也不需要把属性逐层铺到每个子元素上。
  *
- * ⚠️ 双击标题栏**不要自己实现**。同一个脚本里 Tauri 已经接管了：
+ * 双击标题栏不要自己实现。同一个脚本里 Tauri 已经接管了：
  * mousedown 双击 → `internal_toggle_maximize`（Windows/Linux 即时触发；
  * macOS 改在 mouseup 触发，且鼠标移动过就取消，以对齐系统行为）。
  * 我们再挂一个 onDoubleClick 去 setFullscreen，就会变成"既最大化又全屏"。
  */
 export const DRAG_REGION = { 'data-tauri-drag-region': 'deep' } as const
+
+/**
+ * 拖拽区标记的自身档（`"true"`）。
+ *
+ * 与上面那条互补，用途正好相反：`deep` 用在"整块壳都是拖拽区"的地方（顶栏、侧栏品牌行），
+ * `SELF` 用在"元素内部另有自己的拖动逻辑"的地方 —— 那里不能认子树，
+ * 否则窗框内部的空白也会被当成 OS 窗口的拖拽区，两个拖动同时生效
+ * （表现为"拖标题栏，窗口和内嵌窗口一起跑"）。
+ *
+ * 判据只有一条：这个元素的子树里有没有另一套 mousedown 拖动。
+ * 有 → `SELF`（只有直接按在元素自身才拖 OS 窗口）；
+ * 没有 → `deep`（子树里的空白、文字、图标都能拖，可点元素自动除外）。
+ *
+ * 用 `"true"` 而不是空串：两者在 `drag.js` 里同档，但显式取值多一层可读性 ——
+ * 空属性在 JSX 里容易被误读成"没写值 = 没生效"。
+ */
+export const DRAG_REGION_SELF = { 'data-tauri-drag-region': 'true' } as const

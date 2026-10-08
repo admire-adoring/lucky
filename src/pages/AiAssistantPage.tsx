@@ -23,10 +23,10 @@ import { findGenerating, nowTime, useAiStore } from '../stores/ai-store'
  * AI 助手（`/ai`）。
  *
  * ============================================================================
- * 这一页在应用外壳里的位置：**第十个页面，不是第十个域**
+ * 这一页在应用外壳里的位置：第十个页面，不是第十个域
  * ============================================================================
- * 应用有九个域（`WorkspaceModuleKey`），顶栏那九项就是它们。AI 助手**不进去**：
- *   · 它是**跨域**的（读的是全部项目/任务），不属于某一层；
+ * 应用有九个域（`WorkspaceModuleKey`），顶栏那九项就是它们。AI 助手不进去：
+ *   · 它是跨域的（读的是全部项目/任务），不属于某一层；
  *   · 加第十项要同时动 `WorkspaceNav` 的分组、Prism 的九组色槽、
  *     `WORKBENCH_SERIES_KEY` 那张名字桥、以及侧栏环的项数（弦长会变）。
  * 入口走顶栏右侧那颗 AI 按钮（原本指向工作台，现在指向这里）。
@@ -34,13 +34,13 @@ import { findGenerating, nowTime, useAiStore } from '../stores/ai-store'
  * ============================================================================
  * 第二轮原型加进来的交互，都在这一层落地
  * ============================================================================
- * · **阶段推进**：`advanceStage` 只做状态转移，计时由 `AiStageTicker` 统一驱动（挂在路由之外）。
+ * · 阶段推进：`advanceStage` 只做状态转移，计时由 `AiStageTicker` 统一驱动（挂在路由之外）。
  *   这样"停止/继续/切会话/切路由"四条路径都由 effect 的清理函数覆盖，
  *   不需要在 store 里维护一堆悬挂的定时器（第一版就是组件自己持 interval，
  *   同一条消息被重新挂载时会起第二个 —— 阶段跳着涨）。
- * · **搜索**：入口在顶栏 `actions` 槽（`AiSearchBox`），
+ * · 搜索：入口在顶栏 `actions` 槽（`AiSearchBox`），
  *   它只负责"选中哪条"，滚动与高亮由下面的 jump effect 统一做。
- * · **排队**：`queue` 在 store 里，消费发生在 `settle` —— 页面不需要知道。
+ * · 排队：`queue` 在 store 里，消费发生在 `settle` —— 页面不需要知道。
  */
 export function AiAssistantPage() {
   const userName = useAuthStore((state) => state.user?.name ?? '你')
@@ -73,17 +73,17 @@ export function AiAssistantPage() {
     record(location.pathname, 'AI 助手')
   }, [location.pathname, record])
 
-  /* ⚠️ 阶段推进器**已经不在这里了** —— 搬到了 `components/ai/AiStageTicker.tsx`，
+  /* 阶段推进器已经不在这里了 —— 搬到了 `components/ai/AiStageTicker.tsx`，
      由 `AiDrawerHost`（挂在路由之外）渲染。
-     原因：AI 助手现在有**两个视图**（这一页 + 全局抽屉），而它们共享同一份会话。
+     原因：AI 助手现在有两个视图（这一页 + 全局抽屉），而它们共享同一份会话。
      计时留在这里的话，在抽屉里提问时这一页没挂载 ⇒ 阶段永远停在第一拍；
      两边各写一份 ⇒ 同一条消息被推进两次、阶段跳着涨。
-     判据：**计时的生命周期必须比任何一个视图长，所以它只能挂在视图之外。** */
+     判据：计时的生命周期必须比任何一个视图长，所以它只能挂在视图之外。 */
 
   /**
    * 搜索命中 / 面板「定位」→ 滚到那条消息并亮一下。
    *
-   * ⚠️ 必须**排在会话切换的渲染之后**（`jumpTo` 是 store 里的信号，本 effect 在
+   * 必须排在会话切换的渲染之后（`jumpTo` 是 store 里的信号，本 effect 在
    *    下一次提交之后才跑）。直接在被点的那一刻 scrollIntoView 会找不到元素 ——
    *    切会话会让消息列表整片重挂。
    */
@@ -106,7 +106,7 @@ export function AiAssistantPage() {
     el.scrollTop = el.scrollHeight
   }, [messageCount, generatingMessage, activeId])
 
-  /* 未开始的会话：把欢迎语**渲染**出来（不落进会话数据）。
+  /* 未开始的会话：把欢迎语渲染出来（不落进会话数据）。
      这样"点开一个还没说过话的会话"看到的不是一块空白，而是能直接上手的四个入口。 */
   const greeting = useMemo(
     () => (session && session.messages.length === 0 ? greetingMessage(userName, nowTime()) : null),

@@ -790,7 +790,8 @@
        否则很快会出现"胶囊说已连接、按钮还写着连接"两套说法。 */
     let connState = 'idle';     /* idle | connecting | live | fallback */
 
-    /* 服务器卡片上的「运行中」跟着这条线走：键写在 localStorage，运维页靠 storage 事件同步 */
+    /* 服务器卡片名称行上那颗「已连接 / 未连接」胶囊跟着这条线走（那颗胶囊本身就是开关）：
+       键写在 localStorage，运维页靠 storage 事件同步。 */
     const TERM_KEY = 'ops-term:';
 
     function publishConn(on) {

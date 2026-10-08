@@ -1833,7 +1833,7 @@
                     <path d="M2.1 4.7 8 7.5l5.9-2.8M8 7.5v6.6"/>
                 </svg>
             </span>
-            <span class="viewer-name" title="支付系统重构 · 部署">支付系统重构</span>
+            <span class="viewer-name" title="Q4 客户交付系统重构 · 部署">Q4 客户交付系统重构</span>
             <span class="viewer-scope">部署</span>
         </div>
 
@@ -3598,11 +3598,14 @@
 
         if (ok) {
             setHint('部署完成 · ' + hhmmss(), false);
-            setExecMeta('部署完成 · ' + hhmmss(), 'ok');
+            /* 收尾状态行同时交代"这笔账去哪了"：发布记录的每一条都是**这次部署的副产品**，
+               不需要谁再去别的页面登记一遍（那一列列的值：版本/提交/变更说明来自发布包与 git，
+               部署人/服务器/耗时/结果只有这次会话知道）。 */
+            setExecMeta('部署完成 · ' + hhmmss() + ' · 已记入发布记录', 'ok');
             toast('部署完成');
         } else {
             setHint('部署失败，已自动回滚到上一个版本', true);
-            setExecMeta('部署失败，已自动回滚', 'err');
+            setExecMeta('部署失败，已自动回滚 · 已记入发布记录', 'err');
             toast('部署失败，已自动回滚', 'danger');
         }
         followTail = true;
@@ -4849,7 +4852,7 @@
     })();
 
     if (IS_WINDOW) {
-        document.title = '部署 · 支付系统重构（独立窗口）';
+        document.title = '部署 · Q4 客户交付系统重构（独立窗口）';
         setTimeout(() => toast('已在新窗口打开部署面板'), 500);
     }
 </script>

@@ -9,12 +9,15 @@ import { CalendarWorkspace } from './pages/workspace/CalendarWorkspace'
 import { KnowledgeWorkspace } from './pages/workspace/KnowledgeWorkspace'
 import { LearningWorkspace } from './pages/workspace/LearningWorkspace'
 import { LifeWorkspace } from './pages/workspace/LifeWorkspace'
+import { LearningProjectDetailPage } from './pages/workspace/LearningProjectDetailPage'
 import { ProjectsWorkspace } from './pages/workspace/ProjectsWorkspace'
 import { SettingsWorkspace } from './pages/workspace/SettingsWorkspace'
 import { TasksWorkspace } from './pages/workspace/TasksWorkspace'
 import { LogViewerPage } from './pages/workspace/LogViewerPage'
+import { TerminalPage } from './pages/TerminalPage'
 import { DeployViewerPage } from './pages/workspace/DeployViewerPage'
 import { WorkProjectDetailPage } from './pages/workspace/WorkProjectDetailPage'
+import { WorkServerDetailPage } from './pages/workspace/WorkServerDetailPage'
 import { WorkWorkspace } from './pages/workspace/WorkWorkspace'
 import { AiAssistantPage } from './pages/AiAssistantPage'
 import { LoginPage } from './pages/LoginPage'
@@ -35,14 +38,14 @@ function EntryRedirect() {
 }
 
 /**
- * 登录之后才挂的**应用级附加层**：AI 助手抽屉 + 阶段计时（后者由前者一起渲染）。
+ * 登录之后才挂的应用级附加层：AI 助手抽屉 + 阶段计时（后者由前者一起渲染）。
  *
- * ⚠️ 位置：`<Routes>` **之外**。用户的要求是「每个页面都可以弹出侧边栏」——
+ * 位置：`<Routes>` 之外。用户的要求是「每个页面都可以弹出侧边栏」——
  *    挂在页面里要走通三处壳（工作区壳 / 工作台 / 项目列表），漏一处就是
- *    "那一页点了没反应"且不报错；挂在路由之外由**构造**保证每页都有。
+ *    "那一页点了没反应"且不报错；挂在路由之外由构造保证每页都有。
  *    详细的取舍写在 `components/ai-drawer/AiDrawerHost.tsx`。
  *
- * ⚠️ 为什么在这里判登录态：抽屉要读登录态里的称呼（头像上的字）。
+ * 为什么在这里判登录态：抽屉要读登录态里的称呼（头像上的字）。
  *    未登录时全站只有登录页，挂上去会多出一个"登录页背后藏着助手"的状态 ——
  *    而且它会去读一个空 user。判据与 `RequireAuth` 同一条。
  */
@@ -54,7 +57,7 @@ function AuthedExtras() {
 /**
  * 模块工作区的路由表。
  *
- * 每个模块注册**两条**：裸路径（默认 Tab）与 `/:tab`（具体 Tab）。
+ * 每个模块注册两条：裸路径（默认 Tab）与 `/:tab`（具体 Tab）。
  *
  * 为什么是两条而不是 `/:tab?`：v7 的可选参数（`?`）在 `useParams` 里给的是
  * `undefined` 还是空串、以及在 `navigate('/life')` 与 `navigate('/life/')` 之间
@@ -63,11 +66,11 @@ function AuthedExtras() {
  */
 const WORKSPACE_ROUTES: { path: string; element: ReactNode }[] = [
   /**
-   * 工作台。**它现在也是一个 `WorkspacePageKey` 之外的"域"** ——
+   * 工作台。它现在也是一个 `WorkspacePageKey` 之外的"域" ——
    * 2026-09-22 统一到侧栏那套外壳之后，它有了自己的基路径 `/home` 与三个分区
    * （今日概览 / 最近活动 / AI 简报）。`/` 仍然可用，只是重定向到这里（见下面那条路由）。
    *
-   * ⚠️ 为什么必须给它一段真路径、而不是把分区做成页内状态：
+   * 为什么必须给它一段真路径、而不是把分区做成页内状态：
    *    其余八域的分区都是路由（`/life/habits` 这类），深链、后退键、以及"从别处跳进某个分区"
    *    三件事同时成立。工作台要是例外，`useModuleTab` 那套约定就得开一个口子。
    */
@@ -84,45 +87,82 @@ const WORKSPACE_ROUTES: { path: string; element: ReactNode }[] = [
   /**
    * 工作模块内打开的项目详情：`/work/projects/:id` 与 `/work/projects/:id/:tab`。
    *
-   * ⚠️ 为什么有这两条：在工作模块的「项目」分区里点开一个抽屉，**不跳去独立的项目模块**
+   * 为什么有这两条：在工作模块的「项目」分区里点开一个抽屉，不跳去独立的项目模块
    *    （`/projects/:id`），详情就在工作模块内打开 —— 环仍是工作模块的 7 个分区、
-   *    高亮停在「项目」上。正文与数据与 `/projects/:id` 是**同一份组件**
+   *    高亮停在「项目」上。正文与数据与 `/projects/:id` 是同一份组件
    *    （`components/workspace/project-detail/ProjectDetail.tsx`），差别只有壳。
    *
-   * ⚠️ 与 `/work/:tab` 不冲突：那一条是两段（`/work/projects` 落进去、给抽屉网格），
+   * 与 `/work/:tab` 不冲突：那一条是两段（`/work/projects` 落进去、给抽屉网格），
    *    这两条是三段与四段。React Router 按特异性排序，段数不同本来也不会互相抢。
    */
   { path: '/work/projects/:id', element: <WorkProjectDetailPage /> },
   { path: '/work/projects/:id/:tab', element: <WorkProjectDetailPage /> },
   /**
+   * 工作模块内的服务器详情：`/work/servers/:host`。
+   *
+   * 为什么有这一条：`工作-服务器-详情-index.html` 是一整页（四段：概览 / 项目 / 文档 /
+   *    文件位置），原型从台账页卡片浮层底部那枚「详情」点进来。落到应用里它就是
+   *    「服务器」这一项的下钻视图 —— 环仍是工作模块的 7 个分区、高亮停在「服务器」上。
+   *
+   * 与 `/work/:tab` 不冲突：那一条是两段（`/work/servers` 落进去、给卡片墙），
+   *    这一条是三段；与 `/work/projects/:id` 也不冲突（那一条的静态段是 `projects`）。
+   */
+  { path: '/work/servers/:host', element: <WorkServerDetailPage /> },
+  /**
    * 日志查看器：`/logs/:id`。
    *
-   * ⚠️ **它不在任何模块下**，也不套 `WorkspaceLayout` —— 原型就是一个
+   * 它不在任何模块下，也不套 `WorkspaceLayout` —— 原型就是一个
    *    `window.open` 出来的独立窗口（自带标题栏、服务器分段、刷新与关闭，
    *    而且没有任何模块导航）。套进模块外壳会同时多出侧栏环与顶栏，与它自己那条 bar 重复。
    *    所以它只借两样东西：`mw-root` 的令牌 + `data-module="work"` 的强调色。
-   *    **窗框由页面自己补**（`components/shell/MacWindow`：红黄绿三颗 / 拖动 / 最小化 /
+   *    窗框由页面自己补（`components/shell/MacWindow`：红黄绿三颗 / 拖动 / 最小化 /
    *    全屏），因为"独立窗口"这一层语义只有页面自己知道 —— 路由表只负责把它挂到一段
    *    自己的地址上。
    *
-   * ⚠️ 路径**刻意不挂在 `/work/projects/:id/logs`**：那会是四段，
-   *    与 `/work/projects/:id/:tab` **同形**（靠"静态段优先于动态段"才能分对，
+   * 路径刻意不挂在 `/work/projects/:id/logs`：那会是四段，
+   *    与 `/work/projects/:id/:tab` 同形（靠"静态段优先于动态段"才能分对，
    *    一旦有人把 tab 名写成 logs 就撞车）。两段路径没有这个歧义。
    */
   { path: '/logs/:id', element: <LogViewerPage /> },
   /**
    * 部署查看器：`/deploy/:id`。
    *
-   * ⚠️ 与 `/logs/:id` 是**同一形态的第二条**：原型也是 `window.open` 出来的独立窗口
+   * 与 `/logs/:id` 是同一形态的第二条：原型也是 `window.open` 出来的独立窗口
    *    （运维页 →「打开部署面板」），所以它同样不套 `WorkspaceLayout`、只借
    *    `mw-root` 的令牌 + `data-module="work"` 的强调色，窗框由页面自己补（`MacWindow`）。
    *
-   * ⚠️ 同样是**两段路径**，不挂在 `/work/projects/:id/deploy` —— 那会与
+   * 同样是两段路径，不挂在 `/work/projects/:id/deploy` —— 那会与
    *    `/work/projects/:id/:tab` 同形，一旦有人把 tab 名写成 deploy 就撞车。
    */
   { path: '/deploy/:id', element: <DeployViewerPage /> },
+  /**
+   * 终端：`/terminal/:id?host=<机器名>`。
+   *
+   * 第三个「整窗页面」（见上面两条）。它与日志/部署刻意不同的一点：不套
+   *    `MacWindow` —— 原型自己就是一整扇终端窗口（自带标题栏/红黄绿/标签页/状态栏），
+   *    再套一层会得到两排红黄绿。
+   *
+   * `host` 走查询串而不是路由段：原型就是 `?host=`，而且它决定「这是哪台机器的
+   *    终端」（提示符里的主机名、断开文案）。放查询串里刷新/深链都不会丢。
+   */
+  { path: '/terminal/:id', element: <TerminalPage /> },
   { path: '/learning', element: <LearningWorkspace /> },
   { path: '/learning/:tab', element: <LearningWorkspace /> },
+  /**
+   * 学习模块内打开的项目详情：`/learning/projects/:id` 与 `/learning/projects/:id/:tab`。
+   *
+   * 与 `/work/projects/:id` 那两条是同一形态的第三处。结构依据（2026-09-27 用户令）：
+   *    「工作区的项目依赖项目区／学习区的项目依赖项目区／项目区是整体全局的／
+   *      工作区的项目和学习区的项目，布局一致，只是有个性」。
+   *    正文与数据与 `/projects/:id`、`/work/projects/:id` 是同一份组件
+   *    （`components/workspace/project-detail/ProjectDetail.tsx`），差别只有壳。
+   *    列表那一层同样是共用的（`ProjectShelf` 按 `scope` 参数化）。
+   *
+   * 与 `/learning/:tab` 不冲突：那一条是两段，这两条是三段与四段。
+   *    React Router 按特异性排序，段数不同本来也不会互相抢。
+   */
+  { path: '/learning/projects/:id', element: <LearningProjectDetailPage /> },
+  { path: '/learning/projects/:id/:tab', element: <LearningProjectDetailPage /> },
   { path: '/knowledge', element: <KnowledgeWorkspace /> },
   { path: '/knowledge/:tab', element: <KnowledgeWorkspace /> },
   { path: '/settings', element: <SettingsWorkspace /> },
@@ -131,17 +171,17 @@ const WORKSPACE_ROUTES: { path: string; element: ReactNode }[] = [
    * 项目工作区：`/projects/:id` 与 `/projects/:id/:tab`。
    *
    * 这一页替代了原来的 `ProjectDetailPage`（旧玻璃材质那一版）。
-   * 之所以能替，是因为它现在是**按项目取数**的 —— `useProjectDetail(id)`
+   * 之所以能替，是因为它现在是按项目取数的 —— `useProjectDetail(id)`
    * 把任务 / 里程碑 / 文档 / 动态按该项目派生，8 个项目打开是 8 份内容。
    * （上一轮没换，正是因为当时那一版的内容还写死在原型的数据里：
    *   换过去会让每个项目长得一样，同时丢掉一页可用功能。）
    *
-   * ⚠️ 2026-09-25（第三轮）这两条**不再是详情唯一的地址**：同一页还挂在
+   * 2026-09-25（第三轮）这两条不再是详情唯一的地址：同一页还挂在
    *    `/work/projects/:id`（工作模块内打开，见上面那两条）。正文与数据是同一份组件
    *    （`components/workspace/project-detail/ProjectDetail.tsx`），只有壳不同。
    *    改详情内容时改那一个文件，两处同时生效。
    *
-   * ⚠️ 路由顺序：`/projects/:id` 与 `/projects/:id/:tab` 是两条不同的路径，
+   * 路由顺序：`/projects/:id` 与 `/projects/:id/:tab` 是两条不同的路径，
    * 不冲突；而 `/projects`（列表）也是独立的一条。React Router 按特异性排序，
    * 静态段优先于动态段，所以将来加 `/projects/new` 之类的静态子路径不会被 `:id` 抢走。
    */
@@ -160,9 +200,9 @@ export function App() {
         <IconSprite />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          {/* 工作台 = 首页。它现在是**九个域之一**（`/home`），与其余八域共用同一套外壳；
+          {/* 工作台 = 首页。它现在是九个域之一（`/home`），与其余八域共用同一套外壳；
               以前它是"自成一体的全屏页"，那一版的 `WorkbenchPage.tsx` 仍在仓库里但已无路由指向。
-              ⚠️ `/` 只做重定向：老书签、以及下面 `EntryRedirect` 的落点都还指着它。
+              `/` 只做重定向：老书签、以及下面 `EntryRedirect` 的落点都还指着它。
                  直接让 `/` 渲染工作台的话，工作台就会有两段可用的地址（`/` 与 `/home`），
                  "第一个分区用裸路径"那条约定会变得含糊。 */}
           <Route path="/" element={<Navigate to="/home" replace />} />
@@ -175,13 +215,13 @@ export function App() {
             }
           />
           {/*
-            AI 助手（`/ai`）—— 一个**独立页面，不是第十个域**。
-            ⚠️ 它不进 `WORKSPACE_ROUTES`：那张表的每一项都对应九域之一，
+            AI 助手（`/ai`）—— 一个独立页面，不是第十个域。
+            它不进 `WORKSPACE_ROUTES`：那张表的每一项都对应九域之一，
                `module` 会被拿去查 `MODULE_BASE_PATH` / `navLabel` / 环上的图标，
                而 AI 助手是跨域的（读全部项目与任务），没有"属于自己的分区"。
                塞进去会让 `useModuleTab` 拿一个不存在的模块去算默认 Tab。
 
-            ⚠️ 它**仍然在 RequireAuth 之内**：这一页要读登录态的称呼，
+            它仍然在 RequireAuth 之内：这一页要读登录态的称呼，
                而且它与九域共用顶栏 —— 未登录时顶栏的账户入口会指向一个空用户。
                让登录页之外的任何页面在未登录时可达，都是把"登录"这道门说成可选的。
           */}

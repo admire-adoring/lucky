@@ -5,10 +5,10 @@ import { AI_LIVE_STEPS, AI_STAGES } from '../../data/ai/conversations'
 import { pressable } from './pressable'
 
 /**
- * 生成中那条消息的**视图**：横向四拍阶段指示器 + 可展开的纵向实时步骤。
+ * 生成中那条消息的视图：横向四拍阶段指示器 + 可展开的纵向实时步骤。
  *
- * ⚠️ 这里**不再持有计时器**（第一版它自己跑 interval 并在结束时回调）。
- *    第二轮原型把"生成中"搬进了消息数据之后，计时必须由**页面**统一驱动 ——
+ * 这里不再持有计时器（第一版它自己跑 interval 并在结束时回调）。
+ *    第二轮原型把"生成中"搬进了消息数据之后，计时必须由页面统一驱动 ——
  *    否则同一条消息在"切走再切回来"时会重新起一个 interval，而旧的还在跑
  *    （症状是阶段跳着涨）。现在它只读 `stageIdx`，推进由 `advanceStage` 负责。
  */
@@ -26,7 +26,7 @@ export function AiLiveThinking({ stageIdx, open, onToggle }: AiLiveThinkingProps
     <div className={cn('thinking-live', open && 'open')}>
       <div className="stage-indicator" {...pressable(onToggle)}>
         {AI_STAGES.map((item, i) => (
-          /* ⚠️ 用 Fragment 而不是再包一层 span：`.stage-indicator` 是 flex 容器，
+          /* 用 Fragment 而不是再包一层 span：`.stage-indicator` 是 flex 容器，
              多一层元素会让 `gap` 把「图标 + 箭头」从一对拆成两格。 */
           <Fragment key={item.name}>
             <span className={cn('stage-item', i < stageIdx && 'done', i === stageIdx && 'active')}>

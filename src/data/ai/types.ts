@@ -8,18 +8,18 @@ import type { TextRun } from '../../types/workbench'
  * 富文本为什么是 `TextRun[]` 而不是 HTML 字符串
  * ============================================================================
  * 原型把强调直接写在字符串里（`今天有 <b>3 个日程</b>`），然后在脚本里
- * `innerHTML = m.text`。移植时**不能用 `dangerouslySetInnerHTML`** ——
+ * `innerHTML = m.text`。移植时不能用 `dangerouslySetInnerHTML` ——
  * 那等于把一段 HTML 当代码执行，而这段文本将来会来自用户自己的输入。
  * 项目里已经为这件事定过一次口径：`types/workbench.ts` 的 `TextRun`（`em` 片段数组），
- * `AssistantRail` 就按它渲染成 `<strong>`。这里**沿用同一套**，不另发明一份。
+ * `AssistantRail` 就按它渲染成 `<strong>`。这里沿用同一套，不另发明一份。
  *
- * ⚠️ 配套：生成器把原型 CSS 里的 `b` 选择器改道成了 `strong`（见 `build-ai-css.mjs` 的
+ * 配套：生成器把原型 CSS 里的 `b` 选择器改道成了 `strong`（见 `build-ai-css.mjs` 的
  *    TAG_REMAP）。两边不改一致的后果是"渲染 `<strong>`、CSS 配 `b`"——
  *    一个元素都匹配不到，强调色与字重静默失效。 */
 
 export type AiRole = 'user' | 'assistant'
 
-/** 附件 chip。原型里的 `{ name, size, type }` 三项都是**用户文件自己的元数据**，不是编的 */
+/** 附件 chip。原型里的 `{ name, size, type }` 三项都是用户文件自己的元数据，不是编的 */
 export interface AiAttachment {
   name: string
   size: string
@@ -39,9 +39,9 @@ export interface AiThoughtStep {
   /**
    * 这一步的耗时。
    *
-   * ⚠️ **本页不填它**（`time?` 因此是可选）。原型每一步都挂着 `0.1s / 0.6s`，
+   * 本页不填它（`time?` 因此是可选）。原型每一步都挂着 `0.1s / 0.6s`，
    *    消息头还有 `总计 1.2s` —— 那些是演示稿随手写的数：应用里这条链路是
-   *    **本地同步计算**，没有分步可测的耗时。理由与处置写在 `conversations.ts` 的文件头。
+   *    本地同步计算，没有分步可测的耗时。理由与处置写在 `conversations.ts` 的文件头。
    *    类型里保留这个槽位，是为了"将来真的接了后端"时有地方放，而不是现在编一个。
    */
   time?: string
@@ -62,7 +62,7 @@ export interface AiQuickPrompt {
   label: string
   /** 后面的说明 */
   hint: string
-  /** 点击后**真的发出去**的那句话 */
+  /** 点击后真的发出去的那句话 */
   ask: string
   icon: IconName
 }
@@ -89,7 +89,7 @@ export interface AiMessage {
   /**
    * 正在生成。
    *
-   * ⚠️ 原型第二轮把"生成中"从**全局变量**搬进了**消息自身**
+   * 原型第二轮把"生成中"从全局变量搬进了消息自身
    *    （`state.generating` → `msg.generating`，注释写的是「#17 存入数据」）。
    *    这一步是"继续生成"与"切会话不丢"能成立的前提：
    *    原来那条生成中的消息是临时 DOM，切走再切回来就没了。
@@ -112,11 +112,11 @@ export interface AiMessage {
 /**
  * 一个回答版本。
  *
- * ⚠️ 与原型的关键差别：原型的「重新生成」是 `buildReply(userText)` 再跑一遍 ——
- *    而它是**确定性**的，所以新版本和旧版本**文本完全一样**（唯一不同的是
+ * 与原型的关键差别：原型的「重新生成」是 `buildReply(userText)` 再跑一遍 ——
+ *    而它是确定性的，所以新版本和旧版本文本完全一样（唯一不同的是
  *    `totalTime` 那个 `Math.random()` 造出来的数）。也就是说原型的版本切换
  *    切了个寂寞，还顺带编了一个耗时。
- *    本页的处置见 `data/ai/reply.ts` 的 `variant`：事实同源，换的是**讲法**
+ *    本页的处置见 `data/ai/reply.ts` 的 `variant`：事实同源，换的是讲法
  *    （摘要 / 逐项 / 精简），于是版本切换真的有东西可切，且没有任何新数字。
  */
 export interface AiReplyVersion {
@@ -145,7 +145,7 @@ export interface AiContextOption {
 /**
  * 生成中排队的消息（第二轮原型新增的"队列"）。
  *
- * ⚠️ 它是**输入区的内容**而不是消息：入队时用户还没"发出去"，
+ * 它是输入区的内容而不是消息：入队时用户还没"发出去"，
  *    原型也是把队列放在 `state` 顶层（不是 `sessions` 里）。
  *    下一轮开始时才把 `text`/`attachments` 变成一条真正的用户消息。
  */
@@ -168,14 +168,14 @@ export interface AiSession {
   /**
    * 这一轮问答复用的上下文（第二轮原型新增）。
    *
-   * ⚠️ 存的是**目录项的 id**，不是名字 —— 原型存的是 `['支付系统重构', 'React 19 笔记']`
-   *    这类写死的字符串。名字当主键有两个毛病：改名就对不上、以及**它只能是演示数据**。
+   * 存的是目录项的 id，不是名字 —— 原型存的是 `['支付系统重构', 'React 19 笔记']`
+   *    这类写死的字符串。名字当主键有两个毛病：改名就对不上、以及它只能是演示数据。
    *    本页的目录来自 `data/ai/contexts.ts`，里面每一项都有真实来源（项目表 / 事实层）。
    */
   contexts: string[]
 }
 
-/** 模型档位（原型 `.model-option`）。`grad` 是**模型品牌标记**，不是应用状态色 —— 见 aside 的注释 */
+/** 模型档位（原型 `.model-option`）。`grad` 是模型品牌标记，不是应用状态色 —— 见 aside 的注释 */
 export interface AiModel {
   name: string
   sub: string

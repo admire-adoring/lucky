@@ -1,28 +1,28 @@
 /**
- * 部署窗口（运维 → 部署）的**常量与纯函数**。
+ * 部署窗口（运维 → 部署）的常量与纯函数。
  *
  * 来源：`design/work/工作-项目-项目详情-运维-部署-index.html` 的 `<script>`
  *      （第 1941–4529 行，约 2583 行 JS）。原型的「内容 + 计算」全挤在这一段里，
- *      与 DOM 操作混在一起，所以这里只把**与 DOM 无关的那部分**搬出来，让页面组件
+ *      与 DOM 操作混在一起，所以这里只把与 DOM 无关的那部分搬出来，让页面组件
  *      只关心渲染与状态机。
  *
  * 为什么单独成模块：
- *   · 这些是**数据与判定规则**，不是某个组件的内部实现 —— 比如「这条命令会不会停下来
+ *   · 这些是数据与判定规则，不是某个组件的内部实现 —— 比如「这条命令会不会停下来
  *     问人」的规则（detectAsk / autoInfo / needsHuman），页面、配置表单的提示行、
  *     摘要徽标三处都要用同一套口径，散在组件里迟早会分叉。
  *   · 纯函数可以脱离浏览器直接跑，改规则时能立刻验证，不用起页面。
  *
- * ⚠️ 刻意**留在页面组件里**的东西（不属于本模块）：
+ * 刻意留在页面组件里的东西（不属于本模块）：
  *   · 一切 `document.*` / `el()` 建元素 / 事件绑定 / 定时器 / `requestAnimationFrame`；
  *   · `renderXxx` 系列渲染函数（renderCfgList / renderConfig / renderFiles / renderSteps /
  *     renderPicker / …）、`showToast`、`openConfirm` / `closeModal`、目录选择器视图、
  *     主题、剪贴板、拖拽。
- *   · 那些函数里**读状态**的写法（如 `files()`、`currentId`）保留在页面 —— 本模块
+ *   · 那些函数里读状态的写法（如 `files()`、`currentId`）保留在页面 —— 本模块
  *     只把「给定输入怎么算」搬出来，状态的归属仍是页面。
  *
- * ⚠️ 一处刻意的改造：原型里 `sessionUser` 是个模块级可变变量（从 URL `?user=` 读），
+ * 一处刻意的改造：原型里 `sessionUser` 是个模块级可变变量（从 URL `?user=` 读），
  *    `autoInfo` 直接读它来判断「root 身份下 su/sudo 不问密码」。模块级可变状态会让这些
- *    函数不再纯，所以这里把连接身份改成**显式入参**下传（`autoInfo(run, sessionUser)` 等），
+ *    函数不再纯，所以这里把连接身份改成显式入参下传（`autoInfo(run, sessionUser)` 等），
  *    行为与原型一致：判定仍只看 `sessionUser === 'root'`。
  *    另有两处因 TS 类型收紧而重写、行为不变：`groupName`（原型用 `({}).name` 兜底，
  *    TS 不允许在 `{}` 上取属性）、`parseCmds` 的 JSON 分支（原样返回 JSON.parse 结果）。
@@ -171,7 +171,7 @@ export const DEPLOY_GROUPS: readonly DeployGroup[] = [
 ]
 
 /**
- * 演示用的 5 条配置。页面会把它拷进自己的状态再增删改，所以这里是**种子数据**。
+ * 演示用的 5 条配置。页面会把它拷进自己的状态再增删改，所以这里是种子数据。
  *
  * c3 的 `failAt: 'health'` 用来演示失败链；c4 第 2 条命令带 `ask: true`，
  * 演示「需要人工输入」（su 会停下来等密码）；c5 是同一件事的免密写法（全自动）。
@@ -257,7 +257,7 @@ export const PATH_PRESETS: readonly string[] = [
 ]
 
 /**
- * 「绑定本机文件」的常用项。第三条**本机没有**（见 LOCAL_FS）——
+ * 「绑定本机文件」的常用项。第三条本机没有（见 LOCAL_FS）——
  * 刻意留着，绑定之后立刻能看到「未找到」长什么样。
  */
 export const LOCAL_PRESETS: readonly string[] = [
@@ -286,7 +286,7 @@ export function fsFile(size: string, time: string): FsFile {
 }
 
 /**
- * 服务器目录**假树** —— 点「浏览服务器目录」时展开的就是它。
+ * 服务器目录假树 —— 点「浏览服务器目录」时展开的就是它。
  * 真实产品里这一段来自服务端（打开 → 请求当前目录 → 点目录 → 再请求下一级）。
  *
  * 层级刻意与三条常用路径对齐，所以「选出来的目录」和「手输的目录」落在同一套位置上；
@@ -495,7 +495,7 @@ export function checkStepName(fileCount: number, fileSrc: FileSrc): string {
 
 /**
  * 读到结构化的命令列表。表单里以 JSON 存在隐藏 input 上；
- * 也容忍纯文本（旧的「每行一条」）。注意它**不过滤空行**（cmdList 才过滤）。
+ * 也容忍纯文本（旧的「每行一条」）。注意它不过滤空行（cmdList 才过滤）。
  */
 export function parseCmds(v: CmdInput): RawCmdItem[] {
   if (typeof v === 'string') {
@@ -604,7 +604,7 @@ export function sudoersLine(run: string): string {
 }
 
 /**
- * 自动化就绪度：**只识别 + 给建议，不代改**。
+ * 自动化就绪度：只识别 + 给建议，不代改。
  * 同一条命令基本都有非交互写法，这里算出「建议写法」（`to`）摆在提示行里让用户照抄。
  * 「一键改写」已按用户要求移除 —— 命令是用户亲手写的，工具代它改比「告诉它建议怎么写」更容易出错。
  */
@@ -683,7 +683,7 @@ export function needsHuman(x: CmdItem, sessionUser: string): boolean {
 /**
  * 一条配置整体的自动化程度。
  *
- * 「全自动」= 没有任何人工标记，**且**没有「可能还要密码」的命令 ——
+ * 「全自动」= 没有任何人工标记，且没有「可能还要密码」的命令 ——
  * su -c / sudo（无 -n）都不算，别把「大概能跑」说成「全自动」。
  */
 export function autoSummary(c: DeployConfig | null | undefined, sessionUser: string): AutoSummary {
@@ -764,7 +764,7 @@ export function fsDirFor(parts: readonly string[]): string[] {
 }
 
 /**
- * 只数**子目录**：这个视图只列目录，拿 children 总数会把看不见的文件算进去，
+ * 只数子目录：这个视图只列目录，拿 children 总数会把看不见的文件算进去，
  * 出现「显示 3 项却只有 2 行」这种对不上的账。
  */
 export function dirCount(node: FsDir): number {

@@ -94,7 +94,7 @@ export function LoginPage() {
         </div>
 
         <div className="relative z-[1] my-auto max-w-[520px] py-10">
-          {/* 标题：原来是**渐变文字**（`linear-gradient(120deg,#fff 30%, rgba(255,255,255,.68))`
+          {/* 标题：原来是渐变文字（`linear-gradient(120deg,#fff 30%, rgba(255,255,255,.68))`
               + bg-clip:text + text-transparent）。纯色化只能落成一个文字色，
               取白 —— 它在深色品牌面板上对比度最高（约 17:1），
               而那半截 68% 的白本来就在 4.5 判据的边缘上。 */}
@@ -261,14 +261,14 @@ export function LoginPage() {
               type="submit"
               disabled={pending}
               className={cn(
-                // ⚠️ 原来还挂着 `group` 与 `overflow-hidden` —— 它们只为那颗"扫光"存在
+                // 原来还挂着 `group` 与 `overflow-hidden` —— 它们只为那颗"扫光"存在
                 // （`group-hover:translate-x-full` 与把扫光裁在按钮内）。
                 // 扫光删了，这两个类也就没有消费者了，一并去掉。
                 'relative flex h-12 w-full items-center justify-center gap-2 rounded-md border-0 bg-[color:var(--ink-solid)] text-15 font-semibold tracking-[.01em] shadow-[0_10px_26px_rgba(16,18,24,.24)] transition-all duration-150 ease-out hover:bg-[color:var(--ink-solid-hover)] hover:shadow-[0_18px_38px_rgba(16,18,24,.3)] active:scale-[.988]',
                 pending ? 'pointer-events-none text-transparent' : 'text-white',
               )}
             >
-              {/* ⚠️ 这里原本还有一颗"扫光"（hover 时从按钮左侧扫到右侧的斜向白色渐变）。
+              {/* 这里原本还有一颗"扫光"（hover 时从按钮左侧扫到右侧的斜向白色渐变）。
                   纯色范式里删掉：它是玻璃材质最典型的一件装饰，而登录按钮是近黑实底 ——
                   上面加一道白光是"给不透明的东西打高光"，物理上不成立。 */}
               <span className="relative z-[1]">登录</span>

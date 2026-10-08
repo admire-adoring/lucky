@@ -3,7 +3,7 @@ import type { FocusItem, FocusTone } from '../../types/workbench'
 
 /**
  * 焦点项的语气 → 类串。只影响颜色，不影响语义。
- * ⚠️ `tag` 那一档承载文字，所以 danger/warn 用的是 `-bg` + `-strong` 组合，
+ * `tag` 那一档承载文字，所以 danger/warn 用的是 `-bg` + `-strong` 组合，
  *    而不是主色阶压在薄染上（那个组合在 11px 下只有 2.8:1）。
  */
 const FOCUS_TONE: Record<FocusTone, { dot: string; tag: string }> = {
@@ -19,11 +19,11 @@ interface FocusPanelProps {
 }
 
 /**
- * 「今日焦点」：从项目数据里挑出来的**具体是哪几件**。
+ * 「今日焦点」：从项目数据里挑出来的具体是哪几件。
  *
- * 判据：Hero 补的是磁贴没说的那部分 —— 下方磁贴给的全是**统计**
+ * 判据：Hero 补的是磁贴没说的那部分 —— 下方磁贴给的全是统计
  * （完成率 / 分布 / 到期压力都是聚合值），缺"具体是哪几件"。
- * 所以这里只引用 `projects.ts` 已有的字段，**不造新数字**。
+ * 所以这里只引用 `projects.ts` 已有的字段，不造新数字。
  */
 export function FocusPanel({ items, emptyHint }: FocusPanelProps) {
   return (
@@ -38,7 +38,7 @@ export function FocusPanel({ items, emptyHint }: FocusPanelProps) {
           return (
             <li
               key={`${item.name}-${item.tag}`}
-              // ⚠️ 这里原本还带 `g--refr`（Prism 的"边缘折射"层：一条 160° 的斜向
+              // 这里原本还带 `g--refr`（Prism 的"边缘折射"层：一条 160° 的斜向
               // 白/暖色罩，`::before` 画的）。纯色化把它连同令牌一起删了 ——
               // 实底上那道折射只会读成"卡片右上角有一片洗不掉的暖灰"。
               className="flex items-start gap-2.5 rounded-xl border border-line g g3 px-3 py-2.5"

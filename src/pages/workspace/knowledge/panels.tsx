@@ -5,11 +5,12 @@
  * 事实源：design/know/knowledge_index.html
  * 重新生成：node design/gen-workspace-pages.mjs
  *
- * 这里**只有标记**，没有行为：每个 onclick 都被翻译成 `handlers.xxx(...)`，
+ * 这里只有标记，没有行为：每个 onclick 都被翻译成 `handlers.xxx(...)`，
  * 实现写在手写的 <KnowledgeWorkspace />（同目录）。
  */
 
 import type { ModuleTab } from '../../../data/workspace/types'
+import { KnowledgeGraph } from '../../../components/workspace/knowledge/KnowledgeGraph'
 
 /** Tab 定义（键 + 标签）。标签与原型顶栏面包屑的 titleMap 交叉校验过。 */
 export const TABS: ModuleTab[] = [
@@ -187,26 +188,14 @@ export function TagsPanel({ handlers: _handlers }: { handlers: Handlers }) {
   )
 }
 
-export function GraphPanel({ handlers: _handlers }: { handlers: Handlers }) {
-  return (
-    <>
-      <section className="card">
-      <div className="card-title">双链图谱</div>
-      <div className="graph-canvas">
-      <div className="graph-node center" style={{ top: "110px", left: "calc(50% - 40px)" }}>个人系统</div>
-      <div className="graph-node" style={{ top: "30px", left: "40px" }}>React</div>
-      <div className="graph-node" style={{ top: "30px", right: "40px" }}>Vite</div>
-      <div className="graph-node" style={{ bottom: "30px", left: "60px" }}>UI 设计</div>
-      <div className="graph-node" style={{ bottom: "30px", right: "60px" }}>架构</div>
-      <div className="graph-node" style={{ top: "130px", left: "20px" }}>TypeScript</div>
-      <div className="graph-node" style={{ top: "130px", right: "20px" }}>CSS</div>
-      </div>
-      <div className="notice" style={{ marginTop: "12px" }}>
-      节点大小代表笔记数量，连线代表双向链接。点击节点可查看关联笔记。
-      </div>
-      </section>
-    </>
-  )
+export function GraphPanel({ handlers }: { handlers: Handlers }) {
+  /* 2026-09-28 手写替换。此处原本是 `knowledge_index.html` 生成的一份静态摆位图
+     （7 个 `.graph-node` 用行内 `top/left` 钉在画布上，没有真实拓扑、点不动）。
+     生成链已退役 ⇒ 这一格按手写维护，事实源 `design/know/知识图谱.html`；
+     实现放在 `components/workspace/knowledge/KnowledgeGraph.tsx`，
+     与文档图谱共用 `components/graph/*` 那套内核（布局 / 画布）。
+     旧的 `.graph-canvas` / `.graph-node` 那几条 CSS 从此零消费者 —— 按本仓口径留规则不清。 */
+  return <KnowledgeGraph notice={handlers.notice} />
 }
 
 export function FavoritesPanel({ handlers }: { handlers: Handlers }) {
@@ -269,7 +258,7 @@ export function ArchivePanel({ handlers: _handlers }: { handlers: Handlers }) {
 /**
  * 顶栏动作区 —— 原型的 `.topbar-actions` 里的按钮。
  *
- * 为什么要生成：这排按钮**每个模块都不一样**（任务页是「AI 拆解 / 新建任务」，
+ * 为什么要生成：这排按钮每个模块都不一样（任务页是「AI 拆解 / 新建任务」，
  * 生活页是「快速记录」，设置页一个都没有）。只把它们交给外壳会全丢掉 ——
  * 而且丢得没有声响：外壳照常渲染，只是那排主入口不存在了。
  * 主题开关已从这里剔掉（外壳自己提供一份，全站只能有一个主题开关）。

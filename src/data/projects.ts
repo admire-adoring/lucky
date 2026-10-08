@@ -30,6 +30,7 @@ export const PROJECTS: Project[] = [
     visibility: '家庭可见',
     repoUrl: '—',
     docsUrl: '旅行资料库',
+    path: '~/Documents/旅行/2026-马尔代夫',
     risk: null,
   },
   {
@@ -55,6 +56,7 @@ export const PROJECTS: Project[] = [
     visibility: '家庭可见',
     repoUrl: '—',
     docsUrl: '装修报价与图纸',
+    path: '~/Documents/装修/老房翻新',
     risk: {
       title: '工期已延期 5 天',
       description: '主卫瓷砖到货延迟，瓦工无法进场。建议启用备用供应商或顺延交付日期。',
@@ -83,6 +85,7 @@ export const PROJECTS: Project[] = [
     visibility: '工作内部',
     repoUrl: 'git@internal:core-platform.git',
     docsUrl: '技术方案 v3',
+    path: '~/Craft/riding-fancy/lucky-y',
     risk: {
       title: '鉴权迁移存在兼容风险',
       description: '旧版 Token 与新版 JWT 并存，需在灰度阶段验证双写一致性。',
@@ -136,6 +139,7 @@ export const PROJECTS: Project[] = [
     visibility: '私有',
     repoUrl: 'git@personal:mini-runtime.git',
     docsUrl: '读书笔记合集',
+    path: '~/Code/rust/mini-runtime',
     risk: null,
   },
   {
@@ -161,6 +165,7 @@ export const PROJECTS: Project[] = [
     visibility: '私有',
     repoUrl: '—',
     docsUrl: '课程大纲',
+    path: '~/Code/learn/d3-course',
     risk: null,
   },
   {
@@ -186,6 +191,7 @@ export const PROJECTS: Project[] = [
     visibility: '公开',
     repoUrl: 'git@personal:blog.git',
     docsUrl: '设计系统说明',
+    path: '~/Code/blog/v2',
     risk: null,
   },
   {

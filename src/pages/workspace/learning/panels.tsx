@@ -5,10 +5,12 @@
  * 事实源：design/study/study_index.html
  * 重新生成：node design/gen-workspace-pages.mjs
  *
- * 这里**只有标记**，没有行为：每个 onclick 都被翻译成 `handlers.xxx(...)`，
+ * 这里只有标记，没有行为：每个 onclick 都被翻译成 `handlers.xxx(...)`，
  * 实现写在手写的 <LearningWorkspace />（同目录）。
  */
 
+import { DocLibrary } from '../../../components/workspace/project-detail/DocLibrary'
+import { LEARN_NOTES } from '../../../data/workspace/learn-notes'
 import type { ModuleTab } from '../../../data/workspace/types'
 
 /** Tab 定义（键 + 标签）。标签与原型顶栏面包屑的 titleMap 交叉校验过。 */
@@ -19,7 +21,16 @@ export const TABS: ModuleTab[] = [
   { key: 'resources', label: '资源库' },
   { key: 'notes', label: '笔记' },
   { key: 'review', label: '复习' },
-  { key: 'practice', label: '实践项目' },
+  /**
+   * key 是 `projects` 而不是 `practice`（2026-09-27 改）。
+   *    `ModuleTab.key` 同时是地址段（`/learning/<key>`），所以这一格的口径
+   *    要与项目区那一套同形：工作模块是 `/work/projects` + `/work/projects/:id`，
+   *    学习模块现在是 `/learning/projects` + `/learning/projects/:id`。
+   *    旧地址 `/learning/practice` 会静默落到默认分区（`useModuleTab` 找不到 key
+   *    就回第一个）—— 与 2026-09-25 工作模块分区 12→7 时同样的代价，可接受。
+   *    标签仍是「实践项目」，用户看到的名字没变。
+   */
+  { key: 'projects', label: '实践项目' },
   { key: 'output', label: '输出' },
 ]
 
@@ -29,7 +40,6 @@ export interface Handlers {
   notice: (arg0: string) => void
   openNote: (arg0: string) => void
   openOutput: (arg0: string) => void
-  openPractice: (arg0: string) => void
   openResource: (arg0: string) => void
   openReview: (arg0: string) => void
 }
@@ -38,7 +48,6 @@ export const MODAL_SPECS = {
   openResource: { title: null, arg: true },
   openNote: { title: null, arg: true },
   openReview: { title: '复习', arg: true },
-  openPractice: { title: null, arg: true },
   openOutput: { title: null, arg: true },
 } as const
 
@@ -265,41 +274,27 @@ export function ResourcesPanel({ handlers }: { handlers: Handlers }) {
   )
 }
 
+/* ----------------------------------------------------------------------------
+   笔记（`/learning/notes`）—— 整页复用项目详情「文档」那一格的布局与组件
+   ----------------------------------------------------------------------------
+   2026-09-27：这一页从"一张卡 + 4 条 emoji 卡片行"换成 `DocLibrary`（左栏两级目录 +
+   工具栏 + 书墙 / 列表 / 图谱 + 主从详情屏）—— 与 `design/project/项目-文档主页-index.html`
+   是同一个布局、同一个组件，与工作模块的「文档索引」并列。
+
+   这一页的两个维度：粗的 = 学习对象（书 / 课程 / 项目）、细的 = 主题
+      ⇒ 左栏标题传「来源与主题」。
+   与「知识库 · 笔记」不是一回事（那一边是沉淀库、挂在概念下）——
+      判据见 `data/workspace/learn-notes.ts` 的文件头。
+   清单在 `data/workspace/learn-notes.ts`（不进 `POOL`：那个池子装的是"项目内文档"）。
+   ---------------------------------------------------------------------------- */
 export function NotesPanel({ handlers }: { handlers: Handlers }) {
   return (
-    <>
-      <section className="card">
-      <div className="card-title">最近笔记</div>
-      <div className="doc-item" onClick={() => handlers.openNote('React 19 新特性')}>
-      <div className="doc-icon">📝</div>
-      <div className="doc-info">
-      <div className="doc-name">React 19 新特性</div>
-      <div className="doc-meta">React / 前端 · 昨天</div>
-      </div>
-      </div>
-      <div className="doc-item" onClick={() => handlers.openNote('Vite 构建优化记录')}>
-      <div className="doc-icon">📝</div>
-      <div className="doc-info">
-      <div className="doc-name">Vite 构建优化记录</div>
-      <div className="doc-meta">Vite / 构建 · 2 天前</div>
-      </div>
-      </div>
-      <div className="doc-item" onClick={() => handlers.openNote('弥散风格 UI 要点')}>
-      <div className="doc-icon">📝</div>
-      <div className="doc-info">
-      <div className="doc-name">弥散风格 UI 要点</div>
-      <div className="doc-meta">UI / 设计 · 3 天前</div>
-      </div>
-      </div>
-      <div className="doc-item" onClick={() => handlers.openNote('TypeScript 类型体操笔记')}>
-      <div className="doc-icon">📝</div>
-      <div className="doc-info">
-      <div className="doc-name">TypeScript 类型体操笔记</div>
-      <div className="doc-meta">TS / 类型 · 5 天前</div>
-      </div>
-      </div>
-      </section>
-    </>
+    <DocLibrary
+      docs={LEARN_NOTES}
+      projectName="学习模块"
+      groupLabel="来源与主题"
+      notice={(text) => handlers.notice(text)}
+    />
   )
 }
 
@@ -345,36 +340,14 @@ export function ReviewPanel({ handlers }: { handlers: Handlers }) {
   )
 }
 
-export function PracticePanel({ handlers }: { handlers: Handlers }) {
-  return (
-    <>
-      <section className="card">
-      <div className="card-title">实践项目</div>
-      <div className="doc-item" onClick={() => handlers.openPractice('个人系统前端')}>
-      <div className="doc-icon">🧩</div>
-      <div className="doc-info">
-      <div className="doc-name">个人系统前端</div>
-      <div className="doc-meta">进度 55% · 关联笔记 12 · 进行中</div>
-      </div>
-      </div>
-      <div className="doc-item" onClick={() => handlers.openPractice('Vite 插件练习')}>
-      <div className="doc-icon">🧩</div>
-      <div className="doc-info">
-      <div className="doc-name">Vite 插件练习</div>
-      <div className="doc-meta">进度 30% · 关联笔记 5 · 进行中</div>
-      </div>
-      </div>
-      <div className="doc-item" onClick={() => handlers.openPractice('CSS 弥散风格组件库')}>
-      <div className="doc-icon">🧩</div>
-      <div className="doc-info">
-      <div className="doc-name">CSS 弥散风格组件库</div>
-      <div className="doc-meta">进度 80% · 关联笔记 8 · 进行中</div>
-      </div>
-      </div>
-      </section>
-    </>
-  )
-}
+/* 原型这里有一个 `PracticePanel`（「实践项目」：硬编 3 条项目名 + 点开弹窗），
+   2026-09-27 已删，连同它的弹窗体 `OpenPracticeModal` 与 `openPractice` 这个回调。
+   原因不是清理癖：那一格现在是项目区的一个入口（用户令「学习区的项目依赖项目区」），
+   正文由 `components/workspace/learning/PracticeProjects.tsx` → `ProjectShelf` 渲染，
+   详情走 `/learning/projects/:id`。留着旧标记就是同一件事两个入口、两条会各自漂移的实现
+   —— 与 2026-09-25 工作模块删掉项目弹窗是同一条判据。
+   所以 `.doc-item` / `.detail-section` 那批类名在学习模块下仍有别的消费者
+      （资源库 / 输出等分区），别当成死规则清掉。 */
 
 export function OutputPanel({ handlers }: { handlers: Handlers }) {
   return (
@@ -410,7 +383,7 @@ export function OutputPanel({ handlers }: { handlers: Handlers }) {
 /**
  * 顶栏动作区 —— 原型的 `.topbar-actions` 里的按钮。
  *
- * 为什么要生成：这排按钮**每个模块都不一样**（任务页是「AI 拆解 / 新建任务」，
+ * 为什么要生成：这排按钮每个模块都不一样（任务页是「AI 拆解 / 新建任务」，
  * 生活页是「快速记录」，设置页一个都没有）。只把它们交给外壳会全丢掉 ——
  * 而且丢得没有声响：外壳照常渲染，只是那排主入口不存在了。
  * 主题开关已从这里剔掉（外壳自己提供一份，全站只能有一个主题开关）。
@@ -496,25 +469,10 @@ export function OpenReviewModal({ handlers, question }: { handlers: Handlers; qu
   )
 }
 
-/** 弹窗体：原型 `openPractice` 标题由触发参数决定 */
-export function OpenPracticeModal({ handlers, title: _title }: { handlers: Handlers; title: string }) {
-  return (
-    <>
-      <div className="detail-section">
-      <div className="detail-label">项目信息</div>
-      <ul className="detail-list">
-      <li>进度：55%</li>
-      <li>关联笔记：12 条</li>
-      <li>状态：进行中</li>
-      </ul>
-      </div>
-      <div className="form-actions">
-      <button className="btn btn-ghost" onClick={() => handlers.closeModal()}>关闭</button>
-      <button className="btn btn-primary" onClick={() => handlers.notice('原型演示：进入项目')}>进入项目</button>
-      </div>
-    </>
-  )
-}
+/* 这里原本是 `OpenPracticeModal`（原型 `openPractice` 的空壳弹窗体：写死的
+   「进度 55% / 关联笔记 12 条」）。2026-09-27 随 `PracticePanel` 一起删 ——
+   它展示的三行与项目区真实数据无关，而「实践项目」现在直接进项目详情页。
+   见文件里 `OutputPanel` 上方那段说明。 */
 
 /** 弹窗体：原型 `openOutput` 标题由触发参数决定 */
 export function OpenOutputModal({ handlers, title: _title }: { handlers: Handlers; title: string }) {

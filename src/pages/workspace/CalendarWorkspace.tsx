@@ -35,7 +35,7 @@ const PANELS: Record<string, ComponentType<{ handlers: Handlers }>> = {
 /**
  * 日程（原型目录名是 `candle` —— 烛，指"计时"那层意象；代码里统一用路由口径 `calendar`）。
  *
- * `openEvent(title)` 是**带参数**的弹窗：点哪一条日程，弹的就是那一条。
+ * `openEvent(title)` 是带参数的弹窗：点哪一条日程，弹的就是那一条。
  * 参数存在 `useModuleModals` 里与弹窗 key 同一个状态，避免"参数换了但弹窗没换"。
  */
 export function CalendarWorkspace() {

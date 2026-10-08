@@ -1,17 +1,17 @@
 /* ============================================================================
    src/styles/sidebar-shell.css —— 模块工作区外壳（sidebar 版）
    ----------------------------------------------------------------------------
-   ⚠️ 这一份原来是**生成物**（事实源 design/sidebar/sidebar_index.html，
-      跑 `node design/build-sidebar-css.mjs`）。**那个脚本已随原型生成链一起退役**
-      （见 2026-09-25 的删除），所以本文件现在是**手写维护**的：
-      改它不必再跑脚本，但也**没有 `--check` 门禁替你比对原型**了 ——
+   这一份原来是生成物（事实源 design/sidebar/sidebar_index.html，
+      跑 `node design/build-sidebar-css.mjs`）。那个脚本已随原型生成链一起退役
+      （见 2026-09-25 的删除），所以本文件现在是手写维护的：
+      改它不必再跑脚本，但也没有 `--check` 门禁替你比对原型了 ——
       改动请连同原型 design/sidebar/sidebar_index.html 一起改，别让两边漂移。
 
    这一层与 「module-workspace.css」（内核）的分工：
-     · 内核 = 8 个模块原型共用的**内容**层（.card / .btn / .tabs / .panel / 表单 / 弹窗）
-     · 本文件 = 应用**外壳**层（顶栏九模块主导航 / 侧栏头 / 工具槽 / 折叠 / 命令面板 / 栅格）
+     · 内核 = 8 个模块原型共用的内容层（.card / .btn / .tabs / .panel / 表单 / 弹窗）
+     · 本文件 = 应用外壳层（顶栏九模块主导航 / 侧栏头 / 工具槽 / 折叠 / 命令面板 / 栅格）
    所有选择器收在 「.sb-root」 之下，撞车的类名已改名（见脚本 RENAME），
-   所以它与内核**零冲突** —— 导入顺序不再承担任何隐含前提。
+   所以它与内核零冲突 —— 导入顺序不再承担任何隐含前提。
 
    产出统计：保留 114 块 · 丢弃 54 块 · 复用内核环 37 块
    ========================================================================= */
@@ -25,57 +25,57 @@
   --sb-topbar-h: 68px;
 
   /* 浮层底衬（顶栏 / 命令面板 / 各种下拉）。
-     ⚠️ 2026-09-25 纯色化：原型是 「--bg-float」 的 α 值（亮 .78 / 暗 .85），
-     理由是"它浮在别的玻璃**之上**，所以要比侧栏更实一档"。
+     2026-09-25 纯色化：原型是 「--bg-float」 的 α 值（亮 .78 / 暗 .85），
+     理由是"它浮在别的玻璃之上，所以要比侧栏更实一档"。
      纯色范式里"更实一档"不再有中间态 —— 直接给卡面：
-       · 顶栏与侧栏是**同色**（都是 --g-shell），两者相邻，交界处只有一条 1px 分隔线；
+       · 顶栏与侧栏是同色（都是 --g-shell），两者相邻，交界处只有一条 1px 分隔线；
        · 下拉/气泡是卡面（--g-card），在暗色下比外壳亮一档，仍然"浮得起来"。
-     这个映射同时修掉一处隐患：`--sb-bg-float` 的消费点**不只在 .sb-root 里**
+     这个映射同时修掉一处隐患：`--sb-bg-float` 的消费点不只在 .sb-root 里
      （AI 层的下拉也读它，见 ai-assistant.css），而 AI 层的根节点没有 .sb-root，
      原来取的是 html 上的兜底值 —— 现在两类消费者都指向同一支实色。 */
   --sb-bg-float: var(--g-card);
 
   /* 悬停底。原型 「--bg-hover」：亮 rgba(15,23,42,.045) / 暗 rgba(255,255,255,.05)。
-     ⚠️ 别改回 「color-mix(var(--mw-text-primary) 5%)」：那会跟着**主文字色**走，
+     别改回 「color-mix(var(--mw-text-primary) 5%)」：那会跟着主文字色走，
         而暗色的主文字是 「#F1F5F9」（偏蓝白），压出来的悬停底会带一层冷调。
-     ⚠️ 纯色化：改用面阶里的 `--g-hover`（亮 #EDF0F4 / 暗 #1E2739），与
-        `module-workspace.css` 的悬停底**同源** —— 原来它是一层半透明叠色，
+     纯色化：改用面阶里的 `--g-hover`（亮 #EDF0F4 / 暗 #1E2739），与
+        `module-workspace.css` 的悬停底同源 —— 原来它是一层半透明叠色，
         现在是同一个"悬停面"，两个层不会再各调各的。 */
   --sb-bg-hover: var(--g-hover);
 
-  /* 浮动投影。原型 「--shadow-float」：**两层** —— 大范围弥散 + 贴边接触影。
+  /* 浮动投影。原型 「--shadow-float」：两层 —— 大范围弥散 + 贴边接触影。
      顶栏 / 侧栏 / 主区 / 命令面板四块读的都是这一支。
-     ⚠️ 纯色化：原型那两层（40px 弥散 + 8px 接触）是**给玻璃配的** ——
+     纯色化：原型那两层（40px 弥散 + 8px 接触）是给玻璃配的 ——
      半透明面板与底衬亮度差小，需要一大团柔光把"浮起"说出来。
      实底上同一团影会发虚（边缘本来就清楚），改成面阶里的 `--g-sh-2`：
      近段 12px 定轮廓、远段 3px 接底。四块消费点一起变，不会各改各的。 */
   --sb-shadow-float: var(--g-sh-2);
 
   /* 强调色的柔底与辉光。原型按模块写成 「rgba(当前模块主色, α)」，
-     这里用 color-mix 在 sRGB 下取同一个 α —— 于是它会**跟着模块走**，
+     这里用 color-mix 在 sRGB 下取同一个 α —— 于是它会跟着模块走，
      不需要为九个模块各写一遍。
-     ⚠️ α 取的是原型**运行时**的值（脚本 applyColors：亮 .10/.28、暗 .16/.40），
+     α 取的是原型运行时的值（脚本 applyColors：亮 .10/.28、暗 .16/.40），
         不是它 :root/.dark 里那几支字面量。原型的 :root 写 .10/.14、.dark 写
         「--m-soft: rgba(...,0.14)」，但脚本一加载就会把它们覆盖成 .10/.16 ——
-        **暗色那支差 0.02**。读字面量会得到一支原型从来不显示的值。 */
+        暗色那支差 0.02。读字面量会得到一支原型从来不显示的值。 */
   --sb-m-soft: color-mix(in srgb, var(--mw-m-main) 10%, transparent);
   --sb-m-glow: color-mix(in srgb, var(--mw-m-main) 28%, transparent);
 
-  /* 强调色的**文字档** —— 所有"淡染底 + 域色文字"的地方（超级菜单的当前项、
+  /* 强调色的文字档 —— 所有"淡染底 + 域色文字"的地方（超级菜单的当前项、
      圆盘的名称条）都走它。
-     ⚠️ **不能直接用 `--mw-m-main`**：那是"装饰档"（实底、描边、图形用它），
+     不能直接用 `--mw-m-main`：那是"装饰档"（实底、描边、图形用它），
         当文字色只有 3~4:1 —— tasks 的琥珀在白底上仅 2.1:1，而这两处都是小字（4.5:1 门槛）。
      配方取自原型：`color-mix(强调色 66%, 正文色)`，压深到能读。
      在 `.sb-root` 这一层算一次，于是它跟着模块走，九个模块不必各写一遍。
      暗色下同样成立：正文色是浅的，66% 混完仍然在暗底上有足够对比 ——
-     所以**不需要**像 `--sb-m-soft` / `--sb-m-glow` 那样再补一条暗色覆写。 */
+     所以不需要像 `--sb-m-soft` / `--sb-m-glow` 那样再补一条暗色覆写。 */
   --sb-m-ink: color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
 }
 
-/* ⚠️ 选择器抬到 「html[data-theme='dark'] .sb-root」（0,2,0）而不是 「.sb-root.dark」：
+/* 选择器抬到 「html[data-theme='dark'] .sb-root」（0,2,0）而不是 「.sb-root.dark」：
    应用的主题写在 「<html>」 上，「.sb-root」 上永远没有那个类 —— 写成后者的症状是
-   **暗色下这几支全部不动**（仍取亮色值），而页面其余部分已经变暗，看起来像"漏改了几处"。
-   ⚠️ 纯色化后这一块**少了两支**：`--sb-bg-float` / `--sb-bg-hover` 现在指到
+   暗色下这几支全部不动（仍取亮色值），而页面其余部分已经变暗，看起来像"漏改了几处"。
+   纯色化后这一块少了两支：`--sb-bg-float` / `--sb-bg-hover` 现在指到
    `--g-card` / `--g-hover`，那两支自己就是按主题分档的，在这里再写一遍等于
    用写死的值盖掉主题自适应 —— 正是"一块覆写如果只是在替换写死的常量，
    就说明常量该换成令牌"那一条（同样的清理见 module-workspace.css 的项目抽屉段）。 */
@@ -98,7 +98,7 @@ html[data-theme='dark'] .sb-root {
 .sb-ring {
   --accent: var(--mw-m-main);
   --accent-deep: var(--mw-m-main);
-  /* 竖排：圆盘 + 它下面的名称条。名称条**常驻占位**（只压 opacity），
+  /* 竖排：圆盘 + 它下面的名称条。名称条常驻占位（只压 opacity），
      于是"悬停出名字"不会把下面的槽面板顶得跳一下。 */
   display: flex;
   flex-direction: column;
@@ -109,25 +109,25 @@ html[data-theme='dark'] .sb-root {
 .sb-ring .radial {
   --r: 76px;
   --dial: 62px;
-  /* 环是**定宽正方形**，不是撑满一行（Hero 那一份是 width:100%，照过来会溢出）。
-     ⚠️ 尺寸公式**变了**：以前是 `2 × (--rl + 12px)` —— `--rl` 是**标签半径**，
+  /* 环是定宽正方形，不是撑满一行（Hero 那一份是 width:100%，照过来会溢出）。
+     尺寸公式变了：以前是 `2 × (--rl + 12px)` —— `--rl` 是标签半径，
         环上写字时容器必须留到标签那一圈。2026-09-25 起环上不写字（名称走
         `.radial-caption`，见下），`--rl` 在侧栏这一份里已经没有任何消费者，
-        所以容器改成**贴着瓦片收**：环半径 + 半个瓦片(17) + 10px 呼吸。
+        所以容器改成贴着瓦片收：环半径 + 半个瓦片(17) + 10px 呼吸。
         不改的话容器四周会多出 37px 透明空档，名称条离瓦片远得像另一个区块。
-     ⚠️ 10px 同时要留给"当前项沿半径向外咬合"的那几像素，不能再压。 */
+     10px 同时要留给"当前项沿半径向外咬合"的那几像素，不能再压。 */
   width: calc(2 * (var(--r) + 17px + 10px));
   height: calc(2 * (var(--r) + 17px + 10px));
   flex-shrink: 0;
 }
 
 /* 瓦片的状态。
-   ⚠️ 工作台那一份的画法是 ".radial__item .g .g1 .mod-tile" ——
+   工作台那一份的画法是 ".radial__item .g .g1 .mod-tile" ——
       实底由 prism.css 的 ".g.mod-tile[data-current='true']" 给（0,3,0）。
-      而侧栏环上的瓦片**不是模块**，不挂 .mod-tile，于是那一族规则不匹配：
+      而侧栏环上的瓦片不是模块，不挂 .mod-tile，于是那一族规则不匹配：
       实测 data-current='true' 的瓦片 background-color 仍是 rgba(0,0,0,0)、
       文字色是 rgb(30,41,59)（深墨）—— "当前在哪"只剩一圈发光，
-      在白底上几乎读不出来。所以这里按**侧栏刻度**把实底补回来：
+      在白底上几乎读不出来。所以这里按侧栏刻度把实底补回来：
       悬停是淡染、当前是实底白字，与模块瓦片同一套语义。 */
 .sb-ring .radial__item {
   width: 34px;
@@ -149,13 +149,13 @@ html[data-theme='dark'] .sb-root {
 }
 
 /* ---- 名称条：悬停/聚焦时出现，位置固定在圆盘正下方 ----
-   环上**不写字**（原型的主张，2026-09-25 对齐）：瓦片只有图标，名字走这一条。
+   环上不写字（原型的主张，2026-09-25 对齐）：瓦片只有图标，名字走这一条。
 
    为什么是"固定一条在正下方"而不是"贴着每个瓦片外推的气泡"：
    后者是极坐标定位，宽名字在最左/最右必然与相邻瓦片叠、或者被侧栏裁掉，
    而且每项方向不同，看起来就是"歪"的。固定一条永远居中、永远放得下。
 
-   ⚠️ 显隐只动 `opacity` + `translateY`，**任何时候都不改其他元素的 rect**。
+   显隐只动 `opacity` + `translateY`，任何时候都不改其他元素的 rect。
       所以它是常驻布局的（有 min-height），不是"出现时才撑开"。 */
 .sb-root .radial-caption {
   flex-shrink: 0;
@@ -206,7 +206,7 @@ html[data-theme='dark'] .sb-root {
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
   min-width: 0;
-  /* ⚠️ 这两行是超级菜单的**前提**，不是装饰：`.mega` 挂在 `.sb-topbar` 里，
+  /* 这两行是超级菜单的前提，不是装饰：`.mega` 挂在 `.sb-topbar` 里，
      而 DOM 在后的 `.sidebar-wrap` 抬到了 z-index: 30（收起态的悬停气泡要用）。
      不给这一层定 z-index 的话，整块顶栏都停在自动层级上，面板会被侧栏盖掉
      —— 症状是"面板出来了，但左半边被侧栏切掉"，而两条规则各自都看不出问题。 */
@@ -225,8 +225,8 @@ html[data-theme='dark'] .sb-root {
   border-radius: 999px;
   box-shadow: var(--sb-shadow-float);
   width: 100%;
-  /* ⚠️ **不设 max-width**。这里原来写死 1400px，理由是"别在大屏上拉成一条"，
-     但它与下面两栏用的是**两套坐标系**：栅格给侧栏+主区铺满窗口宽（1920 视口 = 1888px），
+  /* 不设 max-width。这里原来写死 1400px，理由是"别在大屏上拉成一条"，
+     但它与下面两栏用的是两套坐标系：栅格给侧栏+主区铺满窗口宽（1920 视口 = 1888px），
      顶栏却缩成居中的 1400 —— 顶栏两端与"侧栏左沿 / 正文右沿"对不齐。
      原型实测过：1440 视口错 4px、1920 视口错 244px，整页像两套排版叠在一起。
      真要收窄得连栅格一起收，不能只收这一块。 */
@@ -240,13 +240,13 @@ html[data-theme='dark'] .sb-root {
   position: absolute; inset: -1px;
   border-radius: 999px;
   padding: 1px;
-  /* ⚠️ 原来是一道 120° 的"扫光边"（transparent → 域色 → transparent）。
-     它是一圈**边框**（靠 padding + mask-composite 抠出来的），前景不是文字、
+  /* 原来是一道 120° 的"扫光边"（transparent → 域色 → transparent）。
+     它是一圈边框（靠 padding + mask-composite 抠出来的），前景不是文字、
      判据只要求"看得见"（3:1 对图形），所以换成域色实色即可 ——
      代价是从"一道会在环上游走的光"变成"一整圈淡淡的域色环"。
-     ⚠️ `-webkit-mask` 里的两条 `linear-gradient(#fff 0 0)` **不是颜色渐变**，
+     `-webkit-mask` 里的两条 `linear-gradient(#fff 0 0)` 不是颜色渐变，
      是"用一块实色当作遮罩全开"的惯用写法（v4 语法 `linear-gradient(#fff 0 0)`
-     = 从 0 到 0 都是 #fff），纯色化**不动它**。 */
+     = 从 0 到 0 都是 #fff），纯色化不动它。 */
   background: var(--mw-m-main);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -263,13 +263,13 @@ html[data-theme='dark'] .sb-root {
   border-radius: 50%;
   /* 原来是 135° 的三停点渐变（#6366F1 → #8B5CF6 60% → #A855F7）。
      标记里是白字，所以按"哪一端能承白字"取 `--brand-solid`（见 design-tokens.css），
-     **不随主题变** —— 渐变时代它在暗色下也还是这三支，现在保持一致。 */
+     不随主题变 —— 渐变时代它在暗色下也还是这三支，现在保持一致。 */
   background: var(--brand-solid);
   color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-size: 15px; font-weight: 800;
   flex-shrink: 0;
-  /* ⚠️ 原来这条还带一节 `inset 0 1px 0 rgba(255,255,255,.3)`（上沿高光）。
+  /* 原来这条还带一节 `inset 0 1px 0 rgba(255,255,255,.3)`（上沿高光）。
      纯色化去掉：它是"这块玻璃有厚度"的信号，压在实底上只是圆标顶部一道洗白的弧。 */
   box-shadow: 0 4px 14px rgba(99,102,241,0.4);
   letter-spacing: -0.5px;
@@ -318,8 +318,8 @@ html[data-theme='dark'] .sb-root {
 /* 面板打开时，它的触发项保持高亮 —— 否则指针移进面板之后，
    就看不出这块面板是谁的了。
 
-   ⚠️ 这一段**必须排在 `.nav-p-item.active` 之前**（同特异性 0,2,0，后到者赢）。
-      排在后面的话，"当前模块"那颗胶囊在面板打开时会从**实底**掉成**悬停灰**
+   这一段必须排在 `.nav-p-item.active` 之前（同特异性 0,2,0，后到者赢）。
+      排在后面的话，"当前模块"那颗胶囊在面板打开时会从实底掉成悬停灰
       —— 读起来就是"当前在哪"这个信号被菜单吃掉了。而它恰恰是顶栏唯一一处
       "我在哪"的回执（面包屑已经不在顶栏了）。
       排在前面之后两种状态互不打扰：不是当前模块 → 悬停灰；是当前模块 → 保持实底。 */
@@ -331,12 +331,12 @@ html[data-theme='dark'] .sb-root {
 .sb-root .nav-p-item.active {
   color: #fff;
   background: var(--mw-m-main);
-  /* ⚠️ 同上：`inset 0 1px 0 rgba(255,255,255,.2)` 那节已删（实底上的假高光）。 */
+  /* 同上：`inset 0 1px 0 rgba(255,255,255,.2)` 那节已删（实底上的假高光）。 */
   box-shadow: 0 4px 16px var(--sb-m-glow);
   font-weight: 600;
 }
 
-/* ⚠️ 这里原本有一条 `.sb-root .nav-p-item.active::before`：
+/* 这里原本有一条 `.sb-root .nav-p-item.active::before`：
    一条 135° 的白色光泽（rgba(255,255,255,.2) → transparent 60%），
    叠在激活项的实底上装"玻璃反光"。纯色范式里最该删的就是它 ——
    实底上它读作"这块颜色没涂匀"。激活项本来就有实底 + 白字两个信号，不少这一条。 */
@@ -381,14 +381,14 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 
 /* ========== 超级菜单：顶栏的二级下拉 ==========
    九域各自的分区清单。数据来自 `data/workspace/tabs.ts` 的 SHELL_TABS
-   （**全局**注册表 —— 悬停"生活"时列的是生活的分区，而当前页可能在工作模块里）。
+   （全局注册表 —— 悬停"生活"时列的是生活的分区，而当前页可能在工作模块里）。
 
-   ⚠️ 面板必须挂在 `.sb-topbar` 里。`.nav-primary` 是 `overflow-x: auto`
+   面板必须挂在 `.sb-topbar` 里。`.nav-primary` 是 `overflow-x: auto`
       ⇒ 计算出的 `overflow-y` 也是 auto ⇒ 面板会被裁掉、还会顶出一根竖滚动条。
       挂在顶栏上还顺带解决两件事：顶栏已是 `position: relative`；面板成了顶栏的
-      **后代**，指针移进面板不会触发顶栏的 `mouseleave`。
+      后代，指针移进面板不会触发顶栏的 `mouseleave`。
 
-   ⚠️ 定位**只有 left 由 JS 写**（按触发项居中再夹进顶栏内，见 `ShellTopbar` 的
+   定位只有 left 由 JS 写（按触发项居中再夹进顶栏内，见 `ShellTopbar` 的
       `useLayoutEffect`）。这里写 `left: 0` 是"JS 还没量到"时的一帧兜底，
       不是可以依赖的位置。 */
 
@@ -410,8 +410,8 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
   transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
 }
 
-/* 4px 缝的"桥"。**不是装饰，是必需的**：面板虽然在 DOM 里是顶栏的后代，
-   但它在顶栏盒子**之外**（下方 4px）—— 指针横跨那道缝时既不在顶栏盒子里、
+/* 4px 缝的"桥"。不是装饰，是必需的：面板虽然在 DOM 里是顶栏的后代，
+   但它在顶栏盒子之外（下方 4px）—— 指针横跨那道缝时既不在顶栏盒子里、
    也不在面板盒子里，`mouseleave` 会照常触发，面板当场关掉，"移进去"永远做不到。
    让面板自己往上多出 6px 的命中区，把缝盖住。
    （另一道保险是 `ShellTopbar` 里那 180ms 的延迟关。） */
@@ -438,7 +438,7 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 .sb-root .mh-all:hover { text-decoration: underline; }
 
 /* 列数由行内 `--cols` 给（项数 ≤4 时两列更紧凑，见 ShellTopbar）。
-   ⚠️ 每列固定 116px：`max-content` 的宽度要靠固定列宽才算得出来 ——
+   每列固定 116px：`max-content` 的宽度要靠固定列宽才算得出来 ——
    写成 `1fr` 的话面板在"还没量宽"时宽度是 0，JS 夹取会把它贴到顶栏最左边。 */
 .sb-root .mega-grid {
   display: grid;
@@ -456,7 +456,7 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 
 .sb-root .mega-item:hover { background: var(--sb-bg-hover); }
 
-/* 当前项：淡染底 + 文字档色。判据要**同时命中模块与分区**，
+/* 当前项：淡染底 + 文字档色。判据要同时命中模块与分区，
    否则工作模块的「任务」会与任务模块本身一起亮（见 ShellTopbar）。 */
 .sb-root .mega-item.is-current {
   background: var(--sb-m-soft);
@@ -510,9 +510,9 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 }
 
 .sb-root .sb-icon-btn.ai {
-  /* 原来是 #6366F1 → #A855F7 的渐变。这上面是**白色图标**（3:1 起步），
+  /* 原来是 #6366F1 → #A855F7 的渐变。这上面是白色图标（3:1 起步），
      所以取承白字的 `--brand-solid`（白图标 4.58:1），与 logo / 头像同一支。
-     ⚠️ 它**不跟模块色走**：AI 助手是跨域的（读全部项目与任务），
+     它不跟模块色走：AI 助手是跨域的（读全部项目与任务），
         跟着模块变色会让"同一个入口"在九页上长得不一样。 */
   background: var(--brand-solid);
   color: #fff;
@@ -528,7 +528,7 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 
 .sb-root .sb-icon-btn.ai:hover {
   transform: translateY(-1px) scale(1.06);
-  /* 第二层是 `0 0 0 5px` 的**光圈**（不是模糊投影）—— 悬停时给一圈实心扩散环，
+  /* 第二层是 `0 0 0 5px` 的光圈（不是模糊投影）—— 悬停时给一圈实心扩散环，
      比再叠一层模糊更能读出"按下去会有事"。 */
   box-shadow:
     0 5px 16px rgba(98, 100, 239, 0.48),
@@ -537,14 +537,14 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 
 .sb-root .sb-icon-btn.ai:active { transform: translateY(0) scale(0.94); }
 
-/* 图标比邻居大一档（18 vs 17）：它是**两层闪光**（主星 + 右上副星），
+/* 图标比邻居大一档（18 vs 17）：它是两层闪光（主星 + 右上副星），
    按邻居的 17px 画，副星会缩到 ~2px 而"消失"。
-   ⚠️ `overflow: visible` 是必需的：副星的控制点落在 viewBox 之内，但它的**笔画**
+   `overflow: visible` 是必需的：副星的控制点落在 viewBox 之内，但它的笔画
       会溢出 24×24 的名义框，`overflow: hidden` 会把它切掉一个角。 */
 .sb-root .sb-icon-btn.ai svg { width: 18px; height: 18px; overflow: visible; }
 
 /* 副星常驻呼吸：静止时也在"活"，悬停时加快。
-   ⚠️ `transform-box: fill-box` 不能省 —— SVG 子元素默认以**画布**为 transform 原点，
+   `transform-box: fill-box` 不能省 —— SVG 子元素默认以画布为 transform 原点，
       少了它 `scale()` 会把副星推出画面（表现为"悬停时副星飞走了"）。 */
 .sb-root .sb-icon-btn.ai .ai-spark-mini {
   transform-box: fill-box;
@@ -559,7 +559,7 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
   50%      { opacity: 0.5; transform: scale(0.78); }
 }
 
-/* 降级：**必须给**。那颗副星是无限循环动画，`prefers-reduced-motion` 的用户
+/* 降级：必须给。那颗副星是无限循环动画，`prefers-reduced-motion` 的用户
    明确说过不要这个 —— 关掉之后图标仍然完整（只是不呼吸），不损失任何语义。 */
 @media (prefers-reduced-motion: reduce) {
   .sb-root .sb-icon-btn.ai .ai-spark-mini { animation: none; }
@@ -568,7 +568,7 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 .sb-root .sb-avatar {
   width: 32px; height: 32px;
   border-radius: 50%;
-  /* 头像里是**白字首字母**，同 logo：取承白字的 `--brand-solid` */
+  /* 头像里是白字首字母，同 logo：取承白字的 `--brand-solid` */
   background: var(--brand-solid);
   color: #fff;
   display: flex; align-items: center; justify-content: center;
@@ -597,15 +597,15 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
   display: flex;
   overflow: hidden;
   min-width: 0;
-  /* ⚠️ 抬一层的原因与顶栏那层不同：收起态的悬停气泡画在 `left: calc(100% + 6px)`
-     —— 它在**侧栏之外**，而 DOM 在后的主内容卡是不透明实底，会把它整个盖住。
+  /* 抬一层的原因与顶栏那层不同：收起态的悬停气泡画在 `left: calc(100% + 6px)`
+     —— 它在侧栏之外，而 DOM 在后的主内容卡是不透明实底，会把它整个盖住。
      顶栏抬到 40，这里 30，超级菜单（50）又在两者之上。 */
   position: relative; z-index: 30;
 }
 
 /* 收起态整列都不能裁：`.sb-sidebar` 自己已放开（见下），这一层不放开的话
    气泡还是会被按列宽剪掉。
-   ⚠️ 只对收起态放开，展开态必须保持 `overflow: hidden` —— 环与槽在展开态是
+   只对收起态放开，展开态必须保持 `overflow: hidden` —— 环与槽在展开态是
       有滚动的，全放开会让侧栏内容在收起动画里溢出到主区上面。 */
 .sb-root .sb-app.sidebar-collapsed .sidebar-wrap { overflow: visible; }
 
@@ -654,17 +654,17 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 }
 
 .sb-root .sb-head-title .name {
-  /* ⚠️ 原来这里是**渐变文字**（`background-clip: text` + `-webkit-text-fill-color:
+  /* 原来这里是渐变文字（`background-clip: text` + `-webkit-text-fill-color:
      transparent`，从正文色渐变到域色）。纯色化只能整体换成一个文字色，
      所以先要问"哪一端能在浅底上读得出来"：
-       · 域色端（`--mw-m-main`）不行 —— 它是**装饰档**，tasks 的琥珀在浅底上只有 2.1:1；
+       · 域色端（`--mw-m-main`）不行 —— 它是装饰档，tasks 的琥珀在浅底上只有 2.1:1；
        · 正文端（`--mw-text-primary`）可以 —— 它本来就是为正文反解的。
      14px/800 属小字，判据是 4.5:1，所以取正文端。
      顺带删掉 `-webkit-text-fill-color: transparent` —— 留着它、又给一个实色
      `color`，是"两套机制同时在场"，将来谁生效要靠引擎解释。
-     ⚠️ 也**不能**用 `--brand-ink`（域色的文字档）：它的定义挂在 `[data-series]` /
-     `[data-module]` 上，而 `data-series` **应用从来没写过**（只有环上的瓦片带
-     data-module），所以这里取不到它 —— 取不到时 `var()` 会让整条声明**静默失效**。 */
+     也不能用 `--brand-ink`（域色的文字档）：它的定义挂在 `[data-series]` /
+     `[data-module]` 上，而 `data-series` 应用从来没写过（只有环上的瓦片带
+     data-module），所以这里取不到它 —— 取不到时 `var()` 会让整条声明静默失效。 */
   color: var(--mw-text-primary);
   transition: color 0.4s ease;
 }
@@ -682,6 +682,15 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 
 .sb-root .sb-sidebar.collapsed .sb-head-title, .sb-root .sb-sidebar.collapsed .sidebar-subtitle{ opacity: 0; overflow: hidden; height: 0; }
 
+/* 没有环的那一态（域根，例如 `/projects` 列表页）—— 这一域没有可寻址的下级。
+   原型那一条 `no-ring` 还负责把圆盘与图标列 `display: none` 掉 ——
+      落到 React 之后那两段是条件渲染（`items.length` 为空时 DOM 里就没有），
+      所以这里只剩"标题下边距归零"这一条；隐藏那一半不需要 CSS，也就不留死规则。
+      副标题同理：它由 `hasRing` 决定渲不渲染（原型是 `display: none`，效果一样）。 */
+.sb-root .sb-sidebar.no-ring .sb-head-title {
+  margin-bottom: 0;
+}
+
 .sb-root .radial-stage {
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -694,16 +703,16 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 .sb-root .sb-sidebar.collapsed .radial-stage{ opacity: 0; overflow: hidden; height: 0; margin: 0; padding: 0; }
 
 /* ========== 收起态：平铺图标列（`.sb-rail`）==========
-   与圆盘是**同一份数据**（当前模块的分区），两种形态互斥显示。
+   与圆盘是同一份数据（当前模块的分区），两种形态互斥显示。
 
    为什么收起态要另做一份：展开态用圆盘表达"这一域有几个分区、走到第几格"
    —— 尺寸与刻度本身就是信息。但那套几何要 240px 宽才放得下，64px 的收起态
-   放不进去。换成竖着一列图标之后**功能一条不减**：能换分区、知道当前在哪
+   放不进去。换成竖着一列图标之后功能一条不减：能换分区、知道当前在哪
    （内沿指示条）、悬停出名字（气泡）。
 
-   ⚠️ 类名带 `sb-` 前缀，与原型里的 `.rail` 不同。`.rail` 已经被工作台的助手栏
-      （`AssistantRail.tsx` → `workbench-hero.css`）占了，而且那几条是**顶层选择器、
-      没有收在任何作用域下** —— 重名会让两套规则落在同一个类名上。加前缀是这道
+   类名带 `sb-` 前缀，与原型里的 `.rail` 不同。`.rail` 已经被工作台的助手栏
+      （`AssistantRail.tsx` → `workbench-hero.css`）占了，而且那几条是顶层选择器、
+      没有收在任何作用域下 —— 重名会让两套规则落在同一个类名上。加前缀是这道
       改名规矩的延续（`.app → .sb-app`、`.quick-btn → .sb-quick-btn` 同理）。 */
 .sb-root .sb-rail {
   display: none;
@@ -718,7 +727,7 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 
 .sb-root .sb-sidebar.collapsed .sb-rail { display: flex; animation: sb-rail-in 0.28s ease; }
 
-/* 纯透明度过渡，**不动 rect**：收起/展开的几何实测量的是动画结束后的尺寸，
+/* 纯透明度过渡，不动 rect：收起/展开的几何实测量的是动画结束后的尺寸，
    入场动画一旦改布局（位移、缩放），量到的数会比静止值小一截。 */
 @keyframes sb-rail-in { from { opacity: 0; } to { opacity: 1; } }
 
@@ -737,8 +746,8 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
   transition: color 0.2s ease;
 }
 
-/* 激活指示条贴侧栏**内沿**。
-   ⚠️ 不用"给激活项加左侧 padding 再把图标顶出去"的写法：那会改变每一项的居中基准，
+/* 激活指示条贴侧栏内沿。
+   不用"给激活项加左侧 padding 再把图标顶出去"的写法：那会改变每一项的居中基准，
       切分区时整列图标左右抖一下。指示条是绝对定位的，与图标位置完全解耦。 */
 .sb-root .sb-rail__item::before {
   content: '';
@@ -779,7 +788,7 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
   border-color: color-mix(in srgb, var(--mw-m-main) 26%, transparent);
 }
 
-/* 悬停提示。它画在**侧栏之外**（`left: calc(100% + 6px)`），所以要三件事同时成立：
+/* 悬停提示。它画在侧栏之外（`left: calc(100% + 6px)`），所以要三件事同时成立：
      · `.sb-sidebar.collapsed { overflow: visible }`   ← 不然按侧栏宽剪掉
      · `.sidebar-wrap` 收起时放开裁剪                  ← 不然按列宽再剪一次
      · `.sidebar-wrap { z-index: 30 }`                 ← 不然被不透明的主内容卡盖住
@@ -808,8 +817,8 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
   transform: translateY(-50%) translateX(0);
 }
 
-/* 矮窗口：靠**压缩图标节奏**容纳，而不是给 `.sb-rail` 加滚动。
-   ⚠️ 加 `overflow-y: auto` 会把浮出侧栏的悬停提示一起裁掉 —— 那就等于
+/* 矮窗口：靠压缩图标节奏容纳，而不是给 `.sb-rail` 加滚动。
+   加 `overflow-y: auto` 会把浮出侧栏的悬停提示一起裁掉 —— 那就等于
       在窄高度下把"这是什么"的唯一提示删了。分区多的模块（工作 7 项）
       在 620px 高的窗口里就是靠这几档压下来的。 */
 @media (max-height: 720px) {
@@ -971,6 +980,76 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 }
 
 .sb-root .kpi-value.accent{ color: var(--mw-m-main); }
+
+/* ---------- 「概览」槽的下半段：要看紧的（2026-09-27 新增） ----------
+   它不是第 N 行读数：读数回答"是多少"，它回答"先看哪个"。所以每一条都带一个
+   "为什么"的标签，而且整条可点、直达那个项目。
+
+   六条状态色 / 圆角之类都在上面 `.sb-root` 那一块给好了，这里只补两支状态色。
+      内核里 `--mw-warn` / `--mw-danger`（含 -bg）只定义在 `[data-module='projects']`
+      下（见 module-workspace.css §3b），而这一栏要挂在九个模块下 ——
+      取不到值 = 整条 `color` 声明被丢弃，标签会变成"淡底 + 继承来的字色"，
+      不报错、也看不出是坏了。
+      补在 `.sidebar-slot` 上而不是 `.sb-root` 上：`.sb-root` 与 `.lg-root` / `.dp-root`
+         那些页面级令牌块落在同一个元素上、特异性也相同（都是 0,1,0），
+         而本文件排在 module-workspace.css 之后 ⇒ 会反过来压过它们。
+         虽然现在六条取值逐字相同，但那是一条"以后谁改一处就漂移"的隐线。
+      取值与内核逐字一致（浅色 #C2410C / #B91C1C，暗色 #FDBA74 / #FCA5A5）。 */
+.sb-root .sidebar-slot {
+  --mw-warn: #C2410C;
+  --mw-warn-bg: rgba(249,115,22,0.16);
+  --mw-danger: #B91C1C;
+  --mw-danger-bg: rgba(239,68,68,0.16);
+}
+
+html[data-theme='dark'] .sb-root .sidebar-slot {
+  --mw-warn: #FDBA74;
+  --mw-warn-bg: rgba(249,115,22,0.22);
+  --mw-danger: #FCA5A5;
+  --mw-danger-bg: rgba(239,68,68,0.22);
+}
+
+/* 分隔用一条结构线（与 `.kpi-item` 的分隔线同一档），不另起一张卡 ——
+   这是 300px 宽的一格，套卡会变成"卡里卡" */
+.sb-root .watch-head {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--mw-border-subtle);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.06em; color: var(--mw-text-muted);
+}
+
+.sb-root .watch-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px;
+  margin: 2px -8px 0;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--mw-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sb-root .watch-item:hover {
+  background: var(--sb-bg-hover);
+  color: var(--mw-text-primary);
+}
+
+.sb-root .watch-name{ flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 理由标签：淡底深字，与 `.badge` / `.prio` 共用同一套语义色（不另造颜色）。
+   10.5px 是全站最小的字号，所以"深字压淡底"这条更要守住。 */
+.sb-root .watch-why {
+  flex-shrink: 0;
+  font-size: 10.5px; font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.sb-root .watch-why.is-danger{ background: var(--mw-danger-bg); color: var(--mw-danger); }
+
+.sb-root .watch-why.is-warn{ background: var(--mw-warn-bg); color: var(--mw-warn); }
 
 .sb-root .ai-chat{ display: flex; flex-direction: column; gap: 8px; }
 
@@ -1167,12 +1246,12 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 @media (max-width: 1100px) {
   .sb-root{ --sb-w: 280px; }
   /* 侧栏收窄时环跟着收一档。
-     ⚠️ **理由变了**：原来是"不缩标签会画到侧栏外面"（环心到左沿的余量
+     理由变了：原来是"不缩标签会画到侧栏外面"（环心到左沿的余量
         = --sb-w/2 − --rl，300 档 32px，280 档只剩 22px，而最长的标签要 31.5px 半幅
-        ⇒ 实测左沿跑到 −9.5）。2026-09-25 环上不写字之后**那个约束消失了** ——
+        ⇒ 实测左沿跑到 −9.5）。2026-09-25 环上不写字之后那个约束消失了 ——
         容器现在只到"环半径 + 半个瓦片 + 10px"（76 档 206px / 62 档 178px），
         两个档位都远小于内容宽，不会溢出。
-        保留这一档是为了**比例**：280px 的侧栏里塞一个 206px 的盘，四周只剩 36px，
+        保留这一档是为了比例：280px 的侧栏里塞一个 206px 的盘，四周只剩 36px，
         视觉上会顶格。也就是说这是一条审美判据，不再是一条安全判据 ——
         想让它不再缩，删掉这一行即可，不会有溢出风险。 */
   .sb-root .sb-ring .radial { --r: 62px; }
@@ -1197,14 +1276,14 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 
   .sb-root .topbar-right .sb-icon-btn:not(.ai):not(.sb-narrow-keep){ display: none; }
 
-  /* 窄屏没有 hover：超级菜单改成**整条全宽**，点胶囊开、点外部或 Esc 关
+  /* 窄屏没有 hover：超级菜单改成整条全宽，点胶囊开、点外部或 Esc 关
      （逻辑在 `ShellTopbar`，靠 `matchMedia('(min-width: 769px)')` 分叉）。
 
-     ⚠️ 断点跟着**侧栏收进抽屉**走（768），不跟原型走（原型是 900）。
+     断点跟着侧栏收进抽屉走（768），不跟原型走（原型是 900）。
         两处必须是同一条边界：否则 769~900 这一段会出现"侧栏还在、悬停却不开面板"
         的死区 —— 而它没有任何视觉线索，只会被读成"这个模块没有二级"。
 
-     ⚠️ `left: 8px !important` 是**必需**的：`ShellTopbar` 会把夹取后的位置写成
+     `left: 8px !important` 是必需的：`ShellTopbar` 会把夹取后的位置写成
         行内样式，行内样式压得过这里的任何选择器，只有 `!important` 能翻回来。 */
   .sb-root .mega{ left: 8px !important; right: 8px; width: auto; max-width: none; }
 

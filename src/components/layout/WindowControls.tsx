@@ -14,7 +14,7 @@ import { Icon } from '../icons/Icon'
 import type { IconName } from '../../types'
 
 /**
- * 自绘窗口控制 —— **按操作系统给三套，形状与行为都对各自平台原生**。
+ * 自绘窗口控制 —— 按操作系统给三套，形状与行为都对各自平台原生。
  *
  * 原生标题栏已由 `src-tauri/tauri.conf.json` 的 `decorations: false` 关闭，
  * 所以这组按钮是窗口唯一的关闭方式。设计口径是"替代品要长得像原物"，
@@ -22,22 +22,28 @@ import type { IconName } from '../../types'
  *
  * | | 位置 | 形状 | 第三个键 |
  * | --- | --- | --- | --- |
- * | macOS | 左上角 | 12px 圆点、间距 8px、红/黄/绿 | **全屏** |
- * | Windows | 右上角、贴齐窗口边 | 46×32 方形扁平按钮 + 1px 细字形 | **最大化** |
- * | Linux | 右上角 | 24px 圆形按钮 | **最大化** |
+ * | macOS | 左上角 | 12px 圆点、间距 8px、红/黄/绿 | 全屏 |
+ * | Windows | 右上角、贴齐窗口边 | 46×32 方形扁平按钮 + 1px 细字形 | 最大化 |
+ * | Linux | 右上角 | 24px 圆形按钮 | 最大化 |
  *
  * 三个容易漏掉的原生细节，这里都做了：
- *  1. **顺序随平台反向**：macOS 自左向右是「关闭→最小化→全屏」；
+ *  1. 顺序随平台反向：macOS 自左向右是「关闭→最小化→全屏」；
  *     Windows/Linux 自左向右是「最小化→最大化→关闭」。共用一份数组必然有一边是反的。
- *  2. **失焦变灰**：macOS 三个圆点在窗口失焦时一起变灰、且不浮字形（原生行为），
+ *  2. 失焦变灰：macOS 三个圆点在窗口失焦时一起变灰、且不浮字形（原生行为），
  *     靠 `onFocusChanged` 取状态。
- *  3. **字形整组一起浮出**（macOS）：hover 判定挂在容器上（`group/mac`），不是逐个圆点。
+ *  3. 字形整组一起浮出（macOS）：hover 判定挂在容器上（`group/mac`），不是逐个圆点。
  *
- * macOS 圆点视觉直径 12px，按钮盒做成 20px：内边距 4px 让**视觉间距**正好是原生的 8px，
+ * macOS 圆点视觉直径 12px，按钮盒做成 20px：内边距 4px 让视觉间距正好是原生的 8px，
  * 同时把命中区从 12px 抬到 20px（12px 的点击目标对鼠标也偏小）。
  *
- * ⚠️ 只要某个页面没有顶栏（登录页），或某个断点下侧栏被收成抽屉（≤860px 的 macOS），
+ * 只要某个页面没有顶栏（登录页），或某个断点下侧栏被收成抽屉（≤860px 的 macOS），
  * 就必须另外挂一份 —— 漏掉的症状是"窗口关不掉"，这是最容易忽略的一类缺口。
+ *
+ * 但"关闭"这一颗未必该关掉应用：整窗页面（终端 `/terminal/:id`）里的红点若真去
+ * `closeWindow()`，点一下整个应用就退了 —— 那里要的是"关掉这个终端、回到运维页"。
+ * 这类页面通过 `onClose` 交回自己处理（日志/部署两页走的是 `MacWindow` 的 `onClose`，
+ * 同一件事、两个入口）。只有关闭键可被接管：最小化 / 全屏 / 最大化始终是真实窗口操作。
+ * 反过来说：别因为"这一页要返回"就把整组窗控删掉 —— 那会连最小化与全屏一起丢掉。
  */
 
 const MAC_DOTS = {
@@ -49,9 +55,23 @@ const MAC_DOTS = {
 interface WindowControlsProps {
   /** 由宿主控制显隐与定位（例如 macOS 在窄断点要把整组挪到顶栏） */
   className?: string
+  /**
+   * 覆盖「关闭」那颗键的行为。
+   *
+   * 用在页面内的"子窗口"语义上：整窗页面（如终端 `/terminal/:id`）里的红点如果真去
+   * `closeWindow()`，点一下整个应用就退了 —— 而用户要的是"关掉这个终端，回到运维页"。
+   * 这类页面本来就该由页面自己决定去往哪里（日志页用的是 `MacWindow` 的 `onClose`，
+   * 同一件事、两个入口）。给了这个属性，就同时接管它的无障碍名与 tooltip。
+   *
+   * 只覆盖关闭这一颗：最小化 / 全屏 / 最大化始终是真实的窗口操作，
+   * 没有"页面内的最小化"这回事。
+   */
+  onClose?: () => void
+  /** `onClose` 给定时的文案；默认「关闭窗口」。给 `<返回>` 这类更准的措辞 */
+  closeLabel?: string
 }
 
-export function WindowControls({ className }: WindowControlsProps) {
+export function WindowControls({ className, onClose, closeLabel }: WindowControlsProps) {
   const desktop = isDesktopShell()
   const isMac = PLATFORM === 'macos'
   const [state, setState] = useState<WindowState>({ fullscreen: false, maximized: false, focused: true })
@@ -77,18 +97,25 @@ export function WindowControls({ className }: WindowControlsProps) {
   // 不藏、也不做成禁用态：藏起来两处版式不一致，禁用态会被误读成"功能坏了"。
   const hint = desktop ? '' : '（仅桌面端生效）'
 
+  /* 「关闭」这一颗可被宿主接管（见 `onClose`）。被接管就换文案、也去掉"仅桌面端生效"
+     —— 页面内的返回在浏览器里同样能用 */
+  const closeRun = onClose ?? closeWindow
+  const closeText = onClose ? (closeLabel ?? '关闭窗口') : '关闭窗口'
+  const closeHint = onClose ? '' : hint
+
   if (isMac) {
     const dots = [
-      { key: 'close', color: MAC_DOTS.close, glyph: 'i-mac-close', label: '关闭窗口', run: closeWindow },
-      { key: 'minimize', color: MAC_DOTS.minimize, glyph: 'i-mac-min', label: '最小化窗口', run: minimizeWindow },
+      { key: 'close', color: MAC_DOTS.close, glyph: 'i-mac-close', label: closeText, hint: closeHint, run: closeRun },
+      { key: 'minimize', color: MAC_DOTS.minimize, glyph: 'i-mac-min', label: '最小化窗口', hint, run: minimizeWindow },
       {
         key: 'fullscreen',
         color: MAC_DOTS.fullscreen,
         glyph: 'i-mac-full',
         label: state.fullscreen ? '退出全屏' : '进入全屏',
+        hint,
         run: toggleFullscreenWindow,
       },
-    ] as { key: string; color: string; glyph: IconName; label: string; run: () => Promise<void> }[]
+    ] as { key: string; color: string; glyph: IconName; label: string; hint: string; run: () => void | Promise<void> }[]
 
     return (
       <div className={cn('group/mac flex shrink-0 items-center', className)} role="group" aria-label="窗口控制">
@@ -96,8 +123,8 @@ export function WindowControls({ className }: WindowControlsProps) {
           <button
             key={dot.key}
             type="button"
-            aria-label={`${dot.label}${hint}`}
-            title={`${dot.label}${hint}`}
+            aria-label={`${dot.label}${dot.hint}`}
+            title={`${dot.label}${dot.hint}`}
             onClick={() => void dot.run()}
             className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
           >
@@ -133,17 +160,25 @@ export function WindowControls({ className }: WindowControlsProps) {
     isWindows ? 'text-ink-800 hover:bg-[#c42b1c] hover:text-white' : 'text-ink-700 hover:bg-[#e01b24] hover:text-white',
   )
 
-  const items: { key: string; icon: IconName; label: string; run: () => Promise<void>; className: string }[] = [
-    { key: 'min', icon: 'i-win-min', label: '最小化窗口', run: minimizeWindow, className: neutral },
+  const items: {
+    key: string
+    icon: IconName
+    label: string
+    hint: string
+    run: () => void | Promise<void>
+    className: string
+  }[] = [
+    { key: 'min', icon: 'i-win-min', label: '最小化窗口', hint, run: minimizeWindow, className: neutral },
     {
       // 最大化/还原用两组字形切换，与原生一致
       key: 'max',
       icon: state.maximized ? 'i-win-restore' : 'i-win-max',
       label: state.maximized ? '向下还原' : '最大化窗口',
+      hint,
       run: toggleMaximizeWindow,
       className: neutral,
     },
-    { key: 'close', icon: 'i-win-close', label: '关闭窗口', run: closeWindow, className: danger },
+    { key: 'close', icon: 'i-win-close', label: closeText, hint: closeHint, run: closeRun, className: danger },
   ]
 
   return (
@@ -152,8 +187,8 @@ export function WindowControls({ className }: WindowControlsProps) {
         <button
           key={item.key}
           type="button"
-          aria-label={`${item.label}${hint}`}
-          title={`${item.label}${hint}`}
+          aria-label={`${item.label}${item.hint}`}
+          title={`${item.label}${item.hint}`}
           onClick={() => void item.run()}
           className={item.className}
         >

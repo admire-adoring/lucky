@@ -6,14 +6,14 @@ import { persist } from 'zustand/middleware'
  *
  * 为什么要有这个 store：原型那一槽里是四条写死的示例（"客户资料 · 需求 2h"…）。
  * 照搬就是编数据（项目明令禁止），删掉又会让"最近"这一槽没有内容可显示。
- * 而**真实的最近访问**本来就可记录 —— 每一次 Tab 切换都是它的一条数据。
- * 所以这一槽的内容不是模拟出来的，是**用户自己走过的路**。
+ * 而真实的最近访问本来就可记录 —— 每一次 Tab 切换都是它的一条数据。
+ * 所以这一槽的内容不是模拟出来的，是用户自己走过的路。
  *
  * 三条纪律：
- *  · **只记 Tab 级**（`/life/habits`），不记弹窗、筛选项 —— 后两者刷新即失效，
+ *  · 只记 Tab 级（`/life/habits`），不记弹窗、筛选项 —— 后两者刷新即失效，
  *    进去之后看到的不是同一屏，那样的"最近"点了会让人困惑。
- *  · **去重按路径**，同一个 Tab 反复进只保留最新一条（否则会被一个页面占满）。
- *  · **上限 8 条**：界面上只显示 4 条，留一倍余量给"当前这一页也在里面"的情况。
+ *  · 去重按路径，同一个 Tab 反复进只保留最新一条（否则会被一个页面占满）。
+ *  · 上限 8 条：界面上只显示 4 条，留一倍余量给"当前这一页也在里面"的情况。
  *
  * localStorage 的 key 带 `lucky-y/` 前缀（与 `auth-store` 同一口径）。
  * 「最近访问」是本机行为，不进后端、不跨设备 —— 它没有服务端事实源。
@@ -32,6 +32,15 @@ const MAX = 8
 interface RecentsState {
   entries: RecentEntry[]
   record: (path: string, label: string) => void
+  /**
+   * 忘掉某个路径前缀下的记录。
+   *
+   * 项目被删除时，指向它的那几条（`/projects/p3`、`/projects/p3/overview`）都该一起消失：
+   * 项目还在时它们是有用的回头路，项目没了之后点它只会落到一个不存在的地址上。
+   * 必须是"前缀"而不是"全等" —— 详情页的每一条记录都落在 `/projects/p3/<分区>` 下。
+   *    后缀带那条 `/`：不带的话，`/projects/p1` 会把 `/projects/p12` 一起误伤。
+   */
+  forget: (pathPrefix: string) => void
   clear: () => void
 }
 
@@ -44,6 +53,10 @@ export const useRecentsStore = create<RecentsState>()(
           const rest = state.entries.filter((e) => e.path !== path)
           return { entries: [{ path, label, at: Date.now() }, ...rest].slice(0, MAX) }
         }),
+      forget: (pathPrefix) =>
+        set((state) => ({
+          entries: state.entries.filter((e) => e.path !== pathPrefix && !e.path.startsWith(`${pathPrefix}/`)),
+        })),
       clear: () => set({ entries: [] }),
     }),
     { name: 'lucky-y/recents' },

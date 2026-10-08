@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../icons/Icon'
 import { SCOPE_META, STATUS_META } from '../../data/meta'
+import { isClosed } from '../../data/derive'
 import { projectById } from '../../data/workbench'
 import { toast } from '../../stores/toast-store'
 import { cn } from '../../lib/cn'
@@ -24,7 +25,7 @@ function Runs({ runs }: { runs: TextRun[] }) {
   )
 }
 
-/** 进度条 + 右侧百分比。宽度是**随数据变化的**，所以走 style 而不是拼 className */
+/** 进度条 + 右侧百分比。宽度是随数据变化的，所以走 style 而不是拼 className */
 function RowProgress({ grad, pct, pctCls }: { grad: string; pct: number; pctCls: string }) {
   return (
     <div className="hidden w-[132px] shrink-0 max-[600px]:hidden lg:block">
@@ -45,11 +46,11 @@ const rowArrow = (
 )
 
 /**
- * 项目行。**唯一有真实跳转的行** —— 点进项目详情。
+ * 项目行。唯一有真实跳转的行 —— 点进项目详情。
  *
- * ⚠️ 项目数据按 id 现取（`projectById`）而不是从内容层带过来：
+ * 项目数据按 id 现取（`projectById`）而不是从内容层带过来：
  *    内容层只存 id，于是"项目改了、行没改"在结构上不可能发生。
- *    取不到（id 被删/改名）时**不渲染这一行**并在开发期报错 ——
+ *    取不到（id 被删/改名）时不渲染这一行并在开发期报错 ——
  *    留一行空壳比少一行更难查。
  */
 export function ProjectRow({ row }: { row: ProjectRowSpec }) {
@@ -60,7 +61,7 @@ export function ProjectRow({ row }: { row: ProjectRowSpec }) {
   }
   const scope = SCOPE_META[project.scope]
   const status = STATUS_META[project.status]
-  const dueWarn = project.status !== 'done' && project.daysLeft <= 14
+  const dueWarn = !isClosed(project) && project.daysLeft <= 14
 
   return (
     <Link to={`/projects/${project.id}`} className={ROW_BASE}>
@@ -96,10 +97,10 @@ export function ProjectRow({ row }: { row: ProjectRowSpec }) {
 }
 
 /**
- * 扁平行：域汇总、"按天/按月"这类**不对应单个项目**的行。
+ * 扁平行：域汇总、"按天/按月"这类不对应单个项目的行。
  *
  * 它没有真实去处（原型的 `href="#"` 是占位），所以做成按钮并给一条"未实现"提示 ——
- * 页面里已有的口径就是这样：**看起来可点的东西点了必须有反应**，
+ * 页面里已有的口径就是这样：看起来可点的东西点了必须有反应，
  * 悬停高亮却不响应，比不做高亮更让人困惑。
  */
 export function FlatRow({ row }: { row: FlatRowSpec }) {
@@ -123,7 +124,7 @@ export function FlatRow({ row }: { row: FlatRowSpec }) {
 /**
  * 事件行：知识库索引、关键节点这类"点 + 正文 + 副标 · 右侧"。
  *
- * ⚠️ 它是 `<li>`：这些行成组出现（"关键节点"），语义上是同一张列表，
+ * 它是 `<li>`：这些行成组出现（"关键节点"），语义上是同一张列表，
  *    换成 div 会让读屏软件把它们读成互不相干的一串。原型也是 `<li>`。
  */
 export function EventRow({ row }: { row: EventRowSpec }) {

@@ -11,14 +11,14 @@ import { useUiStore } from '../../stores/ui-store'
  *
  * 与原型的三处差异：
  *
- *  1. **窗口控制**。原型是浏览器里的静态页，没有这一栏。原生标题栏关掉之后
+ *  1. 窗口控制。原型是浏览器里的静态页，没有这一栏。原生标题栏关掉之后
  *     （`decorations: false`）这是窗口唯一的关闭方式，必须补：macOS 圆点在左上角
  *     （面包屑之前），Windows/Linux 在右上角、贴齐窗口边。
- *  2. **主题开关换成应用的那一份**（`ThemeToggle` + `theme-store`，切 `<html data-theme>`）。
+ *  2. 主题开关换成应用的那一份（`ThemeToggle` + `theme-store`，切 `<html data-theme>`）。
  *     原型各自持有 `.dark` 类 + localStorage `'theme'`，9 份互不相干；
  *     换外壳后主题必须是全站一个状态，否则"设置页切了暗色、工作台还是亮的"。
- *     ⚠️ 外观仍用原型的 `.theme-toggle` 类（传 `className` 进去），不吃应用程序里那套玻璃。
- *  3. **≤768px 补一个抽屉开关**。原型的媒体查询把侧栏整个 `display:none` 掉，
+ *     外观仍用原型的 `.theme-toggle` 类（传 `className` 进去），不吃应用程序里那套玻璃。
+ *  3. ≤768px 补一个抽屉开关。原型的媒体查询把侧栏整个 `display:none` 掉，
  *     窄屏上没有任何导航入口 —— 这不是"响应式取舍"，是功能缺失。
  *
  * 拖拽区写在 `<header>` 上（`deep` 档）：空白、文字、图标都能拖；
@@ -44,7 +44,7 @@ export function WorkspaceTopbar({
       {...DRAG_REGION}
       className={cn('topbar', 'shell-frame-top-right shell-frame-top-left')}
     >
-      {/* 左侧一组（窗口控制 + 抽屉开关 + 面包屑）必须**包一层**。
+      {/* 左侧一组（窗口控制 + 抽屉开关 + 面包屑）必须包一层。
           原型的 `.topbar` 是 `justify-content: space-between` 且只有两个子元素
           （面包屑 / 动作区），所以面包屑贴在左边。这里多挂两个元素之后，
           space-between 会把四件东西均匀撒开 —— 面包屑跑到顶栏正中间去。

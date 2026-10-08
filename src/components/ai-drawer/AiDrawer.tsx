@@ -17,28 +17,28 @@ const MAX_INPUT_HEIGHT = 120
 const FOCUS_DELAY = 320
 
 /**
- * AI 助手**全局抽屉**（原型 `design/ai-assistant/ai-assistant-sidebar.html`）。
+ * AI 助手全局抽屉（原型 `design/ai-assistant/ai-assistant-sidebar.html`）。
  *
  * ============================================================================
  * 它在应用里的位置
  * ============================================================================
- * 这是**路由之外**的一层：`App.tsx` 在登录后挂一次 `<AiDrawerHost/>`，于是
+ * 这是路由之外的一层：`App.tsx` 在登录后挂一次 `<AiDrawerHost/>`，于是
  * 每一个页面（工作台 / 九个工作区 / 项目列表 / `/ai` 自己）都能弹出它。
  *
- * 入口是**顶栏那颗 AI 按钮**（`ShellTopbar`）—— 原型自带一颗右下角浮球
+ * 入口是顶栏那颗 AI 按钮（`ShellTopbar`）—— 原型自带一颗右下角浮球
  * （`.launcher`），那一族在生成 CSS 时整族丢弃了，理由写在
  * `design/build-ai-css.mjs` 的 AID_DROP 里：用户要的入口是右上角那颗按钮，
  * 两颗入口会同时存在、其中一颗还带个假的"未读小红点"。
  *
  * ============================================================================
- * 与 `/ai` 完整页的关系：**同一份会话，两个视图**
+ * 与 `/ai` 完整页的关系：同一份会话，两个视图
  * ============================================================================
  * 它们共用 `stores/ai-store`，所以：
  *   · 在抽屉里问的问题，展开到 `/ai` 之后还在（同一个 `activeId`）；
  *   · 草稿也只存一份（在哪儿打的字，切过去都还在，不会出现"两处各写一个字"）；
- *   · 计时**只有一处** —— `AiStageTicker`，由本组件的宿主渲染（见那个文件的说明）。
+ *   · 计时只有一处 —— `AiStageTicker`，由本组件的宿主渲染（见那个文件的说明）。
  *
- * ⚠️ 抽屉**不是**第十个域、也不是路由：它没有 URL，也不改 `activeId`。
+ * 抽屉不是第十个域、也不是路由：它没有 URL，也不改 `activeId`。
  *    展开按钮才是有 URL 的那一步（`/ai`）。
  */
 export function AiDrawer() {
@@ -68,7 +68,7 @@ export function AiDrawer() {
   const session = sessions.find((item) => item.id === activeId)
   const stored = session?.messages ?? []
 
-  /* 没说过话的会话：把欢迎语**渲染**出来（不落进会话数据，与完整页同一处置）——
+  /* 没说过话的会话：把欢迎语渲染出来（不落进会话数据，与完整页同一处置）——
      这样打开抽屉看到的不是一个空盒子。 */
   const greeting = stored.length === 0 ? greetingMessage(userName, nowTime()) : null
   const messages = greeting ? [greeting, ...stored] : stored
@@ -109,10 +109,10 @@ export function AiDrawer() {
   }, [messages.length, generating, open])
 
   /**
-   * 发送 / 排队 / 停止 —— 与完整页**同一个三态分支**（`AiComposer.submit`）。
+   * 发送 / 排队 / 停止 —— 与完整页同一个三态分支（`AiComposer.submit`）。
    *
-   * ⚠️ 原型抽屉里这个按钮只有两态（生成中一律 = 停止）。这里跟页面走，理由：
-   *    两个视图读的是**同一份会话**，同一个键在同一个会话里做两件不同的事
+   * 原型抽屉里这个按钮只有两态（生成中一律 = 停止）。这里跟页面走，理由：
+   *    两个视图读的是同一份会话，同一个键在同一个会话里做两件不同的事
    *    （一处排队、一处停掉）比"多一点功能"更难解释。而且抽屉里本来就有
    *    显式的「停止生成」按钮（消息下方那条 `.stop-row`），停不用靠这颗键。
    */
@@ -128,7 +128,7 @@ export function AiDrawer() {
     if (hasText) send(nowTime())
   }
 
-  /** 展开到完整页面。**先收起再导航** —— 否则抽屉会跟着路由留在新页面上 */
+  /** 展开到完整页面。先收起再导航 —— 否则抽屉会跟着路由留在新页面上 */
   function expand() {
     close()
     navigate('/ai')
@@ -140,10 +140,10 @@ export function AiDrawer() {
   }
 
   return (
-    /* ⚠️ wrapper 上这三个类名都不是装饰：
+    /* wrapper 上这三个类名都不是装饰：
          · `mw-root` —— 内核那套中性色板与模块色（作用域在 .mw-root 上）
          · `sb-root` —— 外壳那 14 支 `--sb-*`（浮层底衬 / 悬停底 / 浮动投影 /
-           强调色柔底与辉光）。⚠️ 它们**不在 html 上**，只在 .sb-root 上 ——
+           强调色柔底与辉光）。它们不在 html 上，只在 .sb-root 上 ——
            漏了它，抽屉里 21 条声明会被静默丢弃（面板自己的 background 与
            box-shadow 就在其中 ⇒ 面板变全透明、底下页面透上来）。
          · `ai-drawer` —— 本层样式的作用域根
@@ -169,7 +169,7 @@ export function AiDrawer() {
               AI 助手
               <span className="status-dot" />
             </div>
-            {/* 副标题是**真来源**：正在生成时说"正在思考…"（原型的处置），
+            {/* 副标题是真来源：正在生成时说"正在思考…"（原型的处置），
                 否则报当前选中的模型名 —— 不是原型里写死的 "Claude Sonnet" */}
             <div className="ai-panel-head-sub">{generating ? '正在思考…' : `在线 · ${model}`}</div>
           </div>
@@ -177,7 +177,7 @@ export function AiDrawer() {
             <button type="button" className="ai-icon-btn" title="清空对话" onClick={clear}>
               <GlyphTrash />
             </button>
-            {/* 「展开」是**用户要求新增**的按钮，原型头部只有 主题/清空/收起 三颗。
+            {/* 「展开」是用户要求新增的按钮，原型头部只有 主题/清空/收起 三颗。
                 主题那颗不搬：应用的主题开关在顶栏，全站只有一处。
                 一个页面只留一个换主题的地方，比两处各自记状态便宜。 */}
             <button type="button" className="ai-icon-btn" title="展开到完整页面" onClick={expand}>

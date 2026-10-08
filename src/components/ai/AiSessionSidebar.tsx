@@ -94,7 +94,7 @@ export function AiSessionSidebar({ userName, drawerOpen }: AiSessionSidebarProps
     /* 贴到视口底/左边时翻转 —— 与原型同一处置（否则菜单会被切掉一半） */
     if (top + box.height > window.innerHeight - 10) top = rect.top - box.height - 6
     if (left < 10) left = 10
-    /* ⚠️ 值没变时必须**返回原引用**：返回新对象会让 store 认为状态变了 → 重渲染 →
+    /* 值没变时必须返回原引用：返回新对象会让 store 认为状态变了 → 重渲染 →
        依赖里的 `menu` 跟着变 → 效果再跑一次 —— 无限循环。
        依赖只写 `menu?.id` 也是为此（写整个 `menu` 同样会绕进去）。 */
     setMenu((current) => {

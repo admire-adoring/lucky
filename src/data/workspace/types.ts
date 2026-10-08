@@ -2,8 +2,8 @@
  * 「模块工作区」这一层的类型。
  *
  * 为什么单独一层类型而不是复用 `src/types/index.ts`：
- *   那套类型描述的是**领域模型**（Project / Task / Milestone…，22 个必填字段）。
- *   这一层描述的是**界面**：哪个页面有哪些 Tab、每块面板长什么样。
+ *   那套类型描述的是领域模型（Project / Task / Milestone…，22 个必填字段）。
+ *   这一层描述的是界面：哪个页面有哪些 Tab、每块面板长什么样。
  *   两者会互相引用（项目工作区的面板里就有 Project），但不等同 ——
  *   把界面结构塞进领域模型会让领域模型变成万能结构。
  */
@@ -23,7 +23,7 @@ export type WorkspacePageKey =
  * 九个菜单域的 key —— 与 `prism.css` 的九模块色槽、`design/*_index.html`
  * 的 `--a-<模块>-*` / `--s-<模块>` 同名。三处必须同步。
  *
- * ⚠️ 这里是**九**个而不是八个：`dashboard` 没有独立页面，但侧栏第 1 项要用它的强调色。
+ * 这里是九个而不是八个：`dashboard` 没有独立页面，但侧栏第 1 项要用它的强调色。
  */
 export type WorkspaceModuleKey = 'dashboard' | WorkspacePageKey
 

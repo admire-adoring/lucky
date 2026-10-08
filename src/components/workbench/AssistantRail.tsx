@@ -52,11 +52,11 @@ function UserBubble({ message }: { message: ChatMessage }) {
 
 /**
  * 对话起点分隔线。一条线同时收三件事：
- *   ① 消息区是**底部对齐**的，栏顶留白原本"浮着半截内容"—— 有了它，留白读作"对话从这儿往上长"；
+ *   ① 消息区是底部对齐的，栏顶留白原本"浮着半截内容"—— 有了它，留白读作"对话从这儿往上长"；
  *   ② 时间戳只写到分钟，整屏没有日期出处 —— 这里补上；
  *   ③ 聊天界面的惯例（Slack / 微信的「今天」）。
  *
- * ⚠️ 它必须是面板的**第一个**子元素：外层的 `flex-col-reverse` 只把"整块"推到容器底部，
+ * 它必须是面板的第一个子元素：外层的 `flex-col-reverse` 只把"整块"推到容器底部，
  *    推不动块内顺序（块内仍是正常 column）—— 写到别处它就会掉到对话末尾。
  */
 function DayDivider() {
@@ -78,17 +78,17 @@ interface AssistantRailProps {
 }
 
 /**
- * 助手栏 —— **AppShell 级右栏**，不是页面栅格的一格。
+ * 助手栏 —— AppShell 级右栏，不是页面栅格的一格。
  *
  * 收起的三处纪律（都在 workbench-hero.css 里，这里只负责给 `data-collapsed`）：
- *   · 只动宽度，且**先淡出再收窄**（过渡带 0.12s 延迟）—— 顺序反了会看到文字逐帧重排；
+ *   · 只动宽度，且先淡出再收窄（过渡带 0.12s 延迟）—— 顺序反了会看到文字逐帧重排；
  *   · 淡出用 `visibility: hidden` 而不是只压 `opacity`，否则收起的按钮还能 Tab 进去；
- *   · 状态**不持久化**（刷新回到展开态）：它是"临时看一眼"的动作。
+ *   · 状态不持久化（刷新回到展开态）：它是"临时看一眼"的动作。
  */
 export function AssistantRail({ messages, collapsed, onToggle, statusLine }: AssistantRailProps) {
   const [draft, setDraft] = useState('')
 
-  /* 发送：工作台还没有助手后端，所以**不假装发出去** —— 清空输入并如实说明。
+  /* 发送：工作台还没有助手后端，所以不假装发出去 —— 清空输入并如实说明。
      判据：与其在列表里插一条不会有人回答的消息，不如当场说清"这里还没接"，
      否则用户会以为是自己的问题（等不到回复）。 */
   function submit(event: FormEvent) {

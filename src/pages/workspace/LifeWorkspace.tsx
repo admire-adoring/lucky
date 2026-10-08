@@ -44,7 +44,7 @@ const PANELS: Record<string, ComponentType<{ handlers: Handlers }>> = {
 /**
  * 生活工作区。
  *
- * `openRecipe` / `openPet` 在原型的脚本里是**数据驱动**的详情弹窗
+ * `openRecipe` / `openPet` 在原型的脚本里是数据驱动的详情弹窗
  * （一张按名字索引的数据表 + 一段模板），尚未迁移 —— 它们落到 `PendingDetail`，
  * 而不是做成点了没反应的按钮。详见 PendingDetail 的注释。
  */

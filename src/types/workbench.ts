@@ -4,12 +4,12 @@ import type { IconName } from './index'
  * 工作台内容层的类型 —— 由 `design/export-workbench-content.mjs` 导出、`gen-modules.mjs` 生产。
  *
  * 为什么要单独一层类型而不是复用 Project：
- *   工作台的 45 块磁贴里，**只有一部分**是项目数据，其余是聚合值（待办分布、预算总额、
+ *   工作台的 45 块磁贴里，只有一部分是项目数据，其余是聚合值（待办分布、预算总额、
  *   可见性分布…）与纯展示文案。把它们硬塞进 Project 会让 Project 变成万能结构；
  *   反过来，若在组件里现算，又会出现"同一句话在两处各写一遍"。
- *   所以这里定义的是一棵**已算好的展示树**：组件只负责渲染，不做业务计算。
+ *   所以这里定义的是一棵已算好的展示树：组件只负责渲染，不做业务计算。
  *
- * ⚠️ 这些类型的**事实源在 `design/gen-modules.mjs`**。改了那边的磁贴结构，
+ * 这些类型的事实源在 `design/gen-modules.mjs`。改了那边的磁贴结构，
  *    这里要同步 —— `export-workbench-content.mjs --check` 会在产物过期时拦下来。
  */
 
@@ -20,7 +20,7 @@ export type WbStatus = 'planning' | 'active' | 'risk' | 'done'
 /**
  * 富文本片段。
  *
- * 原型里强调是直接写 `<b class="…">…</b>` 的。移植到 React 时**不**用
+ * 原型里强调是直接写 `<b class="…">…</b>` 的。移植到 React 时不用
  * `dangerouslySetInnerHTML` —— 那等于把一段 HTML 字符串当代码执行，
  * 而这批文本虽然是自己生成的、将来却可能来自用户的笔记内容。
  * 所以导出时就拆成片段数组，渲染层按 `em` 决定要不要套一层 <strong>。
@@ -37,7 +37,7 @@ export interface TextRun {
 export type ChartBar = [number, number]
 
 export interface ChartGroup {
-  /** 柱色。取的是**不承载文字**的色阶（色条/填充档），不是徽标用的 -strong */
+  /** 柱色。取的是不承载文字的色阶（色条/填充档），不是徽标用的 -strong */
   color: string
   /** 柱宽 */
   w: number
@@ -66,7 +66,7 @@ export interface KpiTileSpec {
   kind: 'kpi'
   icon: IconName
   title: string
-  /** 副标题：说明这枚数字的**口径**（"柱高 = 待办条数"这类） */
+  /** 副标题：说明这枚数字的口径（"柱高 = 待办条数"这类） */
   sub: string
   value: string
   unit?: string
@@ -145,7 +145,7 @@ export interface ChatMessage {
 export interface ModuleEnter {
   text: string
   path: string
-  /** 工作台是**本页**：按钮保留但置灰，不能藏 —— 藏了 Hero 会矮一截 */
+  /** 工作台是本页：按钮保留但置灰，不能藏 —— 藏了 Hero 会矮一截 */
   self?: boolean
 }
 

@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>菜单栏 · 统一样式 v2</title>
+    <style>
+        /* 令牌层逐字取自 design/project/项目-项目详情-index.html 的 :root（纯色版）。
+           本页只用得上与菜单栏有关的那几支 —— 多抄一支就多一处要跟着改的地方。
+           ⚠️ --pad-x 是本页加的：本页没有 .main，把它的水平内距抽成一个令牌，
+              落地页里它就是 `--main-pad-x`。 */
+        :root {
+            color-scheme: light;
+            --bg-page:  #ECF0F7;
+            --bg-card:  #FFFFFF;
+            --bg-slot:  #F2F5FB;
+            --line:        #E4E9F2;
+            --line-strong: #D2DAE7;
+            --text-primary:   #0F172A;
+            --text-secondary: #4F5B75;
+            --text-muted:     #61708A;
+            --shadow-card: 0 1px 2px rgba(15,23,42,0.04), 0 6px 16px -8px rgba(15,23,42,0.12);
+            --m-main: #EA580C;
+            --m-ink:  #B93E0B;
+            --m-on:   #FFFFFF;
+            --m-tint: color-mix(in srgb, var(--m-main) 12%, var(--bg-card));
+            --danger: #B91C1C;
+            --danger-bg: color-mix(in srgb, var(--danger) 13%, var(--bg-card));
+            --pad-x: 14px;
+        }
+        .dark {
+            color-scheme: dark;
+            --bg-page:  #0A1018;
+            --bg-card:  #18222F;
+            --bg-slot:  #111A26;
+            --line:        #25303F;
+            --line-strong: #38465C;
+            --text-primary:   #F1F5F9;
+            --text-secondary: #A9B6C9;
+            --text-muted:     #8FA0B8;
+            --shadow-card: 0 1px 2px rgba(0,0,0,0.35), 0 8px 20px -10px rgba(0,0,0,0.55);
+            --m-main: #FB923C;
+            --m-ink:  #FDBA74;
+            --m-on:   #1A1206;
+            --danger: #FCA5A5;
+            /* ⚠️ 派生令牌必须在 .dark 里再声明一次：var() 在"声明它的那个元素"上解析，
+               继承下去的是结果不是表达式（这样 .dark 挂在任意容器上都成立）。 */
+            --m-tint: color-mix(in srgb, var(--m-main) 12%, var(--bg-card));
+            --danger-bg: color-mix(in srgb, var(--danger) 13%, var(--bg-card));
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg-page); color: var(--text-primary);
+            font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { max-width: 1040px; margin: 0 auto; padding: 36px 20px 80px; }
+
+        .page-head h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+        .page-head p { margin-top: 8px; font-size: 13px; line-height: 1.65; color: var(--text-secondary); max-width: 76ch; }
+        .page-head p + p { margin-top: 6px; }
+
+        h2 {
+            font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+            color: var(--text-muted); text-transform: uppercase;
+            margin: 34px 0 12px;
+        }
+        h2:first-of-type { margin-top: 28px; }
+
+        .card {
+            background: var(--bg-card); border: 1px solid var(--line);
+            border-radius: 14px; box-shadow: var(--shadow-card);
+        }
+        .pad { padding: 16px; }
+
+        /* ---------- 舞台：菜单栏在页面里就坐在这个面上 ---------- */
+        .stage {
+            background: var(--bg-page); border: 1px solid var(--line);
+            border-radius: 14px; overflow: hidden;
+        }
+        .stage + .stage { margin-top: 12px; }
+        .stage-note {
+            display: flex; align-items: baseline; gap: 8px;
+            padding: 10px 14px; font-size: 12px; color: var(--text-secondary);
+            border-bottom: 1px solid var(--line); flex-wrap: wrap;
+        }
+        .stage-note b { font-weight: 600; color: var(--text-primary); }
+        .stage-note .tag {
+            margin-left: auto; font-size: 11px; color: var(--text-muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        /* ============================================================
+           菜单栏本体 · v2「胶囊分区栏」
+           ------------------------------------------------------------
+           取自 React 的**通用** tab（`module-workspace.css` 的 `.mw-root .tabs/.tab`）
+           与其在 `design/work/工作-项目-项目详情-运维-index.html` 里的那一版实现。
+           ⚠️ 页签是**真 <button>**：`appearance / background / border / font` 这组
+              重置漏一条，浏览器就会自己画一圈边框 + 默认底色 —— 那层东西
+              **看着像设计、其实不是**（v1 就是拿它讨论过半轮）。
+           ⚠️ 选中那两条必须写在 :hover 之后（特异性相同，靠顺序定胜负）。
+           ============================================================ */
+        .tabs-wrap {
+            position: sticky; top: 0; z-index: 10;
+            /* 底色 = **它压着的那个面**：正文列浮在页面底上，所以是 --bg-page。
+               padding 8 + margin -8 相抵：视觉上这条栏仍落在 20px 的栅格节奏上，
+               那 8px 就是留给"从它下面滚过去的内容"的遮盖带。 */
+            background: var(--bg-page);
+            padding: 8px 0; margin: -8px 0;
+            transition: background 0.45s ease;
+        }
+        .tabs {
+            display: flex; gap: 4px; overflow-x: auto;
+            padding: 6px; border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow-card);
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab {
+            appearance: none; -webkit-appearance: none;
+            background: none; border: 0; font: inherit;
+            flex-shrink: 0; display: flex; align-items: center; gap: 7px;
+            padding: 9px 14px; border-radius: 10px;
+            font-size: 13px; font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer; white-space: nowrap; user-select: none;
+            transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .tab-ico { display: inline-flex; flex-shrink: 0; }
+        .tab-ico svg { width: 15px; height: 15px; stroke-width: 2; }
+        .tab:hover { color: var(--text-primary); background: var(--bg-slot); }
+        .tab.active {
+            background: var(--m-ink); color: var(--m-on);
+            box-shadow: 0 4px 12px color-mix(in srgb, var(--m-ink) 30%, transparent);
+        }
+        .tab.active:hover { background: var(--m-ink); }
+        .tab-count {
+            font-size: 10px; font-weight: 800;
+            padding: 1px 7px; border-radius: 999px; min-width: 18px; text-align: center;
+            background: var(--bg-slot); color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+            transition: all 0.18s ease;
+        }
+        .tab.active .tab-count { background: var(--m-on); color: var(--text-primary); }
+        /* 「有更新」由计数胶囊自己说（换告警色）；当前格不显示 —— 它已经在看了 */
+        .tab.has-update:not(.active) .tab-count { background: var(--danger-bg); color: var(--danger); }
+        /* 真按钮 ⇒ Tab 键到得了，那就要看得见焦点。环画在格内（负 offset）。 */
+        .tab:focus-visible { outline: 2px solid var(--m-ink); outline-offset: -2px; }
+
+        /* ---------- 本页专用：把伪类"钉"住的两个类 ----------
+           静态展示需要"永远是 hover / 永远是焦点"的样子，而伪类没法手工触发。
+           这两个类**只存在于本页**，与真伪类 1:1 对应；落地时不出现。 */
+        .demo-hover { color: var(--text-primary); background: var(--bg-slot); }
+        .demo-focus { outline: 2px solid var(--m-ink); outline-offset: -2px; }
+
+        /* ---------- 逐态实物 ---------- */
+        .states { display: flex; flex-direction: column; }
+        .state-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-top: 1px solid var(--line); }
+        .state-row:first-child { border-top: 0; }
+        .state-key { width: 172px; flex-shrink: 0; font-size: 12px; color: var(--text-secondary); }
+        .state-key b { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+        .state-key code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 11px; color: var(--text-muted);
+        }
+        /* 逐态实物里的小舞台：白卡上不好看，所以给它一条页面底 */
+        .mini { background: var(--bg-page); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+
+        /* ---------- 表格 ---------- */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+        thead th {
+            font-size: 11px; font-weight: 600; color: var(--text-muted);
+            letter-spacing: 0.04em; text-transform: uppercase;
+        }
+        tbody td { font-size: 13px; }
+        tbody tr:last-child td { border-bottom: 0; }
+        td.k {
+            width: 190px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 11.5px; color: var(--text-muted);
+        }
+        td.v { font-weight: 600; }
+        .swatch {
+            display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+            margin-right: 6px; vertical-align: -1px;
+            border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 11.5px; padding: 1px 5px; border-radius: 5px;
+            background: var(--bg-slot); color: var(--text-secondary);
+        }
+        b.hl { color: var(--text-primary); font-weight: 600; }
+
+        /* ---------- 吸顶演示 ---------- */
+        .scroller { height: 190px; overflow-y: auto; background: var(--bg-page); }
+        .scroller-body { padding: 0 14px 14px; }
+        .fake-row {
+            height: 34px; margin-top: 10px; border-radius: 10px;
+            background: var(--bg-card); border: 1px solid var(--line);
+            display: flex; align-items: center; padding: 0 12px;
+            font-size: 12px; color: var(--text-muted);
+        }
+
+        ul.list { list-style: none; }
+        ul.list li {
+            position: relative; padding-left: 18px; margin-top: 8px;
+            font-size: 13px; line-height: 1.65; color: var(--text-secondary);
+        }
+        ul.list li::before {
+            content: ""; position: absolute; left: 4px; top: 8px;
+            width: 5px; height: 5px; border-radius: 50%; background: var(--line-strong);
+        }
+        ul.list li b { color: var(--text-primary); font-weight: 600; }
+
+        @media (max-width: 820px) {
+            td.k { display: none; }
+            thead th.k { display: none; }
+            .state-key { width: 120px; }
+            .page { padding: 24px 14px 64px; }
+            .tabs { padding: 5px; border-radius: 10px; }
+            .tab { padding: 8px 11px; font-size: 12.5px; gap: 6px; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <header class="page-head">
+        <h1>菜单栏 · 统一样式 <span style="font-weight:600;color:var(--text-muted)">v2</span></h1>
+        <p>
+            菜单栏是<b class="hl">四部分里的 ③</b>：当前这个实体的下级分区。② 头部说"这是谁、到哪了"，
+            它说"此刻在看这个实体的哪一面"。一页里只有一条。
+        </p>
+        <p>
+            <b class="hl">v2 换版（2026-09-27）</b>：从"下划线"换成"<b class="hl">浮起的一条 + 选中一块实底 + 图标</b>"。
+            三条依据：① 每格现在带图标和计数，下划线那条太轻 —— 一排 7 格全是同灰度的文字，
+            读不出"哪一格有东西"；实底把当前格钉出来，图标把 7 格分开；② 它与左侧圆盘同源
+            （同一份分区表、同一张图标表），某个分区在环上是什么图形，在这条栏上就是什么图形；
+            ③ 这套形<b class="hl">就是 React 里通用 tab 的形</b>（<code>.mw-root .tabs/.tab</code>），
+            所以它是"把项目详情也并到通用那套"，而不是新造一种。
+        </p>
+        <p>
+            ⚠️ 页签是<b class="hl">真 <code>&lt;button&gt;</code></b>：<code>appearance</code> /
+            <code>background</code> / <code>border</code> / <code>font</code> 这组重置漏一条，
+            浏览器就会自己画一圈边框 + 默认底色 —— v1 之前那半轮讨论，
+            讨论的其实是这层原生外观（它<b>看着像设计、其实不是</b>）。
+        </p>
+    </header>
+
+    <h2>主示例 · 工作项目（7 格，可点）</h2>
+    <div class="stage">
+        <div class="stage-note">
+            <b>⑦ 格齐全的形态</b>：任务与第 3 格有未处理的 ⇒ 那两格的计数胶囊换成告警色。点一下切选中态。
+            <span class="tag">.tabs-wrap / .tabs / .tab / .tab-ico / .tab-count</span>
+        </div>
+        <div class="tabs-wrap" data-bar>
+            <div class="tabs" role="tablist" aria-label="项目分区">
+                <button type="button" role="tab" aria-selected="true" class="tab active"><span class="tab-ico" data-ico="grid" aria-hidden="true"></span>总览</button>
+                <button type="button" role="tab" aria-selected="false" class="tab has-update"><span class="tab-ico" data-ico="list" aria-hidden="true"></span>任务<span class="tab-count">26/36</span></button>
+                <button type="button" role="tab" aria-selected="false" class="tab has-update"><span class="tab-ico" data-ico="alert" aria-hidden="true"></span>Bug<span class="tab-count">2</span></button>
+                <button type="button" role="tab" aria-selected="false" class="tab"><span class="tab-ico" data-ico="file" aria-hidden="true"></span>文档<span class="tab-count">4</span></button>
+                <button type="button" role="tab" aria-selected="false" class="tab"><span class="tab-ico" data-ico="database" aria-hidden="true"></span>运维<span class="tab-count">3·3·4</span></button>
+                <button type="button" role="tab" aria-selected="false" class="tab"><span class="tab-ico" data-ico="calendar" aria-hidden="true"></span>会议<span class="tab-count">2</span></button>
+                <button type="button" role="tab" aria-selected="false" class="tab"><span class="tab-ico" data-ico="shield" aria-hidden="true"></span>账户<span class="tab-count">4</span></button>
+            </div>
+        </div>
+    </div>
+    <div class="stage">
+        <div class="stage-note">
+            <b>生活 / 学习（5 格）</b>：格数由类型给死，第 3 格的名字也随类型变（风险 / 问题）；
+            菜单栏本身不关心这件事，它只按给定的分区渲染。
+            <span class="tag">同一条 .tabs-wrap</span>
+        </div>
+        <div class="tabs-wrap" data-bar>
+            <div class="tabs" role="tablist" aria-label="项目分区">
+                <button type="button" role="tab" aria-selected="true" class="tab active"><span class="tab-ico" data-ico="grid" aria-hidden="true"></span>总览</button>
+                <button type="button" role="tab" aria-selected="false" class="tab has-update"><span class="tab-ico" data-ico="list" aria-hidden="true"></span>任务<span class="tab-count">13/19</span></button>
+                <button type="button" role="tab" aria-selected="false" class="tab has-update"><span class="tab-ico" data-ico="alert" aria-hidden="true"></span>风险<span class="tab-count">2</span></button>
+                <button type="button" role="tab" aria-selected="false" class="tab"><span class="tab-ico" data-ico="file" aria-hidden="true"></span>文档<span class="tab-count">4</span></button>
+                <button type="button" role="tab" aria-selected="false" class="tab"><span class="tab-ico" data-ico="calendar" aria-hidden="true"></span>会议<span class="tab-count">2</span></button>
+            </div>
+        </div>
+    </div>
+
+    <h2>状态清单</h2>
+    <section class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th class="k">状态</th>
+                    <th>触发</th>
+                    <th>文字 / 底色</th>
+                    <th>图标</th>
+                    <th>计数胶囊</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="k">默认</td>
+                    <td>未选中的格</td>
+                    <td><span class="swatch" style="background:var(--text-secondary)"></span><code>--text-secondary</code> · 600 / 透明</td>
+                    <td>同文字色（<code>currentColor</code>），15px</td>
+                    <td><span class="swatch" style="background:var(--bg-slot)"></span>沉槽底 / <code>--text-muted</code></td>
+                </tr>
+                <tr>
+                    <td class="k">悬停</td>
+                    <td>指针进入</td>
+                    <td><span class="swatch" style="background:var(--bg-slot)"></span><code>--bg-slot</code> 底 + <code>--text-primary</code></td>
+                    <td>跟着文字变深</td>
+                    <td>不变</td>
+                </tr>
+                <tr>
+                    <td class="k">选中</td>
+                    <td><code>.active</code>（唯一的当前格）</td>
+                    <td><span class="swatch" style="background:var(--m-ink)"></span>实底 <code>--m-ink</code> + 字 <code>--m-on</code> + 一段投色阴影</td>
+                    <td>白字同色</td>
+                    <td><span class="swatch" style="background:var(--m-on)"></span>实底 <code>--m-on</code> + 字 <code>--text-primary</code></td>
+                </tr>
+                <tr>
+                    <td class="k">有更新</td>
+                    <td><code>.has-update</code> 且未选中</td>
+                    <td>同默认</td>
+                    <td>同默认</td>
+                    <td><span class="swatch" style="background:var(--danger-bg)"></span>告警淡底 / <code>--danger</code></td>
+                </tr>
+                <tr>
+                    <td class="k">键盘焦点</td>
+                    <td><code>:focus-visible</code></td>
+                    <td colspan="3">2px 焦点环，<code>outline-offset:-2px</code>（画在格内，不外扩到邻格）</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+    <ul class="list" style="margin-top:10px">
+        <li><b>「有更新」不再另放一颗红点</b>：在新形态里它没有落脚处 —— 页签右上角是计数胶囊，再往外会被 <code>.tabs</code> 的 <code>overflow-x</code> 裁掉（一个轴设了 auto，另一个轴的 visible 会跟着变成 auto）。改成<b>把计数胶囊换成告警色</b>：它想说的本来就是"注意这个数"。只有 tasks / bugs 两格会挂 <code>has-update</code>，而这两格都有计数 ⇒ 不会出现"想提醒但没有胶囊"的情况。</li>
+        <li><b>没有禁用态</b>：分区不是开关，"这一格不能去"在本系统里不存在（能列出它，就说明它可去）；真不可达就<b>不渲染这一格</b>。</li>
+        <li><b>悬停不位移</b>：一排七八个格，任何一个上浮都会让整排抖（<code>.card:hover</code> 那条 <code>translateY(-2px)</code> 不适用于它）。悬停只换底色。</li>
+        <li><b>选中格不显示「有更新」</b>：那个信号的意思是"这里有你没看的"，而当前格正在被你看 —— 两件事同时出现会互相消解。</li>
+    </ul>
+
+    <h2>逐态实物</h2>
+    <section class="card pad">
+        <div class="states">
+            <div class="state-row">
+                <div class="state-key"><b>默认</b><code>.tab</code></div>
+                <div class="mini"><div class="tabs"><button type="button" class="tab"><span class="tab-ico" data-ico="file" aria-hidden="true"></span>文档<span class="tab-count">4</span></button></div></div>
+            </div>
+            <div class="state-row">
+                <div class="state-key"><b>悬停</b><code>:hover</code></div>
+                <div class="mini"><div class="tabs"><button type="button" class="tab demo-hover"><span class="tab-ico" data-ico="file" aria-hidden="true"></span>文档<span class="tab-count">4</span></button></div></div>
+            </div>
+            <div class="state-row">
+                <div class="state-key"><b>选中</b><code>.active</code></div>
+                <div class="mini"><div class="tabs"><button type="button" class="tab active"><span class="tab-ico" data-ico="file" aria-hidden="true"></span>文档<span class="tab-count">4</span></button></div></div>
+            </div>
+            <div class="state-row">
+                <div class="state-key"><b>有更新</b><code>.has-update</code></div>
+                <div class="mini"><div class="tabs"><button type="button" class="tab has-update"><span class="tab-ico" data-ico="alert" aria-hidden="true"></span>Bug<span class="tab-count">2</span></button></div></div>
+            </div>
+            <div class="state-row">
+                <div class="state-key"><b>有更新 + 选中</b><code>.has-update.active</code></div>
+                <div class="mini"><div class="tabs"><button type="button" class="tab has-update active"><span class="tab-ico" data-ico="alert" aria-hidden="true"></span>Bug<span class="tab-count">2</span></button></div></div>
+            </div>
+            <div class="state-row">
+                <div class="state-key"><b>没有计数</b><code>无 .tab-count</code></div>
+                <div class="mini"><div class="tabs"><button type="button" class="tab"><span class="tab-ico" data-ico="grid" aria-hidden="true"></span>总览</button></div></div>
+            </div>
+            <div class="state-row">
+                <div class="state-key"><b>键盘焦点</b><code>:focus-visible</code></div>
+                <div class="mini"><div class="tabs"><button type="button" class="tab demo-focus"><span class="tab-ico" data-ico="file" aria-hidden="true"></span>文档<span class="tab-count">4</span></button></div></div>
+            </div>
+            <div class="state-row">
+                <div class="state-key"><b>溢出（横滑）</b><code>overflow-x</code></div>
+                <div class="mini" style="max-width:250px"><div class="tabs">
+                    <button type="button" class="tab active"><span class="tab-ico" data-ico="grid" aria-hidden="true"></span>总览</button>
+                    <button type="button" class="tab has-update"><span class="tab-ico" data-ico="list" aria-hidden="true"></span>任务<span class="tab-count">26/36</span></button>
+                    <button type="button" class="tab"><span class="tab-ico" data-ico="alert" aria-hidden="true"></span>Bug<span class="tab-count">2</span></button>
+                    <button type="button" class="tab"><span class="tab-ico" data-ico="file" aria-hidden="true"></span>文档<span class="tab-count">4</span></button>
+                </div></div>
+            </div>
+        </div>
+    </section>
+    <ul class="list" style="margin-top:10px">
+        <li><b>溢出时横滑，不换行、不折成两条</b>：格数是数据给的（最多 7 格），宽度不可控 —— 折成两行会让"这条栏有几个分区"读不出来。滚动条隐掉（<code>scrollbar-width:none</code> + <code>::-webkit-scrollbar{display:none}</code>）。</li>
+        <li>上面"悬停 / 焦点"两行靠本页加的 <code>.demo-hover</code> / <code>.demo-focus</code> 钉住 —— 伪类没法静态触发。这两个类<b>只存在于本页</b>。</li>
+    </ul>
+
+    <h2>尺寸与令牌</h2>
+    <section class="card">
+        <table>
+            <thead>
+                <tr><th class="k">部位</th><th>取值</th><th>为什么</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="k">栏本体</td>
+                    <td class="v">白底 + 1px <code>--line</code> + <code>--shadow-card</code> · 圆角 12px · 内距 6px</td>
+                    <td>"浮起"靠四样东西：比页亮的实底、实描边、两段小阴影、一层内距。内距 = 格与栏沿的距离，也是"格"与"栏"的分界</td>
+                </tr>
+                <tr>
+                    <td class="k">格间隙</td>
+                    <td class="v">4px</td>
+                    <td>比内距（6px）小：间隙是"格与格"，内距是"格与栏"。两者相等时读不出层级</td>
+                </tr>
+                <tr>
+                    <td class="k">页签</td>
+                    <td class="v">内距 9px 14px · 圆角 10px · 13px / 600</td>
+                    <td>600 而不是 500：它现在坐在一格格实底/悬停底上，太细的字在色块里发飘</td>
+                </tr>
+                <tr>
+                    <td class="k">图标</td>
+                    <td class="v">15px · 描边 2 · 与文字同色</td>
+                    <td>与顶栏胶囊、超级菜单同一档 —— 同一张表、同一支笔。<code>aria-hidden</code>：label 已经说了，图标对读屏是重复信息</td>
+                </tr>
+                <tr>
+                    <td class="k">计数胶囊</td>
+                    <td class="v">10px / 800 · 1px 7px · 最小 18px · <code>tabular-nums</code></td>
+                    <td>最小宽 + 等宽数字：7 个胶囊里的数要能竖着对，且"2"与"26/36"不跳宽</td>
+                </tr>
+                <tr>
+                    <td class="k">选中实底</td>
+                    <td class="v"><code>--m-ink</code> + 字 <code>--m-on</code> + <code>0 4px 12px</code> 投色阴影</td>
+                    <td>实底上压白字只能用 <code>--m-ink</code>（<code>--m-main</code> 只够做图形，白字压它 2.8:1）。暗色下 <code>--m-on</code> 本身是深色，这一条不用分主题写</td>
+                </tr>
+                <tr>
+                    <td class="k">告警（有更新）</td>
+                    <td class="v"><code>--danger-bg</code> 底 + <code>--danger</code> 字</td>
+                    <td>同一套语义令牌（与 Bug 卡、逾期数字同源），不新造一支红</td>
+                </tr>
+                <tr>
+                    <td class="k">吸顶</td>
+                    <td class="v"><code>sticky top:0</code> · <code>z-index:10</code> · <code>padding:8px 0; margin:-8px 0</code></td>
+                    <td>底色必须是<b>它压着的那个面</b>（正文列浮在页面底上 ⇒ <code>--bg-page</code>）；8px 是留给"滚过去的内容"的遮盖带，负 margin 把那 8px 从布局里抵掉，栅格节奏不变</td>
+                </tr>
+                <tr>
+                    <td class="k">窄屏（≤768）</td>
+                    <td class="v">栏内距 5px · 圆角 10px · 格内距 8px 11px · 12.5px</td>
+                    <td>栏与格<b>一起</b>收一档；4px 的格间隙不变（它比内距更像"分隔"）</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <h2>吸顶与遮盖（滚动时）</h2>
+    <section class="stage">
+        <div class="stage-note">
+            <b>在下面这块里滚一下</b>：这条栏吸在顶部，上下各 8px 的页面底色盖住滚过去的内容。
+            <span class="tag">position: sticky</span>
+        </div>
+        <div class="scroller">
+            <div class="tabs-wrap" data-bar>
+                <div class="tabs" role="tablist" aria-label="项目分区">
+                    <button type="button" role="tab" aria-selected="true" class="tab active"><span class="tab-ico" data-ico="grid" aria-hidden="true"></span>总览</button>
+                    <button type="button" role="tab" aria-selected="false" class="tab has-update"><span class="tab-ico" data-ico="list" aria-hidden="true"></span>任务<span class="tab-count">26/36</span></button>
+                    <button type="button" role="tab" aria-selected="false" class="tab has-update"><span class="tab-ico" data-ico="alert" aria-hidden="true"></span>Bug<span class="tab-count">2</span></button>
+                    <button type="button" role="tab" aria-selected="false" class="tab"><span class="tab-ico" data-ico="file" aria-hidden="true"></span>文档<span class="tab-count">4</span></button>
+                    <button type="button" role="tab" aria-selected="false" class="tab"><span class="tab-ico" data-ico="database" aria-hidden="true"></span>运维<span class="tab-count">3·3·4</span></button>
+                </div>
+            </div>
+            <div class="scroller-body">
+                <div class="fake-row">正文栏的第一张卡</div>
+                <div class="fake-row">第二张卡</div>
+                <div class="fake-row">第三张卡</div>
+                <div class="fake-row">第四张卡</div>
+                <div class="fake-row">第五张卡</div>
+            </div>
+        </div>
+    </section>
+    <ul class="list" style="margin-top:10px">
+        <li>吸顶那层的底色写的是<b>页面底</b>；如果这条栏坐在<b>白卡里</b>（例如运维子页那种整页白底），就要换成那张白卡的色 —— 判据只有一条：<b>等于它压着的那个面</b>。</li>
+    </ul>
+
+    <h2>深色</h2>
+    <div class="dark">
+        <div class="stage">
+            <div class="stage-note">
+                <b>同一套令牌的另一套值</b>：只换值、不改关系（栏的圆角、格间隙、实底、告警色都不动）。
+                <span class="tag">.dark 挂在任意容器上都成立</span>
+            </div>
+            <div class="tabs-wrap" data-bar>
+                <div class="tabs" role="tablist" aria-label="项目分区">
+                    <button type="button" role="tab" aria-selected="true" class="tab active"><span class="tab-ico" data-ico="grid" aria-hidden="true"></span>总览</button>
+                    <button type="button" role="tab" aria-selected="false" class="tab has-update"><span class="tab-ico" data-ico="list" aria-hidden="true"></span>任务<span class="tab-count">26/36</span></button>
+                    <button type="button" role="tab" aria-selected="false" class="tab has-update"><span class="tab-ico" data-ico="alert" aria-hidden="true"></span>Bug<span class="tab-count">2</span></button>
+                    <button type="button" role="tab" aria-selected="false" class="tab"><span class="tab-ico" data-ico="file" aria-hidden="true"></span>文档<span class="tab-count">4</span></button>
+                    <button type="button" role="tab" aria-selected="false" class="tab"><span class="tab-ico" data-ico="calendar" aria-hidden="true"></span>会议<span class="tab-count">2</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <ul class="list" style="margin-top:10px">
+        <li>深底上强调色要<b>提亮</b>（<code>--m-ink: #FDBA74</code>），实底上的字反过来换深字（<code>--m-on</code>）⇒ 选中态那两条规则一个主题一份值，不用分叉写。派生令牌（<code>--m-tint</code> / <code>--danger-bg</code>）必须在 <code>.dark</code> 里再声明一次。</li>
+    </ul>
+
+    <h2>交互与可达性</h2>
+    <ul class="list">
+        <li><b>真按钮</b>：<code>&lt;button type="button"&gt;</code>，Enter / Space 由浏览器负责；那条重置也没法省（见页头）。</li>
+        <li><b>语义</b>：容器 <code>role="tablist"</code> + <code>aria-label</code>；每格 <code>role="tab"</code> + <code>aria-selected</code>。注意<b>只有这一组</b>叫 tablist —— 侧栏那三个槽用的是 <code>.slot-tab</code>，别共用同一个 label。</li>
+        <li><b>焦点环画在格内</b>（<code>outline-offset:-2px</code>）：一排相邻格，外扩的环会盖到邻格上。</li>
+        <li><b>数字键直达</b>：详情态按 <code>1..7</code> 切分区（无修饰键、焦点不在输入控件里）。这条是页面级快捷键，但它依赖"这条栏的顺序是稳定的"。</li>
+        <li><b>点击即切，不重渲整页</b>：菜单栏与正文栏共用一次 <code>activateTab(key)</code> —— 分区的 key 就是面板的 <code>data-panel</code>，两处不会各说一套。</li>
+    </ul>
+
+    <h2>与 React 落地态的关系（换版后新出现的一条）</h2>
+    <ul class="list">
+        <li>v2 的形取自 React 的<b>通用</b> tab（<code>module-workspace.css</code> L349-361 的 <code>.mw-root .tabs/.tab</code>：胶囊 + 实底 + 白字；配色用 <code>--mw-m-main</code>）。</li>
+        <li>⚠️ 而 React 的<b>项目详情</b>那一套（<code>.proj-detail .tabs/.tab</code>，L2944-2984）现在还是<b>下划线</b>。也就是说：<b>这一版是原型先走一步</b>，把项目详情并到了通用那套 —— 落地时要跟着改 React 那两条（把 <code>.proj-detail .tab</code> 换成通用那套，或直接复用 <code>.mw-root .tabs</code>）。旧说法里"两套不合并"要撤回：<b>形合并了</b>，留着的是两处挂载（环是谁的、基路径不同）。</li>
+        <li>面板内的"换一种看法"（列表 / 看板 / 四象限）仍用 <code>.seg</code>：它是<b>面板里的选项组</b>，不是页面级导航 —— 一级导航（这条栏）已经是一排胶囊了，面板里再用一排等重的胶囊会读成"两条导航"。</li>
+    </ul>
+
+    <h2>落地状态</h2>
+    <section class="card">
+        <table>
+            <thead>
+                <tr><th class="k">文件</th><th>状态</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="k">项目-项目详情-index.html</td><td>✅ 已换版（含 UA 重置、图标、计数胶囊、告警态、窄屏、焦点环）</td></tr>
+                <tr><td class="k">工作 / 生活 / 学习-项目-项目详情-index.html</td><td>✅ 由生成器从通用版同步（三份与通用版只差类型常量）</td></tr>
+                <tr><td class="k">项目-类型分区菜单-index.html</td><td>✅ 三条示例栏同步（含本地图标注入 + 窄屏）</td></tr>
+                <tr><td class="k">project_index.html</td><td>⛔ 未动（含列表态的那份，其详情层仍是下划线那套）</td></tr>
+                <tr><td class="k">React（<code>.proj-detail .tabs/.tab</code>）</td><td>⛔ 仍是下划线 —— 见上一节，落地要跟着改</td></tr>
+            </tbody>
+        </table>
+    </section>
+    <ul class="list" style="margin-top:10px">
+        <li>v1（下划线：无框、选中一条 2px 下划线、红点）已废弃 —— 它的状态清单与尺寸表现在不作数，文件里不再保留那一版。</li>
+    </ul>
+
+</div>
+
+<script>
+    /* 图标与原型**同一张表**（`项目-项目详情-index.html` 的 icons）：
+       同一个分区在圆盘上是什么图形，在这条栏上就是什么图形。
+       本页用 data-ico 就地注入，不重复写十几遍 <svg>。
+       ⚠️ 查不到名字不静默回落（回落成同一个图形的症状是"七格全长一样"，而页面不报错）。 */
+    const ICONS = {
+        grid: '<rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect>',
+        list: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>',
+        alert: '<path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path>',
+        file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>',
+        database: '<ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>',
+        calendar: '<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+        shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>'
+    };
+    document.querySelectorAll('[data-ico]').forEach(function (el) {
+        const d = ICONS[el.dataset.ico];
+        if (!d) { console.warn('[ico] 未定义的图标：' + el.dataset.ico); return; }
+        el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+            + ' stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+    });
+
+    /* 每条栏各自独立：点一下只切自己那条的选中态。
+       落地页里这一步由 activateTab(key) 统一同步菜单栏与正文栏。 */
+    document.querySelectorAll('[data-bar]').forEach(function (bar) {
+        bar.addEventListener('click', function (e) {
+            const tab = e.target.closest('.tab');
+            if (!tab || !bar.contains(tab)) return;
+            bar.querySelectorAll('.tab').forEach(function (t) {
+                const on = t === tab;
+                t.classList.toggle('active', on);
+                t.setAttribute('aria-selected', String(on));
+            });
+        });
+    });
+</script>
+</body>
+</html>

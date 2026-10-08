@@ -1277,6 +1277,18 @@
         .graph-node.center:hover { background: var(--m-fill-hover); border-color: var(--m-fill-hover); }
         .graph-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--text-muted); }
         .graph-legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+        /* ========== 图谱分区：整块由 `知识图谱.html?embed=1` 承载 ==========
+           一份实现两处使用 —— 本页不写第二份图谱。嵌入页自己带右栏（详情轨），
+           所以这一格占满整行、并把本页的通用右栏让开，免得出现两条详情栏。 */
+        .kg-frame {
+            display: block; width: 100%; height: 900px;
+            border: none; border-radius: 20px;
+            background: var(--bg-card);
+            box-shadow: var(--shadow-card);
+        }
+        .main-body:has([data-panel="graph"].active) { grid-template-columns: minmax(0, 1fr); }
+        .main-body:has([data-panel="graph"].active) .main-rail { display: none; }
         .legend-dot { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--m-main); background: var(--bg-card); }
         .legend-dot.solid { background: var(--m-fill); border-color: var(--m-fill); }
 
@@ -2189,99 +2201,10 @@
                         </div>
                     </div>
 
-                    <!-- 图谱：三级 = 看什么（图 / 统计 / 两类巡检）—— 换的是「一份内容」，所以用 .sub-view -->
+                    <!-- 图谱：整块由 `知识图谱.html?embed=1` 承载 —— **一份实现、两处使用**；
+                         圆盘三级 7 项通过 postMessage 切视图，不在本页再写第二份图谱 -->
                     <div class="panel" data-panel="graph">
-                        <div class="section">
-                            <div class="section-title">
-                                <span>双链图谱</span>
-                                <span class="section-count" id="graphCount">以「个人系统」为中心 · 1 跳</span>
-                            </div>
-
-                            <!-- ① 局部图：上千条下只画局部 -->
-                            <div class="sub-view active" data-view="local">
-                                <div class="graph-canvas">
-                                    <svg class="graph-links" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                        <line x1="50" y1="50" x2="12" y2="50" />
-                                        <line x1="50" y1="50" x2="31" y2="17" />
-                                        <line x1="50" y1="50" x2="69" y2="17" />
-                                        <line x1="50" y1="50" x2="31" y2="83" />
-                                        <line x1="50" y1="50" x2="69" y2="83" />
-                                        <line x1="50" y1="50" x2="88" y2="50" />
-                                    </svg>
-                                    <div class="graph-node center" style="left: 50%; top: 50%;">个人系统</div>
-                                    <div class="graph-node" style="left: 12%; top: 50%;">TypeScript</div>
-                                    <div class="graph-node" style="left: 31%; top: 17%;">React</div>
-                                    <div class="graph-node" style="left: 69%; top: 17%;">Vite</div>
-                                    <div class="graph-node" style="left: 31%; top: 83%;">UI 设计</div>
-                                    <div class="graph-node" style="left: 69%; top: 83%;">架构</div>
-                                    <div class="graph-node" style="left: 88%; top: 50%;">CSS</div>
-                                </div>
-                                <div class="graph-legend">
-                                    <span><i class="legend-dot solid"></i>中心节点</span>
-                                    <span><i class="legend-dot"></i>关联笔记</span>
-                                    <span>连线 = 双向链接</span>
-                                </div>
-                                <div class="notice" style="margin-top: 10px;">
-                                    节点大小代表笔记数量。上千条时只画局部（以当前笔记为中心 1~2 跳）——
-                                    286 个节点同屏只剩一团毛线，宏观问题改由「全库统计」回答。
-                                </div>
-                            </div>
-
-                            <!-- ② 全库统计 -->
-                            <div class="sub-view" data-view="stats">
-                                <div class="stat-grid">
-                                    <div class="stat-cell"><div class="stat-num">286</div><div class="stat-label">笔记</div></div>
-                                    <div class="stat-cell"><div class="stat-num">348</div><div class="stat-label">双向链接</div></div>
-                                    <div class="stat-cell"><div class="stat-num">1.2</div><div class="stat-label">平均出链</div></div>
-                                    <div class="stat-cell"><div class="stat-num">12</div><div class="stat-label">零入链笔记</div></div>
-                                    <div class="stat-cell"><div class="stat-num">12</div><div class="stat-label">孤儿（双向都空）</div></div>
-                                    <div class="stat-cell"><div class="stat-num">3</div><div class="stat-label">黑洞（只进不出）</div></div>
-                                </div>
-                                <div class="notice" style="margin-top: 12px;">
-                                    全库图谱不画，只出统计：宏观问题（「整库链接够不够密」）用数字回答比看图快得多。
-                                </div>
-                            </div>
-
-                            <!-- ③ 孤儿巡检 -->
-                            <div class="sub-view" data-view="orphan">
-                                <div class="patrol-item" onclick="openNote('养猫经验：疫苗与驱虫')">
-                                    <span class="patrol-name">养猫经验：疫苗与驱虫</span>
-                                    <span class="patrol-meta">0 入链 · 0 出链 · 10 天</span>
-                                </div>
-                                <div class="patrol-item" onclick="openNote('SQLite 全文索引选型')">
-                                    <span class="patrol-name">SQLite 全文索引选型</span>
-                                    <span class="patrol-meta">0 入链 · 0 出链 · 41 天</span>
-                                </div>
-                                <div class="patrol-item" onclick="openNote('个人记账的账户结构')">
-                                    <span class="patrol-name">个人记账的账户结构</span>
-                                    <span class="patrol-meta">0 入链 · 0 出链 · 35 天</span>
-                                </div>
-                                <div class="notice" style="margin-top: 10px;">
-                                    孤儿 = 入链和出链都为 0，且超过 30 天。它比普通的「未链接」更严重：
-                                    连别人都没引用过它。全库 12 条，这里列前 3 条。
-                                </div>
-                            </div>
-
-                            <!-- ④ 黑洞巡检 -->
-                            <div class="sub-view" data-view="blackhole">
-                                <div class="patrol-item" onclick="openNote('支付对账的三种口径')">
-                                    <span class="patrol-name">支付对账的三种口径</span>
-                                    <span class="patrol-meta">被 5 条引用 · 0 出链</span>
-                                </div>
-                                <div class="patrol-item" onclick="openNote('权限模型 RBAC 拆解')">
-                                    <span class="patrol-name">权限模型 RBAC 拆解</span>
-                                    <span class="patrol-meta">被 4 条引用 · 0 出链</span>
-                                </div>
-                                <div class="patrol-item" onclick="openNote('React 19 服务端组件')">
-                                    <span class="patrol-name">React 19 服务端组件</span>
-                                    <span class="patrol-meta">被 3 条引用 · 0 出链</span>
-                                </div>
-                                <div class="notice" style="margin-top: 10px;">
-                                    黑洞 = 被引用 ≥3 次却从不出链。查得到名字、走不出去 —— 顺手补 1 条出链就解开。
-                                    全库 3 条，全部列出。
-                                </div>
-                            </div>
-                        </div>
+                        <iframe class="kg-frame" id="kgFrame" src="知识图谱.html?embed=1" title="双链图谱"></iframe>
                     </div>
 
                     <!-- 收藏：已从一级分区降级为「笔记」分区内的视图（.note-view[data-view="star"]） -->
@@ -2534,6 +2457,9 @@
             desc: '关系视图：节点大小代表笔记数量，连线代表双向链接，用来发现孤立笔记。',
             children: [
                 { key: 'gp-local', label: '局部图', icon: 'graph', view: 'local' },
+                { key: 'gp-global', label: '全局图', icon: 'globe', view: 'global' },
+                { key: 'gp-timeline', label: '时间轴', icon: 'timeline', view: 'timeline' },
+                { key: 'gp-board', label: '白板', icon: 'board', view: 'whiteboard' },
                 { key: 'gp-stats', label: '全库统计', icon: 'grid', view: 'stats' },
                 { key: 'gp-orphan', label: '孤儿巡检', icon: 'alert', view: 'orphan', count: '12' },
                 { key: 'gp-hole', label: '黑洞巡检', icon: 'target', view: 'blackhole', count: '3' }
@@ -2670,6 +2596,9 @@
         flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line>',
         send: '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>',
         trend: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
+        globe: '<circle cx="12" cy="12" r="9"></circle><line x1="3" y1="12" x2="21" y2="12"></line><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"></path>',
+        timeline: '<line x1="3" y1="12" x2="21" y2="12"></line><circle cx="7" cy="12" r="2"></circle><circle cx="14" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle>',
+        board: '<rect x="2" y="4" width="20" height="14" rx="2"></rect><line x1="7" y1="22" x2="17" y2="22"></line><line x1="12" y1="18" x2="12" y2="22"></line>',
         chevronLeft: '<polyline points="15 18 9 12 15 6"></polyline>'
     };
 
@@ -2952,24 +2881,51 @@
         if (el) el.textContent = TAG_VIEW_COUNT[view] || '';
     }
 
-    /* ============ 图谱的视图：局部图 / 全库统计 / 孤儿巡检 / 黑洞巡检 ============
-       这四种是「四份内容」而不是「一份数据的四个子集」，所以用 .sub-view 换块，不用 hidden 过滤。 */
+    /* ============ 图谱的七种看法：整块由 `知识图谱.html?embed=1` 承载 ============
+       本页**不再各写一份图谱实现**（那会变成两个真相源）—— 三级只负责把「看哪一种」转发进去。
+       `.sub-view` 那套换块机制在本分区已无对象，保留只为将来回退时不至于空白。 */
     const GRAPH_VIEW_COUNT = {
-        local: '以「个人系统」为中心 · 1 跳',
+        local: '局部图 · 以选中笔记为中心',
+        global: '全库一张图 · 6 种着色 + Louvain',
+        timeline: '按创建时间 · 列表 / 横向',
+        whiteboard: '手工整理层 · 位置与连线只属于白板',
         stats: '全库 286 条 · 348 条双链',
-        orphan: '12 条孤儿 · 这里是前 3 条',
-        blackhole: '3 条黑洞 · 全部列出'
+        orphan: '12 条孤儿',
+        blackhole: '3 条黑洞'
     };
+
+    function kgSend(msg) {
+        const f = document.getElementById('kgFrame');
+        if (f && f.contentWindow) f.contentWindow.postMessage(msg, '*');
+    }
+
+    /* 嵌入页每次加载都带一个新时间戳 —— 改完图谱不必手动清缓存。
+       （预览面板不会自动刷新，最容易"我改了但你没看到"的就是这一层。） */
+    (function mountKgFrame() {
+        const f = document.getElementById('kgFrame');
+        if (f) f.src = '知识图谱.html?embed=1&t=' + Date.now();
+    })();
+
     function setGraphView(view) {
-        /* 图谱没有「全部」这个概念（它本来就是四种不同的看法），
-           所以复位用的 'all' 落到默认的「局部图」—— 否则进分区时四个子视图会全被关掉、面板空白。 */
+        /* 图谱没有「全部」这个概念（它本来就是七种不同的看法），
+           所以复位用的 'all' 落到默认的「局部图」。 */
         const v = GRAPH_VIEW_COUNT[view] ? view : 'local';
         document.querySelectorAll('[data-panel="graph"] .sub-view').forEach(el2 => {
             el2.classList.toggle('active', el2.dataset.view === v);
         });
         const el = document.getElementById('graphCount');
         if (el) el.textContent = GRAPH_VIEW_COUNT[v] || '';
+        kgSend({ type: 'kg-view', v: v });
     }
+
+    /* 嵌入页按内容高度上报，本页据此给 iframe 定高 —— 避免"框里再套一层滚动" */
+    window.addEventListener('message', e => {
+        const d = e.data || {};
+        if (d.type !== 'kg-height' || typeof d.h !== 'number') return;
+        const f = document.getElementById('kgFrame');
+        if (!f) return;
+        f.style.height = Math.max(560, Math.min(6000, Math.round(d.h))) + 'px';
+    });
 
     /* 环上的三级选择驱动「分区内的视图」—— 视图不是分区这件事因此在交互上可验证 */
     function syncSectionView() {

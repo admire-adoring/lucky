@@ -12,14 +12,14 @@ import { SHELL_PRIMARY, type ShellPrimaryItem } from '../../data/workspace/shell
  * 它与原型的两处差异
  * ============================================================================
  *
- * ① **真的能跳**。原型的 `.cmd-item` 是纯 div，点了什么都不发生（静态页）。
+ * ① 真的能跳。原型的 `.cmd-item` 是纯 div，点了什么都不发生（静态页）。
  *    到了应用里这就是"看着有、点了没反应"——比不渲染更难查。
  *    这里的每一项都是 `navigate(path)`。
  *
- * ② **分组 + 过滤**。原型是固定的 8 行 + 写死的 `G D` 这类快捷键提示
+ * ② 分组 + 过滤。原型是固定的 8 行 + 写死的 `G D` 这类快捷键提示
  *    （那套 `G` 前缀组合键应用里没有实现，写上去就是在教一个不存在的功能）。
  *    换成"输入即过滤"：模块九项 + 当前模块的 Tab —— 后者是从
- *    `WorkspaceLayout` 传进来的**真实 Tab**，所以从面板里能直接跳到任意分区，
+ *    `WorkspaceLayout` 传进来的真实 Tab，所以从面板里能直接跳到任意分区，
  *    不必先回到环上。
  *
  * ============================================================================
@@ -28,15 +28,15 @@ import { SHELL_PRIMARY, type ShellPrimaryItem } from '../../data/workspace/shell
  *
  * · ⌘K / Ctrl+K 开关，Esc 关闭 —— 监听写在 `window` 上，因为面板关闭时
  *   焦点在页面任意处，挂在面板自己身上就永远收不到"打开"的那一次按键。
- * · ↑↓ 移动、Enter 选中。**选中项由下标维护，不是 `document.activeElement`** ——
+ * · ↑↓ 移动、Enter 选中。选中项由下标维护，不是 `document.activeElement` ——
  *   后者在重新渲染（过滤后列表变短）时会指到一个已经不存在的节点上。
- * · 打开后 `input.focus()` 要**延迟一帧**：面板这一帧还在 `display:none`（`.cmd-mask`
+ * · 打开后 `input.focus()` 要延迟一帧：面板这一帧还在 `display:none`（`.cmd-mask`
  *   默认隐藏），对隐藏元素调 focus 是静默失败的。
  */
 export interface CommandTarget {
   key: string
   label: string
-  /** 分组。**只参与过滤、不单独占一列** —— 右侧那一列（`.cmd-kbd`）留给了路径提示，
+  /** 分组。只参与过滤、不单独占一列 —— 右侧那一列（`.cmd-kbd`）留给了路径提示，
    *  它是原型里就有的位置，多插一列会把长标签挤到省略号。 */
   group: string
   icon: IconName
@@ -57,7 +57,7 @@ export function moduleTargets(primary: ShellPrimaryItem[] = SHELL_PRIMARY): Comm
   }))
 }
 
-/** 当前模块的分区 —— 从 `WorkspaceLayout` 传进来的**真实 Tab** 构造，
+/** 当前模块的分区 —— 从 `WorkspaceLayout` 传进来的真实 Tab 构造，
  *  所以面板里能直接跳到任意分区，不必先回到环上 */
 export function tabTargets(
   moduleLabel: string,
@@ -189,7 +189,7 @@ export function CommandPalette({
 /**
  * 全局快捷键。
  *
- * ⚠️ 只在**没有输入框持有焦点**时响应 —— 否则在搜索框里打 `k` 会被吃掉。
+ * 只在没有输入框持有焦点时响应 —— 否则在搜索框里打 `k` 会被吃掉。
  *    `<input>` / `<textarea>` / `contenteditable` 三种都要排掉：
  *    各模块面板里都有表单（`panels.tsx` 的弹窗），漏一类就会在真实使用中冒出来。
  */

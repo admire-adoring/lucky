@@ -23,13 +23,13 @@ import { useWorkbenchStore } from '../stores/workbench-store'
  * 已经落地的模块主页面。
  *
  * 从「只有 /projects 一个」扩到「八个模块全部落地」之后，判定方式也跟着变了 ——
- * 不再是"路径在白名单里"，而是"**前缀**在白名单里"：每个模块都有自己的子路由
+ * 不再是"路径在白名单里"，而是"前缀在白名单里"：每个模块都有自己的子路由
  * （`/life/habits`、`/settings/appearance`…），而 `ENTER` 里给的是模块根路径，
  * 两者必须都能进。
  *
- * ⚠️ 已知漂移（**未修**，改动会牵动生成器三方）：`ENTER` 里「任务清单」与「日程」
+ * 已知漂移（未修，改动会牵动生成器三方）：`ENTER` 里「任务清单」与「日程」
  * 的目标是 `/work/tasks`、`/work/calendar`（依据 `docs/模块设计.md`：它们在文档里是
- * 工作模块内的页面）。而新建的 8 个原型把两者提升成了**顶层页面**（`/tasks`、`/calendar`）。
+ * 工作模块内的页面）。而新建的 8 个原型把两者提升成了顶层页面（`/tasks`、`/calendar`）。
  * 于是从环上进「任务清单」会落到「工作 / 任务」那个 Tab 上 —— 是个真页面，只是不是同一处。
  * 事实源在 `design/gen-modules.mjs` 的 `ENTER`，改动要连带重跑 `run-gen.mjs`
  * 与 `export-workbench-content.mjs`，且工作台这一版已定「不动」，所以留到统一那一轮。
@@ -56,8 +56,8 @@ const RAIL_STATUS = `已接入 ${PROJECTS.length} 个项目 · ${WORKBENCH_AGG.T
  * 工作台（首页）。
  *
  * 三块内容各自解决的问题（这是"Hero 补磁贴没说的那部分"的具体分工）：
- *   Hero 左 —— 九个模块的**地图**（环形菜单）+ 当前模块的中心名 = "我是谁/我在哪/从这儿进"
- *   Hero 右 —— 今日焦点 = 具体是**哪几件**（磁贴全给聚合值，缺的就是这个）
+ *   Hero 左 —— 九个模块的地图（环形菜单）+ 当前模块的中心名 = "我是谁/我在哪/从这儿进"
+ *   Hero 右 —— 今日焦点 = 具体是哪几件（磁贴全给聚合值，缺的就是这个）
  *   面板区  —— 当前模块的 5 块磁贴 = 统计
  *   助手栏  —— 当前模块的对话
  */
@@ -72,15 +72,15 @@ export function WorkbenchPage() {
   const record = useRecentsStore((state) => state.record)
 
   /**
-   * ⌘K = 打开跳转面板 —— **与模块工作区那套外壳同一个含义**。
+   * ⌘K = 打开跳转面板 —— 与模块工作区那套外壳同一个含义。
    *
    * 这里以前是"⌘K 聚焦顶栏那个搜索框"，而模块页的 ⌘K 是"打开跳转面板"：
    * 同一个组合键在两个页面做两件不同的事。原型自己的口径是统一的
    * （顶栏搜索按钮的 `title` 写「搜索 ⌘K」、点了却 `openCmd()`）——
-   * **⌘K 属于"跳转"，搜索是面板内部的一件事**。所以让出快捷键的是 `SearchField`，
+   * ⌘K 属于"跳转"，搜索是面板内部的一件事。所以让出快捷键的是 `SearchField`，
    * 不是这里。
    *
-   * ⚠️ 两个都挂 `window` 的监听器同时存在时**不是"后者覆盖前者"**：两个都会跑。
+   * 两个都挂 `window` 的监听器同时存在时不是"后者覆盖前者"：两个都会跑。
    *    所以这不是"顺手加一个"，必须先解掉 `SearchField` 那一处（已解）。
    */
   useCommandHotkey(() => setCommandOpen((open) => !open))
@@ -88,9 +88,9 @@ export function WorkbenchPage() {
   /**
    * 工作台也记一条「最近」。
    *
-   * 不记的话，侧栏那个槽里永远不会出现**访问最多的一页** ——
+   * 不记的话，侧栏那个槽里永远不会出现访问最多的一页 ——
    * 而"最近去过哪儿"这件事本来就该把首页算进去。
-   * 记的是地址栏的真实路径（`/`），不是拼出来的；`series` 是**状态不是路由**，
+   * 记的是地址栏的真实路径（`/`），不是拼出来的；`series` 是状态不是路由，
    * 所以九个系列共用这一条、不会刷出九条同名记录。
    */
   useEffect(() => {
@@ -103,12 +103,12 @@ export function WorkbenchPage() {
   /**
    * `data-series` 必须写到 `<html>` 上，不能只留在 React 状态里。
    *
-   * 因为整页的氛围（极光底衬、九个域色）用的是 **CSS 属性选择器** ——
+   * 因为整页的氛围（极光底衬、九个域色）用的是 CSS 属性选择器 ——
    * `[data-series="<模块>"]` 定义在 `prism.css §3`，靠"一个属性驱动整页"，
-   * 卡片、顶栏、助手栏都在消费它，它们**不在这个组件的子树里**（助手栏是同级的兄弟）。
+   * 卡片、顶栏、助手栏都在消费它，它们不在这个组件的子树里（助手栏是同级的兄弟）。
    * 走 Context 就得让每个远房组件都订阅一次；写属性是"一次写、全页生效"。
    *
-   * ⚠️ 写在 effect 里而不是 render 里：render 期间改 DOM 会在严格模式下被执行两次，
+   * 写在 effect 里而不是 render 里：render 期间改 DOM 会在严格模式下被执行两次，
    *    而这个属性是幂等的，放 effect 里语义更清楚。
    */
   useEffect(() => {
@@ -130,9 +130,9 @@ export function WorkbenchPage() {
   const leading = (
     <>
       <WindowControls className="shrink-0" />
-      {/* ⚠️ 尺寸**必须**由调用方给：BrandMark 内部只有 `shrink-0`，没有 `h-* w-*`。
+      {/* 尺寸必须由调用方给：BrandMark 内部只有 `shrink-0`，没有 `h-* w-*`。
           漏给的话它在 flex 里会撑到可用空间（实测 1392×1392，整个 Hero 被盖住），
-          而且**不报错** —— 页面上只是多了一个巨大的渐变圆。 */}
+          而且不报错 —— 页面上只是多了一个巨大的渐变圆。 */}
       <BrandMark className="h-7 w-7" />
       <span className="h-[22px] w-px shrink-0 bg-line" />
       <span className="shrink-0 text-13-5 font-bold text-ink-900">{module.label}</span>
@@ -157,7 +157,7 @@ export function WorkbenchPage() {
 
       <div className="flex min-h-0 flex-1 max-[1180px]:flex-col">
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-6 pb-16 pt-5 max-[1024px]:px-4">
-          {/* Hero：data-accent 挂在**这一层**（不是环上）——
+          {/* Hero：data-accent 挂在这一层（不是环上）——
               同一条色链还要给底色带与门的光边用，它们都不在环里面。 */}
           <section
             data-accent={module.key}
@@ -194,7 +194,7 @@ export function WorkbenchPage() {
           </section>
 
           {/* 磁贴面板：3 块 KPI 占满第一排，剩下两块各占一半。
-              ⚠️ 这里不再用 `hidden` 属性切面板 —— 组件层只渲染当前模块那一份，
+              这里不再用 `hidden` 属性切面板 —— 组件层只渲染当前模块那一份，
                 "切换"由 React 的条件渲染完成，比藏 9 份 DOM 更省也更好查。 */}
           <section className="mt-6" aria-label={`${module.label}模块面板`}>
             <div className="grid grid-cols-2 gap-4 max-[860px]:grid-cols-1">
@@ -219,10 +219,10 @@ export function WorkbenchPage() {
       </div>
 
       {/* 跳转面板（⌘K）。
-          ⚠️ 它必须包在一个 `.sb-root` 里 —— 那套 `.cmd-*` 样式收在 `.sb-root` 作用域下
-          （见 `sidebar-shell.css` 的生成规则）。**不要给工作台的根节点挂 `.sb-root`**：
+          它必须包在一个 `.sb-root` 里 —— 那套 `.cmd-*` 样式收在 `.sb-root` 作用域下
+          （见 `sidebar-shell.css` 的生成规则）。不要给工作台的根节点挂 `.sb-root`：
           那会连带激活整个外壳层的规则，而工作台的版式与模块页是两套（见 MEMORY 里那条
-          「只撞一个 `.rail` 就足以否决整条路」）。包一层 div 是**最窄的作用面**：
+          「只撞一个 `.rail` 就足以否决整条路」）。包一层 div 是最窄的作用面：
           面板是 `position: fixed`，这个 div 自己不参与工作台的任何布局。 */}
       <div className="sb-root">
         <CommandPalette

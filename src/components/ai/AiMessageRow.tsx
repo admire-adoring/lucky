@@ -58,7 +58,7 @@ function ThoughtCard({ message, onOpenPanel }: { message: AiMessage; onOpenPanel
           <Icon name="i-spark" />
         </span>
         <span className="tc-summary">思考了 {steps.length} 步</span>
-        {/* ⚠️ 原型这里还有一个 `.tc-time`（"1.2s"）。本页**不填** ——
+        {/* 原型这里还有一个 `.tc-time`（"1.2s"）。本页不填 ——
             应用里这条链路是本地同步计算，没有可测的分步耗时，填一个就是编数字。 */}
         <span className="tc-open-panel" title="打开时间轴视图" {...pressable(onOpenPanel, true)}>
           <GlyphOpenInNew />
@@ -201,7 +201,7 @@ export function AiMessageRow({ message, userInitials, onAsk, onOpenThoughtPanel 
       )}
 
       <div className="msg-content">
-        {/* 生成中：阶段指示器 + 实时思考流（**就地**渲染在这一条消息里）。
+        {/* 生成中：阶段指示器 + 实时思考流（就地渲染在这一条消息里）。
             原型的第二轮把它从"临时 DOM"改成了消息自己的一个分支 —— 也正是
             这一步让「停止后继续生成」与「切会话不丢」成立。 */}
         {message.generating ? (
@@ -248,7 +248,7 @@ export function AiMessageRow({ message, userInitials, onAsk, onOpenThoughtPanel 
             <button type="button" className="msg-action" title="复制" onClick={copy}>
               <GlyphCopy />
             </button>
-            {/* 「重新生成」在本页是**真**的：它换一种讲法生成新版本（见 reply.ts）。
+            {/* 「重新生成」在本页是真的：它换一种讲法生成新版本（见 reply.ts）。
                 第一版这里只弹一句"重跑结果完全相同"——那时确实没有版本这回事。 */}
             <button
               type="button"

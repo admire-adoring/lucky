@@ -1,158 +1,71 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ServerItem } from '../../../data/derive'
 import { cn } from '../../../lib/cn'
+import { OpsIcon, type OpsIconName } from './ops-icon'
 
 /* ============================================================================
    运维 · 添加服务器 —— 项目详情「运维」分区里的整页表单
    原型 `design/work/工作-项目-项目详情-运维-添加服务器.html`（2026-09-26）
    ----------------------------------------------------------------------------
-   这一页是**运维分区内部的一个视图**，不是一条路由、也不是弹窗：
+   这一页是运维分区内部的一个视图，不是一条路由、也不是弹窗：
 
-     · 原型自己写着「**整页表单，不是弹窗**」—— 字段跨「标识 / 地址 / 登录 / 规格 / 标签」
+     · 原型自己写着「整页表单，不是弹窗」—— 字段跨「标识 / 地址 / 登录 / 规格 / 标签」
        五组，弹窗（660px、94vh）放不下第五组；页面形态还能给右侧留出「连接检查」。
        落到应用里，"整页"= 占满运维分区（`OpsPanel` 的那一块），由它的 local state 切换。
 
-     · 原型那张页的**侧栏 / 顶栏 / 面包屑 / 页头 / Tab 行**不搬 —— 那是应用壳 + 项目详情的
+     · 原型那张页的侧栏 / 顶栏 / 面包屑 / 页头 / Tab 行不搬 —— 那是应用壳 + 项目详情的
        Hero + 分区 Tab，宿主已经提供了；重复搬会得到第二个侧栏。
        样式段（`module-workspace.css` 的「添加服务器」段）也只移植表单那几节，
        作用域 `.as-root`。
 
    ============================================================================
-   与原型**有意不同**的地方（"静态页 → 应用"必然要改的，不是审美）
+   与原型有意不同的地方（"静态页 → 应用"必然要改的，不是审美）
    ============================================================================
-   ① **没有页头那对「返回 / 未保存 / 取消 / 添加服务器」**：它们挂在原型自己的 `.hero-mini`
-      上，而应用里那一层是**共享的** Hero（每个分区都在用，还有折叠态）。
-      出口统一走底部那条 **sticky 动作行**（原型本来也有它，长表单里动作不能只在顶部）。
-   ② **错误文案按触发原因给**：原型那几块 `.field-err` 是**静态示例串**
+   ① 没有页头那对「返回 / 未保存 / 取消 / 添加服务器」：它们挂在原型自己的 `.hero-mini`
+      上，而应用里那一层是共享的 Hero（每个分区都在用，还有折叠态）。
+      出口统一走底部那条 sticky 动作行（原型本来也有它，长表单里动作不能只在顶部）。
+   ② 错误文案按触发原因给：原型那几块 `.field-err` 是静态示例串
       （"名称已存在，本项目中已有 prod-web-01"、"本机找不到这个文件"），
-      而它真实触发的地方是"必填没填"。这里只有**真的重名**时才用原型那句，
+      而它真实触发的地方是"必填没填"。这里只有真的重名时才用原型那句，
       空值/格式错给对应文案。
-   ③ **提交只给"填好了"的回执，不说"已添加"** —— 应用里没有保存接口，
-      与运维页其它动作（重启 / 回滚 / 清理）同一条纪律：**没有接口就别说成功**。
+   ③ 提交只给"填好了"的回执，不说"已添加" —— 应用里没有保存接口，
+      与运维页其它动作（重启 / 回滚 / 清理）同一条纪律：没有接口就别说成功。
       「添加并继续」仍然保留"清空表单继续填下一台"的语义。
-   ④ **编辑模式由 `mode` 决定**，不是原型那个 `?host=` 查询参数（应用里入口是服务器行的「编辑」）。
+   ④ 编辑模式由 `mode` 决定，不是原型那个 `?host=` 查询参数（应用里入口是服务器行的「编辑」）。
       原型自己写着"同一张表承担添加与编辑，只有标题/按钮/预览标题返回落点/网段提示五处换词"，
       这里就是那五处。
-   ⑤ **机器自己会报的事实**（云厂商 / 规格 / 系统 / "私钥已在本机找到"）在网络与文件系统
-      都不可知 —— 原型注释本身就说它们"机器自己会报、不进表单"，这里与它一样是**演示值**。
+   ⑤ 机器自己会报的事实（云厂商 / 规格 / 系统 / "私钥已在本机找到"）在网络与文件系统
+      都不可知 —— 原型注释本身就说它们"机器自己会报、不进表单"，这里与它一样是演示值。
 
    ============================================================================
    三条容易写错、且错了不会报错的判据
    ============================================================================
-   ① **`hidden` 属性别用**：原型靠一条全局 `[hidden]{display:none !important}` 藏
+   ① `hidden` 属性别用：原型靠一条全局 `[hidden]{display:none !important}` 藏
       `.field-err` / `#authPwd` / `#fEscUser` / `.esc-state .ico` / `.check-dot .ico` 等十来处，
-      而那条全局规则移植时按惯例丢掉了。⇒ 一律**条件渲染**；
+      而那条全局规则移植时按惯例丢掉了。⇒ 一律条件渲染；
       唯一例外是 `.esc-state .ico` / `.check-dot .ico` 那种"同一个图标按状态显隐"——
-      它是**属性/类驱动**的（`.check-item.ok .check-dot .ico-svg { display:block }`），
-      所以那两处必须**始终渲染**图标、由 CSS 决定显不显。
-   ② **提权区是"三档状态机"而不是三个开关**：`escTarget`（none/root/custom）×
+      它是属性/类驱动的（`.check-item.ok .check-dot .ico-svg { display:block }`），
+      所以那两处必须始终渲染图标、由 CSS 决定显不显。
+   ② 提权区是"三档状态机"而不是三个开关：`escTarget`（none/root/custom）×
       `escFree()`（登录用户是不是 root）共同决定「密码行显不显」「徽标说什么」
       「检查行说什么」。三处各判一次必然分叉 ⇒ 这里的 `escFree / escNeedPwd / escWillPause`
-      是**唯一判据**，连「连接检查」那一行也读它。
-   ③ **预览只有一个刷新点**：名称/地址/端口/用户/环境/标签/提权全都会影响「添加后」那张卡，
+      是唯一判据，连「连接检查」那一行也读它。
+   ③ 预览只有一个刷新点：名称/地址/端口/用户/环境/标签/提权全都会影响「添加后」那张卡，
       所以它们都走同一份派生值，不要在各自的 onChange 里顺手改一处 DOM 式的局部状态。
    ============================================================================ */
 
 /* ------------------------------------------------------------------ *
- * 图标：原型自带一套 **24 网格**的路径（`ICON` 表），这里原样搬过来。
+ * 图标：与运维分区同一张表（`ops-icon.tsx`）。
  *
- * ⚠️ 不复用 `IconSprite`（应用公共资产，24 网格但符号集不同）：这一页要的
- *    back / shield / globe / terminal / eyeOff 等在里面找不到对应形状；
- *    也不与日志页那套 16 网格混用 —— 两页各自的网格是各自的。
+ * 原来这里自带一份 `AS_ICON` —— 它就是原型「添加服务器」页那张表，而运维分区那张
+ *    是另一份逐条同形的副本（原型自己写着"与「添加服务器」页同一套"）。
+ *    两份并存的代价是：同一个「编辑」图形有两个定义，改一处必漏另一处。
+ *    现在只留一份，这一页只多传一个描边宽度。
  * ------------------------------------------------------------------ */
-const AS_ICON: Record<string, ReactNode> = {
-  back: (
-    <>
-      <path d="M19 12H5" />
-      <path d="m12 19-7-7 7-7" />
-    </>
-  ),
-  server: (
-    <>
-      <rect x="3" y="4" width="18" height="7" rx="2" />
-      <rect x="3" y="13" width="18" height="7" rx="2" />
-      <path d="M7 7.5h.01M7 16.5h.01" />
-    </>
-  ),
-  shield: (
-    <>
-      <path d="M12 3l7 3v5.5c0 4.2-2.9 7.6-7 9.5-4.1-1.9-7-5.3-7-9.5V6z" />
-      <path d="m9 12 2 2 4-4" />
-    </>
-  ),
-  globe: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18" />
-      <path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18" />
-    </>
-  ),
-  eye: (
-    <>
-      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
-      <circle cx="12" cy="12" r="3" />
-    </>
-  ),
-  eyeOff: (
-    <>
-      <path d="M4 4l16 16" />
-      <path d="M9.9 5.9A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.1 4M6.4 8.1A16.9 16.9 0 0 0 2.5 12S6 18.5 12 18.5c1.1 0 2.1-.2 3-.6" />
-    </>
-  ),
-  terminal: (
-    <>
-      <path d="m5 8 4 4-4 4" />
-      <path d="M12 16h7" />
-    </>
-  ),
-  file: (
-    <>
-      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-      <path d="M14 3v5h5" />
-    </>
-  ),
-  key: (
-    <>
-      <circle cx="8" cy="15" r="4" />
-      <path d="m11 12 8-8" />
-      <path d="m16 7 3 3" />
-    </>
-  ),
-  folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
-  plus: <path d="M12 5v14M5 12h14" />,
-  check: <path d="m4 12.5 5 5L20 6.5" />,
-  alert: (
-    <>
-      <path d="M12 4.5 21 20H3z" />
-      <path d="M12 10v4M12 17h.01" />
-    </>
-  ),
-  refresh: (
-    <>
-      <path d="M20 12a8 8 0 1 1-2.3-5.6" />
-      <path d="M20 4v4h-4" />
-    </>
-  ),
-}
 
 /** 24 网格、1.6 描边、`stroke=currentColor`。尺寸走行内属性（原型是 `data-ico-size`）。 */
-function AsIcon({ name, size = 16 }: { name: keyof typeof AS_ICON; size?: number }) {
-  return (
-    <svg
-      className="ico-svg"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {AS_ICON[name]}
-    </svg>
-  )
+function AsIcon({ name, size = 16 }: { name: OpsIconName; size?: number }) {
+  return <OpsIcon name={name} size={size} strokeWidth={1.6} />
 }
 
 /* ------------------------------------------------------------------ *
@@ -204,7 +117,7 @@ interface ToastItem {
  * ------------------------------------------------------------------ */
 
 /**
- * 字段标题右侧那枚「?」。气泡挂在**本页根**下的 `.tip-layer`（`position: fixed`）——
+ * 字段标题右侧那枚「?」。气泡挂在本页根下的 `.tip-layer`（`position: fixed`）——
  * 贴在卡片里会被祖先的 `overflow` 裁掉（本工作区踩过一次）。
  */
 function FieldHelp({
@@ -244,7 +157,7 @@ function ChipRadio({
   on: boolean
   onPick: () => void
   children: ReactNode
-  /** ⚠️ `data-env` 不是装饰：`.as-chip.on[data-env="prod"]` 那条样式靠它把生产那一档染成运维绿 */
+  /** `data-env` 不是装饰：`.as-chip.on[data-env="prod"]` 那条样式靠它把生产那一档染成运维绿 */
   dataEnv?: string
   dataEsc?: string
 }) {
@@ -280,7 +193,7 @@ export function AddServerForm({
   projectName: string
   /** 编辑模式的预填来源；新增时传 null */
   server?: Pick<ServerItem, 'name' | 'ip' | 'cores' | 'memGb' | 'os'> | null
-  /** 「同网段已有」要列的那几台。⚠️ 编辑模式请先把"自己"排除掉 */
+  /** 「同网段已有」要列的那几台。编辑模式请先把"自己"排除掉 */
   siblings: Pick<ServerItem, 'name' | 'ip'>[]
   /** 机器自己会报的那三样（云厂商 / 规格 / 系统）。不给就按项目的形态推 */
   hw?: ServerHwFacts
@@ -304,7 +217,7 @@ export function AddServerForm({
   /* ================================================================== *
    * 表单状态
    *
-   * 新增态的初值 = **原型的演示值**（prod-web-03 / 47.100.23.11 / …）：
+   * 新增态的初值 = 原型的演示值（prod-web-03 / 47.100.23.11 / …）：
    * 这一页是静态界面，原型自己就把它们写在标记里，照抄才叫"内容一致"。
    * ================================================================== */
   const [name, setName] = useState(server?.name ?? 'prod-web-03')
@@ -371,7 +284,7 @@ export function AddServerForm({
     timers.current.push(t)
   }, [])
 
-  /* 气泡的定位要在**渲染之后**量宽，否则拿不到自己的尺寸。
+  /* 气泡的定位要在渲染之后量宽，否则拿不到自己的尺寸。
      `useLayoutEffect` 在绘制前跑 ⇒ 不会在 0,0 处闪一帧。 */
   useLayoutEffect(() => {
     const layer = tipRef.current
@@ -387,7 +300,7 @@ export function AddServerForm({
   }, [tip])
 
   /* ================================================================== *
-   * 派生值 —— 预览、计数、检查行、网段提示**全读这里**
+   * 派生值 —— 预览、计数、检查行、网段提示全读这里
    * 状态的真相源只有表单那几支，不要在各自的 handler 里顺手改别的表现。
    * ================================================================== */
 
@@ -403,7 +316,7 @@ export function AddServerForm({
   const escState = escTarget === 'none' ? 'idle' : escWillPause ? 'warn' : ''
   const escStateText =
     escTarget === 'none' ? '不需要' : escFree ? 'root 登录 · 免认证' : escWillPause ? '执行时会暂停等你输入' : '不会暂停'
-  /** 「连接检查」那一行走**同一套判据** —— 否则会出现"徽标说不会停、检查行说过不了" */
+  /** 「连接检查」那一行走同一套判据 —— 否则会出现"徽标说不会停、检查行说过不了" */
   const escCheckText =
     escTarget === 'none'
       ? '不需要'
@@ -424,7 +337,7 @@ export function AddServerForm({
     () => siblings.find((s) => s.ip && s.ip === host.trim()) ?? null,
     [siblings, host],
   )
-  /** 网段从已有地址推（本项目有几台是**脱敏地址**，推不出来就不说网段） */
+  /** 网段从已有地址推（本项目有几台是脱敏地址，推不出来就不说网段） */
   const subnet = useMemo(() => {
     const first = siblings[0]?.ip ?? ''
     const m = first.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
@@ -500,8 +413,8 @@ export function AddServerForm({
    * 新建标签：撞名就复用已有那枚并选中它 —— 自由文本不加这道闸，
    * 立刻会长出「Nginx / nginx / NGINX」三个标签。空名 = 取消。
    *
-   * ⚠️ 守卫用 ref 而不是 `addingTag`：回车提交之后输入框会被卸载，
-   *    浏览器/React 可能再补一次 blur —— 那个 `commitTagAdd` 读到的是**旧闭包**里的
+   * 守卫用 ref 而不是 `addingTag`：回车提交之后输入框会被卸载，
+   *    浏览器/React 可能再补一次 blur —— 那个 `commitTagAdd` 读到的是旧闭包里的
    *    `addingTag === true`，于是同一个标签被建两遍（原型那边靠 `!tagInp.hidden` 挡）。
    */
   const commitTagAdd = () => {
@@ -803,7 +716,7 @@ export function AddServerForm({
                         选择文件
                       </button>
                     </div>
-                    {/* ⚠️ 这一行说的是"本机有没有这个文件"，浏览器里**不可知** —— 与原型同一份演示值（见文件头 ⑤） */}
+                    {/* 这一行说的是"本机有没有这个文件"，浏览器里不可知 —— 与原型同一份演示值（见文件头 ⑤） */}
                     <div className="field-note">ed25519 · 已在本机找到 · 未设密码短语</div>
                     {errors.cred ? (
                       <div className="field-err">
@@ -859,7 +772,7 @@ export function AddServerForm({
                       onShow={(rect, text) => setTip({ rect, text })}
                       onHide={() => setTip(null)}
                     />
-                    {/* ⚠️ 图标**始终渲染**，由 `.esc-state.warn .ico-svg` 决定显不显（见文件头 ①） */}
+                    {/* 图标始终渲染，由 `.esc-state.warn .ico-svg` 决定显不显（见文件头 ①） */}
                     <span className={cn('esc-state', escState)}>
                       <AsIcon name="alert" size={11} />
                       <span>{escStateText}</span>
@@ -1005,7 +918,7 @@ export function AddServerForm({
                       className={cn('as-chip', 'as-chip-check', tags.includes(tag) && 'on')}
                       onClick={() => toggleTag(tag)}
                     >
-                      {/* ⚠️ 勾选框**始终渲染**，由 `.as-chip-check.on .box svg` 决定显不显 */}
+                      {/* 勾选框始终渲染，由 `.as-chip-check.on .box svg` 决定显不显 */}
                       <span className="box">
                         <AsIcon name="check" size={9} />
                       </span>

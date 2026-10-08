@@ -44,6 +44,11 @@
                侧栏下限 210px（再窄，槽面板里的四字按钮会折行），取 240 留 30px 余量。
                内容轴收口：≥1440 起给对称留白，改 --content-gutter 一个值就能调松紧。 */
             --gap-page: 16px;
+            /* 内容列的水平内距：`.main` 与**它的出血元素**共用同一个值。
+               ⚠️ 别在任何地方再写一遍这个数 —— 详情层的分区栏要做"通栏"效果，
+                  靠的是 `margin: 0 calc(-1 * var(--main-pad-x))`。两处各写一个常量的话，
+                  改一处就会出现"底边线两边各短 4px"那种错位（窄屏那条曾经就是 -10px）。 */
+            --main-pad-x: 14px;
             --sidebar-w: 240px;
             --sidebar-w-collapsed: 64px;
             --content-max: 1360px;
@@ -222,6 +227,17 @@
             border-color: var(--m-ink);
             color: var(--m-ink);
         }
+        /* 破坏性动作的确认键：底色用 --danger-bg（--danger 只够做图形，
+           压白字不达标），文字用 --danger，描边同色 —— 一眼看出"这一下不温和" */
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--danger) 28%, transparent);
+        }
+        .btn-danger:hover {
+            box-shadow: 0 6px 20px color-mix(in srgb, var(--danger) 40%, transparent);
+            transform: translateY(-1px);
+        }
         /* 主题按钮换成顶栏里的 .icon-btn#themeBtn（见导入段）。
            顺带修掉一处旧的空承诺：旧 .theme-toggle 根本没接线（点了没反应），
            而 v5 的 setTheme / readTheme / localStorage 是成套的。 */
@@ -231,7 +247,8 @@
            所以正文列保持透明、浮在页面上。 */
         .main {
             grid-area: main;
-            padding: 12px 14px 20px;
+            /* 水平内距走令牌（见 --main-pad-x）：分区栏的出血按它算 */
+            padding: 12px var(--main-pad-x) 20px;
             overflow-y: auto;
             display: flex; flex-direction: column; gap: 20px;
             min-width: 0;
@@ -299,10 +316,13 @@
             padding: 20px;
             transition: all 0.25s ease;
         }
-        .card:hover {
-            box-shadow: var(--shadow-card-hover);
-            transform: translateY(-2px);
-        }
+        .card:hover { box-shadow: var(--shadow-card-hover); }
+        /* ⚠️ **位移只给"整张卡就是一个对象"的那种**（卡片视图的项目卡：点它进项目）。
+           容器卡 —— 筛选栏 / 表格 / 看板 / 详情各面板 —— 里装的全是控件与行，
+           鼠标扫过任何一处都会命中"卡 hover"：整块跟着上浮 2px，读成"整页在抖"
+           （一边打字、一边往行上移，整块都在动）。所以在 .card 上不写 transform，
+           用这一条单独给对象卡。判据：这张卡有没有 `data-open-project` 这类"整张可点"。 */
+        .card.proj-card:hover { transform: translateY(-2px); }
 
         .card-title {
             font-size: 12px; font-weight: 600;
@@ -312,62 +332,74 @@
         }
 
         /* ============================================================
-           列表态的筛选区：读数（可点即筛）+ 工具栏，**同处一张卡的两行**
+           列表态的筛选栏：**一块卡、两行、两组筛选用同一个 chip**
            ------------------------------------------------------------
-           读数这一层原来也是 4 张 .card。于是第一张项目卡之前压了
-           4 张 KPI 卡 + 1 张工具栏卡 + 三个 20px 间距 —— 而 KPI 与工具栏
-           是同一件事的两段（都在"读 / 筛"），权重却差一档（4 张带描边阴影的卡
-           vs 一张卡里的控件），权重与作用成反比。
-           现在读数退成卡内的四个"格"：左边一道色条，可点即筛。
+           上一版这里是两种 UI：状态是四张读数卡（大数字 + 副行），类型是一行 chip。
+           两种长相并列在同一个位置，读起来像"两个不同的人做的"：
+           同样一件事（用某个条件筛掉一些行），凭什么一个是大卡一个是小 chip。
+           现在合成**一组组件**：
+             · 一个筛选组 = 一个小标签 + 一排 `.facet`（chip）；
+             · 两组之间一条竖线，说"从这里开始是另一组"（不靠间距猜 —— 组间距与
+               chip 间距一样大的话，根本看不出分组）；
+             · 两行之间一条横线，上行"筛什么"、下行"怎么看"。
+           代价是**读数不再有大数字**。这是有意的取舍：域级读数归侧栏「概览」槽
+           （它跟着筛选走，见 listSlotRows），chip 上的计数回答的是
+           "点下去会剩几条"。同一屏只留一处说"这个数是多少"。
+           `pages/workspace/ProjectsListPage.tsx` 里那版是"四张读数卡 + 工具栏两块"，
+           这里**有意偏离**：那份卡不可点即筛，读数与筛选是两件事，所以分成两类控件；
+           本原型要的是"读数即筛选"，两者合一之后就该只剩一种控件。
            ============================================================ */
-        .filter-bar { padding: 6px 16px 12px; }
-        .ov-kpi {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0;
-            border-bottom: 1px solid var(--line);
-            margin-bottom: 10px;
+        .filter-bar { padding: 14px 16px; }
+        .filter-bar-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        /* 上行是分组，间距与换行规则都和下行不同，单独一条 */
+        .filter-bar-row + .filter-bar-row {
+            margin-top: 12px; padding-top: 12px;
+            border-top: 1px solid var(--line);
         }
-        /* ⚠️ gap:0 之后，四格**必须**同时有两样东西，少一样就"贴"：
-             ① 一条 1px 竖线 —— 说"这是四格"；
-             ② 色号离格子的左沿一段距离 —— 零间距下，把色条摆在 left:0
-                等于把它摆在左边那格文字的右边（它自己那格的左沿就是别人的右沿），
-                四格会读成一条连体的带子。
-           所以颜色不从左沿那道竖条给，改成标签前的一枚圆点：它是图形（3:1 即可），
-           且完全不占格边。 */
-        .ov-kpi-card {
-            position: relative;
-            padding: 10px 16px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.18s ease, box-shadow 0.18s ease;
+        .filter-bar-row.is-groups { gap: 0; }
+
+        /* 一个筛选组：标签 + 一排 chip。组内互斥（再点一次取消），组间取与 */
+        .filter-group { display: flex; align-items: center; gap: 6px; }
+        .filter-group-label {
+            font-size: 12px; font-weight: 600; color: var(--text-muted);
+            margin-right: 2px;
         }
-        .ov-kpi-card + .ov-kpi-card { border-left: 1px solid var(--line); }
-        .ov-kpi-card:hover { background: var(--bg-slot); }
-        /* 选中态与 .seg-btn.active 同一档（都是"我在筛"）：淡染 + 内描边，
-           不与任何卡片自己的描边抢 */
-        .ov-kpi-card.is-on {
+        .filter-group + .filter-group {
+            margin-left: 16px; padding-left: 16px;
+            border-left: 1px solid var(--line);
+        }
+
+        .facet {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 999px;
+            border: 1px solid var(--line);
+            background: var(--bg-slot);
+            /* 它是 <button>（键盘 Enter / Space 由浏览器负责，不用另写 keydown）。
+               浏览器默认外观要显式关掉：Safari 上只设 background / border 时，
+               border-radius 与 999px 的胶囊会被原生外观压掉。 */
+            appearance: none; -webkit-appearance: none;
+            font: inherit; font-size: 12px; line-height: 1.4;
+            color: var(--text-secondary);
+            cursor: pointer; user-select: none;
+            transition: all 0.16s ease;
+        }
+        .facet:hover { border-color: var(--line-strong); color: var(--text-primary); }
+        /* 它是真按钮 ⇒ 键盘 Tab 能到，那就要看得见焦点（与 .task-check 同一档） */
+        .facet:focus-visible { outline: 2px solid var(--m-main); outline-offset: 2px; }
+        /* 选中态两组**共用**同一个强调色（模块的 --m-ink / --m-tint），
+           不给状态那一组另配四种颜色：那样两组又会变得不一样。
+           状态的颜色在下面的项目卡/看板列上照常由徽标承担，不缺地方表达。 */
+        .facet.is-on {
             background: var(--m-tint);
-            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-ink) 34%, transparent);
+            border-color: var(--m-ink);
+            color: var(--text-primary);
+            font-weight: 600;
         }
-        .ov-kpi-card.is-on .ov-kpi-label { color: var(--m-ink); }
-        .ov-kpi-label {
-            display: flex; align-items: center; gap: 7px;
-            font-size: 12px; font-weight: 600;
-            letter-spacing: 0.04em;
-            color: var(--text-muted);
-        }
-        /* 颜色只落在这一枚 7px 点上（不引字体、不引图标库，颜色本身就是分类） */
-        .ov-kpi-dot {
-            width: 7px; height: 7px; border-radius: 50%;
-            background: var(--kc); flex-shrink: 0;
-        }
-        .ov-kpi-value {
-            margin: 4px 0 2px;
-            font-size: 24px; font-weight: 700; line-height: 1.2;
-            font-variant-numeric: tabular-nums;
-        }
-        .ov-kpi-sub { font-size: 11.5px; color: var(--text-secondary); }
+        /* 计数比标签低一档。⚠️ 选中态下**标签**用 --text-primary 而不是 --m-ink：
+           --m-ink 压 --m-tint 只有 4.47，差 4.5 那口气；而计数用 --m-ink 有 6.1
+           （11px 的小字更不能省这口气）。 */
+        .facet-count { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .facet.is-on .facet-count { color: var(--m-ink); }
 
         /* 任务 */
         .task-item {
@@ -520,6 +552,8 @@
             display: flex; align-items: center; gap: 12px;
             flex-wrap: wrap;
         }
+        /* 容器卡不参与浮起这件事现在归 `.card:hover` 那条统一管（见上面的注释），
+           这里不再单独给 .toolbar / .filter-bar 各写一条特例。 */
         .toolbar-summary {
             margin-left: auto;
             font-size: 12px; color: var(--text-muted);
@@ -574,11 +608,9 @@
             font-variant-numeric: tabular-nums;
         }
         .task-due.is-late { color: var(--danger); font-weight: 600; }
-        .task-quad-tag {
-            width: 96px;
-            font-size: 11px; color: var(--text-secondary);
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
+        /* 原来这里有一条 `.task-quad-tag`（96px + 省略号）—— 它唯一的挂载点是
+           表格的"进度"列，那一列已换成 .proj-progress（右对齐 + 等宽数字），
+           所以这条规则整条删掉：留一个没人挂的类，下次改它等于改空气。 */
 
         /* 状态 / 优先级 / 标签：共用"淡底深字" */
         .pill {
@@ -667,6 +699,14 @@
         .q-task-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .q-task-due { font-size: 11px; color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
         .q-empty { font-size: 12px; color: var(--text-muted); padding: 10px 2px; }
+
+        /* 列表空态：一句话 + **一个出路**（只写"暂无数据"是把人留在死路口）。
+           ⚠️ 这里刻意**不动 `display`**（保持默认 block）—— 这张卡是靠 `hidden` 属性控制显隐的，
+              一旦给了 `display: flex`，UA 那条 `[hidden] { display: none }` 就压不过它
+              （同一个坑本文件已在 `.slot-tab` / `.slot-tabs` / `.modal-mask` 上踩过三次）。
+              居中靠 `text-align`：`.btn` 是 inline-flex（inline 级），受它管。 */
+        #projEmpty { padding: 34px 20px; text-align: center; }
+        #projEmpty .q-empty { margin-bottom: 14px; padding: 0; }
 
         /* ============================================================
            文档 · 主从（索引 ⇄ 详情）
@@ -757,6 +797,224 @@
         }
         .toast.on { opacity: 1; transform: translateY(0); }
         .toast-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-main); flex-shrink: 0; }
+        /* 带动作的 toast（"已删除… · 撤销"）：破坏性操作必须留够后悔的时间，
+           所以它的停留时长在脚本里单独延长（2.2s → 6s） */
+        .toast-act {
+            appearance: none; -webkit-appearance: none;
+            border: none; background: transparent;
+            margin-left: 2px; padding: 2px 6px;
+            border-radius: 6px;
+            font: inherit; font-size: 13px; font-weight: 600;
+            color: var(--m-ink);
+            cursor: pointer;
+        }
+        .toast-act:hover { background: var(--m-tint); }
+        /* `.toast-wrap` 是 pointer-events: none（它横在页面底部，不该挡住底下的东西），
+           所以按钮要自己把事件收回来 */
+        .toast { pointer-events: auto; }
+
+        /* ============================================================
+           项目弹窗（编辑 / 删除确认）
+           ------------------------------------------------------------
+           与 ⌘K 命令面板同一族视觉，但**居中**且带底部按钮：这是一次
+           "要填完才走"的操作；⌘K 那种顶部对齐是"选中即走"，两者不能长一样。
+           ⚠️ 显隐用 `.open` 类、不用 `[hidden]` 属性：`.modal-mask` 自己有
+              `display: flex`，UA 那条 `[hidden]` 压不过它 —— 本文件已在
+              `.slot-tab` / `.slot-tabs` 上踩过两次同一个坑。
+           ============================================================ */
+        .modal-mask {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.5);
+            z-index: 1000;
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-mask.open { display: flex; }
+        .modal {
+            width: 100%; max-width: 460px; max-height: 100%;
+            display: flex; flex-direction: column;
+            background: var(--bg-card);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            box-shadow: var(--shadow-pop);
+            overflow: hidden;
+            animation: cmdIn 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .modal-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px 10px; }
+        .modal-title { margin: 0; font-size: 14px; font-weight: 600; }
+        .modal-x {
+            margin-left: auto;
+            width: 26px; height: 26px; padding: 0;
+            appearance: none; -webkit-appearance: none;
+            border: none; border-radius: 8px;
+            background: transparent; color: var(--text-muted);
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .modal-x:hover { background: var(--bg-slot); color: var(--text-primary); }
+        .modal-x:focus-visible { outline: 2px solid var(--m-main); outline-offset: 2px; }
+        .modal-body { padding: 2px 18px 18px; overflow-y: auto; }
+        .modal-foot {
+            display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+            padding: 12px 18px;
+            border-top: 1px solid var(--line);
+            background: var(--bg-slot);
+        }
+        /* 字段：标签在上、控件在下，一行一个 —— 这张表单要填的是"项目是什么"，
+           横排会让"标签管哪个框"要靠猜。并排只给两个窄字段用（.pm-row）。 */
+        .pm-field { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+        .pm-field > label, .pm-field > .pm-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+        .pm-field :is(input, select, textarea),
+        .pm-pick-filter {
+            width: 100%;
+            font: inherit; font-size: 13px;
+            padding: 8px 10px;
+            border-radius: 9px;
+            border: 1px solid var(--line-strong);
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        .pm-field textarea { min-height: 62px; line-height: 1.6; resize: vertical; }
+        .pm-field :is(input, select, textarea):focus,
+        .pm-pick-filter:focus {
+            outline: none;
+            border-color: var(--m-ink);
+            box-shadow: 0 0 0 3px var(--m-tint);
+        }
+        .pm-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+
+        /* ---------- 字段标签行：左标签、右一个"选择类"入口 ----------
+           「浏览本地目录」这类入口要**紧贴它所属的字段标签**（gap 6~8px）。
+           两个位置都别放：塞进输入框右侧（吃掉宽度、还会被当成清除按钮），
+           或者 `margin-left: auto` 推到行右端（中间那片空白会切断"它是这个字段的动作"
+           这层关系，看着像一句游离的说明）。
+           形态用**有色文字 + hover 下划线**，不做描边小胶囊 ——
+           近白底上 `--line` 与白卡都看不出边界，按钮会退化成一段灰字。 */
+        .pm-labelrow { display: flex; align-items: baseline; gap: 8px; }
+        .pm-link {
+            appearance: none; -webkit-appearance: none;
+            padding: 0; border: 0; background: none;
+            font: inherit; font-size: 12px; font-weight: 600;
+            /* 不能直接用模块强调色：--m-ink 在白卡上只有 2.8:1。
+               混一档"文字色"≈6:1；比例要现算 —— 66% 只有 ≈3.5:1，不达标。 */
+            color: color-mix(in srgb, var(--m-ink) 55%, var(--text-primary));
+            cursor: pointer;
+            text-underline-offset: 3px;
+        }
+        .pm-link:hover { text-decoration: underline; }
+        .pm-link:focus-visible { outline: 2px solid var(--m-main); outline-offset: 2px; border-radius: 4px; }
+
+        /* ---------- 标签：一排可多选的胶囊 + 行尾一个虚线 ＋ ----------
+           选中态**不能只靠底色差**（10% 薄染压白底只有 1.06:1）⇒ 同时给主题色描边 + 文字提色。
+           ＋ 用**虚线**：虚线 = "这里可以再加一个"，与已选中的实线胶囊一眼分得开。 */
+        .tag-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tag-chip {
+            appearance: none; -webkit-appearance: none;
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 11px; border-radius: 999px;
+            border: 1px solid var(--line);
+            background: var(--bg-card);
+            font: inherit; font-size: 12px; line-height: 1.5;
+            color: var(--text-secondary);
+            cursor: pointer; user-select: none;
+            transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+        }
+        .tag-chip:hover { border-color: var(--line-strong); color: var(--text-primary); }
+        .tag-chip:focus-visible { outline: 2px solid var(--m-main); outline-offset: 2px; }
+        .tag-chip.is-on {
+            background: var(--m-tint);
+            border-color: var(--m-ink);
+            color: var(--m-ink);
+            font-weight: 600;
+        }
+        .tag-chip.is-add {
+            width: 30px; padding: 4px 0; justify-content: center;
+            border-style: dashed; border-color: var(--line-strong);
+            color: var(--text-muted);
+        }
+        .tag-chip.is-add:hover { color: var(--m-ink); border-color: var(--m-ink); }
+        .tag-chip.is-add svg { width: 13px; height: 13px; stroke-width: 2; }
+        /* 点 ＋ 之后，**在同一个位置**换成输入框（不做成"多长出来一个字段"） */
+        .tag-new {
+            width: 104px; height: 25px;
+            font: inherit; font-size: 12px;
+            padding: 0 10px; border-radius: 999px;
+            border: 1px solid var(--m-ink);
+            background: var(--bg-card); color: var(--text-primary);
+            outline: none;
+        }
+
+        /* ---------- 目录选择器（弹窗正文的一个"态"） ----------
+           参考图那种形态：面包屑 + 筛选 + 行列表 + 底部动作。
+           ⚠️ 它是**换掉弹窗正文**，不是叠第二层浮层 —— 正文是
+              `.modal-body { overflow-y: auto }`，飘出来的下拉会被它裁掉。 */
+        .pm-pick-path {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 2px;
+            font-size: 12px; color: var(--text-muted);
+            padding: 2px 0 10px;
+        }
+        .pm-crumb {
+            appearance: none; -webkit-appearance: none;
+            padding: 2px 6px; border: 0; border-radius: 6px; background: none;
+            font: inherit; font-size: 12px; font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .pm-crumb:hover { background: var(--bg-slot); color: var(--text-primary); }
+        .pm-crumb:last-child { color: var(--text-primary); cursor: default; }
+        .pm-crumb:last-child:hover { background: none; }
+        .pm-crumb-sep { opacity: 0.55; }
+        .pm-fs-list {
+            margin-top: 8px;
+            max-height: 300px; overflow-y: auto;
+            border: 1px solid var(--line); border-radius: 12px;
+            background: var(--bg-slot);
+        }
+        .pm-fs-row {
+            appearance: none; -webkit-appearance: none;
+            width: 100%; padding: 9px 12px;
+            display: flex; align-items: center; gap: 8px;
+            border: 0; border-bottom: 1px solid var(--line);
+            background: none; color: var(--text-primary);
+            font: inherit; font-size: 13px; text-align: left;
+            cursor: pointer;
+        }
+        .pm-fs-row:last-child { border-bottom: 0; }
+        .pm-fs-row:hover { background: var(--bg-card); }
+        .pm-fs-row:focus-visible { outline: 2px solid var(--m-main); outline-offset: -2px; }
+        /* chevron = "点它会往里走"：形状线索，遮住颜色也读得出来 */
+        .pm-fs-row svg { width: 13px; height: 13px; flex-shrink: 0; color: var(--text-muted); stroke-width: 2; }
+        .pm-fs-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .pm-fs-count { margin-left: auto; font-size: 11.5px; color: var(--text-muted); }
+        .pm-fs-empty { padding: 14px 12px; font-size: 12.5px; color: var(--text-muted); }
+        .pm-pick-note { margin-top: 10px; font-size: 11.5px; color: var(--text-muted); }
+        .pm-pick-note code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            color: var(--text-secondary);
+        }
+        /* 删除确认：这段"影响范围"是必要的（破坏性动作的说明不是废话），
+           其余弹窗的说明一律进 title / placeholder，正文只留字段。 */
+        .pm-note {
+            margin-top: 6px; padding: 10px 12px;
+            border-radius: 10px;
+            background: var(--danger-bg); color: var(--danger);
+            font-size: 12.5px; line-height: 1.6;
+        }
+        .pm-target { margin-top: 8px; font-size: 13px; font-weight: 600; }
+        @media (max-width: 520px) {
+            .pm-row { grid-template-columns: minmax(0, 1fr); }
+        }
+        /* ---------- 窄屏 / 触屏：卡片上的动作**常驻** ----------
+           悬停是鼠标专有的：触屏既没有 hover、也没有 Tab，藏在 hover 里
+           等于完全没有入口。这一档不让位给徽标，而是**给它留出位置**
+           （头部右内距 92px = 3×26 + 2×4 + 留白），否则动作栏压在 P0/P1 上。 */
+        @media (hover: none), (max-width: 768px) {
+            .proj-card-acts { opacity: 1; visibility: visible; transition: none; }
+            .proj-card-head { padding-right: 92px; }
+            .proj-card-item:hover .proj-card-head .prio,
+            .proj-card-item:focus-within .proj-card-head .prio { opacity: 1; }
+        }
 
         /* 滚动条 */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -767,33 +1025,9 @@
         }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-        @media (max-width: 1100px) {
-            .ov-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 980px) {
-            .matrix { grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr); }
-            .task-quad-tag { display: none; }
-        }
-        @media (max-width: 768px) {
-            /* 壳的窄屏规则在 ≤900 那条（见导入段）—— 这条只管正文 */
-            .kanban { grid-template-columns: 1fr; }
-            /* 矩阵落到一列：轴标签失去意义（象限标题自带"重要/紧急"），一并收掉 */
-            .matrix {
-                grid-template-columns: minmax(0, 1fr);
-                grid-template-rows: auto;
-            }
-            .matrix-axis { display: none; }
-            .seg { width: 100%; }
-            .seg-btn { flex: 1; justify-content: center; }
-            .toolbar-summary { margin-left: 0; }
-            .task-row-right { flex-wrap: wrap; justify-content: flex-end; }
-            .task-due { width: auto; }
-            .doc-head { flex-wrap: wrap; }
-            .doc-head-actions { width: 100%; }
-            /* 读数四格在窄屏保持 2×2（≤1100 那条已给 2 列）——
-               不再往下收到一列：四行读数会把工具栏和第一张项目卡一起挤下去 */
-            .filter-bar { padding: 4px 12px 10px; }
-        }
+        /* 原来这里还有一整套 ≤1100 / ≤980 / ≤768 的规则，与文件末尾那一段「窄屏」
+           **逐条重复**（同一条媒体查询在同一个 <style> 里出现两次：改一处不生效，
+           另一处还在按旧值压着）。整块已删，窄屏规则现在只有一处。 */
 
         /* ============================================================
            项目域 · 两级
@@ -810,9 +1044,55 @@
            书脊、机架、进度条、头像那几处渐变都改成实色或实色色条。
            ============================================================ */
 
+        /* ============================================================
+           搜索框 —— **全站只有这一种**
+           ------------------------------------------------------------
+           判据：同一个动作（输入关键词去找东西）在一个应用里只能有一种长相。
+           之前是两套：列表里是 34px 圆角描边白底框，⌘K 面板里是"无框 + 18px 内距
+           + 15px 字号 + 一条下分隔线"的行内输入 —— 高度、字号、边框、内距全不一样，
+           而它们干的是同一件事。现在两处共用这一个组件，差异只留"容器"：
+           列表里它占一行的一部分，面板里它占满一行。
+           ⚠️ **前置放大镜是"这是搜索"的唯一标识**，两处都要有 —— 少了它，
+              面板里那个框读起来是"输入点什么"，而不是"搜点什么"。
+           ⚠️ 现在**全文件只剩这两个输入框**（列表与 ⌘K），而且它们共用同一个类 ——
+              原来侧栏 AI 槽还有一个"对话输入"（胶囊形、带发送键、无放大镜），
+              那个槽已删（AI 入口归顶栏），所以"只有一种输入框"从约定变成了事实。
+           ============================================================ */
+        .search {
+            display: flex; align-items: center; gap: 8px;
+            height: 34px; padding: 0 10px;
+            border-radius: 9px;
+            background: var(--bg-card);
+            border: 1px solid var(--line-strong);
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .search:focus-within {
+            border-color: var(--m-ink);
+            box-shadow: 0 0 0 3px var(--m-tint);
+        }
+        .search-icon {
+            width: 14px; height: 14px; flex-shrink: 0;
+            color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+        }
+        /* 线宽写死 1.9：与顶栏那枚放大镜（`.icon-btn svg`）同一个值 ——
+           按钮里 17px、这里 14px，同一个值在小尺寸上会显得略重，
+           这正是"同一个图标"该有的样子；不写的话 SVG 默认 1，会细一圈。 */
+        .search-icon svg { width: 14px; height: 14px; stroke-width: 1.9; }
+        /* ⚠️ height:100% 不是为了好看：外层是 34px 的 flex 盒，输入框只按内容高
+           （约 18px）居中的话，上下各 8px 是**点了没反应的死区**。
+           撑满之后整条都能点，cursor 也是输入框自己的 text。 */
+        .search input {
+            flex: 1; min-width: 0; height: 100%;
+            border: none; outline: none; background: transparent;
+            font: inherit; font-size: 13px;
+            color: var(--text-primary);
+        }
+        .search input::placeholder { color: var(--text-muted); }
+
         /* ---------- 列表态 · 筛选控件 ----------
-           不复用文档详情那套表单（随"复盘 / 笔记"两段一起删了）：
-           这三个只服务列表筛选，尺寸比表单小一档。 */
+           不复用文档详情那套表单（随"复盘 / 笔记"两段一起删了）：只服务列表筛选，
+           尺寸比表单小一档。搜索框已抽出成上面的 `.search`，所以这里**只剩下拉**。 */
         .proj-input {
             font: inherit; font-size: 13px;
             height: 34px; padding: 0 10px;
@@ -827,8 +1107,14 @@
             border-color: var(--m-ink);
             box-shadow: 0 0 0 3px var(--m-tint);
         }
-        .proj-input::placeholder { color: var(--text-muted); }
-        .proj-search { flex: 1 1 240px; min-width: 170px; }
+        /* `.proj-input::placeholder` 那条删了：`.proj-input` 现在只挂在唯一的
+           `<select>` 上（搜索框已抽成 `.search`），而 select 没有 placeholder ——
+           留着就是一条没有人挂的规则。placeholder 的色归 `.search input::placeholder`。 */
+        /* 搜索框在工具栏里是"占一行的一部分"（面板里是占满一行）。
+           ⚠️ min-width 按**框内文字**反推过：框里除了文字还有 10px 内距 ×2 和
+              一枚 14px 放大镜 + 8px 间距，所以留给 placeholder 的是 min-width − 42。
+              "搜索 名称 / 描述 / 标签 / 里程碑" 约 140px ⇒ 下限取 200 才不切字。 */
+        .proj-search { flex: 1 1 260px; min-width: 200px; }
 
         /* ---------- 列表态 · 卡片栅格 ---------- */
         .proj-grid {
@@ -838,6 +1124,63 @@
         }
         .proj-card { cursor: pointer; display: flex; flex-direction: column; }
         .proj-card:hover { border-color: var(--m-ink); }
+
+        /* ---------- 卡片上的三个动作（编辑 / 归档 / 删除） ----------
+           ① **动作栏是卡片的兄弟，不是子节点**：卡片自己是 `role="button"`（点它进项目），
+              可聚焦控件不能长在按钮里 —— 嵌进去之后读屏会念成"按钮里的按钮"，
+              事件也得靠 stopPropagation 去堵，堵漏一次就"点删除顺手把项目打开了"。
+              所以外面包一层 `.proj-card-item`，动作栏定位到它的右上角。
+              包一层不改变栅格：wrapper 是 `.proj-grid` 的子项、卡片 `flex:1` 撑满它。
+           ② **hover 交给 wrapper 触发**：动作栏压在卡片上，鼠标落在动作按钮上时
+              卡片**不是**它的祖先 ⇒ `.proj-card:hover` 不命中，描边与浮起会闪一下。
+              统一由 `.proj-card-item:hover` 转达给里面的卡片。
+           ③ 出现时**让优先级徽标让位**（徽标就占在右上角那一格）：两个交叉淡入淡出，
+              零重排 —— 不让位的话，动作栏会盖在 P0/P1 上叠字。
+           ④ 隐藏用 `visibility`（不是只给 opacity）：`opacity: 0` 的按钮照样能被 Tab 聚焦，
+              键盘用户会掉进"看不见但有焦点"的黑洞。 */
+        .proj-card-item { position: relative; display: flex; }
+        .proj-card-item .proj-card { flex: 1; min-width: 0; }
+        .proj-card-item:hover .proj-card,
+        .proj-card-item:focus-within .proj-card {
+            border-color: var(--m-ink);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-card-hover);
+        }
+        .proj-card-acts {
+            position: absolute; top: 14px; right: 14px;
+            display: flex; gap: 4px;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.14s ease, visibility 0s linear 0.14s;
+        }
+        .proj-card-item:hover .proj-card-acts,
+        .proj-card-item:focus-within .proj-card-acts {
+            opacity: 1; visibility: visible;
+            transition: opacity 0.14s ease, visibility 0s;
+        }
+        .proj-card-head .prio { transition: opacity 0.14s ease; }
+        .proj-card-item:hover .proj-card-head .prio,
+        .proj-card-item:focus-within .proj-card-head .prio { opacity: 0; }
+        .proj-act {
+            width: 26px; height: 26px; padding: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            /* 它是 <button>：浏览器默认外观要显式关掉，否则 Safari 上圆角与底色被压掉 */
+            appearance: none; -webkit-appearance: none;
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+        }
+        .proj-act svg { width: 14px; height: 14px; stroke-width: 1.9; }
+        .proj-act:hover { background: var(--bg-slot); color: var(--text-primary); border-color: var(--m-ink); }
+        .proj-act:focus-visible { outline: 2px solid var(--m-main); outline-offset: 2px; }
+        /* 删除是这一排里唯一不可逆的：hover 就换 danger 色，别等点下去才知道 */
+        .proj-act.danger:hover {
+            background: var(--danger-bg); color: var(--danger); border-color: var(--danger);
+        }
+        /* 已归档的卡片整张降一档：它不在台面上，但还能被"已归档"这一项筛出来 / 恢复 */
+        .proj-card-item.is-archived .proj-card { opacity: 0.72; }
         .proj-card-head { display: flex; align-items: center; gap: 8px; }
         .proj-card-name { font-size: 15px; font-weight: 600; line-height: 1.4; margin-top: 10px; }
         /* ⚠️ 描述固定两行。行数不一时，下面那三行（标签 / 进度条 / 剩几天）
@@ -849,16 +1192,39 @@
             min-height: 3.2em;
         }
         .proj-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-        /* 底部这一组贴底：`margin-top: auto` 加在**这一组的第一个元素**上 */
-        .proj-card .progress-bar { height: 6px; margin: auto 0 10px; }
+        /* 底部这一组贴底：`margin-top: auto` 加在**这一组的第一个元素**上。
+           进度条与它的读数**同一行** —— 条单独一行时只是一根橙线，读不出"到哪了"：
+           0%（课程那张 0/14）与 100% 在条形上会被读成"没有条"和"画满了"，
+           而这个页面的主语就是进度。三个视图现在都能读到百分数
+           （表格是右对齐的数字列、看板是短条 + 数字、这里是长条 + 数字）。
+           ⚠️ 数字**定宽右对齐**：不定宽时 `0%` 与 `100%` 宽度差一个字，
+              条的右端会跟着飘 —— 同一行几张卡的条要能横着比长短。 */
+        .proj-card-progress { display: flex; align-items: center; gap: 10px; margin: auto 0 10px; }
+        .proj-card-progress .progress-bar { height: 6px; }
+        .proj-card-pct {
+            min-width: 32px; text-align: right;
+            font-size: 12px; font-weight: 600; color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
         .proj-card-foot { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
         /* ---------- 表格视图 ----------
-           它是"横着比"的形态，所以末两列定宽：头与行共用同一组宽度，
+           它是"横着比"的形态，所以末四列定宽：头与行共用同一组宽度，
            否则每一行的"优先级 / 状态"跟着文字长短飘，就没有比较的基准。 */
         .proj-table .task-row[role="button"] { cursor: pointer; }
         .proj-table .task-due { width: 88px; }
-        .proj-table .task-quad-tag { width: 64px; }
+        /* 进度列**自己一个类**，不借 `.task-quad-tag`：
+           那个类是"四象限的象限标签"（96px + 省略号截断），而窄屏那条
+           `.task-quad-tag { display: none }` 是为矩阵省宽度写的 ——
+           借过来用，≤980px 时表格的"进度"整列会被顺手删掉
+           （表头与每一行的格一起消失，所以看起来不报错，只是那一列没了）。
+           数字列的两条铁律：**右对齐 + 等宽数字** —— 否则一列数字的个位参差，
+           扫不起来，而"扫"正是这一列存在的理由。 */
+        .proj-progress {
+            width: 64px; text-align: right;
+            font-size: 12px; font-weight: 600; color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
         .proj-table .prio { width: 52px; justify-content: center; }
         .proj-table .pill { width: 70px; justify-content: center; }
         /* 表头：没有它 6 列全靠猜。复用 .task-row 的栅格，只换字号与分隔线 */
@@ -870,9 +1236,22 @@
         }
         .proj-table .task-row.is-head:hover { background: none; }
         .proj-table .task-row.is-head .prio,
-        .proj-table .task-row.is-head .pill {
+        .proj-table .task-row.is-head .pill,
+        .proj-table .task-row.is-head .proj-progress {
             background: none; color: inherit; font-weight: 600;
         }
+        /* 表头那一格是"标签"不是"读数"：字号跟着表头走，
+           否则同一行里只有它一个还带着读数样式的字号 */
+        .proj-table .task-row.is-head .proj-progress { font-size: 11px; }
+        /* ⚠️ 表格视图那张卡**不给内距**（`.card.is-flush`），内距交给每一行：
+           卡里再套一层 20px 的话，首列文字会落在 X+32 —— 而卡片视图里
+           卡片自己的内距是 20（文字在 X+20），切视图时整列右移 12px。
+           现在行内距 = 20 ⇒ 首列文字与卡片视图的文字同轴。行于是**贴到卡的边上**，
+           靠 `.card.is-flush` 的 `overflow: hidden` 兜住圆角（行自己的 radius 比卡小，
+           不会被卡的曲线切到）。 */
+        .card.is-flush { padding: 0; overflow: hidden; }
+        .proj-table .task-row { padding: 11px 20px; }
+        .proj-table .task-row.is-head { padding: 0 20px 8px; }
 
         /* ---------- 看板视图 ----------
            卡片视图 10 项读数、表格 6 项，看板原来只有 1 项（项目名）——
@@ -1011,7 +1390,9 @@
             position: sticky; top: 0; z-index: 10;
             background: var(--bg-page);
             border-bottom: 1px solid var(--line);
-            margin: 0 -14px; padding: 0 14px;
+            /* 出血按令牌反向算 —— 这样它永远等于 .main 的水平内距，
+               底边线才会刚好顶到内容列的两侧（原来窄屏那条写死 -10px，短 4px） */
+            margin: 0 calc(-1 * var(--main-pad-x)); padding: 0 var(--main-pad-x);
             transition: background 0.45s ease;
         }
         .tabs { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; }
@@ -1078,9 +1459,11 @@
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 16px; align-items: start;
         }
-        /* 概览的卡是**读数**，不是入口 —— 悬停不抬，抬了会让人以为能点开 */
+        /* 概览的卡是**读数**，不是入口 —— 悬停不抬，抬了会让人以为能点开。
+           这条原来靠 `.overview-grid .card:hover { transform: none }` 兜；现在
+           "只有整张可点的卡才抬"已经是 `.card:hover` 那条的统一口径（见那里），
+           所以这里只剩内距。 */
         .overview-grid .card { padding: 14px; }
-        .overview-grid .card:hover { transform: none; }
 
         .task-group-title {
             display: flex; align-items: center; gap: 8px;
@@ -1315,22 +1698,48 @@
             .kanban.is-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 1100px) {
-            .ov-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .hero-bar { flex-wrap: wrap; padding: 10px 14px; }
             .hero-bar-right { width: 100%; justify-content: space-between; gap: 10px; }
             .hp-track { width: 54px; }
         }
-        @media (max-width: 1000px) {
+        @media (max-width: 1070px) {
+            /* 两组筛选项并排放不下时**整组换行**（不是组内的 chip 各自换），
+               同时把组间那条竖线收掉 —— 换行之后它会长在行首，
+               看起来像"上面一行的延续"，而它其实在说"这是另一组"。
+               ⚠️ 断点是**算出来的**，不是估的：两组并排实宽 ≈729px
+                  （状态组 410 = 标签 32 + 五枚 chip 378；竖线 33；类型组 286），
+                  加筛选卡的左右内距 32 ⇒ 需要卡内宽 761px；
+                  而可用卡内宽 = 视口 − 302（app 内距 32 + 侧栏 220 + 列间距 16
+                  + .main 内距 28 + 滚动条 6） ⇒ 视口 ≥ 1063px 就放得下。
+                  所以这条挂在 1070 上（加了「已归档」这一枚之后从 1000 上来的；
+                  原先挂在 1100，白多占一行还丢了分组竖线）。 */
+            .filter-bar-row.is-groups { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .filter-group + .filter-group {
+                margin-left: 0; padding-left: 0; border-left: 0;
+            }
+            .kanban, .kanban.is-4 { grid-template-columns: minmax(0, 1fr); }
+        }
+            .filter-bar-row.is-groups { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .filter-group + .filter-group {
+                margin-left: 0; padding-left: 0; border-left: 0;
+            }
             .kanban, .kanban.is-4 { grid-template-columns: minmax(0, 1fr); }
         }
         @media (max-width: 980px) {
             .matrix { grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr); }
-            .task-quad-tag { display: none; }
+            /* 这里原来还有一条 `.task-quad-tag { display: none }`（为矩阵省宽度）。
+               那个类唯一的挂载点是表格的"进度"列，而那一列已经换成 .proj-progress ——
+               留着它，表格的进度列在 ≤980px 下会被整列删掉，且表头与格一起消失，
+               看起来不报错。四象限自己用的是 .quad* / .q-task*，不需要这一条。 */
         }
         @media (max-width: 860px) {
             .hero-name { font-size: 14px; }
         }
         @media (max-width: 768px) {
+            /* 窄屏把内容列的水平内距也收窄（原来是 10px，但 .tabs-wrap 那条写死 -10px、
+               .main 仍是 14px ⇒ 出血短 4px）。现在改**令牌本身**，
+               分区栏的出血跟着一起变，不可能再对不上。 */
+            :root { --main-pad-x: 10px; }
             .matrix { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
             .matrix-axis { display: none; }
             .seg { width: 100%; }
@@ -1340,10 +1749,10 @@
             .task-due { width: auto; }
             .doc-head { flex-wrap: wrap; }
             .doc-head-actions { width: 100%; }
-            .ov-kpi { grid-template-columns: minmax(0, 1fr); }
+            /* 筛选栏在窄屏收到 12px 内距（与卡片同宽，只是别让内容太挤） */
+            .filter-bar { padding: 12px; }
             .overview-grid { grid-template-columns: minmax(0, 1fr); }
             .proj-grid { grid-template-columns: minmax(0, 1fr); }
-            .tabs-wrap { margin: 0 -10px; padding: 0 10px; }
             .tab { padding: 10px 12px 12px; font-size: 13px; }
             .tab.active::after { left: 12px; right: 12px; }
             .hero-deadline .hd-label { display: none; }
@@ -1648,7 +2057,7 @@
 
         /* 列表态**不给侧栏副标题**：页头的大标题已经说了"全部项目"，
            而这个副标题当初存在的理由（"分区搬到环上了，需要一处文字回执"）
-           在没有环的列表态并不成立。读数归右侧的 KPI 四格。 */
+           在没有环的列表态并不成立。读数归侧栏「概览」槽。 */
         .sidebar.no-ring .sidebar-subtitle { display: none; }
         .sidebar.no-ring .sidebar-title { margin-bottom: 0; }
 
@@ -2106,6 +2515,10 @@
             flex-shrink: 0;
         }
         .slot-tabs::-webkit-scrollbar { display: none; }
+        /* ⚠️ `.slot-tabs` 自己有 `display: flex` ⇒ UA 那条 `[hidden]{display:none}` 压不过它，
+           必须显式写这一条。只剩一个可见槽时整行会收掉（见 renderSlots）——
+           一个高亮胶囊独自杵在那里是句废话（点它没别处可去）。 */
+        .slot-tabs[hidden] { display: none; }
         .slot-tab {
             flex-shrink: 0;
             padding: 4px 10px;
@@ -2126,6 +2539,10 @@
             color: var(--m-ink);
             background: var(--m-tint);
         }
+        /* ⚠️ 写死这条：`.slot-tab` 哪天加了 `display: flex`，UA 的 `[hidden]{display:none}`
+           就会被压过去 —— 隐藏的 tab 会重新冒出来，而且看起来不报错。
+           「最近」在没走过任何项目时就是靠 hidden 收掉的（见 renderSlots）。 */
+        .slot-tab[hidden] { display: none; }
 
         .slot-body {
             flex: 1;
@@ -2173,12 +2590,12 @@
         .recent-time { font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; }
 
         /* 快捷（.quick-grid / .quick-btn）整组已删 ——
-           本原型把侧栏压成"最近 / KPI / AI"三槽，没有"快捷"槽：
+           本原型把侧栏压成"最近 / 概览 / AI"三槽，没有"快捷"槽：
            那几个动作在每个分区自己的卡片头上（新增任务 / 提交 Bug / 添加账户…），
            做两遍就是两套入口做同一件事。
            ⚠️ 样式跟着槽一起删，别留"看着有用、其实没人挂"的死规则。 */
 
-        /* KPI */
+        /* 概览 · 读数（列表态三行 / 详情态五行，同一个模板） */
         .kpi-list { display: flex; flex-direction: column; gap: 4px; }
         .kpi-item {
             display: flex; align-items: baseline; gap: 6px;
@@ -2194,53 +2611,53 @@
         }
         .kpi-value.accent { color: var(--m-ink); }
 
-        /* AI */
-        .ai-chat { display: flex; flex-direction: column; gap: 8px; }
-        .ai-msg {
-            padding: 8px 10px;
-            border-radius: 10px;
-            font-size: 11.5px;
-            line-height: 1.6;
+        /* 概览槽的下半段：**要看紧的**（读数下面，跨项目挑出来的行动项）
+           ------------------------------------------------------------
+           ⚠️ 它不是第四行读数：读数回答"是多少"，它回答"先看哪个"。
+              所以每一条都带一个"为什么"的标签，而且整条可点直达那个项目。
+           分隔用一条结构线（与 .kpi-item 的分隔线同一档），不另起一张卡 ——
+           这是侧栏 240px 宽的一格，套卡会变成"卡里卡"。 */
+        .watch-head {
+            display: flex; align-items: center; gap: 6px;
+            margin-top: 12px; padding-top: 12px;
+            border-top: 1px solid var(--line);
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
         }
-        .ai-msg.bot {
-            background: var(--bg-deep);
+        .watch-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 8px;
+            margin: 2px -8px 0;
+            border-radius: 8px;
+            font-size: 12.5px;
             color: var(--text-secondary);
-            border-top-left-radius: 3px;
-        }
-        .ai-msg.user {
-            background: var(--m-tint);
-            color: var(--m-ink);
-            border-top-right-radius: 3px;
-            align-self: flex-end;
-            max-width: 85%;
-        }
-        .ai-input {
-            display: flex; align-items: center; gap: 4px;
-            margin-top: 6px;
-            padding: 4px 4px 4px 10px;
-            border-radius: 999px;
-            border: 1px solid var(--line);
-            background: var(--bg-slot);
-        }
-        .ai-input input {
-            flex: 1; min-width: 0;
-            border: none; outline: none; background: transparent;
-            font-size: 11.5px;
-            color: var(--text-primary);
-            font-family: inherit;
-        }
-        .ai-input input::placeholder { color: var(--text-muted); }
-        .ai-send {
-            width: 24px; height: 24px;
-            border-radius: 999px;
-            border: none;
-            background: var(--m-main);
-            color: var(--m-on);
-            display: flex; align-items: center; justify-content: center;
             cursor: pointer;
-            flex-shrink: 0;
+            transition: all 0.15s ease;
         }
-        .ai-send svg { width: 12px; height: 12px; }
+        .watch-item:hover { background: var(--bg-deep); color: var(--text-primary); }
+        .watch-name {
+            flex: 1; min-width: 0;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        /* 理由标签：淡底深字，与 .badge / .prio 共用同一套语义色（不另造颜色）。
+           10.5px 是本文件最小的字号，所以"深字压淡底"这条更要守住。 */
+        .watch-why {
+            flex-shrink: 0;
+            font-size: 10.5px; font-weight: 600;
+            padding: 1px 7px; border-radius: 999px;
+            white-space: nowrap;
+        }
+        .watch-why.is-danger { background: var(--danger-bg); color: var(--danger); }
+        .watch-why.is-warn   { background: var(--warn-bg);   color: var(--warn); }
+
+        /* AI 槽（.ai-chat / .ai-msg / .ai-input / .ai-send）整族已删 ——
+           AI 的入口在顶栏那颗 `.icon-btn.ai` 上（那套样式在导入段，归导航壳，没动）。
+           ⚠️ 样式跟着槽一起删：留一组没人挂的对话气泡规则，下次改它会以为改的是活的。
+           连带清掉：图标表里的 `send:`（只被那个发送键用过），以及 `domainStats()`
+           （只被那一槽的句子用过）。
+           连带影响：本文件**再也没有第二个输入框**了（只剩搜索框），
+           所以 `.search` 那段"全站只有这一种输入框"是事实，不是约定。 */
 
         /* 侧栏底部 */
         .sidebar-foot {
@@ -2290,6 +2707,9 @@
         .cmd-panel {
             width: 100%;
             max-width: 560px;
+            /* ⚠️ 面板现在自己带内距：输入框从"通栏无框 + 一条下分隔线"换成了
+               全站那个带描边的 `.search`。不给内距的话，框会贴着面板的圆角边。 */
+            padding: 12px;
             background: var(--bg-card);
             border: 1px solid var(--line);
             border-radius: 18px;
@@ -2301,19 +2721,10 @@
             from { opacity: 0; transform: translateY(-12px) scale(0.98); }
             to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-        .cmd-input {
-            width: 100%;
-            padding: 18px 20px;
-            border: none;
-            outline: none;
-            background: transparent;
-            color: var(--text-primary);
-            font-size: 15px;
-            font-family: inherit;
-            border-bottom: 1px solid var(--line);
-        }
-        .cmd-input::placeholder { color: var(--text-muted); }
-        .cmd-list { max-height: 320px; overflow-y: auto; padding: 8px; }
+        .cmd-search { margin-bottom: 8px; }
+        /* 内距交给 .cmd-panel —— 列表项的左右沿与上面的搜索框对齐（都在 12px 上）。
+           条目自己的 10px 12px 内距保留，悬停底色才不会顶到面板边上。 */
+        .cmd-list { max-height: 320px; overflow-y: auto; padding: 0; }
         .cmd-item {
             display: flex; align-items: center; gap: 12px;
             padding: 10px 12px;
@@ -2360,7 +2771,10 @@
             .nav-p-item span:not(.nav-p-icon):not(.nav-p-badge) { display: none; }
             .nav-p-item { padding: 0 12px; }
             .topbar { padding: 8px 10px 8px 12px; }
-            .topbar-right .icon-btn:not(.ai):not(#themeBtn) { display: none; }
+            /* 只收通知，**不放掉搜索**：那个按钮是 ⌘K 面板的唯一入口，
+               而窄屏没有键盘可用；详情层又没有别的搜索框（列表层那个在筛选卡里）。
+               原来这条 `:not(.ai):not(#themeBtn)` 把搜索和通知一起收了。 */
+            #notifyBtn { display: none; }
         }
         /* 遮罩：纯色化后它只剩"压暗"一件事，暗色下要压得更重才分得开 */
         .dark .cmd-mask { background: rgba(3,7,18,0.66); }
@@ -2484,7 +2898,7 @@
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                 </button>
-                <button class="icon-btn" title="通知" onclick="alert('原型演示：通知')">
+                <button class="icon-btn" id="notifyBtn" title="通知" onclick="alert('原型演示：通知')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                         <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
@@ -2496,7 +2910,7 @@
                         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                     </svg>
                 </button>
-                <button class="icon-btn ai" title="AI 助手 ⌘K" onclick="alert('原型演示：AI 助手')">
+                <button class="icon-btn ai" title="AI 助手" onclick="alert('原型演示：AI 助手')">
                     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <path d="M9.5 2.5 C9.5 7.3 11.7 9.5 16.5 9.5 C11.7 9.5 9.5 11.7 9.5 16.5 C9.5 11.7 7.3 9.5 2.5 9.5 C7.3 9.5 9.5 7.3 9.5 2.5 Z"></path>
                         <path class="ai-spark-mini" d="M17.5 13 C17.5 15.75 18.75 17 21.5 17 C18.75 17 17.5 18.25 17.5 21 C17.5 18.25 16.25 17 13.5 17 C16.25 17 17.5 15.75 17.5 13 Z"></path>
@@ -2570,23 +2984,29 @@
             <div class="rail" id="moduleRail" role="navigation" aria-label="分区快捷导航"></div>
 
             <!-- 可切换的槽
-                 v5 这里是四槽（最近 / 快捷 / KPI / AI）。本原型只留三槽 ——
-                 「快捷」那几个动作在每个分区自己的卡片头上（新增任务 / 提交 Bug /
-                 添加账户…），做两遍就是两套入口做同一件事。
-                 三槽的内容全部从本页数据派生，不留一份手抄的示例数字。
-                 ⚠️ 默认选中**随两态**换：列表态给「KPI」（刚进来时"最近"是句空话），
-                    详情态给「最近」。见脚本里的 selectSlot / slotTouched。 -->
+                 v5 这里是四槽（最近 / 快捷 / KPI / AI）。本原型只留**两槽**：
+                 · 「快捷」删得早 —— 那几个动作在每个分区自己的卡片头上（新增任务 /
+                   提交 Bug / 添加账户…），做两遍就是两套入口做同一件事；
+                 · 「AI」后删 —— AI 的入口在顶栏那颗 `.icon-btn.ai` 上，
+                   侧栏再放一份对话就是两套入口做同一件事（同上一条判据）。
+                   代价要知道：顶栏那个按钮目前只弹一句"原型演示"，所以 AI 对话
+                   在本页暂时**没有落地的形态**（不是漏了，是没有承载它的位置了）。
+                 两槽的内容全部从本页数据派生，不留一份手抄的示例数字。
+                 ⚠️ 默认选中**随两态**换：列表态给「概览」（刚进来时"最近"是句空话），
+                    详情态给「最近」。见脚本里的 selectSlot / slotTouched。
+                 ⚠️「最近」是**空则不渲染**；两个都只剩一个可见时，整条 tab 行也收掉
+                    （见 renderSlots）。 -->
             <div class="sidebar-slot">
                 <div class="slot-tabs" id="slotTabs">
                     <div class="slot-tab active" data-slot="recent">最近</div>
-                    <div class="slot-tab" data-slot="kpi">KPI</div>
-                    <div class="slot-tab" data-slot="ai">AI</div>
+                    <!-- 原「KPI」：现在装的是"读数 3 行 + 要看紧的 2–3 条"，
+                         KPI 这个词只说对了一半，所以改名「概览」。 -->
+                    <div class="slot-tab" data-slot="overview">概览</div>
                 </div>
 
                 <div class="slot-body">
                     <div class="slot-panel active" data-panel="recent" id="slotRecent"></div>
-                    <div class="slot-panel" data-panel="kpi" id="slotKpi"></div>
-                    <div class="slot-panel" data-panel="ai" id="slotAi"></div>
+                    <div class="slot-panel" data-panel="overview" id="slotOverview"></div>
                 </div>
             </div>
 
@@ -2618,7 +3038,8 @@
                  ⚠️ 原来这里是 13px 的面包屑（`项目 / 全部项目 · 8 个项目 3 进行中 1 有风险`）：
                  ① 同一种职责配了两种规格，两级之间切来切去视觉重心会跳；
                  ② 首段"项目"与顶栏胶囊、侧栏头一屏出现三次；
-                 ③ 那三个读数与下面的 KPI 四格重复。读数归 KPI，这里只说"义"。 -->
+                 ③ 那三个读数与下面的读数区重复。读数有主区两组 chip 的计数、
+                    侧栏「概览」槽与「显示 N / 8」三处在说，这里只说"义"。 -->
             <div class="page-header">
                 <div>
                     <h1 class="page-title">全部项目</h1>
@@ -2629,26 +3050,38 @@
                 </div>
             </div>
 
-            <!-- 筛选区 = 读数（可点即筛）+ 工具栏，**同处一张卡的两行**。
-                 两者是同一件事的两段（都在读/筛），原来分给 5 张卡，
-                 第一张项目卡之前压了 266px 的控制区 —— 而这一页的主语是项目。 -->
+            <!-- 筛选栏 = **一块卡、两行、两组筛选用同一个 chip**。
+                 上行"筛什么"：状态（全部/进行中/风险阻塞/已完成/已归档）+ 类型（全部/生活/工作/学习），
+                 组内互斥、组间取与，两组各有一个"全部" = 本组不筛；
+                 下行"怎么看"：视图 / 搜索 / 排序 / 显示 N/M。
+                 两行的控件**不一样**是有意的：上行是"筛选组"（chip），下行是"视图与查询"
+                 （分段 / 输入框 / 下拉）—— 两行的东西本来就不同类。
+                 而两组筛选项之间不该不同类：它们干的是同一件事，所以长得一模一样。 -->
             <section class="card filter-bar">
-                <div class="ov-kpi" id="projKpi"></div>
+                <div class="filter-bar-row is-groups" id="projFilters"></div>
 
-                <div class="toolbar">
+                <div class="filter-bar-row">
                     <div class="seg" id="projViewSeg">
                         <div class="seg-btn active" data-proj-view="cards">卡片</div>
                         <div class="seg-btn" data-proj-view="table">表格</div>
                         <div class="seg-btn" data-proj-view="board">看板</div>
                     </div>
-                    <input class="proj-input proj-search" id="projQuery" type="search"
-                           placeholder="搜索项目名 / 描述 / 标签 / 里程碑" autocomplete="off">
-                    <select class="proj-input" id="projScope" aria-label="领域">
-                        <option value="all">全部</option>
-                        <option value="life">生活</option>
-                        <option value="work">工作</option>
-                        <option value="learn">学习</option>
-                    </select>
+                    <!-- 搜索框 = 全站那一个 .search（与 ⌘K 面板同一个组件）。
+                         ⚠️ 文案短了：框里多了一枚放大镜，窄屏下留给文字的就那么多 ——
+                            原来的"搜索项目名 / 描述 / 标签 / 里程碑"会在最窄处被切掉后半截，
+                            换成"搜索 名称 / 描述 / 标签 / 里程碑"（四个可搜字段一个不少）。 -->
+                    <div class="search proj-search">
+                        <span class="search-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                        </span>
+                        <input id="projQuery" type="search" aria-label="搜索项目"
+                               placeholder="搜索 名称 / 描述 / #标签"
+                           title="支持 #标签 筛选（可多个，如 #重构 #客户A）；也可搜名称、描述、里程碑、本地目录"
+                           autocomplete="off">
+                    </div>
                     <select class="proj-input" id="projSort" aria-label="排序">
                         <option value="default">默认排序</option>
                         <option value="due">截止最近</option>
@@ -2664,15 +3097,21 @@
             </section>
 
             <section class="view" data-proj-panel="table">
-                <div class="card"><div class="proj-table" id="projTable"></div></div>
+                <!-- 表格这张卡**不给内距**：内距归每一行，首列文字才和卡片视图同轴（见 .card.is-flush） -->
+                <div class="card is-flush"><div class="proj-table" id="projTable"></div></div>
             </section>
 
             <section class="view" data-proj-panel="board">
+                <!-- ⚠️ 看板这张卡**保留 20px 内距**，与表格不同 —— 这是有原因的：
+                     看板列是"沉槽底"（--bg-slot #F2F5FB），而页面底是 #ECF0F7，
+                     两者只差 1.05:1；去掉这层白面，列的边界就看不见了。
+                     所以看板的列仍在 X+20（对象是列，不是被列包住的卡）。
+                     表格那张卡没有这层顾虑（它的行只有发丝线，白底由卡自己给）。 -->
                 <div class="card"><div class="kanban is-4" id="projBoard"></div></div>
             </section>
 
             <div class="card" id="projEmpty" hidden>
-                <div class="q-empty">没有匹配的项目 —— 换个关键词，或者把领域切回「全部」</div>
+                <div class="q-empty">没有匹配的项目 —— 换个关键词，或把上面的状态 / 类型两组都切回「全部」</div>
             </div>
         </div>
 
@@ -2914,12 +3353,40 @@
      ⚠️ 面板浮在最上层，所以 .cmd-mask 的 z-index 必须高于 .topbar-wrap(40)。 -->
 <div class="cmd-mask" id="cmdMask" onclick="if(event.target===this)closeCmd()">
     <div class="cmd-panel">
-        <input class="cmd-input" id="cmdInput" placeholder="跳到一个分区…" autocomplete="off" />
+        <!-- 用的就是全站那一个 `.search`（与列表工具栏同一个组件）：
+             放大镜、34px、圆角 9、同一条描边与同一个焦点环。
+             placeholder 不写在这里 —— 它**随两态变**（列表态找项目、详情态找分区），
+             由 openCmd() 按当前态设，见那里的注释。 -->
+        <div class="search cmd-search">
+            <span class="search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </span>
+            <input id="cmdInput" aria-label="搜索" autocomplete="off" />
+        </div>
         <div class="cmd-list" id="cmdList"></div>
     </div>
 </div>
 
 <div class="toast-wrap" id="toastWrap"></div>
+
+<!-- 项目弹窗（编辑 / 删除确认）—— 两态共用一个容器，内容由 openProjectModal 填。
+     ⚠️ 这里用 `.open` 类控制显隐，不用 `hidden` 属性（见 .modal-mask 那段注释）。 -->
+<div class="modal-mask" id="pmMask">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
+        <div class="modal-head">
+            <h3 class="modal-title" id="pmTitle"></h3>
+            <button type="button" class="modal-x" id="pmClose" aria-label="关闭"></button>
+        </div>
+        <div class="modal-body" id="pmBody"></div>
+        <div class="modal-foot">
+            <button type="button" class="btn btn-ghost" id="pmCancel">取消</button>
+            <button type="button" class="btn btn-primary" id="pmOk">保存</button>
+        </div>
+    </div>
+</div>
 
 <script>
     /* ============================================================
@@ -2931,20 +3398,35 @@
         }[c]));
     }
 
-    let toastTimer = null;
-    function toast(msg) {
+    /** toast(msg, action) —— action = { label, onClick }（可选，如删除后的「撤销」）
+        带动作的那一种停留 6s（不带的是 2.2s）：撤销是"要看清楚再点"的动作，
+        破坏性操作必须留够后悔的时间。 */
+    function toast(msg, action) {
         const wrap = document.getElementById('toastWrap');
         if (!wrap) return;
         const el = document.createElement('div');
         el.className = 'toast';
-        el.innerHTML = '<span class="toast-dot"></span>' + esc(msg);
+        el.innerHTML = '<span class="toast-dot"></span><span>' + esc(msg) + '</span>';
+        if (action) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'toast-act';
+            b.textContent = action.label;
+            b.addEventListener('click', () => { hide(); action.onClick(); });
+            el.appendChild(b);
+        }
         wrap.appendChild(el);
         requestAnimationFrame(() => el.classList.add('on'));
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => {
+        /* ⚠️ 定时器**每个 toast 各自一个**。原来只有一根全局 `toastTimer`，
+           新 toast 一来就把上一条的定时器清掉 ⇒ 上一条永久留在屏幕上。
+           单条时看不出来，一旦有带「撤销」的 toast 就必然撞上
+           （而那条恰恰是最该自己走掉的）。 */
+        const timer = setTimeout(hide, action ? 6000 : 2200);
+        function hide() {
+            clearTimeout(timer);
             el.classList.remove('on');
             setTimeout(() => el.remove(), 260);
-        }, 2200);
+        }
     }
 
     /* 稳定哈希：内容池按它确定性取值（与 `src/data/derive.ts` 的 hash 同一条） */
@@ -2967,23 +3449,29 @@
        · 详情态的**任务 / 文档 / Bug / 服务器 / 发布 / 会议 / 账户**由项目
          **按 scope 从池子确定性派生** —— 应用里 `Project` 上没有这五张表，
          所以它们是"池子 + 派生"，不是给每个项目手写一份。
-       · `servers` / `accounts` / `deployDocs` **只有 work 域非空**：
-         给一趟家庭旅行编两台 prod-web-01 才是真的编数据。
-         后果由页面承担 —— **派生出 0 条就隐藏那个分区**，不写 scope 白名单。
-       ============================================================ */
+        · `servers` / `accounts` / `deployDocs` **只有 work 域非空**：
+          给一趟家庭旅行编两台 prod-web-01 才是真的编数据。
+          后果由页面承担 —— **派生出 0 条就隐藏那个分区**，不写 scope 白名单。
+        · `path`（本地目录）**只有部分项目有**（代码 / 资料类那 6 个；
+          「团队 OKR」「年度体检」本来就没有一个目录可指）。它在详情态是**有才显示**，
+          而在新建 / 编辑表单里是**可选** —— 字段可选不是数据不齐，是事实如此。
+        ============================================================ */
     const PROJECTS = [
         { id: 'p1', scope: 'life', name: '马尔代夫家庭旅行', status: 'active', prio: 'mid', progress: 68,
           tags: ['旅行', '家庭'], due: '2026-10-01', dueShort: '10月01日', daysLeft: 13, tasksDone: 13, tasksTotal: 19,
           start: '2026-06-12', owners: ['刘阳', '王晴'], milestone: '行程终版确认', repo: '—', docsUrl: '旅行资料库',
+          path: '~/Documents/旅行/2026-马尔代夫',
           desc: '10 月出行，机票、住宿、行程与预算统筹，含双方父母共 6 人。' },
         { id: 'p2', scope: 'life', name: '老房翻新改造', status: 'risk', prio: 'high', progress: 42,
           tags: ['装修', '预算'], due: '2026-09-30', dueShort: '9月30日', daysLeft: 12, tasksDone: 9, tasksTotal: 24,
           start: '2026-05-08', owners: ['刘阳'], milestone: '瓦工进场', repo: '—', docsUrl: '装修报价与图纸',
+          path: '~/Documents/装修/老房翻新',
           desc: '厨房与主卫改造，工期受建材到货影响已延期 5 天。' },
         { id: 'p3', scope: 'work', name: 'Q4 客户交付系统重构', status: 'active', prio: 'high', progress: 72,
           tags: ['重构', '客户A'], due: '2026-11-15', dueShort: '11月15日', daysLeft: 58, tasksDone: 26, tasksTotal: 36,
           start: '2026-07-01', owners: ['刘阳', '张琪', '何敏'], milestone: '灰度发布',
           repo: 'git@internal:core-platform.git', docsUrl: '技术方案 v3',
+          path: '~/Craft/riding-fancy/lucky-y',
           desc: '拆分单体模块，统一鉴权与审计链路，保障 Q4 版本按期交付。' },
         { id: 'p4', scope: 'work', name: '团队 OKR 落地推进', status: 'planning', prio: 'mid', progress: 12,
           tags: ['OKR', '管理'], due: '2026-12-31', dueShort: '12月31日', daysLeft: 104, tasksDone: 3, tasksTotal: 18,
@@ -2993,15 +3481,18 @@
           tags: ['Rust', '书籍'], due: '2026-09-28', dueShort: '9月28日', daysLeft: 10, tasksDone: 16, tasksTotal: 20,
           start: '2026-07-20', owners: ['刘阳'], milestone: 'mini-runtime 跑通',
           repo: 'git@personal:mini-runtime.git', docsUrl: '读书笔记合集',
+          path: '~/Code/rust/mini-runtime',
           desc: '精读《Rust 异步编程》并配套实现 mini-runtime，输出 6 篇笔记。' },
         { id: 'p6', scope: 'learn', name: '数据可视化课程实践', status: 'planning', prio: 'low', progress: 0,
           tags: ['课程', 'D3'], due: '2026-11-20', dueShort: '11月20日', daysLeft: 63, tasksDone: 0, tasksTotal: 14,
           start: '2026-10-08', owners: ['刘阳'], milestone: '作业 1-4 完成', repo: '—', docsUrl: '课程大纲',
+          path: '~/Code/learn/d3-course',
           desc: '完成课程 12 个作业，用 D3 复刻 3 个经典图表并整理成组件库。' },
         { id: 'p7', scope: 'learn', name: '个人博客 v2 重写', status: 'done', prio: 'low', progress: 100,
           tags: ['开源', '写作'], due: '2026-08-30', dueShort: '8月30日', daysLeft: -19, tasksDone: 22, tasksTotal: 22,
           start: '2026-06-01', owners: ['刘阳'], milestone: '正式上线',
           repo: 'git@personal:blog.git', docsUrl: '设计系统说明',
+          path: '~/Code/blog/v2',
           desc: '迁移到 Astro，重构设计系统与文章排版，Lighthouse 全项 95+。' },
         { id: 'p8', scope: 'life', name: '年度体检与健身计划', status: 'done', prio: 'mid', progress: 100,
           tags: ['健康', '习惯'], due: '2026-08-15', dueShort: '8月15日', daysLeft: -34, tasksDone: 11, tasksTotal: 11,
@@ -3067,9 +3558,10 @@
     };
 
     const SCOPE_LABEL = { life: '生活', work: '工作', learn: '学习' };
-    const STATUS_LABEL = { planning: '规划中', active: '进行中', risk: '风险阻塞', done: '已完成' };
-    /* 状态徽标只复用本页已有的四支，不新造一套 —— 与详情页 Hero 上那枚是同一张表 */
-    const STATUS_BADGE = { planning: 'badge-neutral', active: 'badge-doing', risk: 'badge-danger', done: 'badge-ok' };
+    const STATUS_LABEL = { planning: '规划中', active: '进行中', risk: '风险阻塞', done: '已完成', archived: '已归档' };
+    /* 状态徽标只复用本页已有的四支，不新造一套 —— 与详情页 Hero 上那枚是同一张表
+       （归档与规划中同用中性灰：两者都是"还没进到台面中央"，只是方向相反） */
+    const STATUS_BADGE = { planning: 'badge-neutral', active: 'badge-doing', risk: 'badge-danger', done: 'badge-ok', archived: 'badge-neutral' };
     const PRIO_LABEL = { high: 'P0', mid: 'P1', low: 'P2' };
     const PRIO_CLASS = { high: 'prio-P0', mid: 'prio-P1', low: 'prio-P2' };
     const DOC_KIND_LABEL = { plan: '方案', design: '设计', api: '接口', test: '测试', spec: '规范', research: '调研', ref: '参考' };
@@ -3271,21 +3763,99 @@
     let projQuery = '';
     let projScope = 'all';
     let projSort = 'default';
-    let projKpiFilter = '';
+    let projStatus = '';
+    let deepLinkId = null;     /* 从 URL 读到的"这一屏要打开哪个项目"（初始化时用一次） */
     let taskView = 'list';
     let openDocId = null;
 
-    /** 列表态真正显示的项目 = 领域 + 关键词 + KPI 那一格的条件 */
-    function visibleProjects() {
-        const kw = projQuery.trim().toLowerCase();
-        let list = PROJECTS.filter((p) => {
-            if (projScope !== 'all' && p.scope !== projScope) return false;
-            if (projKpiFilter === 'active' && p.status !== 'active') return false;
-            if (projKpiFilter === 'risk' && p.status !== 'risk') return false;
-            if (projKpiFilter === 'done' && p.status !== 'done') return false;
-            if (!kw) return true;
-            return [p.name, p.desc, p.tags.join(' '), p.milestone].join(' ').toLowerCase().indexOf(kw) > -1;
+    /* ============================================================
+       4b. 列表态的**两组筛选**（状态 × 类型）
+       ------------------------------------------------------------
+       两组是**同一种东西**：一个标签 + 一排 key/label 的选项。所以：
+         · 组内互斥（一组只选一个，再点一次取消）；
+         · 组间取与（状态 ∧ 类型 ∧ 关键词）；
+         · 两组各有一个"全部" = 本组不筛（含义相同，各自成组所以不冲突）；
+         · **渲染与事件也共用一份**（见 renderFilters / 委托里的 [data-filter]）——
+           两组只有在"取哪个全局变量"这一步分岔，其余逐字相同。
+       ============================================================ */
+    /* 状态的**匹配规则**与 chip 的标签分开写：标签是给人读的（"进行中"），
+       命中哪些 status 是数据侧的事实，两者混在一张表里时，
+       "规划中"这种没有自己 chip 的状态会被静默漏掉 ——
+       症状是"全部 8 条，四个 chip 加起来的计数只有 7"（数字不会自己报错）。
+       · `''`（全部）**不含已归档**：归档就是从台面上收走，它自己有一项；
+         否则"全部"报 8 而列表只画 7 条，chip 上的数就撒谎了。 */
+    const STATUS_MATCH = {
+        '':       (p) => p.status !== 'archived',
+        active:   (p) => p.status === 'active' || p.status === 'planning',
+        risk:     (p) => p.status === 'risk',
+        done:     (p) => p.status === 'done',
+        archived: (p) => p.status === 'archived',
+    };
+    const STATUS_FACETS = [
+        { k: '',         label: '全部' },
+        { k: 'active',   label: '进行中' },
+        { k: 'risk',     label: '风险阻塞' },
+        { k: 'done',     label: '已完成' },
+        { k: 'archived', label: '已归档' },
+    ];
+    const SCOPE_FACETS = [
+        { k: 'all',   label: '全部' },
+        { k: 'life',  label: '生活' },
+        { k: 'work',  label: '工作' },
+        { k: 'learn', label: '学习' },
+    ];
+    /* 两组的定义表：渲染与事件都只认这三列，加一组就是加一行。
+       cur：这一组当前的选中值；set：把选中值写回去（两组唯一的差异）。 */
+    const FILTER_GROUPS = [
+        { group: 'status', label: '状态', defs: STATUS_FACETS, cur: () => projStatus, set: (v) => { projStatus = v; } },
+        { group: 'scope',  label: '类型', defs: SCOPE_FACETS,  cur: () => projScope,  set: (v) => { projScope = v; } },
+    ];
+
+    /** 关键词里可以带 `#标签`（可以多个，取与）；剩下的部分才当普通词去搜字段。
+        为什么是**搜索语法**而不是再加一组筛选 chip：标签有十几个，做成一排 chip
+        会把筛选卡撑成三行（"类型"那一组已经占满一行了），而语法**不占控件位**。
+        标签用**前缀匹配**：`#客` 能筛出"客户A"。 */
+    function parseQuery(raw) {
+        const tags = [];
+        const rest = String(raw || '')
+            .replace(/#([^\s#]+)/g, (m, t) => { tags.push(t.toLowerCase()); return ' '; })
+            .trim();
+        return { tags, kw: rest.toLowerCase() };
+    }
+
+    /** 一个项目是否命中当前筛选。`skip` = 摘掉某一组自己的选择（见 facetSet）。 */
+    function projHit(p, skip) {
+        if (skip !== 'status' && !STATUS_MATCH[projStatus](p)) return false;
+        if (skip !== 'scope' && projScope !== 'all' && p.scope !== projScope) return false;
+        const q = parseQuery(projQuery);
+        if (q.tags.length) {
+            const own = p.tags.map((t) => t.toLowerCase());
+            if (!q.tags.every((t) => own.some((x) => x.indexOf(t) === 0))) return false;
+        }
+        if (!q.kw) return true;
+        return [p.name, p.desc, p.tags.join(' '), p.milestone, p.path || '']
+            .join(' ').toLowerCase().indexOf(q.kw) > -1;
+    }
+
+    /** 某一项筛完**会剩下哪几条**（= 它的计数）。
+        ⚠️ 计数要**在"另一组 + 关键词"已应用的基础上**算，但**不应用本组自己的选择**：
+           否则筛选项上的数字会撒谎 —— 类型选了「学习」之后，状态卡还写「进行中 3」，
+           点下去却只有 1 条。这也是它不能复用"域级读数"的原因：那一份是
+           **与筛选无关**的，这里要的是 facet 计数。
+           "不应用本组自己的选择"不会形成循环依赖：算 A 组时只看 B 组。 */
+    function facetSet(group, k) {
+        return PROJECTS.filter((p) => {
+            if (!projHit(p, group)) return false;
+            return group === 'status' ? STATUS_MATCH[k](p) : (k === 'all' || p.scope === k);
         });
+    }
+
+    /* 一个只吃集合、不碰全局状态的小算法（给侧栏槽的读数用） */
+    const sumPct = (list) => list.length ? Math.round(list.reduce((s, p) => s + p.progress, 0) / list.length) : 0;
+
+    /** 列表态真正显示的项目 = 状态 × 类型 × 关键词，再排序 */
+    function visibleProjects() {
+        let list = PROJECTS.filter((p) => projHit(p));
         if (projSort === 'due') list = list.slice().sort((a, b) => a.daysLeft - b.daysLeft);
         if (projSort === 'progress') list = list.slice().sort((a, b) => b.progress - a.progress);
         if (projSort === 'priority') {
@@ -3295,65 +3865,817 @@
         return list;
     }
 
-    function projStats() {
-        const total = PROJECTS.length;
-        const by = (s) => PROJECTS.filter((p) => p.status === s).length;
-        const scopes = { life: 0, work: 0, learn: 0 };
-        let sum = 0;
-        PROJECTS.forEach((p) => { scopes[p.scope] += 1; sum += p.progress; });
-        return { total, active: by('active'), risk: by('risk'), done: by('done'), scopes,
-                 avg: total ? Math.round(sum / total) : 0 };
+    /* 侧栏「概览」槽在**列表态**的那组读数 = **当前筛选结果**的读数。
+       ⚠️ 只留三行：**「当前可见」那一行去掉了** —— 它与主区的「显示 N / 8」是同一个数，
+          同一屏只留一处说（这条判据在本文件里反复用：一个枚举不做两处口径）。
+          读数里唯一无处可去的"平均进度"留在这儿（主区两组 chip 只报"点下去剩几条"）。 */
+    function listSlotRows() {
+        const vis = visibleProjects();
+        return [
+            ['进行中', vis.filter((p) => STATUS_MATCH.active(p)).length, false],
+            ['风险', vis.filter((p) => p.status === 'risk').length, true],
+            ['平均进度', sumPct(vis) + '%', false],
+        ];
+    }
+
+    /* **要看紧的** = 当前这一批里最该先看的 2–3 个。
+       为什么是侧栏的活：主区的卡片栅格是"平的"（按排序铺开），看不出哪几个最急；
+       而"先看哪个"是项目列表页唯一的信息差 ⇒ 跨项目挑出来、给理由、可点直达。
+
+       判据（可机械执行，不靠手感）：
+         · 池 = 当前筛选后的**未完成**项目（已收口的不需要看）；
+         · 先按紧急度分档：风险阻塞 0 < 已逾期 1 < 其他 2；
+         · 同档内按剩余天数升序；
+         · 取前 3 —— 侧栏是"扫一眼"的地方，列 8 条就退化成第二份列表。
+       与主区的排序（默认/截止/进度/优先级）**互不影响**：这是另一条独立的挑选规则。 */
+    function watchItems() {
+        const rank = (p) => (p.status === 'risk' ? 0 : p.daysLeft < 0 ? 1 : 2);
+        return visibleProjects()
+            .filter((p) => !isClosed(p))
+            .sort((a, b) => rank(a) - rank(b) || a.daysLeft - b.daysLeft)
+            .slice(0, 3);
+    }
+
+    function watchHtml() {
+        const items = watchItems();
+        const head = '<div class="watch-head">要看紧的</div>';
+        if (!items.length) {
+            /* 空态也要说实话：是"筛掉了"还是"本来就没有" */
+            return head + '<div class="q-empty">'
+                + (PROJECTS.some((p) => !isClosed(p)) ? '当前筛选下没有未收口的项目' : '所有项目都已收口')
+                + '</div>';
+        }
+        return head + items.map((p) => {
+            const danger = p.status === 'risk' || p.daysLeft < 0;
+            /* 「风险阻塞」是状态，其余用 leftText 的"剩 N 天 / 逾期 N 天" —— 都是现成的口径 */
+            const why = p.status === 'risk' ? '风险阻塞' : leftText(p);
+            return `<div class="watch-item" data-open-project="${p.id}" role="button" tabindex="0">
+                    <span class="watch-name">${esc(p.name)}</span>
+                    <span class="watch-why ${danger ? 'is-danger' : 'is-warn'}">${esc(why)}</span>
+                </div>`;
+        }).join('');
+    }
+
+    /* 侧栏「概览」槽：**两态共用一个函数**（槽只有一个）。
+       列表态说"当前这一批项目"，详情态说"这一个项目的欠账"。
+       ⚠️ 只重画这一个槽，不调 renderSlots()：那会把「最近」的列表和整条 tab 行
+          也重建一遍 —— 搜索框每敲一个字就重建一次侧栏，是白费功夫。 */
+    function renderOverviewSlot() {
+        const el = document.getElementById('slotOverview');
+        if (!el) return;
+
+        if (viewMode === 'detail') {
+            const t = curTasks();
+            el.innerHTML = kpiRowsHtml([
+                ['未完成', t.filter((x) => x.status !== 'done').length, true],
+                ['逾期', t.filter((x) => x.late).length, false],
+                ['Bug 待处理', curBugs().filter((b) => b.status !== 'fixed').length, true],
+                ['文档', curDocs().length, false],
+                ['服务器', curServers().length, false],
+            ]);
+            return;
+        }
+        el.innerHTML = kpiRowsHtml(listSlotRows()) + watchHtml();
+    }
+
+    /* 槽里那张读数表的 HTML —— 「概览」槽的两态共用一个模板
+       （所以它收的是 `[标签, 值, 是否用强调色]` 三元组，而不是某个态的专用形状） */
+    const kpiRowsHtml = (rows) => '<div class="kpi-list">' + rows.map((r) =>
+        `<div class="kpi-item"><span class="kpi-label">${r[0]}</span>`
+        + `<span class="kpi-value${r[2] ? ' accent' : ''}">${r[1]}</span></div>`).join('') + '</div>';
+
+    /* ⚠️ 这里原来有一个 `domainStats()`（域级总数 + 平均进度），**整块删了** ——
+       它最后的消费点是侧栏 AI 槽，那个槽已随"AI 入口归顶栏"一起删掉。
+       现在所有读数都走 facetSet / visibleProjects：筛完还写域级总数，
+       同一屏会出现两组打架的数字（那是本文件反复在防的事）。 */
+
+    /* ============================================================
+       4c. 卡片上的三个动作：编辑 / 归档 / 删除
+       ------------------------------------------------------------
+       为什么这三个该在卡片上（而不是"只读账本"）：项目的名称、描述、类型、优先级、
+       截止日期**只有用户自己知道** —— 别处没有任何一份系统账目能回答它们。
+       反过来，卡片上**不放"新增"**：页面头部已经有「+ 新建项目」，同一件事不做两个入口。
+       ============================================================ */
+    /** 卡片右上角那一排 —— **唯一构造点**（静态与动态项都从这儿出）。
+        图标按钮没有可见文字，所以 `title` / `aria-label` 必须带上项目名：
+        "编辑" 与 "编辑「老房翻新改造」" 对读屏不是同一条信息。
+        ⚠️ 已归档的卡片第二颗换成「恢复」—— 归档是软删除，必须有一条回头路；
+           少了它，归档就只是"删得没那么干净"。 */
+    function cardActs(p) {
+        const name = esc(p.name);
+        const btn = (act, icon, label, cls) =>
+            `<button type="button" class="proj-act${cls ? ' ' + cls : ''}" data-${act}="${p.id}"`
+            + ` title="${label}「${name}」" aria-label="${label}「${name}」">${iconSvg(icon)}</button>`;
+        return '<div class="proj-card-acts">'
+            + btn('edit-project', 'pen', '编辑')
+            + (p.status === 'archived'
+                ? btn('restore-project', 'refresh', '恢复')
+                : btn('archive-project', 'archive', '归档'))
+            + btn('delete-project', 'trash', '删除', 'danger')
+            + '</div>';
+    }
+
+    /* 日期基准 = 数据里 `daysLeft` 用的那一天（快照日），**不取真实今天**：
+       真实今天会让"同一个截止日在不同卡片上算出不同的剩余天数"，
+       编辑完一个项目顺带把它自己挪到另一条时间线上。 */
+    const DATA_TODAY = new Date('2026-09-18T00:00:00');
+    const DAY_MS = 86400000;
+
+    function syncDue(p) {
+        const d = new Date(p.due + 'T00:00:00');
+        p.dueShort = (d.getMonth() + 1) + '月' + String(d.getDate()).padStart(2, '0') + '日';
+        p.daysLeft = Math.round((d - DATA_TODAY) / DAY_MS);
+    }
+
+    /** 新建用的空壳 —— **与真项目完全同构**（卡片、筛选、详情都按同一形状读它），
+        只是值取默认。判据：新建的项目点进详情也不能是空白页，
+        所以 owners / milestone 这类"详情态一定要显示"的字段要给一个大方说得过去的默认值，
+        而不是空字符串（空字符串会让详情页那几行看起来像坏了）。 */
+    function blankProject() {
+        const due = new Date(DATA_TODAY.getTime() + 30 * DAY_MS);
+        return {
+            id: 'p' + Date.now().toString().slice(-6),   /* 与既有 p1…p8 不会撞 */
+            scope: projScope === 'all' ? 'life' : projScope,   /* 默认跟着当前在看的类型 */
+            name: '',
+            status: 'planning',        /* 新建的项目当然是"规划中"，这是唯一说得通的状态 */
+            prio: 'mid',
+            progress: 0,
+            tags: [],
+            path: '',                  /* 本地目录：可选，留空就是"还没落盘" */
+            due: due.toISOString().slice(0, 10),
+            dueShort: '',
+            daysLeft: 0,
+            tasksDone: 0,
+            tasksTotal: 0,
+            start: DATA_TODAY.toISOString().slice(0, 10),
+            owners: ['刘阳'],
+            milestone: '待定',
+            repo: '—',
+            docsUrl: '',
+            desc: '',
+        };
+    }
+
+    /* 列表态的"外围"也跟着数据变：顶栏徽标（未收口数）与侧栏「概览」槽都从 PROJECTS
+       派生。删 / 归档 / 编辑之后不一起重画，屏幕上就会留着旧数字。 */
+    function refreshListChrome() {
+        renderList();
+        renderSlots();
+    }
+
+    /* 归档 = 换一个 status，**不是**另起一个 `archived: true` 布尔：
+       它要能被「已归档」筛出来、被「全部」排除、不再占"未收口"的名额 ——
+       三件事 status 已经在管；另起一个布尔就得在四处分别补判据，迟早漏一处。 */
+    function archiveProject(id) {
+        const p = PROJECTS.filter((x) => x.id === id)[0];
+        if (!p) return;
+        const prev = p.status;
+        p.status = 'archived';
+        refreshListChrome();
+        toast('已归档「' + p.name + '」', {
+            label: '撤销',
+            onClick: () => { p.status = prev; refreshListChrome(); toast('已恢复「' + p.name + '」原状态'); },
+        });
+    }
+
+    /** 恢复：落回「进行中」。归档前的那个状态原型不存历史，无从还原；
+        落回"进行中"（= 回到台面上）比猜一个更具体的状态诚实。 */
+    function restoreProject(id) {
+        const p = PROJECTS.filter((x) => x.id === id)[0];
+        if (!p) return;
+        p.status = 'active';
+        refreshListChrome();
+        toast('已恢复「' + p.name + '」到进行中');
+    }
+
+    /** 删除 = 从数组里摘掉 + 一条带「撤销」的 toast。
+        撤销要把快照插回**它原来的位置**（不是追加到末尾）—— 位置一变，
+        "撤销"看起来就没生效（列表顺序跳了）。 */
+    function deleteProject(id) {
+        const i = PROJECTS.findIndex((x) => x.id === id);
+        if (i < 0) return;
+        const [snap] = PROJECTS.splice(i, 1);
+        /* ⚠️ 侧栏「最近」存的是**对象引用**：项目删了、引用还在那条数组里，
+           于是"最近"里留着一个已经不存在的项目（点它 = 打开一个 undefined）。
+           一并摘掉并记住位置，撤销时插回去。 */
+        const vi = VISITED.findIndex((x) => x.id === id);
+        const visited = vi > -1 ? VISITED.splice(vi, 1)[0] : null;
+        refreshListChrome();
+        toast('已删除「' + snap.name + '」', {
+            label: '撤销',
+            onClick: () => {
+                PROJECTS.splice(i, 0, snap);
+                if (visited) VISITED.splice(vi, 0, visited);
+                refreshListChrome();
+                toast('已恢复「' + snap.name + '」');
+            },
+        });
+    }
+
+    /* ============================================================
+       4d. 项目弹窗：编辑 / 删除确认
+       ------------------------------------------------------------
+       两个动作共用一个容器、共用一套字段构造器：分开写两份的话，
+       改了 label 忘改另一个、加了校验只加一边 —— 这类不一致用户第一次就会遇到。
+       正文里**只放要填的字段**（说明交给 `placeholder` 与弹窗标题），
+       唯一的例外是删除确认里那段"影响范围"—— 破坏性动作的说明不是废话。
+       ============================================================ */
+    /* 三种模式共用这一个容器：新建 / 编辑 / 删除。
+       ⚠️ 用 `modalDraft` 拿着那条数据，而**不是**提交时按 id 回查 PROJECTS ——
+          新建时数据里还没有这条，按 id 回查会走进"找不到 ⇒ 直接关窗"的死路
+          （表单填了一屏，点创建什么也没发生，还不报错）。 */
+    let modalMode = null;      /* 'create' | 'edit' | 'delete' */
+    let modalDraft = null;     /* create 时是空壳，edit / delete 时是项目本体 */
+    let pmTagSel = [];         /* 多值字段的"草稿选择"（提交时才写回 p.tags） */
+    let pmPicker = null;       /* 目录选择器打开时的现场：{ form, cwd, filter } */
+
+    const PM_SCOPES = [['life', '生活'], ['work', '工作'], ['learn', '学习']];
+    const PM_PRIOS = [['high', 'P0 · 最高'], ['mid', 'P1 · 中'], ['low', 'P2 · 低']];
+    /* 状态这一列直接吃 STATUS_LABEL —— 枚举只在一处定义，
+       否则加了新状态（如"已归档"）之后弹窗里选不到它。 */
+    const PM_STATUSES = ['planning', 'active', 'risk', 'done', 'archived'];
+
+    function pmFieldsHtml(p) {
+        const opts = (list, cur) => list.map(([v, l]) =>
+            `<option value="${v}"${v === cur ? ' selected' : ''}>${l}</option>`).join('');
+        return `
+            <div class="pm-form">
+            <div class="pm-field">
+                <label for="pmName">名称</label>
+                <input id="pmName" type="text" value="${esc(p.name)}" autocomplete="off" maxlength="40"
+                       placeholder="例：马尔代夫家庭旅行">
+            </div>
+            <div class="pm-field">
+                <label for="pmDesc">描述</label>
+                <textarea id="pmDesc" placeholder="一句话说清这个项目要做什么">${esc(p.desc)}</textarea>
+            </div>
+            <div class="pm-row">
+                <div class="pm-field">
+                    <label for="pmScope">类型</label>
+                    <select id="pmScope">${opts(PM_SCOPES, p.scope)}</select>
+                </div>
+                <div class="pm-field">
+                    <label for="pmPrio">优先级</label>
+                    <select id="pmPrio">${opts(PM_PRIOS, p.prio)}</select>
+                </div>
+            </div>
+            <div class="pm-row">
+                <div class="pm-field">
+                    <label for="pmStatus">状态</label>
+                    <select id="pmStatus">${opts(PM_STATUSES.map((s) => [s, STATUS_LABEL[s]]), p.status)}</select>
+                </div>
+                <div class="pm-field">
+                    <label for="pmDue">截止日期</label>
+                    <input id="pmDue" type="date" value="${p.due}">
+                </div>
+            </div>
+            <!-- 标签：一排**可多选**的胶囊 + 行尾一个虚线 ＋。
+                 候选来自所有项目已用过的标签并集（tagPool），不另存一份标签清单。
+                 ⚠️ 这段是 JS 模板字符串：注释里**不能出现反引号**，会提前闭合字符串。 -->
+            <div class="pm-field">
+                <span class="pm-label" id="pmTagsLabel">标签</span>
+                <div class="tag-picker" id="pmTags" role="group" aria-labelledby="pmTagsLabel"></div>
+            </div>
+            <!-- 当前里程碑：**一个值**，说的是"下一个要达成的节点"（不是日期、不是编号）。
+                 项目下的完整里程碑（多个、带状态）属于详情层的结构，不进这张表单。 -->
+            <div class="pm-field">
+                <label for="pmMilestone">当前里程碑</label>
+                <input id="pmMilestone" type="text" value="${esc(p.milestone || '')}" autocomplete="off"
+                       placeholder="下一个要达成的节点，例：灰度发布">
+            </div>
+            <!-- 本地目录：值可以敲，也可以**选**。入口紧贴字段标签右侧 ——
+                 路径这种东西是"只能认出来、记不住"的值，让人凭空敲是本末倒置。 -->
+            <div class="pm-field">
+                <div class="pm-labelrow">
+                    <label for="pmPath">本地目录</label>
+                    <button type="button" class="pm-link" data-pick-path>浏览本地目录</button>
+                </div>
+                <input id="pmPath" type="text" value="${esc(p.path || '')}" autocomplete="off"
+                       placeholder="项目的根目录，例：~/Code/my-project（没有就留空）">
+            </div>
+            </div>`;
+    }
+
+    function openProjectModal(mode, id) {
+        const isCreate = mode === 'create';
+        /* 新建没有 id：从空壳起步（`blankProject()`），弹窗不因为"数据里没这条"变成死路 */
+        const p = isCreate ? blankProject() : PROJECTS.filter((x) => x.id === id)[0];
+        if (!p) return;
+        modalMode = mode; modalDraft = p;
+        pmPicker = null;                     /* 上一次可能停在选择器里（"从选择器点 ✕ 关窗"那条路径） */
+        pmTagSel = p.tags.slice();           /* 多值字段的草稿 = 这条记录当前的值 */
+        const title = document.getElementById('pmTitle');
+        const body = document.getElementById('pmBody');
+        if (mode === 'delete') {
+            title.textContent = '删除项目';
+            body.innerHTML = '<div class="pm-target">「' + esc(p.name) + '」</div>'
+                + '<div class="pm-note">这个项目下的任务 / Bug / 文档 / 服务器会一并消失。'
+                + '原型没有后端，删除后只能靠下面那条「撤销」找回。</div>';
+        } else {
+            /* 新建与编辑共用**同一张表单**，按模式换词的只有底部那个提交键与标题
+               （都由 syncModalFoot 管） */
+            title.textContent = isCreate ? '新建项目' : '编辑项目';
+            body.innerHTML = pmFieldsHtml(p);
+            renderChipField('tags');
+        }
+        syncModalFoot();
+        document.getElementById('pmMask').classList.add('open');
+        setTimeout(() => {
+            const first = body.querySelector('input, select, textarea');
+            if (first) first.focus();
+            else ok.focus();
+        }, 30);
+    }
+
+    function closeProjectModal() {
+        document.getElementById('pmMask').classList.remove('open');
+        modalMode = null; modalDraft = null;
+        /* ⚠️ 选择器状态也在这里清：从"选择器里点 ✕ 关窗"进来时，
+           不清的话下一次打开，底部还挂着上一次那对「返回 / 用这个目录」。 */
+        pmPicker = null;
+        pmTagSel = [];
+        syncModalFoot();
+    }
+
+    function submitProjectModal() {
+        const p = modalDraft;
+        if (!p) { closeProjectModal(); return; }
+        if (modalMode === 'delete') { closeProjectModal(); deleteProject(p.id); return; }
+        const isCreate = modalMode === 'create';
+        const name = document.getElementById('pmName').value.trim();
+        if (!name) { document.getElementById('pmName').focus(); toast('名称不能为空'); return; }
+        p.name = name;
+        p.desc = document.getElementById('pmDesc').value.trim();
+        p.scope = document.getElementById('pmScope').value;
+        p.prio = document.getElementById('pmPrio').value;
+        p.status = document.getElementById('pmStatus').value;
+        /* 标签取的是**草稿集合**（胶囊点选 / 新建都在它上面改），不解析文本。
+           ⚠️ `owners` **不在这张表单里**（用户明确"不需要负责人"）——
+           它是数据里的字段，详情档案行照旧显示，只是不再提供编辑入口。 */
+        p.tags = pmTagSel.slice();
+        p.milestone = document.getElementById('pmMilestone').value.trim();
+        p.path = document.getElementById('pmPath').value.trim();
+        const due = document.getElementById('pmDue').value;
+        /* 用户把日期框清空 = "没填"，不是"删掉截止日期" ⇒ 保留原值；
+           然后**无条件**重算一次三种写法（截止 ISO / "10月01日" / "剩 N 天"）——
+           只改一处必然出现"截止写 12月31日、右边还写着剩 13 天"。
+           新建时也必须走到这里：空壳的 dueShort 是空的，不重算卡片上就是"截止 "。 */
+        if (due) p.due = due;
+        syncDue(p);
+        if (isCreate) {
+            /* 新建的项目**必须能立刻看见** —— 看不见就不是"创建成功"的样子。
+               四种看不见的情形，全在这里一次性掐掉：
+                 · 状态筛选停在「已归档 / 已完成」⇒ 新项目（规划中）一条都不显示；
+                 · 类型筛选停在「工作」而新建的是生活项目 ⇒ 同样一条都不显示；
+                 · 排序是「进度最高」⇒ 新项目进度 0，被排到列表最底下；
+                 · 搜索框里还留着关键词而名字对不上 ⇒ 一样是空的。
+               所以落点是写死的：状态回「全部」、类型切到它自己的那一类、排序回默认、关键词清空。 */
+            PROJECTS.unshift(p);
+            /* 「全部」不含已归档 ⇒ 若新建时就把状态选成「已归档」，得把筛选也切到「已归档」，
+               否则同样是一条都看不见（这是上面那条判据的最后一个缺口）。 */
+            projStatus = p.status === 'archived' ? 'archived' : '';
+            projScope = p.scope;
+            projSort = 'default';
+            projQuery = '';
+            document.getElementById('projSort').value = 'default';
+            document.getElementById('projQuery').value = '';
+        }
+        closeProjectModal();
+        refreshListChrome();
+        if (isCreate) {
+            toast('已创建「' + p.name + '」· 归到「' + SCOPE_LABEL[p.scope] + '」');
+        } else {
+            /* 编辑与新建**有意不同**：新建会把筛选挪到"能看见它"的地方，
+               编辑不挪 —— 用户是站在当前这个筛选里操作一条已有数据的，
+               视图突然跳走比"它不在这批里"更突兀。代价是要说清它去哪了。 */
+            toast(projHit(p) ? '已保存「' + p.name + '」' : '已保存「' + p.name + '」· 它已不在当前筛选里');
+        }
+    }
+
+    /** 空态要给出路，而且**两种空态给的不是同一件事**：
+        · 库里本来就没有项目 ⇒ 给「+ 新建项目」（这才是"没有项目"的下一步）；
+        · 只是被筛掉了 ⇒ 给「清空筛选」—— 让人自己去把两组筛选 + 关键词一项项清掉，
+          既烦、又要他记得刚才点过哪些。 */
+    function emptyHtml() {
+        if (PROJECTS.length === 0) {
+            return '<div class="q-empty">这个域里还没有项目 —— 建一个开始。</div>'
+                + '<button type="button" class="btn btn-primary" data-new-project>+ 新建项目</button>';
+        }
+        /* 输入框里那些 `#标签` 是**隐形条件**：不说一句的话，
+           "输入框看起来是空的（只剩标签词）却没有结果"会被读成页面坏了。 */
+        const q = parseQuery(projQuery);
+        const hint = q.tags.length ? '（正在按 ' + q.tags.map((t) => '#' + t).join(' ') + ' 筛标签）' : '';
+        return '<div class="q-empty">没有匹配的项目' + hint + ' —— 关键词或筛选条件收得太紧了</div>'
+            + '<button type="button" class="btn btn-ghost" data-clear-filters>清空筛选</button>';
+    }
+
+    /** 清空筛选 = 三样一起回默认：两组筛选 + 关键词。
+        ⚠️ 搜索框里的字也要清 —— 只改 `projQuery` 而不改 input 的 value，
+           "清空"之后框里还留着关键词、列表还是空的，用户会读成"这个按钮没生效"。 */
+    function clearFilters() {
+        projStatus = '';
+        projScope = 'all';
+        projQuery = '';
+        document.getElementById('projQuery').value = '';
+        renderList();
+    }
+
+    /* ============================================================
+       4e. 把"这一屏在看什么"写进 URL
+       ------------------------------------------------------------
+       筛选 / 视图 / 排序 / 关键词 / 打开的项目 —— 全部进 `location.hash`。
+         · 刷新不再回到默认（此前只有主题进了 localStorage，其余一刷新即丢）；
+         · 可以把"这一批筛选结果"整条链接发给别人。
+       用 hash 而不是 query + pushState：原型是**双击打开的本地文件**（file://），
+       那种环境下 pushState 常被安全策略拦住，hash 没有这个限制、也不需要后端路由。
+       ⚠️ 写入用 `replaceState`（不产生历史条目）：否则"每敲一个字"都塞一条历史，
+          返回键就废了。被环境拦住时静默降级成"只读不写"。
+       ⚠️ 读取时每一项都要**校验**：URL 是人可编辑的，`#status=constructor` 这种
+          会顺着原型链拿到 Function 当谓词用 —— 白屏，而且报错点离这里很远。
+       ============================================================ */
+    const PROJ_VIEWS = ['cards', 'table', 'board'];
+    const PROJ_SORTS = ['default', 'due', 'progress', 'priority'];
+
+    function writeUrlState() {
+        const q = [];
+        if (projStatus) q.push('status=' + encodeURIComponent(projStatus));
+        if (projScope !== 'all') q.push('scope=' + encodeURIComponent(projScope));
+        if (projView !== 'cards') q.push('view=' + encodeURIComponent(projView));
+        if (projSort !== 'default') q.push('sort=' + encodeURIComponent(projSort));
+        if (projQuery.trim()) q.push('q=' + encodeURIComponent(projQuery.trim()));
+        if (viewMode === 'detail' && currentProjectId) q.push('p=' + encodeURIComponent(currentProjectId));
+        const next = q.length ? '#' + q.join('&') : location.pathname + location.search;
+        if (location.hash === next) return;          /* 值没变就别碰地址栏（也就不会自激 hashchange） */
+        try { history.replaceState(null, '', next); }
+        catch (e) { /* 某些环境会拦 —— 那时只保证"能读"，不写 */ }
+    }
+
+    function readUrlState() {
+        const h = location.hash.replace(/^#/, '');
+        if (!h) return;
+        const q = {};
+        h.split('&').forEach((kv) => {
+            const i = kv.indexOf('=');
+            if (i > 0) q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1));
+        });
+        /* `hasOwnProperty` 而不是直接取：`#status=constructor` 会命中原型链 */
+        const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+        if (q.status && has(STATUS_MATCH, q.status)) projStatus = q.status;
+        if (q.scope && SCOPE_FACETS.some((f) => f.k === q.scope)) projScope = q.scope;
+        if (q.view && PROJ_VIEWS.indexOf(q.view) > -1) projView = q.view;
+        if (q.sort && PROJ_SORTS.indexOf(q.sort) > -1) projSort = q.sort;
+        if (q.q) projQuery = q.q;
+        if (q.p && PROJECTS.some((x) => x.id === q.p)) deepLinkId = q.p;
+    }
+
+    /** 视图分段的选中态与面板显隐。从 URL 恢复时也要走一遍 ——
+        否则会出现"控件说卡片、面板是表格"（两处各写一份切换代码的必然后果）。 */
+    function applyProjView() {
+        document.querySelectorAll('[data-proj-view]').forEach((b) =>
+            b.classList.toggle('active', b.dataset.projView === projView));
+        document.querySelectorAll('[data-proj-panel]').forEach((v) =>
+            v.classList.toggle('active', v.dataset.projPanel === projView));
+    }
+
+    /* 地址栏被改（含前进 / 后退）⇒ 按新状态重画。
+       不会自激：writeUrlState 里先比了值，值没变就不写，也就不会再触发一次 hashchange。 */
+    window.addEventListener('hashchange', () => {
+        deepLinkId = null;
+        readUrlState();
+        document.getElementById('projQuery').value = projQuery;
+        document.getElementById('projSort').value = projSort;
+        applyProjView();
+        if (deepLinkId) { showDetail(deepLinkId); return; }
+        if (viewMode === 'detail') { showList(); return; }
+        renderList();
+    });
+
+    /* ============================================================
+       4f. 标签：一排可多选的胶囊 + 新建
+       ------------------------------------------------------------
+       候选从哪来：**所有项目已用过的标签的并集**（按用过几次降序）。
+       ============================================================ */
+    /* "多值小选择器"：一排可多选的胶囊 + 行尾一个虚线 ＋。
+       目前只有「标签」一个字段用它（负责人已按"这一页不需要"去掉），
+       但仍收成一张表：**加一个字段就是加一行**，不必再写第二套渲染与事件。 */
+    function tagPool() {
+        const cnt = {};
+        PROJECTS.forEach((p) => p.tags.forEach((t) => { cnt[t] = (cnt[t] || 0) + 1; }));
+        return Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b, 'zh'));
+    }
+    const CHIP_FIELDS = {
+        tags: { box: 'pmTags', pool: tagPool, get: () => pmTagSel,
+                set: (v) => { pmTagSel = v; }, noun: '标签' },
+    };
+
+    function renderChipField(key) {
+        const f = CHIP_FIELDS[key];
+        const box = document.getElementById(f.box);
+        if (!box) return;
+        const sel = f.get();
+        const pool = f.pool();
+        /* 这一轮新建的值可能还没有任何项目用过 ⇒ 先并进候选，
+           否则"新建并选中"之后那一枚会立刻消失（看起来像没建成）。 */
+        const extra = sel.filter((t) => pool.indexOf(t) < 0);
+        box.innerHTML = extra.concat(pool).map((t) => {
+            const on = sel.indexOf(t) > -1;
+            return `<button type="button" class="tag-chip${on ? ' is-on' : ''}"`
+                + ` data-chip="${key}:${esc(t)}" aria-pressed="${on}" title="${esc(t)}">${esc(t)}</button>`;
+        }).join('')
+            + `<button type="button" class="tag-chip is-add" data-chip-add="${key}"`
+            + ` aria-label="新建${f.noun}" title="新建${f.noun}">${iconSvg('plus')}</button>`;
+    }
+
+    function toggleChip(key, name) {
+        const f = CHIP_FIELDS[key];
+        const sel = f.get().slice();
+        const i = sel.indexOf(name);
+        if (i > -1) sel.splice(i, 1); else sel.push(name);
+        f.set(sel);
+        renderChipField(key);
+    }
+
+    /** 点 ＋ 之后**在同一个位置**换成输入框（不做成"多长出来一个字段"）；
+        回车 / 失焦提交，**空名 = 取消**（点开又后悔是常事，不该因此建出一个空值）。 */
+    function openChipInput(key) {
+        const f = CHIP_FIELDS[key];
+        const box = document.getElementById(f.box);
+        if (!box) return;
+        const add = box.querySelector('[data-chip-add]');
+        if (!add || box.querySelector('.tag-new')) return;
+        const input = document.createElement('input');
+        input.className = 'tag-new';
+        input.type = 'text';
+        input.maxLength = 12;
+        input.placeholder = f.noun;
+        input.setAttribute('aria-label', '新建' + f.noun);
+        /* ⚠️ 输入框里的 Esc **必须 stopPropagation**：文档级那个 Escape 监听
+           会顺手把整张弹窗关掉（连带刚填的一屏字段）。 */
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { e.stopPropagation(); commitChip(key, ''); }
+            else if (e.key === 'Enter') { e.preventDefault(); commitChip(key, input.value); }
+        });
+        input.addEventListener('blur', () => commitChip(key, input.value));
+        add.replaceWith(input);
+        input.focus();
+    }
+
+    function commitChip(key, raw) {
+        const f = CHIP_FIELDS[key];
+        const name = (raw || '').trim();
+        /* 撞名**复用已有那一枚**，不补第二枚同名胶囊（并排两枚同名会让人以为"新建没生效"） */
+        const sel = f.get().slice();
+        if (name && sel.indexOf(name) < 0) sel.push(name);
+        f.set(sel);
+        renderChipField(key);
+    }
+
+    /* ============================================================
+       4g. 目录选择器（弹窗正文的第二个"态"）
+       ------------------------------------------------------------
+       它替换的是**弹窗正文**，不是叠一层浮层 —— 正文是 `overflow-y: auto`，
+       飘出来的面板会被裁掉。表单则**整块摘下来存着**（`pmPicker.form`），
+       切回来原样放回：刚敲进去的其它字段必须还在，不能重新生成。
+       ============================================================ */
+    /* 目录树 = ① 已登记的各项目 path（每一级都要在）+ ② 一张装饰表补"机器上确实有、
+       只是还没登记项目"的同级项。**不手写第二份主清单**：项目改了路径而树里还留着旧的，
+       浏览里就永远看不到刚登记的那个目录。 */
+    const FS_DECOR = {
+        '~': ['Code', 'Documents', 'Downloads', 'Pictures', 'Craft', 'tmp'],
+        '~/Code': ['work', 'oss', 'sandbox', 'learn', 'rust'],
+        '~/Code/work': ['legacy-billing', 'infra-scripts'],
+        '~/Code/oss': ['dotfiles', 'cli-kit'],
+        '~/Code/learn': ['vue-notes', 'd3-course'],
+        '~/Code/rust': ['book-examples', 'tokio-notes'],
+        '~/Documents': ['笔记', '发票', '合同', '健康'],
+        '~/Documents/旅行': ['2025-京都'],
+        '~/Craft': ['riding-fancy', 'scratch'],
+        '~/Craft/riding-fancy': ['docs', 'lucky-y'],
+        '~/Downloads': ['design-refs', 'installers'],
+        '~/Pictures': ['screenshots', 'wallpapers'],
+    };
+
+    let fsCache = null;
+    function fsTree() {
+        if (fsCache) return fsCache;
+        const kids = {};                                  /* 父路径 → 子目录名（有序、去重） */
+        const add = (parent, name) => {
+            if (!kids[parent]) kids[parent] = [];
+            if (kids[parent].indexOf(name) < 0) kids[parent].push(name);
+            const child = parent + '/' + name;
+            if (!kids[child]) kids[child] = [];
+        };
+        Object.keys(FS_DECOR).forEach((dir) => FS_DECOR[dir].forEach((n) => add(dir, n)));
+        PROJECTS.map((p) => p.path).filter(Boolean).forEach((full) => {
+            const parts = full.split('/').filter(Boolean);
+            if (parts[0] !== '~') return;                 /* 原型里的树只有家目录这一支 */
+            let cur = '~';
+            for (let i = 1; i < parts.length; i += 1) { add(cur, parts[i]); cur = cur + '/' + parts[i]; }
+        });
+        if (!kids['~']) kids['~'] = [];
+        fsCache = kids;
+        return kids;
+    }
+
+    function childrenOf(dir, kw) {
+        const all = fsTree()[dir] || [];
+        const q = (kw || '').trim().toLowerCase();
+        return q ? all.filter((n) => n.toLowerCase().indexOf(q) > -1) : all;
+    }
+
+    /** 落点：默认落在**当前值那一级**（不是家目录）—— 答案最可能在的地方。
+        值不在树里也吃得下：退到**最长存在前缀**，都没有才回家目录
+        （"找不到就回根目录"会把用户扔到一个无关的地方）。 */
+    function initialCwd() {
+        const input = document.querySelector('#pmBody #pmPath');
+        const raw = (input ? input.value : '').trim();
+        const parts = raw.split('/').filter(Boolean);
+        if (parts[0] !== '~') return '~';
+        let cur = '~';
+        for (let i = 1; i < parts.length; i += 1) {
+            if (childrenOf(cur).indexOf(parts[i]) < 0) break;
+            cur = cur + '/' + parts[i];
+        }
+        return cur;
+    }
+
+    function fsListHtml() {
+        const list = childrenOf(pmPicker.cwd, pmPicker.filter);
+        if (!list.length) {
+            return '<div class="pm-fs-empty">'
+                + (pmPicker.filter ? '这个目录下没有匹配的子目录' : '这个目录下没有子目录')
+                + '</div>';
+        }
+        return list.map((name) => {
+            const full = pmPicker.cwd + '/' + name;
+            const n = childrenOf(full).length;
+            return `<button type="button" class="pm-fs-row" data-fs-enter="${esc(full)}">`
+                + iconSvg('chevronRight')
+                + `<span class="pm-fs-name">${esc(name)}</span>`
+                + `<span class="pm-fs-count">${n ? n + ' 项' : '空'}</span></button>`;
+        }).join('');
+    }
+
+    function pickerHtml() {
+        const crumbs = pmPicker.cwd.split('/').filter(Boolean);
+        let acc = '';
+        const crumbHtml = crumbs.map((name, i) => {
+            acc = i === 0 ? '~' : acc + '/' + name;
+            const last = i === crumbs.length - 1;
+            return `<button type="button" class="pm-crumb" data-fs-crumb="${esc(acc)}"`
+                + (last ? ' aria-current="true"' : '') + `>${esc(name)}</button>`;
+        }).join('<span class="pm-crumb-sep">›</span>');
+        return '<div class="pm-pick-path">' + crumbHtml + '</div>'
+            + '<input class="pm-pick-filter" id="pmFsFilter" type="search"'
+            + ' placeholder="筛选当前目录" autocomplete="off" value="' + esc(pmPicker.filter) + '">'
+            + '<div class="pm-fs-list">' + fsListHtml() + '</div>'
+            + '<div class="pm-pick-note">当前：<code>' + esc(pmPicker.cwd)
+            + '</code> · 点目录进入下一级，「用这个目录」选定它</div>';
+    }
+
+    /** ⚠️ 只重画**列表**：整块重画会把筛选框的焦点一起带走（每敲一个字丢一次焦点）。 */
+    function redrawPickerList() {
+        const box = document.getElementById('pmBody').querySelector('.pm-fs-list');
+        if (box) box.innerHTML = fsListHtml();
+    }
+
+    function openPicker() {
+        const form = document.querySelector('#pmBody .pm-form');
+        if (!form) return;                                /* 删除态没有表单，也不该有这个入口 */
+        pmPicker = { form, cwd: initialCwd(), filter: '' };
+        document.getElementById('pmBody').innerHTML = pickerHtml();
+        document.getElementById('pmTitle').textContent = '选择本地目录';   /* 标题也说"现在在干什么" */
+        syncModalFoot();
+        const f = document.getElementById('pmFsFilter');
+        if (f) f.focus();
+    }
+
+    function enterDir(full) {
+        pmPicker.cwd = full;
+        pmPicker.filter = '';
+        document.getElementById('pmBody').innerHTML = pickerHtml();
+        const f = document.getElementById('pmFsFilter');
+        if (f) f.focus();                                 /* 焦点回到筛选框，方便一路往下走 */
+    }
+
+    function returnFromPicker() {
+        const body = document.getElementById('pmBody');
+        body.innerHTML = '';
+        body.appendChild(pmPicker.form);                  /* 表单原样放回，不重新生成 */
+        pmPicker = null;
+        document.getElementById('pmTitle').textContent =
+            modalMode === 'create' ? '新建项目' : '编辑项目';
+        syncModalFoot();
+        const input = body.querySelector('#pmPath');
+        if (input) input.focus();
+    }
+
+    function usePickedPath() {
+        const form = pmPicker.form;
+        const input = form.querySelector('#pmPath');
+        if (input) input.value = pmPicker.cwd;
+        returnFromPicker();
+    }
+
+    /** 底部两个键**按状态换文案与行为**（不重绑监听器）。
+        ⚠️ 从"选择器里点 ✕ 关窗"那条路径也必须复位 —— 所以 closeProjectModal 也调它。 */
+    function syncModalFoot() {
+        const cancel = document.getElementById('pmCancel');
+        const ok = document.getElementById('pmOk');
+        if (pmPicker) {
+            cancel.textContent = '返回';
+            ok.textContent = '用这个目录';
+            ok.className = 'btn btn-primary';
+            return;
+        }
+        cancel.textContent = '取消';
+        if (modalMode === 'delete') { ok.textContent = '删除'; ok.className = 'btn btn-danger'; }
+        else if (modalMode === 'create') { ok.textContent = '创建'; ok.className = 'btn btn-primary'; }
+        else { ok.textContent = '保存'; ok.className = 'btn btn-primary'; }
+    }
+
+    function pmOkAction() {
+        if (pmPicker) { usePickedPath(); return; }
+        submitProjectModal();
+    }
+
+    function pmCancelAction() {
+        /* 选择器态的「返回」只退回表单，**不关窗** —— 否则刚填的一屏字段一起没了 */
+        if (pmPicker) { returnFromPicker(); return; }
+        closeProjectModal();
     }
 
     /* ============================================================
        5. 列表态 · 全部项目
        ============================================================ */
-    function renderList() {
-        const st = projStats();
+    /* **两组筛选共用一个渲染函数** —— 它们本来就是同一种东西：
+       一个标签 + 一排 chip（同一份 { k, label } + 同一个 facet 计数 + 同一个选中态）。
+       唯一的差异是"读/写哪个全局变量"，那件事由 FILTER_GROUPS 的 cur / set 两列收口。
+       两组的 chip 是**同一个类名、同一个 data 属性**：`data-filter="组:key"`，
+       所以委托里也只有一条分支 —— 上一版状态用 data-kpi、类型用 data-facet，
+       两套属性两条分支，正是"两种 UI"在代码里的样子。 */
+    function renderFilters() {
+        document.getElementById('projFilters').innerHTML = FILTER_GROUPS.map((g) => {
+            const cur = g.cur();
+            const chips = g.defs.map((f) => {
+                const on = cur === f.k;
+                return `<button type="button" class="facet${on ? ' is-on' : ''}"`
+                    + ` data-filter="${g.group}:${f.k}" aria-pressed="${on}">`
+                    + `${f.label}<span class="facet-count">${facetSet(g.group, f.k).length}</span></button>`;
+            }).join('');
+            /* 组标签既当视觉标签、又当无障碍名：`role="group"` + `aria-label` 给读屏，
+               可见的那个 span 因此标 aria-hidden —— 不标的话读屏会把"状态"念两遍。 */
+            return `<div class="filter-group" role="group" aria-label="${g.label}">`
+                + `<span class="filter-group-label" aria-hidden="true">${g.label}</span>${chips}</div>`;
+        }).join('');
+    }
 
-        /* 页头只说"义"：读数归下面 KPI 四格（"同一个词不在一屏出现三次"） */
+    function renderList() {
+        /* 页头只说"义"：读数归侧栏「概览」槽、筛选状态归下面那两组 chip
+           （"同一个词不在一屏出现三次"）。 */
         document.getElementById('listSubtitle').textContent =
             '生活 / 工作 / 学习三个域的项目都在这里，点一张卡进入它的工作区。';
 
-        /* 读数四格：**可点即筛**，且 KPI 与工具栏同处一张卡。读数不可点，
-           用户就得去工具栏把同一个条件再挑一遍。 */
-        const cards = [
-            { k: '', label: '全部', value: st.total, sub: '生活 ' + st.scopes.life + ' · 工作 ' + st.scopes.work + ' · 学习 ' + st.scopes.learn, kc: 'var(--m-main)' },
-            { k: 'active', label: '进行中', value: st.active, sub: '正在推进的项目', kc: 'var(--info)' },
-            { k: 'risk', label: '风险阻塞', value: st.risk, sub: st.risk ? '需要先看这几个' : '没有阻塞中的项目', kc: 'var(--danger)' },
-            /* 第四格的色与「已完成」的状态徽标同源（都是 --ok）；
-               原来用了第四象限的 --q4（灰蓝），同一个枚举两种颜色。 */
-            { k: 'done', label: '已完成', value: st.done, sub: '平均进度 ' + st.avg + '%', kc: 'var(--ok)' },
-        ];
-        document.getElementById('projKpi').innerHTML = cards.map((c) => `
-            <div class="ov-kpi-card${projKpiFilter === c.k ? ' is-on' : ''}"
-                 style="--kc: ${c.kc}" data-kpi="${c.k}" role="button" tabindex="0"
-                 aria-pressed="${projKpiFilter === c.k}">
-                <div class="ov-kpi-label"><span class="ov-kpi-dot"></span>${c.label}</div>
-                <div class="ov-kpi-value">${c.value}</div>
-                <div class="ov-kpi-sub">${esc(c.sub)}</div>
-            </div>`).join('');
+        /* 两组筛选（状态 / 类型）：同一个组件、同一份 facet 计数口径 */
+        renderFilters();
 
         const list = visibleProjects();
-        const total = PROJECTS.length;
-        document.getElementById('projSummary').textContent = '显示 ' + list.length + ' / ' + total;
-        document.getElementById('projEmpty').hidden = !(list.length === 0);
+        /* 分母固定是**域里的全部项目数**，不跟着筛选动。
+           "显示 3 / 8" 永远读作"8 个里显示了 3 个"；分母若改成"本类有几个"
+           （选了类型就变 3），它会随着点击一直动，读起来不如一个不动的数稳。
+           "本类有几个"这件事已经由上面类型 chip 上的计数说了，不需要再来一遍。 */
+        document.getElementById('projSummary').textContent = '显示 ' + list.length + ' / ' + PROJECTS.length;
+        /* 空态：内容由 emptyHtml() 给（**两种空态给的不是同一件事**，见那个函数） */
+        const emptyBox = document.getElementById('projEmpty');
+        emptyBox.hidden = list.length !== 0;
+        if (!emptyBox.hidden) emptyBox.innerHTML = emptyHtml();
 
+        /* 每张卡外面包一层：三个动作是卡片的**兄弟**，不是子节点（见 .proj-card-item 那段） */
         document.getElementById('projCards').innerHTML = list.map((p) => `
-            <div class="card proj-card" data-open-project="${p.id}" role="button" tabindex="0">
-                <div class="proj-card-head">
-                    <span class="badge badge-neutral">${SCOPE_LABEL[p.scope]}</span>
-                    <span class="badge ${STATUS_BADGE[p.status]}">${STATUS_LABEL[p.status]}</span>
-                    <span class="prio ${PRIO_CLASS[p.prio]}" style="margin-left:auto">${PRIO_LABEL[p.prio]}</span>
+            <div class="proj-card-item${p.status === 'archived' ? ' is-archived' : ''}">
+                <div class="card proj-card" data-open-project="${p.id}" role="button" tabindex="0">
+                    <div class="proj-card-head">
+                        <span class="badge badge-neutral">${SCOPE_LABEL[p.scope]}</span>
+                        <span class="badge ${STATUS_BADGE[p.status]}">${STATUS_LABEL[p.status]}</span>
+                        <span class="prio ${PRIO_CLASS[p.prio]}" style="margin-left:auto">${PRIO_LABEL[p.prio]}</span>
+                    </div>
+                    <div class="proj-card-name">${esc(p.name)}</div>
+                    <div class="proj-card-desc">${esc(p.desc)}</div>
+                    ${p.tags.length ? '<div class="proj-card-tags">'
+                        + p.tags.map((t) => '<span class="tag">' + esc(t) + '</span>').join('')
+                        + '</div>' : ''}
+                    <div class="proj-card-progress">
+                        <div class="progress-bar"><div class="progress-fill" style="width:${p.progress}%"></div></div>
+                        <span class="proj-card-pct">${p.progress}%</span>
+                    </div>
+                    <div class="proj-card-foot">
+                        <span>${p.tasksTotal
+                            ? p.tasksDone + '/' + p.tasksTotal + ' 任务'
+                            : '还没有任务'} · 截止 ${esc(p.dueShort)}</span>
+                        <span class="${dueClass(p)}" style="margin-left:auto">${leftText(p)}</span>
+                    </div>
                 </div>
-                <div class="proj-card-name">${esc(p.name)}</div>
-                <div class="proj-card-desc">${esc(p.desc)}</div>
-                <div class="proj-card-tags">${p.tags.map((t) => '<span class="tag">' + esc(t) + '</span>').join('')}</div>
-                <div class="progress-bar"><div class="progress-fill" style="width:${p.progress}%"></div></div>
-                <div class="proj-card-foot">
-                    <span>${p.tasksDone}/${p.tasksTotal} 任务 · 截止 ${esc(p.dueShort)}</span>
-                    <span class="${dueClass(p)}" style="margin-left:auto">${leftText(p)}</span>
-                </div>
+                ${cardActs(p)}
             </div>`).join('');
 
         /* 表格是"横着比"的形态 —— 所以它必须有表头，且末两列定宽（见 .proj-table 那几条）。
@@ -3363,7 +4685,7 @@
                 <div class="task-row-main">项目</div>
                 <div class="task-row-right">
                     <span class="task-due">截止</span>
-                    <span class="task-quad-tag">进度</span>
+                    <span class="proj-progress">进度</span>
                     <span class="prio">优先级</span>
                     <span class="pill">状态</span>
                 </div>
@@ -3376,7 +4698,7 @@
                 </div>
                 <div class="task-row-right">
                     <span class="task-due${p.daysLeft < 0 ? ' is-late' : ''}">${esc(p.dueShort)}${p.daysLeft < 0 ? ' 逾期' : ''}</span>
-                    <span class="task-quad-tag">${p.progress}%</span>
+                    <span class="proj-progress">${p.progress}%</span>
                     <span class="prio ${PRIO_CLASS[p.prio]}">${PRIO_LABEL[p.prio]}</span>
                     <span class="pill ${p.status === 'done' ? 'pill-done' : p.status === 'active' ? 'pill-doing' : 'pill-todo'}">${STATUS_LABEL[p.status]}</span>
                 </div>
@@ -3399,13 +4721,26 @@
                 </div>`).join('')}
             </div>`;
         }).join('');
+
+        /* 侧栏「概览」槽跟着筛选走 —— 它在另一栏，但说的是同一批数。
+           ⚠️ 只重画**这一个槽**（renderOverviewSlot 内部就是这个边界），不调 renderSlots()：
+              那会把「最近」的列表与 tab 行一起重建 —— 每敲一个字重建一次侧栏是白费。 */
+        renderOverviewSlot();
+        /* 这一屏"在看什么"写进 URL —— 筛选 / 排序 / 关键词都从这里过，
+           所以只挂这一处就能覆盖它们（视图切换与打开项目另有调用点）。 */
+        writeUrlState();
     }
 
-    /** 截止临近（≤14 天且未完成）才高亮 —— 已完成的项目再"剩几天"没有意义 */
+    /** 已收口的项目：不再占"未完成"的名额，也不再算"剩几天"
+        （已完成 / 已归档两种都算 —— 归档不是删除，它只是从台面上收走） */
+    const isClosed = (p) => p.status === 'done' || p.status === 'archived';
+
+    /** 截止临近（≤14 天且未收口）才高亮 —— 已完成 / 已归档的项目再"剩几天"没有意义 */
     function dueClass(p) {
-        return (p.status !== 'done' && p.daysLeft >= 0 && p.daysLeft <= 14) ? 'text-danger' : '';
+        return (!isClosed(p) && p.daysLeft >= 0 && p.daysLeft <= 14) ? 'text-danger' : '';
     }
     function leftText(p) {
+        if (p.status === 'archived') return '已归档';
         if (p.status === 'done') return '已完成';
         return p.daysLeft >= 0 ? '剩 ' + p.daysLeft + ' 天' : '逾期 ' + (-p.daysLeft) + ' 天';
     }
@@ -3429,12 +4764,21 @@
         u.textContent = leftText(p);
         u.classList.toggle('is-over', p.daysLeft < 0);
         document.getElementById('heroDesc').textContent = p.desc;
-        document.getElementById('heroMeta').innerHTML = [
-            '创建 ' + esc(p.start),
-            '负责人 ' + esc(p.owners.join(' · ')),
-            '里程碑 ' + esc(p.milestone),
-            '仓库 ' + esc(p.repo),
-        ].map((t) => '<span>' + t + '</span>').join('<span class="sep">·</span>');
+        /* 档案行：前四项每个项目都有；**目录 / 文档是"有才显示"** ——
+           不是每个项目都有本地目录（"年度体检"就没有），缺一项不留"目录 —"占位。
+           这一行是 ② 头部里的"它是谁"，放的都是短的、一眼用的身份；
+           路径这种长值也只到这里为止（前端 / 后端 / 数据库那种"多条"的位置
+           不进这里，见 SECTIONS 里 ops 那一格的注释）。 */
+        const meta = ['创建 ' + esc(p.start)];
+        /* 这些是"有才显示"的一项：负责人 / 里程碑现在**可以在弹窗里清空**，
+           清空之后留一个"负责人 "的空壳比不显示更糟（看着像渲染坏了）。 */
+        if (p.owners.length) meta.push('负责人 ' + esc(p.owners.join(' · ')));
+        if (p.milestone) meta.push('里程碑 ' + esc(p.milestone));
+        meta.push('仓库 ' + esc(p.repo));
+        if (p.path) meta.push('目录 ' + esc(p.path));
+        if (p.docsUrl) meta.push('文档 ' + esc(p.docsUrl));
+        document.getElementById('heroMeta').innerHTML =
+            meta.map((t) => '<span>' + t + '</span>').join('<span class="sep">·</span>');
     }
 
     /** 分区栏的计数与"更新点"都从同一份派生算 —— 不写死在标记里 */
@@ -3746,9 +5090,14 @@
         currentProjectId = null;
         renderList();
         renderRing(false);      // 列表态环是空的（域根没有可寻址的下级）
+        writeUrlState();
     }
 
     function showDetail(id) {
+        /* 守卫：`VISITED` 存的是**对象引用**（不是 id），项目被删之后引用还在数组里 ——
+           删除时已经把它一并摘掉，这里是第二道闸：与其让一个 undefined 的项目
+           在渲染链路里炸，不如明说一句、退回列表。 */
+        if (!PROJECTS.some((x) => x.id === id)) { toast('这个项目已经不在了'); renderList(); return; }
         viewMode = 'detail';
         currentProjectId = id;
         document.getElementById('viewList').hidden = true;
@@ -3763,6 +5112,7 @@
         /* 进项目一律落在第一个分区，别让"高亮"和"内容"错开一格 */
         currentItemIdx = 0;
         activateTab(activeSections()[0].key);
+        writeUrlState();                     /* 打开的项目也进 URL（可以直接把这一页发给别人） */
     }
 
     /* ⚠️ 内容 → 导航的唯一同步点。圆盘 / 图标列 / 分区栏 / 命令面板最后都汇到这里。 */
@@ -3879,21 +5229,44 @@
         const gotoView = hit('[data-goto-task-view]');
         if (gotoView) { activateTab('tasks'); setTaskView(gotoView.dataset.gotoTaskView); return; }
 
-        /* 列表态：KPI 即筛选 / 视图切换 / 打开项目 */
-        const kpi = hit('[data-kpi]');
-        if (kpi) {
-            const k = kpi.dataset.kpi;
-            projKpiFilter = projKpiFilter === k ? '' : k;
-            renderList();
+        /* 列表态：两组筛选（状态 / 类型）—— **一条分支管两组**。
+           两组只有"写回哪个变量"不同，那件事由 FILTER_GROUPS 的 set 收口；
+           这里按组名查表，不写 if (group === ...)。
+           chip 是 <button> ⇒ 键盘 Enter / Space 由浏览器负责，不用另写 keydown。
+           点已选中的那一个 = 什么都没变（本组是单选的：要回到"不筛"就点本组的「全部」，
+           那正是它存在的理由 —— 所以不做"再点一次取消"，否则"全部"这项就多余了）。 */
+        const facet = hit('[data-filter]');
+        if (facet) {
+            const [group, k] = facet.dataset.filter.split(':');
+            const def = FILTER_GROUPS.filter((g) => g.group === group)[0];
+            if (def) { def.set(k); renderList(); }
             return;
         }
         const pv = hit('[data-proj-view]');
         if (pv) {
             projView = pv.dataset.projView;
-            document.querySelectorAll('[data-proj-view]').forEach((b) => b.classList.toggle('active', b.dataset.projView === projView));
-            document.querySelectorAll('[data-proj-panel]').forEach((v) => v.classList.toggle('active', v.dataset.projPanel === projView));
+            applyProjView();
+            writeUrlState();
             return;
         }
+        /* 卡片上的三个动作（编辑 / 归档 / 删除）。
+           ⚠️ 这里**不需要** stopPropagation：动作栏是卡片的**兄弟**（它定位在卡片右上角，
+              只是视觉上落在卡里），从动作按钮往上 closest('[data-open-project]') 找不到那张卡
+              —— "点删除顺手把项目打开了"这件事在结构上不可能发生。 */
+        const actEdit = hit('[data-edit-project]');
+        if (actEdit) { openProjectModal('edit', actEdit.dataset.editProject); return; }
+        const actArch = hit('[data-archive-project]');
+        if (actArch) { archiveProject(actArch.dataset.archiveProject); return; }
+        const actRest = hit('[data-restore-project]');
+        if (actRest) { restoreProject(actRest.dataset.restoreProject); return; }
+        const actDel = hit('[data-delete-project]');
+        if (actDel) { openProjectModal('delete', actDel.dataset.deleteProject); return; }
+
+        /* 空态里的两个出路。两者都走已有的那套（新建弹窗 / 清空筛选）——
+           "没有项目"与"筛掉了"是两件事，给的按钮也该是两个。 */
+        if (hit('[data-new-project]')) { openProjectModal('create'); return; }
+        if (hit('[data-clear-filters]')) { clearFilters(); return; }
+
         const openP = hit('[data-open-project]');
         if (openP) { showDetail(openP.dataset.openProject); return; }
 
@@ -3980,11 +5353,19 @@
         document.getElementById('moreBtn').setAttribute('aria-expanded', 'false');
     }
 
-    /* 列表态的三个筛选控件 */
+    /* 列表态的筛选控件：关键词（类型那组走上面的委托，因为它每次重渲染都要重建） */
     document.getElementById('projQuery').addEventListener('input', (e) => { projQuery = e.target.value; renderList(); });
-    document.getElementById('projScope').addEventListener('change', (e) => { projScope = e.target.value; renderList(); });
     document.getElementById('projSort').addEventListener('change', (e) => { projSort = e.target.value; renderList(); });
-    document.getElementById('newProjectBtn').addEventListener('click', () => toast('原型演示：新建项目（应用里还没有写接口）'));
+    /* 头部那个「+ 新建项目」与空态里的那个按钮，走的是同一条路（新建弹窗）——
+       同一件事不做两个入口，也不做两种弹窗。 */
+    document.getElementById('newProjectBtn').addEventListener('click', () => openProjectModal('create'));
+
+    /* ⚠️ 项目弹窗（编辑 / 删除确认）的四条接线**不在这里**，见文件末尾「首屏」之前那段。
+       原因：`pmClose` 的图标要调 `iconSvg()`，而它读的是 `const icons`（图标表，
+       定义在下面一千多行处）。`function` 会提升、`const` 不会 —— 在这一行执行时
+       `icons` 还在 TDZ 里，一句 `iconSvg('close')` 就会抛 ReferenceError，
+       **把后面全部的渲染初始化一起带走**（症状是"页面壳都在、内容一片空白"，
+       控制台之外看不出是哪一句干的）。 */
 
     /* 勾选框 / 卡片支持键盘（它们是 tabindex=0 的 role=checkbox / role=button） */
     document.addEventListener('keydown', (e) => {
@@ -3992,12 +5373,14 @@
         const t = e.target;
         const check = t.closest('[data-task-toggle]');
         if (check) { e.preventDefault(); toggleTask(check.dataset.taskToggle); return; }
-        const kpi = t.closest('[data-kpi]');
-        if (kpi) { e.preventDefault(); kpi.click(); return; }
         const openP = t.closest('[data-open-project]');
         if (openP) { e.preventDefault(); showDetail(openP.dataset.openProject); return; }
         const openDocEl = t.closest('[data-doc-open]');
         if (openDocEl) { e.preventDefault(); openDoc(openDocEl.dataset.docOpen); return; }
+        /* 命令面板的结果条目：它是 ⌘K 的"结果"，一个只能点不能按的结果列表
+           等于把"键盘优先"的面板废掉一半。 */
+        const cmdIt = t.closest('[data-cmd-key]');
+        if (cmdIt) { e.preventDefault(); cmdIt.click(); return; }
     });
 
     /* 快捷键：详情态按 1..7 切分区（无修饰键、且焦点不在输入控件里） */
@@ -4385,6 +5768,7 @@
         graph: '<circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="12" cy="18" r="3"></circle><line x1="8.5" y1="7.5" x2="10.5" y2="16.5"></line><line x1="15.5" y1="7.5" x2="13.5" y2="16.5"></line>',
         star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>',
         archive: '<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>',
+        trash: '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>',
         user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>',
         palette: '<circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path>',
         bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>',
@@ -4396,8 +5780,10 @@
         activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
         alert: '<path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path>',
         flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line>',
-        send: '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>',
         trend: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
+        close: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
+        plus: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
+        chevronRight: '<polyline points="9 18 15 12 9 6"></polyline>',
         chevronLeft: '<polyline points="15 18 9 12 15 6"></polyline>',
         /* 设置的齿轮：v5 的图标表里没有它（顶栏那个齿轮是内联写的）——
            分区要用就得进表，否则 iconSvg 会静默回落到 grid */
@@ -4543,16 +5929,17 @@
                 subtitleEl.textContent = '';
                 subtitleEl.removeAttribute('title');
             }
-            /* 默认给「KPI」槽：刚进列表态 VISITED 是空的，
-               「最近」会渲染成一句"还没有打开过项目" —— **默认态不能是空态**。 */
-            selectSlot('kpi');
+            /* 默认给「概览」槽：刚进列表态 VISITED 是空的，
+               「最近」会渲染成一句"还没有打开过项目" —— **默认态不能是空态**
+               （而且 renderSlots 会把那个空 tab 直接收掉，选中它会落在一个不存在的 tab 上）。 */
+            selectSlot('overview');
             renderPage();
             renderSlots();
             return;
         }
         if (sidebarEl) sidebarEl.classList.remove('no-ring');
         /* 回到详情态：把槽交还给「最近」（那才是这一态的默认） */
-        if (slotKey === 'kpi' && !slotTouched) selectSlot('recent');
+        if (slotKey === 'overview' && !slotTouched) selectSlot('recent');
 
         const step = 360 / n;
         const activeIdx = ringLevel === 'level2' ? currentItemIdx : currentChildIdx;
@@ -4762,15 +6149,24 @@
     /* ============ 侧栏三槽 + 顶栏徽标 ============ */
     /* 全部从本页数据派生。**不留一份手抄的示例数字** ——
        那正是本文件一开始就在防的"看板说有 4 条、列表只列出 2 条"。
-       ⚠️ 三槽随**两态**换内容：列表态说项目，详情态说这一个项目的欠账。 */
+       ⚠️ 两槽随**两态**换内容：列表态说项目，详情态说这一个项目的欠账。 */
     function renderSlots() {
-        /* 顶栏徽标：项目域上它就是"未完成项目数"，与列表态的 KPI 同一份派生 */
+        /* 顶栏徽标：项目域上它就是"未完成项目数"，与列表态的读数同一份派生 */
         const badge = document.getElementById('navProjectBadge');
         if (badge) {
-            const n = PROJECTS.filter((p) => p.status !== 'done').length;
+            const n = PROJECTS.filter((p) => !isClosed(p)).length;
             badge.textContent = n;
             badge.title = '未完成项目 ' + n + ' 个';
         }
+
+        /* 「最近」**空则不渲染**：没走过任何项目时它是一个装着空话的 tab。
+           空槽不该占位、更不该当默认（列表态的默认已经让给「概览」，见 renderRing）。
+           收掉之后如果它正好是"当前选中"，把选中交给「概览」——
+           否则会出现"两个 tab 只剩一个，而选中的那个不在屏幕上"。 */
+        const hasRecent = VISITED.length > 0;
+        const recentTab = document.querySelector('.slot-tab[data-slot="recent"]');
+        if (recentTab) recentTab.hidden = !hasRecent;
+        if (!hasRecent && slotKey === 'recent') selectSlot('overview');
 
         /* 最近：**真实走过的路** —— 详情态进过的项目。点它直接回那个项目。 */
         const recent = document.getElementById('slotRecent');
@@ -4785,60 +6181,24 @@
                 : '<div class="q-empty">还没有打开过项目</div>';
         }
 
-        /* KPI：两态各一组，都是同一份派生 */
-        const kpi = document.getElementById('slotKpi');
-        if (kpi) {
-            let rows;
-            if (viewMode === 'detail') {
-                const t = curTasks();
-                rows = [
-                    ['未完成', t.filter((x) => x.status !== 'done').length, true],
-                    ['逾期', t.filter((x) => x.late).length, false],
-                    ['Bug 待处理', curBugs().filter((b) => b.status !== 'fixed').length, true],
-                    ['文档', curDocs().length, false],
-                    ['服务器', curServers().length, false],
-                ];
-            } else {
-                const st = projStats();
-                rows = [
-                    ['项目', st.total, true],
-                    ['进行中', st.active, false],
-                    ['风险', st.risk, true],
-                    ['平均进度', st.avg + '%', false],
-                ];
-            }
-            kpi.innerHTML = '<div class="kpi-list">' + rows.map((r) =>
-                `<div class="kpi-item"><span class="kpi-label">${r[0]}</span>`
-                + `<span class="kpi-value${r[2] ? ' accent' : ''}">${r[1]}</span></div>`).join('') + '</div>';
-        }
+        /* 概览：读数 + 要看紧的（两态共用，见 renderOverviewSlot） */
+        renderOverviewSlot();
 
-        /* AI：句子也全部由数据算出来 —— 不写死"1 项风险"这种记在纸上的数 */
-        const ai = document.getElementById('slotAi');
-        if (ai) {
-            const st = projStats();
-            const risk = PROJECTS.filter((p) => p.status === 'risk');
-            const soon = PROJECTS.filter((p) => p.status !== 'done').slice().sort((a, b) => a.daysLeft - b.daysLeft)[0];
-            const lines = [
-                ['bot', risk.length
-                    ? `全部 ${st.total} 个项目里 ${risk.length} 个有风险：${risk.map((p) => '「' + p.name + '」').join('')}。要我先排一下吗？`
-                    : `全部 ${st.total} 个项目都在正常推进，平均进度 ${st.avg}%。`],
-                ['user', '最赶的是哪个'],
-                ['bot', soon
-                    ? `「${soon.name}」截止 ${soon.dueShort}，剩 ${soon.daysLeft} 天，进度 ${soon.progress}%（${soon.tasksDone}/${soon.tasksTotal} 任务）。`
-                    : '没有在推进的项目。'],
-            ];
-            ai.innerHTML = '<div class="ai-chat">'
-                + lines.map((l) => `<div class="ai-msg ${l[0]}">${esc(l[1])}</div>`).join('')
-                + '</div><div class="ai-input"><input type="text" placeholder="问点什么…" id="aiAsk" />'
-                + `<button class="ai-send" data-demo="AI 助手">${iconSvg('send')}</button></div>`;
+        /* 只剩一个可见槽时，**整条 tab 行也收掉** —— 一个高亮胶囊独自杵在栏顶
+           是句废话（点它没别处可去），而内容自己会说它是谁（读数表 / 要看紧的）。
+           走到这里的情形只有一种：列表态刚进来（VISITED 空 ⇒ 只剩「概览」）。 */
+        const tabsEl = document.getElementById('slotTabs');
+        if (tabsEl) {
+            const visible = [].filter.call(document.querySelectorAll('.slot-tab'), (t) => !t.hidden);
+            tabsEl.hidden = visible.length < 2;
         }
     }
 
     /* ============ 槽切换 ============ */
     /* 槽的选中态是**组件局部 state**：不进路由、不持久化 ——
        它是"我此刻想看一下旁边那块"的临时视图，刷新回到默认是符合预期的。
-       两条默认：列表态给「KPI」（刚进来 VISITED 是空的，「最近」是句空话）；
-       详情态给「最近」。
+       两条默认：列表态给「概览」（刚进来 VISITED 是空的，「最近」是句空话，
+       而且那个空 tab 会被直接收掉）；详情态给「最近」。
        `slotTouched` 记"用户自己点过" —— 点过之后，两态切换就不替他改默认了。 */
     let slotKey = 'recent';
     let slotTouched = false;
@@ -5035,6 +6395,12 @@
             return;
         }
         if (e.key === 'Escape') {
+            /* 目录选择器只退回表单（表单已摘下来存着，不会丢）；弹窗在最上层，
+               再轮到命令面板。这两条都要在"焦点停在输入框里"时也生效 ——
+               下面那条 `if (e.target.tagName === 'INPUT') return` 拦不住它们，
+               因为这一段在它之前。 */
+            if (pmPicker) { returnFromPicker(); return; }
+            if (modalMode) { closeProjectModal(); return; }
             if (cmdMask.classList.contains('open')) { closeCmd(); return; }
             if (megaMod) { closeMega(); return; }
         }
@@ -5134,6 +6500,10 @@
     }
 
     function openCmd() {
+        /* placeholder **随两态变**：这一态列的是什么就问什么。
+           原来固定写"跳到一个分区…"，而列表态列的是 8 个项目 ——
+           那个问法在替一列项目说分区（空态文案早就按态分岔了，这里漏了）。 */
+        cmdInput.placeholder = viewMode === 'detail' ? '搜索分区…' : '搜索项目…';
         cmdMask.classList.add('open');
         cmdInput.value = '';
         renderCmdList();      /* 两态列的东西不同，每次打开重建一次 */
@@ -5167,11 +6537,66 @@
     currentPrimary = CURRENT_MODULE;
     ringLevel = 'level2';
 
+    /* URL 里带着状态就先读回来（刷新不丢、可以直接打开一条"筛选好的"链接）。
+       读回来之后要把**控件的显示**同步一遍：视图分段 / 排序下拉 / 搜索框 ——
+       它们的状态现在有两份（数据一份、DOM 一份），不同步就会出现"控件说卡片、面板是表格"。 */
+    readUrlState();
+    document.getElementById('projQuery').value = projQuery;
+    document.getElementById('projSort').value = projSort;
+    applyProjView();
+
     renderContent();            /* 列表态先立起来 */
     renderCmdList();
     /* 导航最后起：到这里两态的内容与数据都已就位。
        列表态下 renderRing 会**整块不渲染环**（见那个函数的空守卫）。 */
     renderRing(false);
+    /* 深链（`#p=p3`）：首屏直接进那个项目。放在最后 —— 它依赖上面全部初始化。 */
+    if (deepLinkId) showDetail(deepLinkId);
+
+    /* ============================================================
+       项目弹窗（编辑 / 删除确认）的接线
+       ------------------------------------------------------------
+       放在最后：`pmClose` 的图标要调 `iconSvg()`，而它读的是上面那张 `const icons`
+       —— 函数会提升、`const` 不会，这一句必须等图标表初始化完再执行。
+       （原先它跟在 `newProjectBtn` 那句后面，比 `icons` 早了一千多行：
+        抛 ReferenceError 时页面已经有壳、却没有内容，且错误不在这段附近。）
+       ============================================================ */
+    document.getElementById('pmClose').innerHTML = iconSvg('close');
+    document.getElementById('pmClose').addEventListener('click', closeProjectModal);
+    document.getElementById('pmCancel').addEventListener('click', pmCancelAction);
+    document.getElementById('pmOk').addEventListener('click', pmOkAction);
+    /* 点遮罩空白处关闭：判 `e.target === mask` 而不是"点在弹窗外的任何地方"——
+       否则从弹窗内按下、拖到遮罩上松手，也会把刚填的表单关掉。 */
+    document.getElementById('pmMask').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeProjectModal();
+    });
+
+    /* 弹窗正文里的交互（标签 / 目录选择器）一律走**委托**：
+       正文每次切换（表单 ⇄ 选择器）都整块重建，绑在元素上的监听会跟着元素一起没。 */
+    const pmBodyEl = document.getElementById('pmBody');
+    pmBodyEl.addEventListener('click', (e) => {
+        if (e.target.closest('[data-pick-path]')) { openPicker(); return; }
+        const chipAdd = e.target.closest('[data-chip-add]');
+        if (chipAdd) { openChipInput(chipAdd.dataset.chipAdd); return; }
+        const chip = e.target.closest('[data-chip]');
+        if (chip) {
+            /* 值里不会出现冒号，按第一个冒号切"组:值" */
+            const i = chip.dataset.chip.indexOf(':');
+            toggleChip(chip.dataset.chip.slice(0, i), chip.dataset.chip.slice(i + 1));
+            return;
+        }
+        const dir = e.target.closest('[data-fs-enter]');
+        if (dir) { enterDir(dir.dataset.fsEnter); return; }
+        const crumb = e.target.closest('[data-fs-crumb]');
+        if (crumb) { enterDir(crumb.dataset.fsCrumb); return; }
+    });
+    /* 选择器的筛选框：**只重画列表**，不重画正文 —— 整块重画会把焦点一起带走，
+       变成"每敲一个字就丢一次焦点"。 */
+    pmBodyEl.addEventListener('input', (e) => {
+        if (!pmPicker || e.target.id !== 'pmFsFilter') return;
+        pmPicker.filter = e.target.value;
+        redrawPickerList();
+    });
 
 </script>
 </body>
