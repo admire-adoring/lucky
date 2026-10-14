@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '../../../../lib/cn'
-import { bodyOf } from '../../../../data/workspace/doc-bodies'
+import { bodyOf, seedBodyOf } from '../../../../data/workspace/doc-bodies'
 import { copyOf, useDocCopies } from '../../../../data/workspace/doc-copies'
 import { DOC_KIND_LABEL } from '../../../../data/content-pool'
 import { DocEditor, EdIcon } from './DocEditor'
@@ -28,7 +28,7 @@ const RD_BGS = [
   { key: 'yellow', name: '书籍黄' },
 ] as const
 type RdBgKey = (typeof RD_BGS)[number]['key']
-type Pane = 'read' | 'edit'
+export type Pane = 'read' | 'edit'
 
 const RD_BG_STORE = 'wb-doc-bg'
 /* 镜头也是"这一页的镜头"：换一篇 / 切到阅读再回来都保持（原型 `rdPane` 是全局的）。 */
@@ -46,17 +46,24 @@ function readBg(): RdBgKey {
 export function DocSourcePage({
   doc,
   projectName,
+  initialPane,
   onBack,
+  onEditMeta,
   notice,
 }: {
   doc: SourceDoc
   /* 页头那条细栏里的项目名：② hero 在这一屏收掉了，但"这一篇属于哪个项目"不能丢 */
   projectName: string
+  /** 进来落在哪个镜头。不给就沿用上一次（`PANE`），与原型 `rdPane` 同 */
+  initialPane?: Pane
   onBack: () => void
+  /** 改这一篇的登记信息。宿主没有那个弹窗时不给 —— 也就不出那颗按钮（别留一颗点了没反应的） */
+  onEditMeta?: (doc: SourceDoc) => void
   notice: (text: string) => void
 }) {
   useDocCopies()   /* 订阅：保存之后这一页（与书墙）当场更新 */
-  const basBody = useMemo(() => bodyOf(doc), [doc])
+  /* 没有转写正文的那几篇用登记信息起一份骨架 ⇒ 这一页永远有正文可写 */
+  const basBody = useMemo(() => bodyOf(doc) ?? seedBodyOf(doc), [doc])
   const copy = copyOf(doc.id)
   /* 正文副本优先 —— 保存之后读到的就是刚写的那一份。 */
   const body = copy?.body ?? basBody
@@ -71,7 +78,7 @@ export function DocSourcePage({
   const roRef = useRef<ResizeObserver | null>(null)
   const [bg, setBg] = useState<RdBgKey>(readBg)
   const [bgOpen, setBgOpen] = useState(false)
-  const [pane, setPane] = useState<Pane>(PANE)
+  const [pane, setPane] = useState<Pane>(initialPane ?? PANE)
   const [active, setActive] = useState<string | null>(null)
 
   const ed = useEdWork(doc, body, () => notice('已保存到应用内副本 —— 来源工具里的原文没有被改动'))
@@ -196,7 +203,6 @@ export function DocSourcePage({
   }
 
   const editing = pane === 'edit'
-  const nocopy = !basBody && !copy
 
   return (
     <div className="rd-page" ref={pageRef} data-doc-bg={bg} data-pane={pane} onScroll={onScroll}>
@@ -260,7 +266,7 @@ export function DocSourcePage({
           <button className="btn btn-ghost" onClick={() => notice(`在来源工具里打开：${srcText}`)}>
             在 {srcText} 里打开
           </button>
-          {editing && !nocopy ? (
+          {editing ? (
             <>
               <button className="btn btn-ghost" onClick={ed.dropChanges} disabled={!ed.dirty && !ed.draft}>放弃修改</button>
               <button
@@ -274,24 +280,7 @@ export function DocSourcePage({
         </div>
       </div>
 
-      {/* 没有副本这一篇：进编辑不是"写一份草稿"，而是另建一份副本（从此两边独立）——
-          这句话必须说清，不然用户会以为改动会回流到来源工具。 */}
-      {editing && nocopy ? (
-        <div className="ed-paper">
-          <div className="ed-nocopy">
-            <div className="ed-nocopy-title">这一篇还没有应用内副本</div>
-            <div className="ed-nocopy-text">
-              《{docName}》在应用里只有一条 <b>索引</b>，正文住在 <b>{srcText}</b>。
-              在这里写 = <b>另建一份副本</b>：从此两边独立 —— {srcText} 那边后来的改动
-              <b>不会自动合并</b>过来，这份副本也就只在这台设备上说了算。
-            </div>
-            <div className="ed-nocopy-acts">
-              <button className="btn btn-ghost" onClick={() => notice(`在来源工具里打开：${srcText}`)}>去 {srcText} 写</button>
-              <button className="btn btn-primary" onClick={ed.startCopy}>还是建一份副本，在这里写</button>
-            </div>
-          </div>
-        </div>
-      ) : editing ? (
+      {editing ? (
         <DocEditor
           md={ed.md}
           name={ed.name}
@@ -328,11 +317,13 @@ export function DocSourcePage({
               <span><b>类型</b>{kindText}</span>
               <span className="ed-meta-dot">·</span>
               <span><b>来源</b>{srcText}</span>
-              <button type="button" className="ed-meta-link" onClick={() => notice('编辑信息：还没有写接口')}>编辑信息…</button>
+              {onEditMeta ? (
+                <button type="button" className="ed-meta-link" onClick={() => onEditMeta(doc)}>编辑信息…</button>
+              ) : null}
             </div>
           )}
         />
-      ) : body ? (
+      ) : (
         <div className="rd-layout">
           <aside className="card rd-toc">
             <div className="rd-toc-title">本篇目录</div>
@@ -361,30 +352,17 @@ export function DocSourcePage({
                 <span><b>位置</b>{doc.module} › {doc.func}</span>
               </div>
               <div className="rd-note-line">
-                <span>这是应用内保存的<b>只读副本</b> —— 正文由 {srcText} 维护，这里的改动不会回流。</span>
+                <span>这是应用内保存的<b>副本</b> —— 正文由 {srcText} 维护，这里的改动不会回流。</span>
               </div>
             </div>
             {/* eslint-disable-next-line react/no-danger -- 见文件头：编辑态的「可视」面要求真实 DOM */}
             <div className="rd-body" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: html }} />
           </article>
         </div>
-      ) : (
-        <div className="rd-main">
-          <div className="rd-empty">
-            <div className="rd-empty-title">这一篇的原文还没同步进来</div>
-            <div className="rd-empty-text">
-              《{docName}》的正文住在 <b>{srcText}</b> 里。这一版只在应用内保存了几篇
-              只读副本，其余几篇走的是"外链"这条路 —— 两种态都要能看得到。
-            </div>
-            <button type="button" className="btn btn-primary" onClick={() => notice(`在来源工具里打开：${srcText}`)}>
-              在来源工具里打开
-            </button>
-          </div>
-        </div>
       )}
 
       {/* 字数（原型语雀那个位置）：它是页级读数，不占纸头那一行 */}
-      {body || editing ? <div className="rd-words">{words || '0 字'}</div> : null}
+      <div className="rd-words">{words || '0 字'}</div>
     </div>
   )
 }

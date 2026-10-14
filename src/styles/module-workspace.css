@@ -4840,10 +4840,14 @@ html[data-theme='dark'] .mw-root[data-module='projects'] .review-select {
    （`--mw-danger*` 只定义在 `[data-module='projects']` 下，而这几屏还挂在 work / learning）。
    原文页那四支（原型 `--imp` / `--mark` / `--warn*`）上一轮漏了 ——
       症状是提示卡里"重要"那一档没颜色、正文里 `==高亮==` 没有底色、保存状态那颗
-      "未保存"不染色，全都是静默的（规则在、值取不到）。 */
+      "未保存"不染色，全都是静默的（规则在、值取不到）。
+   书的动作条（`.doc-book-acts`）2026-10-14 起铺到了概览 / 工作台 / 运维 / 服务器详情，
+   那几处的祖先链上没有这三个根 ⇒ 在这里一并给它一份，否则悬浮时那几颗按钮
+      没有 hover 底色（同一类静默：规则在、值取不到）。 */
 .mw-root[data-module] .dd-screen,
 .mw-root[data-module] .doc-layout,
-.mw-root[data-module] .rd-page {
+.mw-root[data-module] .rd-page,
+.mw-root[data-module] .doc-book-acts {
   --doc-m-ink: color-mix(in srgb, var(--mw-m-main) 55%, var(--mw-text-primary));
   --doc-m-tint: color-mix(in srgb, var(--mw-m-main) 12%, var(--mw-bg-card));
   --doc-danger: #B91C1C;
@@ -4860,7 +4864,8 @@ html[data-theme='dark'] .mw-root[data-module='projects'] .review-select {
 }
 html[data-theme='dark'] .mw-root[data-module] .dd-screen,
 html[data-theme='dark'] .mw-root[data-module] .doc-layout,
-html[data-theme='dark'] .mw-root[data-module] .rd-page {
+html[data-theme='dark'] .mw-root[data-module] .rd-page,
+html[data-theme='dark'] .mw-root[data-module] .doc-book-acts {
   --doc-danger: #FCA5A5;
   --doc-danger-bg: rgba(239, 68, 68, 0.22);
   --rd-imp: #C4B5FD;
@@ -10068,7 +10073,9 @@ html[data-theme='dark'] .mw-root[data-module] .kg-page {
    事实源：`design/project/项目-文档主页-index.html` 的 `.doc-book-wrap` / `.doc-book-acts`。
 
    书本身 `overflow: hidden`（压印框与缎带要裁）⇒ 抽屉不能挂在书里面，
-      多套一层 `.doc-book-wrap`（网格项变成它，书在里面撑满 100%）。
+      多套一层 `.doc-book-wrap`（网格项变成它；书墙那一档的 `width: 100%` 由
+      `.doc-shelf .doc-book` 给，别在这儿再写一条 —— 这一层现在也用在 `.doc-books`
+      那一排里，那条会盖掉概览档 92px / 运维档 96px 的定宽）。
    藏起来用 `visibility`（不只是 opacity）：不显示时那几颗按钮不能被 Tab 走到，
       否则键盘会撞进一串看不见的按钮里（"看着没有、按得到"是本仓一直在防的坑）。
    抬起与歪都归外层：抽屉是这本书延伸出去的一截 ⇒ 跟着一起转
@@ -10085,7 +10092,6 @@ html[data-theme='dark'] .mw-root[data-module] .kg-page {
   transform-origin: center bottom;
   transition: transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
-.mw-root[data-module] .doc-book-wrap .doc-book { width: 100%; }
 /* 外层负责抬起与歪 ⇒ 书自己那一条要在这里让位（同特异性、本段在后 ⇒ 压得住） */
 .mw-root[data-module] .doc-book-wrap:hover .doc-book,
 .mw-root[data-module] .doc-book-wrap:focus-within .doc-book { transform: none; }
@@ -12825,3 +12831,311 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
    ============================================================================ */
 .mw-root[data-module] .rd-page .rd-code-menu { display: none; }
 .mw-root[data-module] .rd-page .rd-code-menu.is-open { display: block; }
+
+
+/* ---------- work · 任务页（`design/work/work_task.html`，2026-10-14） ----------
+   两处挂载共用这一段：「工作模块 · 任务」那一页（`/work/tasks`）与项目详情的
+   「任务」分区。两处的根都是 `.wt-page`（组件 `WorkTaskBoard` 自己挂的），
+   所以作用域落在**页面根**而不是模块根 —— 项目详情同时挂在 projects / work /
+   learning 三个模块下，写 `[data-module=…]` 会有一半挂载取不到样式（静默裸奔）。
+
+   与工作台那一段（`.wi-page`）的关系：`.seg` / `.icon-btn` / `.board*` / `.quad*` /
+   `.dash-row*` / `.task-check` 这几族**两边各有一份声明**。这不是漏了合并 ——
+   本仓的口径本来就是这样（`.seg` 在 projects / ac-page / lg-root 也各有一份），
+   共用一份就得让两页共用一个根类，而那会把"工作台"与"任务页"这两个不同的页面
+   绑成同一个作用域。改其中一处时记得判：这一条是"两页共用"的还是"只有那一页有"。
+
+   令牌映射：`--bg-card / --border-card / --border-subtle / --text-* / --shadow-card`
+   → `--mw-*`；`--bg-hover` → `--g-hover`（Prism 的悬停档）；`--bg-subtle` → `--g-subtle`；
+   `--border-field`（勾选框那条 ≥3:1 的功能边）→ `--g-ctl-line`；`--m-main` → `--mw-m-main`；
+   其余强调色派生与异常色在下面就地新生（`--wt-*`），与工作台那七支逐字同值。
+
+   ⚠️ 作用域写成 `.mw-root[data-module] .wt-page`（0,3,0 起）而不是 `.mw-root .wt-page`：
+   项目模块在**模块级**写了 `.seg` / `.seg-btn` / `.icon-btn` / `.quad` / `.task-check`
+   这几族（本仓这几族本来是"按页各写一份"的，只有它那一份没收进页面根），
+   而项目详情同时挂在 projects / work / learning 下 ⇒ 不改作用域就会出现
+   "同一个控件在两处挂载长得不一样"，且四下里只有一处对。多带一个 `[data-module]`
+   只是把这一段的起点抬到与它们同档，靠"本段在文件最后"定胜负。
+   `.quad` 另有一处**逐项重置**（那一条的 `::before` 是项目页自己的左沿色条）。
+
+   `@media` 的 1080 是原型自己的值（在那边的壳里侧轨刚好放得下）。宿主的侧栏更宽
+   （300 对 240）⇒ 应用里侧轨出现得比原型更晚，这是保守的一侧：宁可窄屏单列，
+   也不要两个都挤扁的列。
+   ============================================================================ */
+
+/* ---- 页面局部令牌（原型 `:root` / `.dark` 里那几支内核没有的；明暗各一份）----
+   强调色分三档，一档一个门槛：
+     `--mw-m-main` 只做图形（描边 / 焦点环）；`--wt-ink` 做文字（≥4.5:1）；
+     `--wt-fill` 做实底（选中胶囊 / 勾选），其上字色一律 `--wt-ink-on-accent`。
+   `--wt-alert` 单占一支：工作模块的强调色本身就是玫瑰红，"强调"与"出事"必须分得开。 */
+.mw-root[data-module] .wt-page {
+  --wt-ink: color-mix(in srgb, var(--mw-m-main) 66%, var(--mw-text-primary));
+  --wt-soft: color-mix(in srgb, var(--mw-m-main) 10%, var(--mw-bg-card));
+  --wt-soft-2: color-mix(in srgb, var(--mw-m-main) 20%, var(--mw-bg-card));
+  --wt-line: color-mix(in srgb, var(--mw-m-main) 30%, var(--mw-bg-card));
+  --wt-line-strong: color-mix(in srgb, var(--mw-m-main) 58%, var(--mw-bg-card));
+  --wt-fill: color-mix(in srgb, var(--mw-m-main) 86%, #0B1220);
+  --wt-fill-hover: color-mix(in srgb, var(--mw-m-main) 74%, #0B1220);
+  --wt-ink-on-accent: #FFFFFF;
+  --wt-alert: #B45309;
+}
+html[data-theme='dark'] .mw-root[data-module] .wt-page {
+  --wt-soft: color-mix(in srgb, var(--mw-m-main) 16%, var(--mw-bg-card));
+  --wt-soft-2: color-mix(in srgb, var(--mw-m-main) 24%, var(--mw-bg-card));
+  --wt-fill: var(--mw-m-main);
+  --wt-fill-hover: color-mix(in srgb, var(--mw-m-main) 84%, #FFFFFF);
+  --wt-ink-on-accent: #0B1220;
+  --wt-alert: #FBBF24;
+}
+
+/* 视图条那一行：标题 + 四档 + 一句"这一档在排什么" + 新建。
+   三个以上元素用 `gap` + 给动作按钮 `margin-left: auto`，不用 space-between ——
+   等距会把这组视图推到行正中，读起来像"它跟标题无关"（原型同一条判据）。 */
+.mw-root[data-module] .wt-page .view-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mw-root[data-module] .wt-page .view-row .card-title { margin-bottom: 0; }
+.mw-root[data-module] .wt-page .view-row .icon-btn { margin-left: auto; }
+.mw-root[data-module] .wt-page .view-hint { font-size: 12px; color: var(--mw-text-muted); }
+/* 视图条与体之间那一档间距。跟着兄弟关系走（不是给 `.wt-body` 一个固定外边距）：
+   这样"这一层是不是紧跟着视图条"这件事写在选择器里，不用读两处对齐。 */
+.mw-root[data-module] .wt-page .view-row + .wt-body { margin-top: 20px; }
+
+/* 分段控件（`.seg` > `.seg-btn`，卡头那组小按钮）。
+   选中态给"形状 + 明度"双线索：白药丸压灰轨道只有 1.08:1，遮住颜色就认不出选中的是哪个
+   ⇒ 选中那一档走实底反白。轨道必须用悬停那一档才成"槽"（`--g-subtle` 压白卡只有 1.03:1）。 */
+.mw-root[data-module] .wt-page .seg {
+  display: flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px;
+  background: var(--g-hover); border: 1px solid var(--mw-border-subtle);
+}
+.mw-root[data-module] .wt-page .seg-btn {
+  border: none; background: transparent; cursor: pointer; font-family: inherit;
+  font-size: 12px; font-weight: 500; line-height: 1.5; color: var(--mw-text-secondary);
+  padding: 2px 10px; border-radius: 999px;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+/* 轨道本身就是 `--g-hover`，未选中项的悬停再用同一个色就是"没反应"⇒ 走强调色薄染 */
+.mw-root[data-module] .wt-page .seg-btn:hover { background: var(--wt-soft); color: var(--wt-ink); }
+.mw-root[data-module] .wt-page .seg-btn.is-on { background: var(--wt-fill); color: var(--wt-ink-on-accent); font-weight: 600; }
+.mw-root[data-module] .wt-page .seg-btn.is-on:hover { background: var(--wt-fill-hover); }
+.mw-root[data-module] .wt-page .seg-btn:focus-visible { outline: 2px solid var(--wt-ink); outline-offset: 2px; }
+
+.mw-root[data-module] .wt-page .icon-btn {
+  width: 34px; height: 34px; border-radius: 50%; border: none; background: transparent;
+  color: var(--mw-text-secondary); cursor: pointer; position: relative;
+  display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;
+}
+.mw-root[data-module] .wt-page .icon-btn:hover { background: var(--g-hover); color: var(--mw-text-primary); transform: translateY(-1px); }
+.mw-root[data-module] .wt-page .icon-btn svg { width: 17px; height: 17px; stroke-width: 1.9; }
+
+/* 这一格的卡里装的都是行与控件（不是"整张可点的入口"）⇒ 悬停不抬。
+   不关掉的话，在快捷添加里打字整张卡会跟着上浮 2px。 */
+.mw-root[data-module] .wt-page .card:hover { transform: none; box-shadow: var(--mw-shadow-card); }
+
+/* 卡头一行两个东西：主标签 + 读数（读数靠右 —— 与「任务列表 6 项」同一条） */
+.mw-root[data-module] .wt-page .card-head-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px;
+}
+.mw-root[data-module] .wt-page .card-head-row .card-title { margin-bottom: 0; }
+.mw-root[data-module] .wt-page .card-head-num { font-size: 12px; color: var(--mw-text-muted); font-variant-numeric: tabular-nums; }
+
+/* 快捷添加：图标 + 输入 + 提示 + 按钮合成一条 */
+.mw-root[data-module] .wt-page .quick-add {
+  display: flex; align-items: center; gap: 8px; padding: 5px 5px 5px 14px;
+  border: 1px solid var(--g-ctl-line); background: var(--mw-bg-card); border-radius: 999px;
+  transition: border-color 0.18s ease;
+}
+.mw-root[data-module] .wt-page .quick-add:focus-within { border-color: var(--wt-fill); }
+.mw-root[data-module] .wt-page .quick-add > svg { width: 15px; height: 15px; color: var(--mw-text-muted); flex-shrink: 0; }
+.mw-root[data-module] .wt-page .quick-input {
+  flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+  font-family: inherit; font-size: 13px; color: var(--mw-text-primary); padding: 7px 0;
+}
+.mw-root[data-module] .wt-page .quick-input::placeholder { color: var(--mw-text-muted); }
+.mw-root[data-module] .wt-page .quick-hint { font-size: 11.5px; color: var(--mw-text-muted); white-space: nowrap; }
+/* `.btn-sm` 在这一族里是"按模块各写一份"的（全仓只有 `[data-module='work']` 那一份），
+   项目详情挂的是 projects / learning ⇒ 不补这一条那一页的按钮会大一号。 */
+.mw-root[data-module] .wt-page .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+/* 列表档的排版：主列 + 侧轨。<1080 单列（侧轨落到主列下面）。
+   侧轨不是"好看"：一条列表行横跨 1000px 时文字只占一小段，把分布 / 节奏放到右侧，
+   主列的行宽才回得到可读区间。 */
+.mw-root[data-module] .wt-page .main-body { display: block; }
+.mw-root[data-module] .wt-page .main-col { min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.mw-root[data-module] .wt-page .main-rail { min-width: 0; margin-top: 20px; display: flex; flex-direction: column; gap: 20px; }
+@media (min-width: 1080px) {
+  .mw-root[data-module] .wt-page .main-body {
+    display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 20px; align-items: start;
+  }
+  .mw-root[data-module] .wt-page .main-rail { margin-top: 0; }
+}
+
+/* 三块共用同一种行：两行文字 + 行尾一个元素。
+   第一行放会变的状态，第二行放不变的身份（项目 · 承担人）。
+   负外距：悬停底色向外扩，行内文字仍与卡头对齐（不靠内距撑）。 */
+.mw-root[data-module] .wt-page .dash-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin: 0 -10px;
+  border-radius: 10px; transition: background 0.18s ease;
+}
+.mw-root[data-module] .wt-page .dash-row:hover { background: var(--g-hover); }
+.mw-root[data-module] .wt-page .dash-row-name { font-size: 14px; line-height: 1.45; }
+.mw-root[data-module] .wt-page .dash-row-meta { font-size: 12px; line-height: 1.4; color: var(--mw-text-muted); margin-top: 2px; }
+.mw-root[data-module] .wt-page .dash-row .task-text { flex: 1; min-width: 0; cursor: default; }
+/* 勾上的行整行降级：任务名划掉即可；身份行本来就是 muted，不必再划线 */
+.mw-root[data-module] .wt-page .dash-row .task-text.done { text-decoration: none; }
+.mw-root[data-module] .wt-page .dash-row .task-text.done .dash-row-name {
+  text-decoration: line-through; color: var(--mw-text-muted);
+}
+/* 行尾那一列定宽 + 右对齐 ⇒ 排成一列，扫读时不必逐行找"这条什么时候到期" */
+.mw-root[data-module] .wt-page .dash-when {
+  font-size: 12px; color: var(--mw-text-secondary); white-space: nowrap; flex-shrink: 0;
+  min-width: 68px; text-align: right; font-variant-numeric: tabular-nums;
+}
+.mw-root[data-module] .wt-page .dash-when.is-overdue { color: var(--wt-alert); font-weight: 600; }
+.mw-root[data-module] .wt-page .dash-group-name {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; color: var(--mw-text-secondary);
+}
+.mw-root[data-module] .wt-page .task-empty { font-size: 12px; color: var(--mw-text-muted); padding: 4px 0 2px; }
+
+/* 勾选框是**控件**：它的形只靠那条边被认出来 ⇒ 用 ≥3:1 的功能边，
+   不用只剩"分隔两条相邻区域"能力的 `--mw-border-subtle`。
+   它同时是 `<button>`（原型是 span + 脚本委托）⇒ 浏览器默认皮要显式清掉。 */
+.mw-root[data-module] .wt-page .task-check {
+  width: 18px; height: 18px; border-radius: 6px;
+  border: 1.5px solid var(--g-ctl-line); background: var(--mw-bg-card);
+  flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--wt-ink-on-accent); transition: all 0.18s ease;
+  appearance: none; -webkit-appearance: none; padding: 0; font-family: inherit;
+}
+/* 悬停只改边色，底色钉回卡面：project 模块那条 `.task-check:hover` 会染一层淡底，
+   两处挂载就长成两样（同一套控件不该看模块下菜）。 */
+.mw-root[data-module] .wt-page .task-check:hover { border-color: var(--mw-m-main); background: var(--mw-bg-card); }
+.mw-root[data-module] .wt-page .task-check:focus-visible { outline: 2px solid var(--wt-ink); outline-offset: 2px; }
+.mw-root[data-module] .wt-page .task-check.done { background: var(--wt-fill); border-color: var(--wt-fill); }
+
+/* 看板：列按状态。列恒在（三列就是"看板的形"），列内空给一句"暂无"而不是把列裁掉 ——
+   裁列会让形随数据变，两张截图就不是同一个控件了。 */
+.mw-root[data-module] .wt-page .board {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(min(200px, 100%), 1fr);
+  gap: 16px; align-items: start; overflow-x: auto; padding-bottom: 8px; overscroll-behavior-x: contain;
+}
+.mw-root[data-module] .wt-page .board::-webkit-scrollbar { height: 6px; }
+.mw-root[data-module] .wt-page .board::-webkit-scrollbar-thumb { background: var(--mw-border-subtle); border-radius: 4px; }
+/* 槽用 `--g-hover` 而不是 `--g-subtle`：后者压白卡只有 1.03:1，画了跟没画一样 */
+.mw-root[data-module] .wt-page .board-col { background: var(--g-hover); border-radius: 14px; padding: 10px; min-height: 96px; }
+.mw-root[data-module] .wt-page .board-head { display: flex; align-items: center; gap: 8px; padding: 2px 4px 10px; }
+.mw-root[data-module] .wt-page .board-count,
+.mw-root[data-module] .wt-page .quad-count { font-size: 11px; color: var(--mw-text-muted); font-variant-numeric: tabular-nums; }
+.mw-root[data-module] .wt-page .board-cards { display: flex; flex-direction: column; gap: 8px; }
+.mw-root[data-module] .wt-page .board-card {
+  background: var(--mw-bg-card); border: 1px solid var(--mw-border-card); border-radius: 10px;
+  padding: 9px 10px 10px; box-shadow: var(--mw-shadow-card);
+}
+.mw-root[data-module] .wt-page .board-card-name { font-size: 13.5px; line-height: 1.4; }
+.mw-root[data-module] .wt-page .board-card-meta { font-size: 11.5px; line-height: 1.4; color: var(--mw-text-muted); margin-top: 3px; }
+.mw-root[data-module] .wt-page .board-card-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px;
+}
+.mw-root[data-module] .wt-page .board-card.is-done .board-card-name { text-decoration: line-through; color: var(--mw-text-muted); }
+.mw-root[data-module] .wt-page .board-empty { font-size: 12px; color: var(--mw-text-muted); padding: 4px 4px 6px; }
+
+/* 四象限：格是槽、项是行。
+   ⚠️ 盒子的几项必须写全：项目模块（`projects`）里另有一个**模块级**的 `.quad`
+   （那是项目页自己的四象限条：`position: relative` + 左沿一条 3px 色条 + 14/17 的内距）。
+   项目详情就挂在那三个模块下 ⇒ 不重置就会被它加上一条左边框和一圈内距，
+   而"多一条色条"看着只是"这一版比较素"（零报错）。 */
+.mw-root[data-module] .wt-page .quad {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;
+  position: static; padding: 0; border: 0; border-radius: 0; background: none;
+}
+.mw-root[data-module] .wt-page .quad::before { content: none; }
+.mw-root[data-module] .wt-page .quad-cell { background: var(--g-hover); border-radius: 14px; padding: 12px; }
+.mw-root[data-module] .wt-page .quad-head { display: flex; align-items: center; gap: 8px; }
+.mw-root[data-module] .wt-page .quad-head::after { content: ""; flex: 1; height: 1px; background: var(--mw-border-subtle); }
+.mw-root[data-module] .wt-page .quad-list { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.mw-root[data-module] .wt-page .quad-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px;
+  border-radius: 8px; transition: background 0.18s ease;
+}
+/* 槽是 `--g-hover` ⇒ 项的悬停得往"更亮"走（用槽的同色 = 悬停没反应） */
+.mw-root[data-module] .wt-page .quad-item:hover { background: var(--mw-bg-card); }
+.mw-root[data-module] .wt-page .quad-item-name { font-size: 13px; line-height: 1.4; }
+.mw-root[data-module] .wt-page .quad-item .dash-when { margin-left: auto; }
+.mw-root[data-module] .wt-page .quad-empty { font-size: 12px; color: var(--mw-text-muted); padding: 4px 0 2px; }
+.mw-root[data-module] .wt-page .quad-note { margin-top: 14px; font-size: 12px; color: var(--mw-text-muted); }
+
+/* 日历：槽里摆卡面 ⇒ `.cal-wrap` 是槽、日格是卡面 */
+.mw-root[data-module] .wt-page .cal-wrap { background: var(--g-hover); border-radius: 14px; padding: 12px; }
+.mw-root[data-module] .wt-page .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.mw-root[data-module] .wt-page .cal-head {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--mw-text-muted);
+  text-align: center; padding: 2px 0 4px;
+}
+.mw-root[data-module] .wt-page .cal-day {
+  display: flex; flex-direction: column; gap: 3px; min-height: 86px; padding: 6px;
+  border-radius: 10px; background: var(--mw-bg-card); border: 1px solid var(--mw-border-card);
+  cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+/* 悬停给"浮起"、不改描边色 —— 今天与逾期各自用描边 / 字色表意，hover 再抢一次就盖掉了 */
+.mw-root[data-module] .wt-page .cal-day:hover { transform: translateY(-1px); box-shadow: var(--mw-shadow-card); }
+.mw-root[data-module] .wt-page .cal-num {
+  font-size: 11.5px; font-weight: 700; color: var(--mw-text-secondary); font-variant-numeric: tabular-nums;
+}
+/* 跨月时只说日号看不出来是哪个月 ⇒ 每月 1 号那格标月份 */
+.mw-root[data-module] .wt-page .cal-mon { font-size: 10px; font-weight: 500; color: var(--mw-text-muted); margin-left: 3px; }
+/* 今天：与 `.seg-btn.is-on` 同一套"选中"语言（薄染 + 描边），不另造一种高亮 */
+.mw-root[data-module] .wt-page .cal-day.today { background: var(--wt-soft-2); border-color: var(--wt-line); }
+.mw-root[data-module] .wt-page .cal-day.today .cal-num { color: var(--wt-ink); }
+/* 过去那一天**还有没做完的**：那是"债"，不是"历史"。只标有内容的过去日 ——
+   空格子保持中性，否则整块一片红，等于没标。异常色只落在字上，不涂整格。 */
+.mw-root[data-module] .wt-page .cal-day.is-late { border-color: var(--wt-line-strong); }
+.mw-root[data-module] .wt-page .cal-day.is-late .cal-num { color: var(--wt-alert); }
+.mw-root[data-module] .wt-page .cal-task {
+  font-size: 10.5px; line-height: 1.5; padding: 1px 6px; border-radius: 6px;
+  background: var(--wt-soft); color: var(--wt-ink);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;
+  outline: 1px solid transparent; outline-offset: -1px; transition: outline-color 0.15s ease;
+}
+.mw-root[data-module] .wt-page .cal-task:hover { outline-color: var(--wt-ink); }
+.mw-root[data-module] .wt-page .cal-day.is-late .cal-task { background: var(--g-subtle); color: var(--wt-alert); }
+.mw-root[data-module] .wt-page .cal-task.more {
+  background: var(--g-hover); color: var(--mw-text-secondary); font-weight: 600; cursor: default; outline: none;
+}
+.mw-root[data-module] .wt-page .cal-legend {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px;
+  font-size: 11.5px; color: var(--mw-text-secondary);
+}
+.mw-root[data-module] .wt-page .cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.mw-root[data-module] .wt-page .cal-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.mw-root[data-module] .wt-page .cal-legend .is-warn { color: var(--wt-alert); }
+.mw-root[data-module] .wt-page .cal-note { flex: 1 1 100%; color: var(--mw-text-muted); line-height: 1.65; }
+
+/* 侧轨 · 分布条：数字已经写在右边，色条只承担"哪一块更大"的形状信息 */
+.mw-root[data-module] .wt-page .bar-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+.mw-root[data-module] .wt-page .bar-name {
+  font-size: 12.5px; color: var(--mw-text-secondary); width: 84px; flex-shrink: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mw-root[data-module] .wt-page .bar-track {
+  flex: 1; min-width: 0; height: 6px; border-radius: 999px; background: var(--g-hover); overflow: hidden;
+}
+.mw-root[data-module] .wt-page .bar-fill { display: block; height: 100%; border-radius: 999px; }
+.mw-root[data-module] .wt-page .bar-num {
+  font-size: 12px; font-weight: 600; color: var(--mw-text-primary); font-variant-numeric: tabular-nums;
+  width: 18px; text-align: right; flex-shrink: 0;
+}
+/* 一张卡里放两组分布：小标题负责分组，不再各占一张卡 */
+.mw-root[data-module] .wt-page .sub-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--mw-text-muted);
+  margin: 14px 0 6px;
+}
+.mw-root[data-module] .wt-page .card-title + .sub-title { margin-top: 0; }
+
+/* 侧轨 · 近 7 天完成节奏：柱高用**像素**（最高那根 = 峰值，它本身就是读数） */
+.mw-root[data-module] .wt-page .week-bars { display: flex; align-items: flex-end; gap: 6px; }
+.mw-root[data-module] .wt-page .wb { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.mw-root[data-module] .wt-page .wb-track { width: 100%; height: 60px; display: flex; align-items: flex-end; }
+.mw-root[data-module] .wt-page .wb-fill { width: 100%; border-radius: 5px 5px 2px 2px; background: var(--wt-fill); }
+/* 0 的那天留一个 4px 的槽：读起来是"这天没有"，不是"画漏了" */
+.mw-root[data-module] .wt-page .wb-fill.zero { height: 4px !important; background: var(--g-ctl-line); border-radius: 2px; }
+.mw-root[data-module] .wt-page .wb-day { font-size: 10px; color: var(--mw-text-muted); }
+.mw-root[data-module] .wt-page .wb.today .wb-day { color: var(--wt-ink); font-weight: 600; }
+.mw-root[data-module] .wt-page .week-note { font-size: 11.5px; color: var(--mw-text-secondary); margin-top: 10px; line-height: 1.6; }

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '../../../lib/cn'
 import type { DeployDocItem } from '../../../data/derive'
+import { BookHost, type BookActs } from './DocBook'
 import { OpsIcon } from './ops-icon'
 
 /* ==================================================================== *
@@ -16,10 +17,13 @@ import { OpsIcon } from './ops-icon'
  *     差的只是"标签与图形从哪儿来"，所以壳分成两个组件、材质仍是一份。
  *
  * 两处消费者：
- *   · `OpsPanel`（项目详情 · 运维）—— 那一格还要「下载 / 更多」两颗（传 `actions`）；
+ *   · `OpsPanel`（项目详情 · 运维）—— 那一格还要「下载 / 更多」两颗（传 `extra`）；
  *   · `ServerDetail`（服务器详情 · 文档）—— 那一页的书只有"点开读"一个动作，不传。
  *
- * `actions` 决定宿主元素：给了就必须是 `<div role="button">` ——
+ * 悬停动作条与文档书共用 `BookHost`（`DocBook.tsx`）—— 这页的书与书墙上的是同一本，
+ *   只是标签与图形从哪儿来不同（见上）。
+ *
+ * `extra` 决定宿主元素：给了就必须是 `<div role="button">` ——
  *    `button` 里嵌 `button` 是无效 HTML（原型那一版也是这么改的）。
  *    而原型那条 `div` 只挂了 `onclick`，键盘用户够不到 ⇒ 这里补 Enter / Space。
  * ==================================================================== */
@@ -27,18 +31,21 @@ import { OpsIcon } from './ops-icon'
 export function DeployDocBook({
   doc,
   onOpen,
-  actions,
+  extra,
+  acts,
 }: {
   doc: DeployDocItem
   onOpen: () => void
   /** 卡头上那两颗（下载 / 更多）。给了才包 `.book-actions`（顶行的让位规则挂在它上面） */
-  actions?: ReactNode
+  extra?: ReactNode
+  /** 悬停动作条（预览正文 / 编辑正文 …），见 `DocBook` 的 `BookActs` */
+  acts?: BookActs
 }) {
   const shell = {
     className: cn('doc-book', doc.kind === '脚本' && 'script'),
     onClick: onOpen,
   }
-  const shellProps = actions
+  const shellProps = extra
     ? {
         ...shell,
         role: 'button' as const,
@@ -62,9 +69,9 @@ export function DeployDocBook({
         {/* 这两颗是运维那一格特有的。做法：hover / 键盘进入时整条顶行让位 ——
             96px 宽的书框内只有 64px，排不下"签 + 图标 + 两个按钮"，
             于是 hover 前放"签 + 图标"、hover 后放这两颗，各用一刻（绝对定位 ⇒ 零重排）。 */}
-        {actions ? (
+        {extra ? (
           <span className="book-actions" onClick={(event) => event.stopPropagation()}>
-            {actions}
+            {extra}
           </span>
         ) : null}
       </div>
@@ -87,5 +94,9 @@ export function DeployDocBook({
     </>
   )
 
-  return actions ? <div {...shellProps}>{body}</div> : <button {...shellProps}>{body}</button>
+  return (
+    <BookHost acts={acts}>
+      {extra ? <div {...shellProps}>{body}</div> : <button {...shellProps}>{body}</button>}
+    </BookHost>
+  )
 }

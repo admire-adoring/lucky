@@ -2,7 +2,8 @@
    文档正文 · 只读副本（`项目-文档原文-index.html` 的 `POOL[scope].documents[i].body`）
    ----------------------------------------------------------------------------
    文档在本仓只存索引（正文住在来源工具里）⇒ 这里保存的是应用内的只读副本，
-   只有一部分篇有（原型就是如此）。没有的那几篇走"空态"，见 `DocSourcePage`。
+   只有一部分篇有（原型就是如此）。没有的那几篇由 `seedBodyOf` 起一份骨架 ——
+   原文页因此每一篇都能写（2026-10-14 用户令：文档类打开原文都要能直接编辑）。
 
    数据是机器转写的原文切片（6 篇 · 9~19 块）—— 手抄会改一个错一个。
       事实源仍是原型；要改正文请改原型再重跑转写。
@@ -14,6 +15,8 @@
       `[文字](url)` / `![alt](url)` / `<span style>` / `<br>` / `<sup>` / `<sub>`），
       渲染时才解析 —— 与编辑面"直接写 markdown"是同一件事。
    ============================================================================ */
+
+import { DOC_KIND_LABEL } from '../content-pool'
 
 /** 一段正文里能出现的块。字段与原型逐字一致（`t` 之外的字段按类型给）。 */
 export interface RdBlock {
@@ -552,12 +555,47 @@ export const RD_BODIES = [
 ] as unknown as RdBodyDoc[]
 
 /**
+ * 索引型文档的起步正文。
+ *
+ * 这一篇在应用里只有一条索引（正文住在来源工具里）⇒ 原文页过去进编辑面先是一道
+ *   "要不要另建一份副本"的门。2026-10-14 用户令：文档类的书打开原文都要能直接写
+ *   ⇒ 没有转写正文的那几篇，用它的登记信息起一份骨架。
+ * 骨架里只有这一篇的真字段（类型 / 来源 / 位置 / 作者 / 来源更新时间），
+ *   不编正文 —— 剩下的空段由用户自己填。
+ */
+export function seedBodyOf(doc: {
+  module: string
+  func: string
+  kind: string
+  source?: string
+  author?: string
+  updatedAt?: string
+}): RdBlock[] {
+  const src = doc.source || '来源工具'
+  const kind = (DOC_KIND_LABEL as Record<string, string>)[doc.kind] ?? doc.kind
+  const facts = [`类型：${kind}`, `来源：${src}`, `位置：${doc.module} › ${doc.func}`]
+  if (doc.author) facts.push(`作者：${doc.author}`)
+  if (doc.updatedAt) facts.push(`来源更新：${doc.updatedAt}`)
+
+  return [
+    {
+      t: 'note',
+      kind: 'info',
+      x: `这一篇在应用里原本只有索引，正文住在 **${src}**。保存下来的是应用内副本，不会回流到那边。`,
+    },
+    { t: 'h2', x: '登记信息' },
+    { t: 'ul', x: facts },
+    { t: 'h2', x: '正文' },
+    { t: 'p', x: '从这里开始写。' },
+  ]
+}
+
+/**
  * 找这一篇的正文。三级匹配，越靠前越可信：
  *   ① 模块 + 功能 + 类型都相同（同一格里的同一类文档）
  *   ② 模块 + 功能相同
  *   ③ 名字相同
- * 都不中就返回 undefined ⇒ 页面走"这一篇的原文还没同步进来"的空态
- * （原型的判据：两种态都要能看得到，不能只演示有正文的那一种）。
+ * 都不中就返回 undefined ⇒ 调用处接 `seedBodyOf` 起一份骨架（原文页因此总能写）。
  */
 export function bodyOf(doc: { name: string; module: string; func: string; kind: string }): RdBlock[] | undefined {
   const byName = RD_BODIES.find((d) => d.name === doc.name)

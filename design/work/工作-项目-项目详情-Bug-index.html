@@ -1525,7 +1525,6 @@
              —— work_index 的 12 个分区是不同模块的视图，同一时刻只看一个 ⇒ 那边才 display:none。
            所以圆盘在本页做的是「定位 + 当前项随滚动同步」，不是切视图。
            scroll-margin-top 是给落点用的：上面有 sticky 的 Tab 条，不留补偿会被压在它下面。 */
-        .ops-card { scroll-margin-top: 74px; }
 
         .ops-card-head {
             display: flex; align-items: center; justify-content: space-between;
@@ -1700,8 +1699,9 @@
             gap: 4px 12px;
             padding: 10px 12px 10px 15px;
             transition: background 0.16s ease;
-            /* 侧栏"最久"那几条点过来时，别把这一行压在视口顶边 */
-            scroll-margin-top: 96px;
+            /* 侧栏"最久"那几条点过来时，别把这一行压在视口顶边
+               （数值同 `.ops-card`：常驻头变高之后它们要一起长） */
+            scroll-margin-top: 112px;
         }
         /* ⚠️ 色条用 `box-shadow: inset` 而不是 `border-left`：
               后者会让内容整体右移 2~3px，同一组里"有色的行"和"没色的行"文字就对不齐。 */
@@ -1986,11 +1986,18 @@
            不补这条，`el.hidden = true` 藏不住任何东西（过滤"看着没反应"）。*/
         .cmd-item[hidden] { display: none; }
 
-        /* ── 本分区的动作行 ──────────────────────────────────────────
-           `margin-top` 是**负的**：它跟 Tab 条是一组（都在说"当前这个分区"），
-           所以刻意把那一档间距收窄，让它跟下面 KPI 那一组的距离肉眼可辨
-           （判据：组距 > 项距）。窄屏 `.detail` 的 gap 收到 16 ⇒ 这里仍是 8，成立。 */
-        .bug-toolbar { display: flex; align-items: center; gap: 8px; margin-top: -8px; }
+        /* ── 本分区的动作行（住在 `.tabs-wrap` 里，跟着它一起常驻）────────
+           ⚠️ 它**不自己 sticky**：`tabs-wrap` 已经 sticky 了，住进去就一起常驻 ——
+              省掉"算 Tab 条有多高"这件事（写死的高度是下一个会走散的常量）。
+           ⚠️ 也不给它底色：底色由 `tabs-wrap` 提供（正好是它压着的那个面 `--bg-card`），
+              两层各涂一次迟早涂得不一致。 */
+        .bug-toolbar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+
+        /* ⚠️ 常驻头 = Tab 条 + 动作行 ⇒ 跳过去的目标要额外让出**动作行**那一段，
+           否则「最久」里点一条、或者从任务页带 hash 跳回来，落点被压在常驻头下面
+           （正好藏住标题那一行 —— 看起来像"没跳过去"）。
+           **这条是唯一一处**：源页那条 74px 已经在基础段里撤掉了（见构建脚本的过滤）。 */
+        .ops-card { scroll-margin-top: 112px; }
         /* 输入框吃掉左侧余量，两枚按钮落在右端：
            「记下来」是主路径（primary），「详细填…」是"现在就填全"的另一条路。 */
         .bug-quick { flex: 1; min-width: 0; }
@@ -2389,27 +2396,23 @@
                     <button class="tab" role="tab" onclick="demo('会议 Tab')"><span data-ico="calendar" data-ico-size="15"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span> 会议 <span class="tab-count">2</span></button>
                     <button class="tab" role="tab" onclick="location.href='工作-项目-项目详情-账户-index.html'"><span data-ico="key" data-ico-size="15"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8"/><path d="m16 7 3 3"/></svg></span> 账户 <span class="tab-count">8</span></button>
                 </div>
+                <div class="bug-toolbar">
+                    <!-- 记一条的成本必须接近"打一句话" —— 这是**主路径**，不是"快捷方式"。
+                         其余字段全给默认值（一般 / 待修复），缺的由清单自己说出来
+                         （"还没写复现步骤" / "未指派"），而不是在录入时拦着人。
+                         判据：**拦着人填全的代价，是他干脆不记了。** -->
+                    <input class="inp bug-quick" id="quickName" type="text" autocomplete="off" spellcheck="false"
+                           placeholder="一句话说清哪儿不对 —— 回车就记下来，剩下的回头补"
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddBug();}" />
+                    <button class="btn btn-primary btn-sm" type="button" onclick="quickAddBug()">记下来</button>
+                    <button class="btn btn-ghost btn-sm" type="button" onclick="openBugForm()">详细填…</button>
+                </div>
 
             </div>
 
-            <!-- ========== 本分区的动作行 ==========
-                 放在 Tab 条**下面**而不是 Hero 里：Hero 那一排是项目级的
-                 （编辑项目 / 重新检查 / 进度 / 截止），而"报告 Bug"动的是**本分区**的清单 ——
-                 动作要和它作用的范围在一起。
-                 ⚠️ 它属于 **Tab 条那一组**（都在说"当前这个分区"）⇒ 与 Tab 条的间距
-                    要明显小于与下面 KPI 那一组的（判据：组距 > 项距），靠负 margin 收。
-                 ⚠️ 不给底色：它是一条**控件行**，不是一张卡（卡要有页脚与落点）。 -->
-            <div class="bug-toolbar">
-                <!-- 记一条的成本必须接近"打一句话" —— 这是**主路径**，不是"快捷方式"。
-                     其余字段全给默认值（一般 / 待修复 / 测试发现），缺的由清单自己说出来
-                     （"还没写复现步骤" / "未指派"），而不是在录入时拦着人。
-                     判据：**拦着人填全的代价，是他干脆不记了。** -->
-                <input class="inp bug-quick" id="quickName" type="text" autocomplete="off" spellcheck="false"
-                       placeholder="一句话说清哪儿不对 —— 回车就记下来，剩下的回头补"
-                       onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddBug();}" />
-                <button class="btn btn-primary btn-sm" type="button" onclick="quickAddBug()">记下来</button>
-                <button class="btn btn-ghost btn-sm" type="button" onclick="openBugForm()">详细填…</button>
-            </div>
+            <!-- 本分区的动作行**不在这里** —— 它住进了上面的 `.tabs-wrap`。
+                 那一层本来就已经 sticky（滚到清单中段时 Tab 条还在），
+                 工具行住进去就跟着一起常驻：**不用自己 sticky，也不用写死"Tab 条有多高"**。 -->
 
             <!-- ========== 页面级仪表 ==========
                  三格都回答"我下一步该动哪个" —— 这是本页唯一不可替代的一屏，

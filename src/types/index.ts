@@ -143,8 +143,19 @@ export interface Task {
   status: TaskStatus
   priority: Priority
   owner: string
+  /** 到期文案（由 `dueDays` 算出来，见 `derive.buildTasks`） */
   due: string
   late: boolean
+  /**
+   * 到期日相对今天的天数（负数 = 逾期）。日历那一档要的是**数**，不是文案 ——
+   *    从 `due` 反解析回来的话，改一句文案就会静默漏掉一批格子。
+   */
+  dueDays: number
+  /**
+   * 完成日相对今天的天数（0 = 今天完成；更早为负）。只有已完成的条目有值，
+   *    所以是 `number | null` —— `null` 与 `0` 是两件事（"没有这一天"和"就是今天"）。
+   */
+  doneDays: number | null
 }
 
 export interface Milestone {

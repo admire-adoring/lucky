@@ -107,12 +107,13 @@ export function buildTasks(project: Project): Task[] {
             : 'doing'
           : 'todo'
 
-    const due =
-      project.status === 'done'
-        ? '已完成'
-        : i % 5 === 0 && project.status === 'risk'
-          ? '已逾期 2 天'
-          : `${(i % 4) + 1} 天后`
+    /* 已完成的项目里每条都算"做完了"，不再谈哪天到期（与原型同）。
+       未完成那几条的到期文案由 `dueText(dueDays)` 现算 —— 日历与「近 7 天节奏」
+       读的是 `dueDays` 这个数，从文案反解析回来会在改文案时静默漏格子。 */
+    const dueDays = project.status === 'done' ? 0 : i % 5 === 0 && project.status === 'risk' ? -2 : (i % 4) + 1
+    /* 完成日往前铺 7 天：`doneDays` 是"近 7 天完成节奏"唯一的来源，
+       一律取 0 的话那七根柱子会有六根是空的。 */
+    const doneDays = status === 'done' ? -(i % 7) : null
 
     list.push({
       id: `${project.id}-t${i + 1}`,
@@ -120,13 +121,35 @@ export function buildTasks(project: Project): Task[] {
       status,
       priority: i % 4 === 0 ? 'high' : i % 3 === 0 ? 'mid' : 'low',
       owner: project.owners[i % project.owners.length] as string,
-      due,
-      late: due.includes('逾期'),
+      due: project.status === 'done' ? '已完成' : dueText(dueDays),
+      /* 已完成的条目不算逾期：它已经不欠谁了（旧版对"逾期日恰好落在已完成上"
+         那几条会标红，四下里只有它是一个红着的完成项）。 */
+      late: dueDays < 0 && status !== 'done',
+      dueDays,
+      doneDays,
     })
   }
 
   // 未完成的任务排前面（Array.prototype.sort 稳定，组内保持原顺序）
   return list.sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0))
+}
+
+/**
+ * 四象限落格：重要 = 优先级 high|mid，紧急 = 逾期或在做。
+ *
+ * 原型那一页的 `q` 是**显式字段**，并注明"接真实数据时读优先级位" ——
+ *    应用里没有这个字段，可用的真信号就这两支。
+ * 工作台那张「今日任务」卡与「任务」页的四象限读的是同一个函数：两处各推一次，
+ *    迟早出现"卡里在第一格、任务页在第二格"。
+ */
+export function taskQuad(task: Pick<Task, 'priority' | 'late' | 'status'>): 1 | 2 | 3 | 4 {
+  const important = task.priority !== 'low'
+  /* 「在做」只认 `doing`，不认 `blocked` —— 这是工作台那张卡原来看的口径，照搬不放大 */
+  const urgent = task.late || task.status === 'doing'
+  if (important && urgent) return 1
+  if (important) return 2
+  if (urgent) return 3
+  return 4
 }
 
 /** 里程碑：按整体进度决定已完成个数，下一个为进行中 */
@@ -1265,11 +1288,12 @@ export function buildAccounts(project: Project): AccountItem[] {
 }
 
 /* ------------------------------------------------------------------ *
- * 账户：日期与有效期
+ * 日期换算
  *
  * 全页的时间口径只有一条：池子里存的是"距今几天"，绝对日期到渲染时才推出来。
  * 三条换算放在这里（组件里只调不写），是因为它们同时被展开面板、轮换计划、
- * 添加表单的"到期日回显"和概览卡四处消费。
+ * 添加表单的"到期日回显"、概览卡与任务行（`buildTasks` 的 `due` / 四档视图的日历）
+ * 消费；两处各写一份必然在某次改文案时分叉。
  * ------------------------------------------------------------------ */
 
 /** 距今 `days` 天的绝对日期（`YYYY-MM-DD`）。负数 = 过去 */

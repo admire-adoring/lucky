@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { DOC_KIND_LABEL } from '../../../data/content-pool'
 import { cn } from '../../../lib/cn'
 import { Icon } from '../../icons/Icon'
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import { copyOf, copyAgoText, useDocCopies } from '../../../data/workspace/doc-copies'
 import type { DocKind, IconName } from '../../../types'
 
@@ -73,6 +73,87 @@ export interface DocBookDoc {
 }
 
 /**
+ * 书上的四件事（悬停 / 聚焦时从书口那一侧滑出来）。
+ *
+ * 四个都是可缺省的：给几个就出几个 —— 书墙有「进详情」与「删除」，
+ *   概览格 / 工作台书架 / 运维 / 服务器详情那几处只有"点开读"，
+ *   不给的口子不能凭空长出一颗假按钮。
+ * `onEdit` 全站同一个意思：写正文（打开原文页的编辑镜头）。
+ */
+export interface BookActs {
+  /** 预览正文：原文页的阅读镜头 */
+  onPreview?: () => void
+  /** 进入详情屏 */
+  onDetail?: () => void
+  /** 编辑正文：原文页的编辑镜头 */
+  onEdit?: () => void
+  /** 删除 */
+  onDelete?: () => void
+}
+
+const ACT_ORDER = ['onPreview', 'onDetail', 'onEdit', 'onDelete'] as const
+
+const ACT_META: Record<(typeof ACT_ORDER)[number], { icon: IconName; label: string }> = {
+  onPreview: { icon: 'i-eye', label: '预览正文' },
+  onDetail: { icon: 'i-arrow-right', label: '进入详情' },
+  onEdit: { icon: 'i-edit', label: '编辑正文' },
+  onDelete: { icon: 'i-trash', label: '删除' },
+}
+
+/**
+ * 书 + 动作条这一层壳。书本身 `overflow: hidden`（压印框与缎带要裁）⇒ 抽屉装不进书里，
+ * 只能多套一层；而抽屉是"这本书延伸出去的一截"，抬起与歪要跟着书一起走 ⇒ 主角在外层。
+ *
+ * `acts` 一个都不给就原样返回、不包这一层：概览格里那几本缩略、详情屏正中间那本
+ *   "当前对象"都不该多一层 div。
+ */
+export function BookHost({ acts, children }: { acts?: BookActs; children: ReactNode }) {
+  const keys = acts ? ACT_ORDER.filter((key) => acts[key]) : []
+  if (!keys.length) return <>{children}</>
+
+  return (
+    <div
+      className="doc-book-wrap"
+      /**
+       * 抽屉翻不翻到左侧是实测的（原型 `docActsSide`）：右边缘 + 抽屉宽 > 一排书的右边界
+       *    ⇒ 加 `is-left`。这里直接改 `classList`、不走 state —— 它只影响 hover 态的一个视觉
+       *    开关，而每次 hover 都让整面书架重渲染（书一多就掉帧）。
+       *    边界取最近的那一排（书墙是 `.doc-shelf`，卡里的是 `.doc-books`）——
+       *    判据取"实测"而不是"这一排有几本"：列数由 `minmax` 与容器宽共同决定，猜不准。
+       */
+      onMouseEnter={(event: ReactMouseEvent<HTMLDivElement>) => {
+        const wrap = event.currentTarget
+        const drawer = wrap.querySelector('.doc-book-acts')
+        const shelf = wrap.closest('.doc-shelf, .doc-books')
+        if (!drawer || !shelf) return
+        const overflowRight =
+          wrap.getBoundingClientRect().right + (drawer as HTMLElement).offsetWidth - 6 >
+          shelf.getBoundingClientRect().right
+        wrap.classList.toggle('is-left', overflowRight)
+      }}
+    >
+      {children}
+      {/* 只有图形 ⇒ 动作名靠 `title` / `aria-label`（悬停有提示、读屏读得到）。
+          删除那颗带 `data-dd-del`：破坏性动作只在指向它时变红（CSS 那一档） */}
+      <div className="doc-book-acts">
+        {keys.map((key) => (
+          <button
+            key={key}
+            type="button"
+            title={ACT_META[key].label}
+            aria-label={ACT_META[key].label}
+            {...(key === 'onDelete' ? { 'data-dd-del': '' } : {})}
+            onClick={acts?.[key]}
+          >
+            <Icon name={ACT_META[key].icon} />
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
  * 一本书。
  *
  * `script` 那支是原型给部署脚本用的深灰封面（`.doc-book.script`，白字压 #374151 = 10.4:1，
@@ -92,14 +173,8 @@ export function DocBook({
   /** 金缎带。不传 = 按「今天动过」（`updatedHours < 24`）判；传了就听调用方的 */
   marked?: boolean
   onOpen?: () => void
-  /**
-   * 书墙上的四件事（预览正文 / 进入详情 / 编辑 / 删除）。
-   *
-   * 给了才包一层 `.doc-book-wrap` 并把抽屉挂上 —— 书本身 `overflow: hidden`
-   *    （压印框与缎带要裁），抽屉装不进去；而且它是"延伸出去的一截"，抬起与歪要跟着书一起走
-   *    （所以 hover 那一步的主角是外层）。概览格 / 运维 / 详情屏那几处不传：原型也只在书墙传。
-   */
-  actions?: { onPreview: () => void; onEdit: () => void; onDelete: () => void }
+  /** 悬停动作条（见 `BookActs`）。不给就还是原来那本光书 */
+  actions?: BookActs
 }) {
   /* 订阅"应用内副本"：保存之后这一本当场更新（名字 / 缎带 / 更新时间）。
      `version` 只是用来触发重渲的 —— 值本身不用判断，真正的读值是底下那句 `copyOf`。 */
@@ -149,43 +224,5 @@ export function DocBook({
 
   if (!actions) return book
 
-  return (
-    <div
-      className="doc-book-wrap"
-      /**
-       * 抽屉翻不翻到左侧是实测的（原型 `docActsSide`）：右边缘 + 抽屉宽 > 书墙右边界
-       *    ⇒ 加 `is-left`。这里直接改 `classList`、不走 state —— 它只影响 hover 态的一个视觉
-       *    开关，而每次 hover 都让整面书墙重渲染（书一多就掉帧）。
-       *    判据取"实测"而不是"这一排有几本"：列数由 `minmax` 与容器宽共同决定，猜不准。
-       */
-      onMouseEnter={(event) => {
-        const wrap = event.currentTarget
-        const acts = wrap.querySelector('.doc-book-acts')
-        const shelf = wrap.closest('.doc-shelf')
-        if (!acts || !shelf) return
-        const overflowRight =
-          wrap.getBoundingClientRect().right + (acts as HTMLElement).offsetWidth - 6 >
-          shelf.getBoundingClientRect().right
-        wrap.classList.toggle('is-left', overflowRight)
-      }}
-    >
-      {book}
-      {/* 只有图形 ⇒ 动作名靠 `title` / `aria-label`（悬停有提示、读屏读得到）。
-          删除那颗带 `data-dd-del`：破坏性动作只在指向它时变红（CSS 那一档） */}
-      <div className="doc-book-acts">
-        <button type="button" title="预览正文" aria-label="预览正文" onClick={actions.onPreview}>
-          <Icon name="i-eye" />
-        </button>
-        <button type="button" title="进入详情" aria-label="进入详情" onClick={onOpen}>
-          <Icon name="i-arrow-right" />
-        </button>
-        <button type="button" title="编辑" aria-label="编辑" onClick={actions.onEdit}>
-          <Icon name="i-edit" />
-        </button>
-        <button type="button" data-dd-del="" title="删除" aria-label="删除" onClick={actions.onDelete}>
-          <Icon name="i-trash" />
-        </button>
-      </div>
-    </div>
-  )
+  return <BookHost acts={actions}>{book}</BookHost>
 }

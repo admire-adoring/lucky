@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DOC_KIND_LABEL } from '../../../data/content-pool'
-import { buildTasks, docUpdatedText, ownerDisplayName } from '../../../data/derive'
+import { buildTasks, docUpdatedText, ownerDisplayName, taskQuad } from '../../../data/derive'
 import { WORK_DOC_INDEX } from '../../../data/workspace/work-docs'
 import { useProjects } from '../../../hooks/use-projects'
 import { cn } from '../../../lib/cn'
@@ -11,7 +11,7 @@ import { WorkspaceModal } from '../WorkspaceModal'
 import { DocBook, type DocBookDoc } from '../project-detail/DocBook'
 import { useSourceOverlay } from '../project-detail/doc-source/use-source-overlay'
 import { OpsIcon } from '../project-detail/ops-icon'
-import type { DocumentItem, Priority, Project, ProjectStatus } from '../../../types'
+import type { DocumentItem, Project, ProjectStatus, Task } from '../../../types'
 
 /* ============================================================================
    工作模块 · 工作台（`/work` 的第一个分区）
@@ -93,7 +93,8 @@ interface DashTask {
   important: boolean
 }
 
-function toDashTask(project: Project, task: { id: string; name: string; status: string; priority: Priority; owner: string; due: string; late: boolean }): DashTask {
+function toDashTask(project: Project, task: Task): DashTask {
+  const quadrant = taskQuad(task)
   return {
     key: task.id,
     name: task.name,
@@ -101,8 +102,9 @@ function toDashTask(project: Project, task: { id: string; name: string; status: 
     when: task.due,
     overdue: task.late,
     done: task.status === 'done',
-    urgent: task.late || task.status === 'doing',
-    important: task.priority !== 'low',
+    /* 两维都由 `taskQuad` 给 —— 与「任务」页的四象限同一处推导 */
+    urgent: quadrant === 1 || quadrant === 3,
+    important: quadrant === 1 || quadrant === 2,
   }
 }
 
@@ -171,6 +173,7 @@ export function WorkbenchPanel() {
   const shownDocs = (docView === 'star' ? docs.filter((doc) => STARRED.has(starKey('d', doc.id))) : docs).slice(0, 3)
 
   const docOf = (doc: DocumentItem): DocBookDoc => ({
+    id: doc.id,
     name: doc.name,
     kind: doc.kind,
     /* 副题：存在哪儿。原型那一格写的是版本号，而应用的文档没有版本字段 ——
@@ -501,7 +504,13 @@ export function WorkbenchPanel() {
             {shownDocs.length ? (
               <div className="doc-books">
                 {shownDocs.map((doc) => (
-                  <DocBook key={doc.id} doc={docOf(doc)} marked={starOf('d', doc.id)} onOpen={() => openSource(doc)} />
+                  <DocBook
+                    key={doc.id}
+                    doc={docOf(doc)}
+                    marked={starOf('d', doc.id)}
+                    onOpen={() => openSource(doc)}
+                    actions={{ onPreview: () => openSource(doc), onEdit: () => openSource(doc, 'edit') }}
+                  />
                 ))}
               </div>
             ) : (

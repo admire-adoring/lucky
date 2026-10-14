@@ -923,6 +923,8 @@ function DocDetailScreen({
   onOpen,
   onFilterFunc,
   onOpenSource,
+  onEditSource,
+  onEditMeta,
   notice,
 }: {
   doc: DocumentItem
@@ -931,8 +933,12 @@ function DocDetailScreen({
   onOpen: (id: string) => void
   /** 点「位置」里的模块 / 功能：回主页并筛上它（落的是与侧栏 facet 同两个变量） */
   onFilterFunc: (module: string, func: string) => void
-  /** 「打开原文」进第三屏（阅读态那单独一页） */
-  onOpenSource: () => void
+  /** 「打开原文」进第三屏（阅读那单独一页）。带参数是因为这一屏里不止一本书 */
+  onOpenSource: (doc: DocumentItem) => void
+  /** 「编辑」：同一篇，但直接落在编辑镜头 */
+  onEditSource: (doc: DocumentItem) => void
+  /** 改这一篇的登记信息（文档名 / 模块 / 功能 / 类型 / 来源） */
+  onEditMeta: () => void
   notice: (text: string) => void
 }) {
   /* 同一功能下的其他篇：详情页唯一能给而主页给不了的上下文。
@@ -963,11 +969,19 @@ function DocDetailScreen({
           <div className="dd-main">
             <div className="dd-title-row">
               <div className="dd-title">{copy?.name ?? doc.name}</div>
-              {/* 这一屏唯一"往前走"的动作 ⇒ 给主按钮（上一版它是全屏最弱的样式，主次正好反了） */}
+              {/* 这一屏两个"往前走"的动作：读（主）/ 改这一篇的登记信息（次）。
+                  写正文那条在书的动作条与原文页自己的「编辑」上，不在这里再放一颗。 */}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={onEditMeta}
+              >
+                编辑信息
+              </button>
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={onOpenSource}
+                onClick={() => onOpenSource(doc)}
               >
                 打开原文
               </button>
@@ -1052,7 +1066,16 @@ function DocDetailScreen({
             </div>
             <div className="doc-books compact">
               {siblings.map((other) => (
-                <DocBook key={other.id} doc={other} onOpen={() => onOpen(other.id)} />
+                <DocBook
+                  key={other.id}
+                  doc={other}
+                  onOpen={() => onOpen(other.id)}
+                  actions={{
+                    onPreview: () => onOpenSource(other),
+                    onDetail: () => onOpen(other.id),
+                    onEdit: () => onEditSource(other),
+                  }}
+                />
               ))}
             </div>
           </section>
@@ -1339,7 +1362,12 @@ export function DocLibrary({
 
   /* 第三屏 · 原文。它挂在**两个** return 上：详情屏那支是早返回，只挂主页这一支的话，
      从详情屏点「打开原文」不会有任何反应（覆盖层压根没渲染）。 */
-  const { openSource, sourceNode } = useSourceOverlay(projectName, notice)
+  const { openSource, closeSource, sourceNode } = useSourceOverlay(projectName, notice, (doc) => {
+    /* 原文页（z-index 400）盖在弹窗（100）之上 ⇒ 改登记信息要先退这一层，
+       否则弹窗开在它背后，看着像"点了没反应"。退的时候编辑面的草稿照旧留下（卸载时 park）。 */
+    closeSource()
+    setDocModal({ mode: 'edit', id: doc.id })
+  })
 
   /* 模块 / 功能是内容数据（各项目自己的一小组）⇒ 换了项目可能一个都不剩。
      原型在渲染开头硬复位；这里是派生时归一化（见文件头 ②）——
@@ -1459,7 +1487,9 @@ export function DocLibrary({
           docs={docs}
           onBack={() => setOpenId(null)}
           onOpen={(id) => setOpenId(id)}
-          onOpenSource={() => openSource(opened)}
+          onOpenSource={(doc) => openSource(doc)}
+          onEditSource={(doc) => openSource(doc, 'edit')}
+          onEditMeta={() => setDocModal({ mode: 'edit', id: opened.id })}
           onFilterFunc={(module, func) => {
             setModuleKey(module)
             setFuncKey(func)
@@ -1675,11 +1705,12 @@ export function DocLibrary({
                           key={doc.id}
                           doc={doc}
                           onOpen={() => setOpenId(doc.id)}
-                          /* 书墙上的四件事（原型 `docBookHtml(d, false, true)` 的第三参）——
-                             概览 / 运维 / 详情屏那几处不传，所以抽屉只在这一面墙上出现 */
+                          /* 书墙是这一族里唯一有"详情屏"与"删除"的地方，所以四颗都在。
+                             换到概览 / 工作台 / 运维 / 服务器详情那几处，就只给它们真有的那两颗。 */
                           actions={{
                             onPreview: () => openSource(doc),
-                            onEdit: () => setDocModal({ mode: 'edit', id: doc.id }),
+                            onDetail: () => setOpenId(doc.id),
+                            onEdit: () => openSource(doc, 'edit'),
                             onDelete: () => setDocModal({ mode: 'delete', id: doc.id }),
                           }}
                         />

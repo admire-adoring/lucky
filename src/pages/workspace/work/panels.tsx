@@ -39,10 +39,10 @@
  *      contacts → src/components/workspace/work/ClientsContacts.tsx（角色筛选）
  */
 
-import { ToggleRow, TaskCheck, TaskText } from '../../../components/workspace/toggles'
 import { DocLibrary } from '../../../components/workspace/project-detail/DocLibrary'
 import { WORK_DOC_INDEX } from '../../../data/workspace/work-docs'
 import { toast } from '../../../stores/toast-store'
+import { WorkTasksPage } from '../../../components/workspace/work/WorkTasksPage'
 import { WorkbenchPanel } from '../../../components/workspace/work/WorkbenchPanel'
 import { ServersLedger } from '../../../components/workspace/work/ServersLedger'
 
@@ -91,44 +91,20 @@ export function DashboardPanel({ handlers: _handlers }: { handlers: Handlers }) 
   return <WorkbenchPanel />
 }
 
+/**
+ * 任务（`/work/tasks`）—— 2026-10-14 按原型 `design/work/work_task.html` 换版：
+ * 视图条（四档：列表 / 看板 / 四象限 / 日历）+ 列表档的主列与侧轨。
+ *
+ * 上一版是 6 条硬编码的 `.task-item`（那份静态清单与工作台卡上的同一批任务
+ *    各说各话，"勾选只切外观"）。现在两处共用同一份池与同一套四档：
+ *    正文搬到 `components/workspace/work/WorkTaskBoard.tsx`（项目详情的「任务」
+ *    分区用的是同一个组件），本文件只留一行套壳。
+ *
+ * 这一页要状态（四档视图 / 勾选覆盖表）⇒ 与 `ClientsContacts` / `ProjectDrawers` /
+ *    `WorkbenchPanel` 同一条判据：要状态就搬去独立组件。
+ */
 export function TasksPanel({ handlers: _handlers }: { handlers: Handlers }) {
-  return (
-    <>
-      <section className="card">
-      <div className="card-title">工作任务</div>
-      <ToggleRow className="task-item">
-      <div className="task-check done">✓</div>
-      <TaskText>修复登录页样式</TaskText>
-      <span className="task-tag">已完成</span>
-      </ToggleRow>
-      <ToggleRow className="task-item">
-      <div className="task-check done">✓</div>
-      <TaskText>代码评审</TaskText>
-      <span className="task-tag">已完成</span>
-      </ToggleRow>
-      <ToggleRow className="task-item">
-      <TaskCheck />
-      <TaskText>准备项目评审</TaskText>
-      <span className="task-tag">进行中</span>
-      </ToggleRow>
-      <ToggleRow className="task-item">
-      <TaskCheck />
-      <TaskText>更新接口文档</TaskText>
-      <span className="task-tag">待办</span>
-      </ToggleRow>
-      <ToggleRow className="task-item">
-      <TaskCheck />
-      <TaskText>优化首页加载速度</TaskText>
-      <span className="task-tag">待办</span>
-      </ToggleRow>
-      <ToggleRow className="task-item">
-      <TaskCheck />
-      <TaskText>排查线上告警</TaskText>
-      <span className="task-tag">待办</span>
-      </ToggleRow>
-      </section>
-    </>
-  )
+  return <WorkTasksPage />
 }
 
 /**

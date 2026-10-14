@@ -111,8 +111,9 @@ NEW_CSS = r'''        /* =======================================================
             gap: 4px 12px;
             padding: 10px 12px 10px 15px;
             transition: background 0.16s ease;
-            /* 侧栏"最久"那几条点过来时，别把这一行压在视口顶边 */
-            scroll-margin-top: 96px;
+            /* 侧栏"最久"那几条点过来时，别把这一行压在视口顶边
+               （数值同 `.ops-card`：常驻头变高之后它们要一起长） */
+            scroll-margin-top: 112px;
         }
         /* ⚠️ 色条用 `box-shadow: inset` 而不是 `border-left`：
               后者会让内容整体右移 2~3px，同一组里"有色的行"和"没色的行"文字就对不齐。 */
@@ -397,11 +398,18 @@ NEW_CSS = r'''        /* =======================================================
            不补这条，`el.hidden = true` 藏不住任何东西（过滤"看着没反应"）。*/
         .cmd-item[hidden] { display: none; }
 
-        /* ── 本分区的动作行 ──────────────────────────────────────────
-           `margin-top` 是**负的**：它跟 Tab 条是一组（都在说"当前这个分区"），
-           所以刻意把那一档间距收窄，让它跟下面 KPI 那一组的距离肉眼可辨
-           （判据：组距 > 项距）。窄屏 `.detail` 的 gap 收到 16 ⇒ 这里仍是 8，成立。 */
-        .bug-toolbar { display: flex; align-items: center; gap: 8px; margin-top: -8px; }
+        /* ── 本分区的动作行（住在 `.tabs-wrap` 里，跟着它一起常驻）────────
+           ⚠️ 它**不自己 sticky**：`tabs-wrap` 已经 sticky 了，住进去就一起常驻 ——
+              省掉"算 Tab 条有多高"这件事（写死的高度是下一个会走散的常量）。
+           ⚠️ 也不给它底色：底色由 `tabs-wrap` 提供（正好是它压着的那个面 `--bg-card`），
+              两层各涂一次迟早涂得不一致。 */
+        .bug-toolbar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+
+        /* ⚠️ 常驻头 = Tab 条 + 动作行 ⇒ 跳过去的目标要额外让出**动作行**那一段，
+           否则「最久」里点一条、或者从任务页带 hash 跳回来，落点被压在常驻头下面
+           （正好藏住标题那一行 —— 看起来像"没跳过去"）。
+           **这条是唯一一处**：源页那条 74px 已经在基础段里撤掉了（见构建脚本的过滤）。 */
+        .ops-card { scroll-margin-top: 112px; }
         /* 输入框吃掉左侧余量，两枚按钮落在右端：
            「记下来」是主路径（primary），「详细填…」是"现在就填全"的另一条路。 */
         .bug-quick { flex: 1; min-width: 0; }
@@ -516,24 +524,9 @@ TABS = r'''                <div class="tabs" role="tablist" aria-label="项目�
                     <button class="tab" role="tab" onclick="location.href='工作-项目-项目详情-账户-index.html'"><span data-ico="key" data-ico-size="15"></span> 账户 <span class="tab-count">8</span></button>
                 </div>'''
 
-NEW_CONTENT = r'''            <!-- ========== 本分区的动作行 ==========
-                 放在 Tab 条**下面**而不是 Hero 里：Hero 那一排是项目级的
-                 （编辑项目 / 重新检查 / 进度 / 截止），而"报告 Bug"动的是**本分区**的清单 ——
-                 动作要和它作用的范围在一起。
-                 ⚠️ 它属于 **Tab 条那一组**（都在说"当前这个分区"）⇒ 与 Tab 条的间距
-                    要明显小于与下面 KPI 那一组的（判据：组距 > 项距），靠负 margin 收。
-                 ⚠️ 不给底色：它是一条**控件行**，不是一张卡（卡要有页脚与落点）。 -->
-            <div class="bug-toolbar">
-                <!-- 记一条的成本必须接近"打一句话" —— 这是**主路径**，不是"快捷方式"。
-                     其余字段全给默认值（一般 / 待修复 / 测试发现），缺的由清单自己说出来
-                     （"还没写复现步骤" / "未指派"），而不是在录入时拦着人。
-                     判据：**拦着人填全的代价，是他干脆不记了。** -->
-                <input class="inp bug-quick" id="quickName" type="text" autocomplete="off" spellcheck="false"
-                       placeholder="一句话说清哪儿不对 —— 回车就记下来，剩下的回头补"
-                       onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddBug();}" />
-                <button class="btn btn-primary btn-sm" type="button" onclick="quickAddBug()">记下来</button>
-                <button class="btn btn-ghost btn-sm" type="button" onclick="openBugForm()">详细填…</button>
-            </div>
+NEW_CONTENT = r'''            <!-- 本分区的动作行**不在这里** —— 它住进了上面的 `.tabs-wrap`。
+                 那一层本来就已经 sticky（滚到清单中段时 Tab 条还在），
+                 工具行住进去就跟着一起常驻：**不用自己 sticky，也不用写死"Tab 条有多高"**。 -->
 
             <!-- ========== 页面级仪表 ==========
                  三格都回答"我下一步该动哪个" —— 这是本页唯一不可替代的一屏，
@@ -577,6 +570,19 @@ NEW_CONTENT = r'''            <!-- ========== 本分区的动作行 ==========
                 <div class="bug-empty-sub">报告一条，或者从任务列表把已经在做的事拉过来。</div>
                 <button class="btn btn-primary" type="button" onclick="openBugForm()">报告 Bug</button>
             </div>'''
+
+TOOLBAR = r'''                <div class="bug-toolbar">
+                    <!-- 记一条的成本必须接近"打一句话" —— 这是**主路径**，不是"快捷方式"。
+                         其余字段全给默认值（一般 / 待修复），缺的由清单自己说出来
+                         （"还没写复现步骤" / "未指派"），而不是在录入时拦着人。
+                         判据：**拦着人填全的代价，是他干脆不记了。** -->
+                    <input class="inp bug-quick" id="quickName" type="text" autocomplete="off" spellcheck="false"
+                           placeholder="一句话说清哪儿不对 —— 回车就记下来，剩下的回头补"
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddBug();}" />
+                    <button class="btn btn-primary btn-sm" type="button" onclick="quickAddBug()">记下来</button>
+                    <button class="btn btn-ghost btn-sm" type="button" onclick="openBugForm()">详细填…</button>
+                </div>'''
+
 
 NEW_DRAWER = r'''<!-- ========== 报告 / 编辑一条 Bug：右侧抽屉 ==========
      为什么是抽屉而不是独立页：新增与编辑都是**从清单里抽出来的一份** ——
@@ -1757,7 +1763,12 @@ BASE_CSS, _dropped = cut_css_blocks('\n'.join(L[I_STYLE:I_ACC_CSS]),
 # `--border-field`（输入框那一档描边）的六个消费者全在账户专属段里 ⇒ 声明一起撤。
 # 原地留一句：本页没有表单，将来真要加表单，从账户页把这一行拿回来。
 BASE_CSS = '\n'.join(l for l in BASE_CSS.split('\n')
-                       if '--idle-fg' not in l)   # ℹ️ `--border-field` 不再过滤：本页现在有表单了
+                       if '--idle-fg' not in l
+                       # ⚠️ 源页那条 `.ops-card { scroll-margin-top: 74px }` 是"只有 Tab 条那会儿"
+                       #    的算法（常驻头现在多了动作行）⇒ 删掉它，让落点让位**只有一处**。
+                       #    同一条属性一边留着旧值一边在后面覆盖，是下一次走散的种子。
+                       and 'scroll-margin-top: 74px' not in l)
+print('[build] 基础段的 scroll-margin-top 已撤（落点让位改由 NEW_CSS 统一给）')
 print('[build] 基础段删掉 %d 块（本页无消费者的）' % len(_dropped))
 out.extend(BASE_CSS.split('\n'))
 out.extend(NEW_CSS.rstrip('\n').split('\n'))
@@ -1834,7 +1845,11 @@ shell = shell[:a] + SLOT_BODY.rstrip('\n') + '\n' + shell[b:]
 a = shell.index('                <div class="tabs" role="tablist"')
 _k = shell.index('账户 <span class="tab-count"', a)
 b = shell.index('\n', shell.index('</div>', _k))
-shell = shell[:a] + TABS.rstrip('\n') + shell[b:]
+# ⚠️ 工具行插在 **tabs 闭合之后、tabs-wrap 闭合之前** —— 也就是住进 `tabs-wrap` 里。
+#    那一层本身已经是 `position: sticky` ⇒ 工具行跟着它一起常驻，
+#    **不用自己 sticky、也不用写死"Tab 条有多高"**（写死的数字是下一个会走散的常量）。
+#    而"随手记"恰恰发生在人已经滚到清单中段、看到问题的那一刻。
+shell = shell[:a] + TABS.rstrip('\n') + '\n' + TOOLBAR.rstrip('\n') + shell[b:]
 
 out.extend(shell.split('\n'))
 out.extend(NEW_CONTENT.rstrip('\n').split('\n'))

@@ -89,7 +89,15 @@ import {
   buildServers,
   ownerDisplayName,
 } from '../../../data/derive'
-import { adaptDocs, adaptTasks, type WsDoc, type WsTask, type WsTaskStatus } from '../../../data/workspace/project'
+import { adaptDocs, adaptTasks, type WsDoc, type WsTask } from '../../../data/workspace/project'
+import {
+  applyOverride,
+  projectTone,
+  toggleOverride,
+  workTaskRows,
+  type TaskOverride,
+} from '../../../data/workspace/work-tasks'
+import { WorkTaskBoard } from '../work/WorkTaskBoard'
 import type { ModuleTab } from '../../../data/workspace/types'
 import type { Project, ProjectStatus, Toast } from '../../../types'
 
@@ -417,6 +425,7 @@ function OverviewPanel({
   openTab,
   onToggleTask,
   onOpenDoc,
+  onEditDoc,
 }: {
   tasks: WsTask[]
   bugs: ReturnType<typeof buildBugs>
@@ -430,6 +439,8 @@ function OverviewPanel({
   onToggleTask: (id: string) => void
   /* 点一本书 = 打开它的原文（这一格没有详情屏，读正文就是它唯一的下场） */
   onOpenDoc: (doc: WsDoc) => void
+  /* 动作条上那颗「编辑」：同一篇，直接落在编辑镜头 */
+  onEditDoc: (doc: WsDoc) => void
 }) {
   const done = tasks.filter((t) => t.status === 'done').length
   const has = (key: TabKey) => openTab.includes(key)
@@ -459,7 +470,12 @@ function OverviewPanel({
         <CardHead icon="📄" title="文档" count={`${docs.length}`} more={has('docs') ? { label: '查看全部', onClick: () => gotoTab('docs') } : undefined} />
         <div className="doc-books">
           {docs.slice(0, 3).map((doc) => (
-            <DocBook key={doc.id} doc={doc} onOpen={() => onOpenDoc(doc)} />
+            <DocBook
+              key={doc.id}
+              doc={doc}
+              onOpen={() => onOpenDoc(doc)}
+              actions={{ onPreview: () => onOpenDoc(doc), onEdit: () => onEditDoc(doc) }}
+            />
           ))}
         </div>
       </div>
@@ -586,7 +602,7 @@ export function useProjectDetailView(id: string | undefined, basePath: string) {
 
   /* 勾选状态记在覆盖表里，而不是拿到数据后 setState 一份副本 —— 理由见旧版注释：
      副本要在 effect 里同步，会让"数据刷新冲掉用户刚勾的状态"变成要额外兜的竞态。 */
-  const [override, setOverride] = useState<Record<string, WsTaskStatus>>({})
+  const [override, setOverride] = useState<Record<string, TaskOverride>>({})
   const [heroOpen, setHeroOpen] = useState(false)
   /**
    * 账户清单的修订号。账户是就地改池子那一份数组的（添加 / 编辑 / 停用 /
@@ -601,12 +617,19 @@ export function useProjectDetailView(id: string | undefined, basePath: string) {
   const tasks: WsTask[] = useMemo(
     () =>
       baseTasks.map((task) => {
-        const next = override[task.id]
-        return next && next !== task.status
-          ? { ...task, status: next, late: next === 'done' ? false : task.late }
+        const hit = override[task.id]
+        return hit && hit.state !== task.status
+          ? { ...task, status: hit.state, late: hit.state === 'done' ? false : task.late }
           : task
       }),
     [baseTasks, override],
+  )
+
+  /* 「任务」分区那一格的四档视图（`WorkTaskBoard`）读的是行，不是 `WsTask` ——
+     四象限、日历、分布那几档要的是"第几天"与格位，那些只有 `Task` 上才有。 */
+  const taskRows = useMemo(
+    () => (data ? applyOverride(workTaskRows(data.project, data.tasks, projectTone(0)), override) : []),
+    [data, override],
   )
 
   const docs = useMemo(() => (data ? adaptDocs(data.documents) : []), [data])
@@ -639,14 +662,17 @@ export function useProjectDetailView(id: string | undefined, basePath: string) {
    */
   const notice = (text: string, action?: Toast['action']) => toast(text, action)
 
+  /**
+   * 勾一条任务。取消完成回到**原来那一档**（`toggleOverride` 里那条）——
+   *    覆盖表存的是 `{ state, prev }`，所以这个函数不再自己推 next。
+   * 回执写在事件里，不写进 `setOverride` 的更新函数：StrictMode 下更新函数会跑两遍。
+   */
   const toggleTask = (taskId: string) => {
-    setOverride((prev) => {
-      const current = prev[taskId] ?? baseTasks.find((t) => t.id === taskId)?.status
-      const next: WsTaskStatus = current === 'done' ? 'todo' : 'done'
-      const title = baseTasks.find((t) => t.id === taskId)?.title ?? ''
-      toast(next === 'done' ? `已完成「${title}」` : `已重置「${title}」`)
-      return { ...prev, [taskId]: next }
-    })
+    const task = baseTasks.find((item) => item.id === taskId)
+    if (!task) return
+    const done = (override[taskId]?.state ?? task.status) === 'done'
+    setOverride((prev) => toggleOverride({ id: task.id, state: task.status }, prev))
+    toast(done ? `已重置「${task.title}」` : `已完成「${task.title}」`)
   }
 
   /* 数字键 1..7 切分区（原型有这一条）。两个前提：没有修饰键、焦点不在输入控件里 ——
@@ -663,7 +689,6 @@ export function useProjectDetailView(id: string | undefined, basePath: string) {
   }, [openTab, select])
   /* 派生：数据没到之前一律空集 —— 不编占位内容（与"先渲染空壳再补"是两条路）。 */
   const project = data?.project
-  const doing = tasks.filter((t) => t.status !== 'done')
 
   const counts = useMemo<Partial<Record<TabKey, string>>>(
     () =>
@@ -697,7 +722,7 @@ export function useProjectDetailView(id: string | undefined, basePath: string) {
     openTab,
     project,
     tasks,
-    doing,
+    taskRows,
     docs,
     bugs,
     servers,
@@ -739,7 +764,7 @@ export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backT
   const {
     project,
     tasks,
-    doing,
+    taskRows,
     docs,
     bugs,
     servers,
@@ -815,41 +840,16 @@ export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backT
             openTab={openTab}
             onToggleTask={toggleTask}
             onOpenDoc={openSource}
+            onEditDoc={(doc) => openSource(doc, 'edit')}
           />
         ) : null}
 
         {active === 'tasks' ? (
-          <div className="card rc-task">
-            <CardHead
-              icon="✅"
-              title="全部任务"
-              count={`${tasks.filter((t) => t.status === 'done').length} / ${tasks.length} 完成`}
-              action={
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => notice('新建任务：还没有写接口')}>
-                  + 新建任务
-                </button>
-              }
-            />
-            <div className="task-group-title">
-              进行中
-              <span className="tg-count">{doing.length}</span>
-            </div>
-            <div className="task-list">
-              {doing.map((task) => (
-                <TaskRow key={task.id} task={task} onToggle={toggleTask} />
-              ))}
-              {doing.length === 0 ? <div className="q-empty">没有进行中的任务</div> : null}
-            </div>
-            <div className="task-group-title" style={{ marginTop: 10 }}>
-              已完成
-              <span className="tg-count">{tasks.filter((t) => t.status === 'done').length}</span>
-            </div>
-            <div className="task-list">
-              {tasks.filter((t) => t.status === 'done').map((task) => (
-                <TaskRow key={task.id} task={task} onToggle={toggleTask} />
-              ))}
-            </div>
-          </div>
+          /* 任务（原型 `design/work/work_task.html`，2026-10-14）。
+             上一版是"两段分组列表"（进行中 / 已完成）—— 与工作模块「任务」那一页
+             是两套实现。现在两处共用同一个组件与同一套四档视图，
+             数据这一层换成 `workTaskRows`（四象限与日历要的是 `Task` 上的日偏移）。 */
+          <WorkTaskBoard rows={taskRows} notice={notice} onToggle={(row) => toggleTask(row.id)} />
         ) : null}
 
         {active === 'bugs' ? (

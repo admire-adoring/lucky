@@ -558,7 +558,7 @@ export function ServerDetail({ host }: { host: string }) {
           归属是项目，不是"这台机器" —— 文档长在项目里（运维页那一格就是这几本），
              本页只说"它服务的那几个项目、各自有几本、都是什么"，所以按项目分排书架。
           真值在运维页 / 文档主页：本页不给下载 / 新建 / 移动（搬到这儿就是第二套
-             管理入口）⇒ 这里的书只有"点开读"一个动作（`DeployDocBook` 不传 `actions`）。 */}
+             管理入口）⇒ 这里的书只留"读 / 写"两颗，下载与更多不在这里出现。 */}
       <section className="sec">
         <div className="sec-head">
           <span className="sec-ico" aria-hidden="true">
@@ -586,6 +586,10 @@ export function ServerDetail({ host }: { host: string }) {
                     key={doc.id}
                     doc={doc}
                     onOpen={() => openSource(deploySourceDoc(doc, shelf.projectName))}
+                    acts={{
+                      onPreview: () => openSource(deploySourceDoc(doc, shelf.projectName)),
+                      onEdit: () => openSource(deploySourceDoc(doc, shelf.projectName), 'edit'),
+                    }}
                   />
                 ))}
                 </div>

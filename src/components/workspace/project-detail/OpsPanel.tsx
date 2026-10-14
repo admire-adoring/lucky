@@ -911,9 +911,13 @@ export function OpsPanel({
               key={doc.id}
               doc={doc}
               onOpen={() => openSource(deploySourceDoc(doc, projectName))}
+              acts={{
+                onPreview: () => openSource(deploySourceDoc(doc, projectName)),
+                onEdit: () => openSource(deploySourceDoc(doc, projectName), 'edit'),
+              }}
               /* 这两颗是运维这一格特有的（服务器详情那一页不搬 —— 管理只有一处家）。
-                 传了 `actions` ⇒ 宿主自动换成 `div[role=button]`（见组件文件头）。 */
-              actions={
+                 传了 `extra` ⇒ 宿主自动换成 `div[role=button]`（见组件文件头）。 */
+              extra={
                 <>
                   <button
                     type="button"

@@ -255,6 +255,32 @@ check('const typed =' in js and js.index('const typed =') < js.index('closeCmd()
 check('function cmdVisible' in js and 'const items = cmdVisible();' in js,
       '键盘只走看得见的条目', '键盘遍历全量列表 ⇒ 过滤后回车会执行一条看不见的条目')
 
+print('== 3f. 入口的常驻性（"不太好记"这一问）==')
+# 判据：随手记发生在**看到问题的那一刻**，而那一刻人通常已经滚到清单中段 ——
+# 入口跟着内容滚走 = "想记的时候它不在"。所以它必须住在**已经 sticky 的那一层**里。
+_mc2 = re.sub(r'<!--.*?-->', '', markup, flags=re.S)
+
+
+_w = _mc2.index('class="tabs-wrap"')
+_t = _mc2.index('class="bug-toolbar"')
+# ⚠️ 判据：两处之间正好差**一层**（tabs-wrap 自己）⇒ 工具行在它**里面**，不是兄弟。
+#    兄弟的话深度差是 0（两者同在 `.detail` 之下）。
+_ok_nest = False
+try:
+    seg = _mc2[_w:_t]
+    _ok_nest = (len(re.findall(r'<div\b', seg)) - len(re.findall(r'</div>', seg))) == 1
+except Exception:
+    _ok_nest = False
+check(_ok_nest, '工具行住在 tabs-wrap 里（跟着它一起常驻）',
+      '工具行是 tabs-wrap 的兄弟 ⇒ 它会跟着内容滚走（滚到中段就找不到输入框了）')
+check('tabs-wrap' in css and 'position: sticky' in css[css.index('.tabs-wrap'):css.index('.tabs-wrap') + 200],
+      'tabs-wrap 确实是 sticky（工具行借它的常驻）', 'tabs-wrap 不是 sticky ⇒ 工具行也跟着滚走')
+# 常驻头变高 ⇒ 跳转落点必须一起长，否则"跳过去"看起来像没跳
+_sm = [int(x) for x in re.findall(r'scroll-margin-top:\s*(\d+)px', css)]
+check(len(set(_sm)) == 1 and _sm[0] >= 100,
+      '跳转落点让开了常驻头（scroll-margin-top 只有一处：%s）' % sorted(set(_sm)),
+      '落点让位不唯一或还是旧的（%s）⇒ 要么被压在常驻头下面，要么下次改一处漏一处' % sorted(set(_sm)))
+
 print('== 4. 类名双向差集（CSS vs 标记/脚本）==')
 css_classes = set(re.findall(r'\.([A-Za-z][\w-]*)', css_nc))
 
