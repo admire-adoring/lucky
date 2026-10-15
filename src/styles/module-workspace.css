@@ -11597,20 +11597,25 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
   --ed-tb: 41px;
   /* 有意偏离原型一处：原型 `inset: 0` 连应用顶栏一起盖住。本仓顶栏是自绘的窗口
      标题栏（红黄绿 / 最小化 / 关闭都在里面）⇒ 盖掉它等于"窗口关不掉、也拖不动"。
-     从顶栏下面开始：沉浸感留住，出口也留着。 */
-  /* `top` 写两行：上面那行 68 是兜底 —— 变量取不到时整条声明会被丢弃，
+     从顶栏下面开始：沉浸感留住，出口也留着。
+     量的是**顶栏那一行的下沿**（行高 68 + 壳内距 16 = 84）。只减 68 的话这一层正好压掉
+     顶栏胶囊底下那十来个像素 —— 胶囊的底边、圆角、描边全被切掉，看着像顶栏被切了一刀。
+     左右与下沿同理：这一层铺满整窗，条上的内容原来顶到窗户两侧（右侧那颗「保存」的
+     右边缘就是窗口右边缘）。四处留白统一 26（外壳主区 `.main` 与本节字数读数同一个数），
+     窄屏一起收到 16。条的底色与下沿那根发丝线仍铺满整窗。 */
+  /* `top` 写两行：上面那行 84 是兜底 —— 变量取不到时整条声明会被丢弃，
      而 `top` 一丢，这一层就退回"静态位置"（挤进文档流里），不是差几十像素的事。 */
   position: fixed; left: 0; right: 0; bottom: 0;
-  top: 68px;
-  top: var(--sb-topbar-h); z-index: 400;
+  top: 84px;
+  top: calc(var(--sb-topbar-h) + var(--sb-gap)); z-index: 400;
   overflow: auto;
   background: var(--mw-bg-page);
 }
 .mw-root[data-module] .rd-page .rd-bar {
   position: sticky; top: 0; z-index: 9;
-            display: flex; align-items: center; gap: 10px;
+            display: flex; align-items: center; gap: 14px;
              
-            padding: 12px 0; margin: 0;
+            padding: 16px 26px; margin: 0;
             background: var(--mw-bg-page);
             border-bottom: 1px solid var(--mw-border-subtle);
 }
@@ -11713,10 +11718,12 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
 .mw-root[data-module] .rd-page .rd-bar .btn {
   margin-left: auto; flex-shrink: 0;
 }
+/* 正文区不居中：左边界与页头那条栏的内容（26）对齐。主栏给一个 1180 的上限 ——
+   没有上限时纸会跟着窗口变宽往右飘（`.rd-main` 是在主栏里居中的）。 */
 .mw-root[data-module] .rd-page .rd-layout {
-  display: grid; grid-template-columns: 196px minmax(0, 1fr);
+  display: grid; grid-template-columns: 196px minmax(0, 1180px);
             gap: 20px; align-items: start;
-            max-width: 1180px; margin: 0 auto; padding-top: 28px;
+            margin: 0; padding: 28px 26px 40px;
 }
 .mw-root[data-module] .rd-page .rd-toc {
   padding: 16px;
@@ -12368,9 +12375,12 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
             font-size: 11.5px; color: var(--mw-text-muted); letter-spacing: 0.02em;
             pointer-events: none; user-select: none;
 }
+/* 窄屏：这一页左右也收到 16（与那颗字数读数 --rd-words 的 left: 16 对齐）。
+   编辑面那两条在下面那个同断点的块里（那边才在 `.ed-*` 基类之后）。 */
 @media (max-width: 860px) {
   .mw-root[data-module] .rd-page .rd-crumb { display: none; }
-  .mw-root[data-module] .rd-page .rd-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .mw-root[data-module] .rd-page .rd-bar { padding: 16px 16px; }
+  .mw-root[data-module] .rd-page .rd-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 24px 16px 34px; }
   .mw-root[data-module] .rd-page .rd-toc { position: static; max-height: none; overflow: visible; }
   .mw-root[data-module] .rd-page .rd-main { padding: 0; }
   .mw-root[data-module] .rd-page .rd-words { left: 16px; bottom: 14px; }
@@ -12416,11 +12426,12 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
    表格的行列浮层（原型 `edTb*` 一族 · `.rd-tb-acts`）没有做：这一轮落的是读写
       主路径；那块浮层的结构在原型里，缺的是十来个 DOM 操作函数。
    ============================================================================ */
+/* 同阅读态：不居中，左边界对齐页头那条栏的内容（26）；主栏 1180 上限。 */
 .mw-root[data-module] .rd-page .ed-layout {
-  display: grid; grid-template-columns: 196px minmax(0, 1fr);
-            gap: 20px; align-items: start; max-width: 1180px; margin: 0 auto;
+  display: grid; grid-template-columns: 196px minmax(0, 1180px);
+            gap: 20px; align-items: start;
              
-            padding-top: 32px;
+            margin: 0; padding: 32px 26px 40px;
 }
 .mw-root[data-module] .rd-page .ed-paper {
   width: 100%; max-width: 768px; margin: 0 auto; justify-self: center;
@@ -12460,8 +12471,8 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
 }
 .mw-root[data-module] .rd-page .ed-toolbar {
   position: sticky; top: 59px; z-index: 8;
-            display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
-            padding: 5px 0; margin: 0;
+            display: flex; flex-wrap: wrap; align-items: center; gap: 3px;
+            padding: 9px 26px; margin: 0;
             background: var(--mw-bg-page);
             border-bottom: 1px solid var(--mw-border-subtle);
 }
@@ -12761,12 +12772,12 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
   display: flex; flex-wrap: wrap; gap: 10px;
 }
 @media (max-width: 860px) {
-  .mw-root[data-module] .rd-page .ed-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; max-width: none; }
+  .mw-root[data-module] .rd-page .ed-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 24px 16px 34px; }
   .mw-root[data-module] .rd-page .ed-paper { padding: 0; }
   .mw-root[data-module] .rd-page .ed-tool { width: 34px; height: 34px; }
   .mw-root[data-module] .rd-page .ed-tool-head select { height: 34px; }
   .mw-root[data-module] .rd-page .ed-tool-seg .seg-btn { height: 28px; }
-  .mw-root[data-module] .rd-page .ed-toolbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .mw-root[data-module] .rd-page .ed-toolbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 9px 16px; }
   .mw-root[data-module] .rd-page .ed-toolbar::-webkit-scrollbar { display: none; }
   .mw-root[data-module] .rd-page .ed-tool-seg { margin-left: 12px; }
   .mw-root[data-module] .rd-page .ed-preview.is-wys .rd-body :is(h1, h2, h3, h4, h5, h6)::before { display: none; }
@@ -12811,7 +12822,7 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
    目录在两态下让开的量不同：阅读态只有页头（+ 一圈），编辑态还要让开工具条 ——
       原型给两态同一个 87 是它自己的近似，这里按 `[data-pane]` 分开。
    ============================================================================ */
-.mw-root[data-module] .rd-page { --rd-bar-h: 59px; }
+.mw-root[data-module] .rd-page { --rd-bar-h: 66px; }
 .mw-root[data-module] .rd-page .ed-toolbar { top: var(--rd-bar-h); }
 .mw-root[data-module] .rd-page .rd-toc { top: calc(var(--rd-bar-h) + 24px); }
 .mw-root[data-module] .rd-page[data-pane='edit'] .rd-toc { top: calc(var(--rd-bar-h) + var(--ed-tb)); }

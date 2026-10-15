@@ -724,17 +724,10 @@ export function buildServerMetrics(server: ServerItem): ServerMetric[] {
 }
 
 /* ============================================================================
-   跨项目的机器台账（`/work/servers`，原型 `设计/work/工作-服务器-index.html`）
+   跨项目的机器台账（`/work/servers`）
    ----------------------------------------------------------------------------
-   这一页要回答的问题与运维分区不是同一个：
-     · 运维分区管一个项目的机器 —— 部署文件、看日志、发版、回滚（动手页）；
-     · 本页管所有项目的机器 —— 在哪、属于谁、连上没有（台账页）。
-   ⇒ 它需要的是 `buildServers(project)` 那一份的跨项目视图，不是重新造一份数据。
-
-   机器 ↔ 项目是多对多（原型口径，也是应用里既成的事实）：`buildServers` 读的是
-      `POOL[scope].servers`，同一个域下的项目拿到的是同一份机器清单 ⇒ 两台机器各自服务
-      两个项目。所以 `projects` 是数组，去重的键是 `name`（机器名）而不是 `id`
-      （`ServerItem.id` 带项目前缀，同一个 host 在不同项目里 id 不同）。
+   机器本身与它的子项都来自本机数据库（`srv_*` 命令，经 `lib/server-view.ts`
+   转成下面这个视图形状）；留在这里的只有"按项目分组"这一件事 —— 纯函数。
    ============================================================================ */
 
 /** 这台机器服务的一个项目。终端 / 日志 / 部署 / 运维页都要用 `id` 拼地址。 */
@@ -776,64 +769,6 @@ export interface LedgerGroup {
   key: string
   label: string
   servers: LedgerServer[]
-}
-
-export function roleLabelOf(role: string): string {
-  return role === 'db' ? '数据库' : 'Web 层'
-}
-
-/**
- * 把若干项目的机器合并成一份台账。条数 = 唯一机器数（按 `name` 去重）。
- * 分组里的计数（"这一组有几台"）会把共享机器数两次，而这里返回的是唯一机器数 ——
- *    两个分母不一样，别拿来互相验算（原型把这条写在仪表条的注释里）。
- */
-export function buildServerLedger(projects: Project[]): LedgerServer[] {
-  const byHost = new Map<string, LedgerServer>()
-  projects.forEach((project) => {
-    buildServers(project).forEach((server) => {
-      const seen = byHost.get(server.name)
-      if (seen) {
-        if (!seen.projects.some((item) => item.id === project.id)) {
-          seen.projects.push({ id: project.id, name: project.name })
-        }
-        return
-      }
-      byHost.set(server.name, {
-        host: server.name,
-        ip: server.ip,
-        os: server.os,
-        role: server.role,
-        roleLabel: roleLabelOf(server.role),
-        env: server.env,
-        envLabel: server.env === 'prod' ? '生产' : '测试',
-        projects: [{ id: project.id, name: project.name }],
-        cores: server.cores,
-        memGb: server.memGb,
-        user: server.user,
-        auth: server.auth,
-        esc: server.esc,
-        /* `ports` / `pathGroups` / `paths` 三份按引用接着走（池子里那一份）——
-           运维分区上的增删改就地发生在它上面，这里再拷一份就会出现"两页两套说法"。 */
-        ports: server.ports,
-        logCount: server.logCount,
-        deployCount: 0,
-        pathGroups: server.pathGroups,
-        paths: server.paths,
-      })
-    })
-  })
-
-  const ledger = [...byHost.values()]
-  /* 发布次数：所有项目的发布记录里落在这台机器上的条数。
-     结果会是"第一台全占、其余为 0"—— 因为 `buildDeploys` 把每条记录都挂在
-        `servers[0]` 上（发布记录里只有一条"服务器"字段，而运维分区那一版就是这么派的）。
-        运维分区的 `.sd-tab-count` 读的是同一个判据，所以两页的数是同一个。
-        计数为 0 时页面不渲染那颗徽标（原型也是 `n ? … : ''`）。 */
-  const deploys = projects.flatMap((project) => buildDeploys(project))
-  ledger.forEach((server) => {
-    server.deployCount = deploys.filter((item) => item.server === server.host).length
-  })
-  return ledger
 }
 
 /**
@@ -918,39 +853,6 @@ const PROJECT_TINTS = ['#4F46E5', '#9333EA', '#0891B2', '#2563EB']
 
 export function projectTint(projectId: string): string {
   return PROJECT_TINTS[hash(projectId) % PROJECT_TINTS.length] as string
-}
-
-/** 详情页「文档」那一段的一排书架：一个项目一排（文档的归属是项目，机器只是"路过"）。 */
-export interface MachineDocShelf {
-  projectId: string
-  projectName: string
-  docs: DeployDocItem[]
-}
-
-export interface ServerDetail {
-  server: LedgerServer
-  /** 这台机器服务的那几个项目各自有哪些部署文档（按 `projects` 现算、不另存一份清单） */
-  shelves: MachineDocShelf[]
-}
-
-/**
- * 服务器详情要的那一份数据。`host` 找不到 ⇒ `null`（页面据此给出"这台不在台账里"）。
- *
- * 文档不另存一份"本机文档"清单：文档的归属是项目、机器只是"路过" ——
- *    写死一份就必然在某台机器改了服务项目之后说错话。所以按 `server.projects` 逐个
- *    `buildDeployDocs` 现算（与运维页「部署文档 N 篇」是同一个函数的同一批数据）。
- */
-export function buildServerDetail(projects: Project[], host: string): ServerDetail | null {
-  const server = buildServerLedger(projects).find((item) => item.host === host)
-  if (!server) return null
-  const byId = new Map(projects.map((project) => [project.id, project]))
-  const shelves = server.projects
-    .map((ref) => {
-      const project = byId.get(ref.id)
-      return project ? { projectId: ref.id, projectName: ref.name, docs: buildDeployDocs(project) } : null
-    })
-    .filter((shelf): shelf is MachineDocShelf => shelf !== null)
-  return { server, shelves }
 }
 
 /* ============================================================================

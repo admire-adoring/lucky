@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ServerItem } from '../../../data/derive'
 import { cn } from '../../../lib/cn'
 import { OpsIcon, type OpsIconName } from './ops-icon'
 
@@ -28,14 +27,14 @@ import { OpsIcon, type OpsIconName } from './ops-icon'
       （"名称已存在，本项目中已有 prod-web-01"、"本机找不到这个文件"），
       而它真实触发的地方是"必填没填"。这里只有真的重名时才用原型那句，
       空值/格式错给对应文案。
-   ③ 提交只给"填好了"的回执，不说"已添加" —— 应用里没有保存接口，
-      与运维页其它动作（重启 / 回滚 / 清理）同一条纪律：没有接口就别说成功。
+   ③ 提交走 `onSubmit`：台账页把它接到真写库（`srv_*` 命令），运维分区那张表
+      还没有接口、走"填好了"的回执 —— 没有接口就别说成功。
       「添加并继续」仍然保留"清空表单继续填下一台"的语义。
    ④ 编辑模式由 `mode` 决定，不是原型那个 `?host=` 查询参数（应用里入口是服务器行的「编辑」）。
       原型自己写着"同一张表承担添加与编辑，只有标题/按钮/预览标题返回落点/网段提示五处换词"，
       这里就是那五处。
-   ⑤ 机器自己会报的事实（云厂商 / 规格 / 系统 / "私钥已在本机找到"）在网络与文件系统
-      都不可知 —— 原型注释本身就说它们"机器自己会报、不进表单"，这里与它一样是演示值。
+   ⑤ 机器自己会报的事实（云厂商 / 规格 / 系统）连上才知道 —— 没连上就留"—"，
+      不编一个（原型那两个值"阿里云 / 4C8G"是演示）。
 
    ============================================================================
    三条容易写错、且错了不会报错的判据
@@ -80,6 +79,28 @@ const ENVS = [
 ] as const
 type EnvKey = (typeof ENVS)[number]['key']
 
+/** 角色 —— 与 `srv_server.role_code` 的取值同源（web / db / cache） */
+const ROLES = [
+  { key: 'web', name: 'Web 层' },
+  { key: 'db', name: '数据库' },
+  { key: 'cache', name: '缓存' },
+] as const
+type RoleKey = (typeof ROLES)[number]['key']
+
+function envKeyOf(code?: string): EnvKey {
+  return ENVS.some((item) => item.key === code) ? (code as EnvKey) : 'prod'
+}
+
+function roleKeyOf(code?: string): RoleKey {
+  return ROLES.some((item) => item.key === code) ? (code as RoleKey) : 'web'
+}
+
+/** 提权方式 → 「提权到」那一档。目标账户不是 root 的按"其他账户"回填 */
+function escTargetOf(initial?: ServerFormInitial | null): EscTarget {
+  if (!initial?.escMode || initial.escMode === 'none') return 'none'
+  return initial.escUser && initial.escUser !== 'root' ? 'custom' : 'root'
+}
+
 /** 标签的初始选项。「＋」新建的会追加在后面（插在「＋」之前 —— 新建入口永远是最后一个）。 */
 const BASE_TAGS = ['Web', 'API', '数据库', '缓存', '网关', '监控']
 
@@ -98,6 +119,41 @@ type Checks = Record<CheckKey, { mark: CheckMark; value: string }>
 type EscTarget = 'none' | 'root' | 'custom'
 type AuthMode = 'key' | 'pwd'
 type EscMethod = 'su' | 'sudo'
+
+/**
+ * 编辑模式的预填来源。**不含任何凭据** —— 密码与私钥正文存本机钥匙串，不进库。
+ */
+export interface ServerFormInitial {
+  name: string
+  ip: string
+  sshPort?: number
+  loginUser?: string
+  envCode?: string
+  roleCode?: string
+  authCode?: 'key' | 'pwd'
+  escMode?: 'none' | 'su' | 'sudo'
+  escUser?: string
+  note?: string
+  tags?: string[]
+  cores?: number | null
+  memGb?: number | null
+  os?: string
+}
+
+/** 提交出去的那几项 —— 只有这个表单真正收集到的字段 */
+export interface ServerFormDraft {
+  name: string
+  ip: string
+  sshPort: number
+  loginUser: string
+  envCode: string
+  roleCode: string
+  note: string
+  tags: string[]
+  authCode: 'key' | 'pwd'
+  escMode: 'none' | 'su' | 'sudo'
+  escUser: string
+}
 
 /** 机器自己会报的事实：不进表单，只在「连接检查」与「添加后」预览里现身（见文件头 ⑤） */
 export interface ServerHwFacts {
@@ -187,17 +243,23 @@ export function AddServerForm({
   server,
   siblings,
   hw,
+  onSubmit,
   onCancel,
 }: {
   mode: 'add' | 'edit'
   projectName: string
   /** 编辑模式的预填来源；新增时传 null */
-  server?: Pick<ServerItem, 'name' | 'ip' | 'cores' | 'memGb' | 'os'> | null
+  server?: ServerFormInitial | null
   /** 「同网段已有」要列的那几台。编辑模式请先把"自己"排除掉 */
-  siblings: Pick<ServerItem, 'name' | 'ip'>[]
-  /** 机器自己会报的那三样（云厂商 / 规格 / 系统）。不给就按项目的形态推 */
+  siblings: Array<{ name: string; ip: string }>
+  /** 机器自己会报的那三样（云厂商 / 规格 / 系统）。连上才知道，不给就留"—" */
   hw?: ServerHwFacts
-  /** 「取消」。应用里没有保存接口（见文件头 ③），所以这里只有出口、没有提交接口 */
+  /**
+   * 提交。给了就真写库（调用方负责回执与失效）；不给就只给"填好了"的回执 ——
+   * 运维分区那张表还没有接口，走的是后一支。
+   */
+  onSubmit?: (draft: ServerFormDraft, again: boolean) => void
+  /** 「取消」 */
   onCancel: () => void
 }) {
   const editing = mode === 'edit'
@@ -205,12 +267,17 @@ export function AddServerForm({
   /* ================================================================== *
    * 机器事实（不进表单，只在检查结果与预览里现身 —— 见文件头 ⑤）
    * ================================================================== */
+  /* 机器自己会报的事实：连上才知道 —— 没连上就留"—"，不编一个（原型那两个值是演示） */
   const facts: ServerHwFacts = useMemo(
     () =>
       hw ??
       (server
-        ? { vendor: '阿里云', spec: `${server.cores}C${server.memGb}G`, os: server.os }
-        : { vendor: '阿里云', spec: '4C8G', os: 'Ubuntu 22.04 LTS' }),
+        ? {
+            vendor: '—',
+            spec: server.cores && server.memGb ? `${server.cores}C${server.memGb}G` : '—',
+            os: server.os || '—',
+          }
+        : { vendor: '—', spec: '—', os: '—' }),
     [hw, server],
   )
 
@@ -220,40 +287,46 @@ export function AddServerForm({
    * 新增态的初值 = 原型的演示值（prod-web-03 / 47.100.23.11 / …）：
    * 这一页是静态界面，原型自己就把它们写在标记里，照抄才叫"内容一致"。
    * ================================================================== */
-  const [name, setName] = useState(server?.name ?? 'prod-web-03')
-  const [host, setHost] = useState(server?.ip ?? '47.100.23.11')
-  const [port, setPort] = useState('22')
-  const [user, setUser] = useState('deploy')
-  const [env, setEnv] = useState<EnvKey>('prod')
-  const [note, setNote] = useState('支付网关前置，Nginx + Node 18')
+  /* 初值一律来自入参或空 —— 原型那份预填值（prod-web-03 / 47.100.23.11 / deploy …）是演示数据 */
+  const [name, setName] = useState(server?.name ?? '')
+  const [host, setHost] = useState(server?.ip ?? '')
+  const [port, setPort] = useState(String(server?.sshPort ?? 22))
+  const [user, setUser] = useState(server?.loginUser ?? '')
+  const [env, setEnv] = useState<EnvKey>(() => envKeyOf(server?.envCode))
+  const [role, setRole] = useState<RoleKey>(() => roleKeyOf(server?.roleCode))
+  const [note, setNote] = useState(server?.note ?? '')
 
-  const [tagPool, setTagPool] = useState<string[]>(BASE_TAGS)
-  const [tags, setTags] = useState<string[]>(['Web', 'API'])
+  const [tagPool, setTagPool] = useState<string[]>(() =>
+    server?.tags?.length ? [...new Set([...BASE_TAGS, ...server.tags])] : BASE_TAGS,
+  )
+  const [tags, setTags] = useState<string[]>(server?.tags ?? [])
   const [addingTag, setAddingTag] = useState(false)
   const [newTag, setNewTag] = useState('')
   /** 「新建标签」两态共用一个位置 ⇒ 提交/取消都要能被重复触发，守卫见 `commitTagAdd` */
   const addingTagRef = useRef(false)
 
-  const [authMode, setAuthMode] = useState<AuthMode>('key')
-  const [keyPath, setKeyPath] = useState('/Users/yangliu/.ssh/id_ed25519')
+  /* 凭据正文不进库（存本机钥匙串）⇒ 编辑时这两个框留空即表示"保持不变" */
+  const [authMode, setAuthMode] = useState<AuthMode>(server?.authCode ?? 'key')
+  const [keyPath, setKeyPath] = useState('')
   const [pwd, setPwd] = useState('')
   const [showPwd, setShowPwd] = useState(false)
 
-  const [escTarget, setEscTarget] = useState<EscTarget>('root')
-  const [escCustomUser, setEscCustomUser] = useState('')
-  const [escMethod, setEscMethod] = useState<EscMethod>('su')
-  const [escPwd, setEscPwd] = useState('Pay@2024-root')
+  const [escTarget, setEscTarget] = useState<EscTarget>(() => escTargetOf(server))
+  const [escCustomUser, setEscCustomUser] = useState(
+    server?.escUser && server.escUser !== 'root' ? server.escUser : '',
+  )
+  const [escMethod, setEscMethod] = useState<EscMethod>(server?.escMode === 'sudo' ? 'sudo' : 'su')
+  const [escPwd, setEscPwd] = useState('')
   const [showEscPwd, setShowEscPwd] = useState(false)
 
-  /* 连接检查：初值就是"刚检查过一次"的样子（原型标记里五行都是 ok） */
+  /* 还没检查过（圆点是空的）。检查行显示的值由 `checkValues` 现算 —— 那是"将会检查什么" */
   const [checks, setChecks] = useState<Checks>(() => ({
-    dns: { mark: 'ok', value: '47.100.23.11' },
-    port: { mark: 'ok', value: ':22 开放' },
-    auth: { mark: 'ok', value: 'deploy · ed25519' },
-    esc: { mark: 'ok', value: 'su - root · 密码已存' },
-    os: { mark: 'ok', value: 'Ubuntu 22.04 LTS · 4C8G' },
+    dns: { mark: '', value: '—' },
+    port: { mark: '', value: '—' },
+    auth: { mark: '', value: '—' },
+    esc: { mark: '', value: '—' },
+    os: { mark: '', value: '—' },
   }))
-  const [checking, setChecking] = useState(false)
 
   const [errors, setErrors] = useState<{ name?: string; host?: string; user?: string; cred?: string }>({})
   const [actionErr, setActionErr] = useState<string | null>(null)
@@ -327,7 +400,8 @@ export function AddServerForm({
   const suggestCode = escMethod === 'su' ? `sudo -u ${escUser || '<账户>'} -n <命令>` : 'sudo -n <命令>'
 
   const cred = authMode === 'key' ? keyPath.trim() : pwd.trim()
-  const requiredDone = (name.trim() ? 1 : 0) + (host.trim() ? 1 : 0) + (user.trim() ? 1 : 0) + (cred ? 1 : 0)
+  const requiredDone =
+    (name.trim() ? 1 : 0) + (host.trim() ? 1 : 0) + (user.trim() ? 1 : 0) + (editing ? 0 : (cred ? 1 : 0))
   const loginKind = authMode === 'key' ? 'ed25519' : '密码'
   const checkTarget = `${user.trim() || 'root'}@${host.trim() || '—'}:${port.trim() || '22'}`
   const checkTargetTitle =
@@ -370,28 +444,10 @@ export function AddServerForm({
    * 动作
    * ================================================================== */
 
+  /* 还没有写连接检查接口 —— 不演一段"检查通过"（那是假回执） */
   const runCheck = () => {
-    if (checking) return
-    setChecking(true)
     resetChecks()
-    let i = 0
-    const next = () => {
-      if (i > 0) {
-        const doneKey = CHECK_ROWS[i - 1].key
-        setChecks((prev) => ({ ...prev, [doneKey]: { mark: 'ok', value: checkValues[doneKey] } }))
-      }
-      if (i >= CHECK_ROWS.length) {
-        setChecking(false)
-        showToast('连接检查通过 · 用时 0.8s')
-        return
-      }
-      const key = CHECK_ROWS[i].key
-      setChecks((prev) => ({ ...prev, [key]: { mark: 'busy', value: '检查中' } }))
-      i += 1
-      const t = window.setTimeout(next, 420)
-      timers.current.push(t)
-    }
-    next()
+    showToast('还没有写连接检查接口', true)
   }
 
   /** 只给建议写法让他照抄，不代改命令 —— 命令是他亲手写的 */
@@ -443,9 +499,12 @@ export function AddServerForm({
     else if (!/^[A-Za-z0-9][A-Za-z0-9.-]*(:\d+)?$/.test(host.trim()) || /^\.|\.$/.test(host.trim()))
       next.host = '地址格式不正确'
     if (!user.trim()) next.user = '请填写登录用户'
-    if (authMode === 'key') {
-      if (!keyPath.trim()) next.cred = '请填写私钥路径'
-    } else if (!pwd.trim()) next.cred = '密码不能为空'
+    /* 凭据只在本机钥匙串里、不进库 ⇒ 编辑时留空表示"保持不变"，不当必填 */
+    if (!editing) {
+      if (authMode === 'key') {
+        if (!keyPath.trim()) next.cred = '请填写私钥路径'
+      } else if (!pwd.trim()) next.cred = '密码不能为空'
+    }
 
     const bad = Object.entries(next).filter(([, v]) => v)
     setErrors(next)
@@ -457,8 +516,36 @@ export function AddServerForm({
     }
     setActionErr(null)
 
-    /* 应用里没有保存接口 ⇒ 只给"填好了"的回执（见文件头 ③） */
-    const who = name.trim()
+    const draft: ServerFormDraft = {
+      name: name.trim(),
+      ip: host.trim(),
+      sshPort: Number(port.trim()) || 22,
+      loginUser: user.trim(),
+      envCode: env,
+      roleCode: role,
+      note: note.trim(),
+      tags,
+      authCode: authMode,
+      escMode: escTarget === 'none' ? 'none' : escMethod,
+      escUser,
+    }
+
+    if (onSubmit) {
+      onSubmit(draft, again)
+      if (again) {
+        /* 「添加并继续」= 清空表单接着填下一台 */
+        setName('')
+        setHost('')
+        setNote('')
+        setTags([])
+        resetChecks()
+        nameRef.current?.focus()
+      }
+      return
+    }
+
+    /* 没有提交接口的那一处（运维分区）只给"填好了"的回执 —— 没有接口就别说成功 */
+    const who = draft.name
     if (again) {
       showToast(`已填好「${who}」· 继续添加下一台（还没有写保存接口）`, true)
       setName('')
@@ -490,7 +577,7 @@ export function AddServerForm({
                 服务器信息
               </h2>
               <div className="panel-head-right">
-                <span className="fgroup-count">{`必填 ${requiredDone} / 4`}</span>
+                <span className="fgroup-count">{`必填 ${requiredDone} / ${editing ? 3 : 4}`}</span>
               </div>
             </div>
 
@@ -543,6 +630,18 @@ export function AddServerForm({
                   <div className="as-chip-row" role="radiogroup" aria-label="环境">
                     {ENVS.map((item) => (
                       <ChipRadio key={item.key} on={env === item.key} dataEnv={item.key} onPick={() => setEnv(item.key)}>
+                        {item.name}
+                      </ChipRadio>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 角色是 `srv_server.role_code` 那一列：卡片上的图标与日志源都按它取 */}
+                <div style={{ marginTop: 12 }}>
+                  <div className="field-label">角色</div>
+                  <div className="as-chip-row" role="radiogroup" aria-label="角色">
+                    {ROLES.map((item) => (
+                      <ChipRadio key={item.key} on={role === item.key} onPick={() => setRole(item.key)}>
                         {item.name}
                       </ChipRadio>
                     ))}
@@ -717,7 +816,7 @@ export function AddServerForm({
                       </button>
                     </div>
                     {/* 这一行说的是"本机有没有这个文件"，浏览器里不可知 —— 与原型同一份演示值（见文件头 ⑤） */}
-                    <div className="field-note">ed25519 · 已在本机找到 · 未设密码短语</div>
+                    <div className="field-note">凭据只存本机，不进数据库、不同步到其它设备</div>
                     {errors.cred ? (
                       <div className="field-err">
                         <AsIcon name="alert" size={12} />
@@ -1026,9 +1125,8 @@ export function AddServerForm({
                     <AsIcon name="check" size={11} />
                   </span>
                   <span className="check-name">{row.name}</span>
-                  <span className="check-val">
-                    {row.key === 'esc' ? escCheckText : row.key === 'os' ? osCheckText : checks[row.key].value}
-                  </span>
+                  {/* 值说的是"将会检查什么"（由当前输入现算），圆点说的才是"检查过没有" */}
+                  <span className="check-val">{checkValues[row.key]}</span>
                 </div>
               ))}
             </div>
@@ -1037,9 +1135,9 @@ export function AddServerForm({
                 <AsIcon name="terminal" size={12} />
                 {checkTarget}
               </span>
-              <button type="button" className="btn btn-ghost btn-sm" disabled={checking} onClick={runCheck}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={runCheck}>
                 <AsIcon name="refresh" size={13} />
-                {checking ? '检查中' : '重新检查'}
+                检查连接
               </button>
             </div>
           </section>

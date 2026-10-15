@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '../../../lib/cn'
 import {
   AUTH_LABEL,
+  buildDeployDocs,
   buildRailTree,
-  buildServerDetail,
-  buildServerLedger,
   escText,
   fileKindOf,
   projectTint,
@@ -16,9 +15,11 @@ import {
 } from '../../../data/derive'
 import type { PathSeed } from '../../../data/content-pool'
 import { useProjects } from '../../../hooks/use-projects'
+import { useServer, useServerActions, useServers } from '../../../hooks/use-servers'
 import { isConnected, markConnected } from '../../../lib/server-conn'
+import { toLedgerServer } from '../../../lib/server-view'
 import { toast } from '../../../stores/toast-store'
-import { AddServerForm } from '../project-detail/AddServerForm'
+import { AddServerForm, type ServerFormDraft } from '../project-detail/AddServerForm'
 import { DeployDocBook } from '../project-detail/DeployDocBook'
 import { deploySourceDoc } from '../project-detail/doc-source/source-doc'
 import { useSourceOverlay } from '../project-detail/doc-source/use-source-overlay'
@@ -56,23 +57,17 @@ import { PanelModal } from '../project-detail/panel-shell'
       服务的第一个项目（与台账页同一条规则）。
    ④ `data-section` / `data-ico` 那套契约属性不发：原型靠它们做"环上定位 + 滚动同步"
       与图标灌装，两件事在应用里分别归外壳与 `OpsIcon` ⇒ 留着就是没人读的第二描述。
-   ⑤ 「编辑 / 移除」两步都不真的改数据：应用的机器是派生的（`buildServerLedger`
-      从项目池子现算）—— 编辑去 `AddServerForm` 那张整页表单（与运维分区同一处置），
-      移除给回执（没有移除接口）。原型那一版移除之后会跳回列表页，这里不跳：
-      跳走会让人以为"删掉了"，而刷新它又回来了。
-   ⑤ 路径不按项目分（见下面「应用的数据模型」那一段）——
-      这是本页与原型差得最明显的一处，写在文件头而不是埋在注释里。
+   ⑤ 「编辑 / 移除」都真写库（`srv_*` 命令）：编辑去 `AddServerForm` 那张整页表单
+      （与运维分区同一处置）；移除是软删（`removed_at`）—— 成功之后跳回列表页，
+      不留在一个已经没有主实体的地址上。
 
    ============================================================================
-   应用的数据模型，与原型那三处必然不同（都会看得见）
+   数据来源（2026-10-14 起）
    ============================================================================
-   原型的数据是逐项目手写的：每台机器带 `projects`、每条路径带 `project`、
-   登录身份每个 host 一套。应用里机器与路径都在 `POOL[scope].servers` 上（按域存）⇒
-     · 一台机器的 `projects` = 该域下所有项目（work 域 2 个）；
-     · 文件位置不分项目：这一台机器的文件位置就是它服务的那几个项目共用的那一份
-       （原型的"每个项目各有一批"在应用里没有对应字段）⇒ 每张项目卡的读数相同、
-       拉开抽屉看到的是同一批。没有为此在池子里编一个假的归属。
-     · 登录身份（用户 / 认证方式 / 提权）在池子里是声明，两台机器各一套。
+   机器读本机数据库：一台机器服务哪些项目是它自己在 `srv_server_project` 里的行，
+   文件位置也是它自己的 ⇒ 每张项目卡的读数可以不同（不再"几个项目共用一批路径"）。
+   登录身份（用户 / 认证方式 / 提权）来自 `srv_server` 那几列；凭据正文不入库
+   （存本机钥匙串），所以「编辑」时凭据留空即保持不变。
    ============================================================================ */
 
 /** 文件抽屉里那枚类型徽标的文案（与台账页同一份表） */
@@ -211,9 +206,31 @@ function RouteNodeView({
  * ------------------------------------------------------------------ */
 
 export function ServerDetail({ host }: { host: string }) {
-  const { data, isLoading } = useProjects()
+  const { data, isLoading: loadingProjects } = useProjects()
+  const { data: serverData, isLoading: loadingServer, isError } = useServer(host)
+  const { data: allServers } = useServers()
+  const actions = useServerActions()
+  const navigate = useNavigate()
   const projects = useMemo(() => (data ?? []).filter((project) => project.scope === 'work'), [data])
-  const detail = useMemo(() => buildServerDetail(projects, host), [projects, host])
+  const isLoading = loadingProjects || loadingServer
+  /** 库里那一份 —— 提交编辑时要带回没显示在表单上的列（项目 / 端口 / 文件位置 / 凭据引用） */
+  const raw = serverData ?? null
+  /** 视图那一份 —— Hero / 概览 / 文件位置都读它 */
+  const viewServer = useMemo(() => (raw ? toLedgerServer(raw) : null), [raw])
+  /**
+   * 「文档」那一段：文档的归属是项目，机器只是"路过" —— 按这台机器服务的项目逐个现算，
+   * 不另存一份"本机文档"清单（那必然在某台机器改了服务项目之后说错话）。
+   */
+  const shelves = useMemo(() => {
+    if (!viewServer) return []
+    const byId = new Map(projects.map((project) => [project.id, project]))
+    return viewServer.projects
+      .map((ref) => {
+        const project = byId.get(ref.id)
+        return project ? { projectId: ref.id, projectName: ref.name, docs: buildDeployDocs(project) } : null
+      })
+      .filter((shelf): shelf is NonNullable<typeof shelf> => shelf !== null)
+  }, [viewServer, projects])
 
   /* 连接状态与文件清单是"就地读"的（模块级集合 / 池子那份数组），要一个计数器叫重渲 */
   const [, forceRender] = useReducer((n: number) => n + 1, 0)
@@ -264,13 +281,13 @@ export function ServerDetail({ host }: { host: string }) {
     if (file?.kind === 'file') codeRef.current?.focus()
   }, [file?.path, file?.kind])
 
-  const server = detail?.server
+  const server = viewServer
   const railNodes = useMemo(() => (server ? buildRailTree(server.paths) : []), [server])
-  const totalDocs = detail ? detail.shelves.reduce((n, shelf) => n + shelf.docs.length, 0) : 0
-  /* 「编辑」那张表里有一格「同网段已有」—— 给它同域其余机器（自己当然要排掉） */
+  const totalDocs = shelves.reduce((n, shelf) => n + shelf.docs.length, 0)
+  /* 「编辑」那张表里有一格「同网段已有」—— 给它其余机器（自己当然要排掉） */
   const siblings = useMemo(
-    () => buildServerLedger(projects).filter((item) => item.host !== host).map((item) => ({ name: item.host, ip: item.ip })),
-    [projects, host],
+    () => (allServers ?? []).filter((item) => item.host !== host).map((item) => ({ name: item.host, ip: item.ip })),
+    [allServers, host],
   )
 
   const copy = (value: string) => {
@@ -299,23 +316,37 @@ export function ServerDetail({ host }: { host: string }) {
       desc: '移除后，这台机器不再出现在这份台账里，也不再从它采集日志。',
       warn: '服务器本身不会被停用，上面的应用与数据都不受影响，日后重新添加即可接回。',
       confirmText: '移除服务器',
-      onConfirm: () => toast(`${server.host}：还没有写移除接口`),
+      onConfirm: () =>
+        actions.remove.mutate(server.host, {
+          onSuccess: () => {
+            toast(`已移除 ${server.host}`)
+            /* 移除掉之后这一页就没有主实体了 ⇒ 回列表，而不是停在"找不到这台机器"上 */
+            navigate('/work/servers')
+          },
+          onError: (error) => toast(`移除失败：${String(error)}`),
+        }),
     })
   }
 
   /* ---------------- 加载 / 找不到两态 ----------------
      数据未到时不进正文：`detail` 还是 null，照渲染会让 Hero 上出现一个空机器名
         （与台账页同一处置）。 */
-  if (isLoading || !detail || !server) {
+  if (isLoading || !server) {
     return (
       <div className="sv-page svd-page">
         <div className="empty-state">
           <div className="empty-icon" aria-hidden="true">
             <OpsIcon name="server" size={22} />
           </div>
-          <div className="empty-title">{isLoading ? '正在读取机器台账…' : `台账里没有 ${host} 这台机器`}</div>
+          <div className="empty-title">
+            {isLoading ? '正在读取机器台账…' : isError ? '读不到机器台账' : `台账里没有 ${host} 这台机器`}
+          </div>
           <div className="empty-desc">
-            {isLoading ? '机器由各项目的内容池现算' : '它可能已经被移除 —— 回列表看看还有哪些'}
+            {isLoading
+              ? '从本机数据库读'
+              : isError
+                ? '数据在本机数据库里，只有桌面窗口读得到'
+                : '它可能已经被移除 —— 回列表看看还有哪些'}
           </div>
           {isLoading ? null : (
             <Link className="btn btn-ghost btn-sm" to="/work/servers">
@@ -334,18 +365,81 @@ export function ServerDetail({ host }: { host: string }) {
   /* 从本页开到别处的三处（终端 / 日志 / 部署）都带回来路 —— 与运维分区同一条纪律 */
   const from = { from: location.pathname }
 
-  const drawerProject = detail.shelves.find((shelf) => shelf.projectId === openProject) ?? null
+  const drawerProject = shelves.find((shelf) => shelf.projectId === openProject) ?? null
   /* ---------------- 「编辑这台机器」：占满本页的整页表单 ----------------
      与台账页 / 运维分区同一个组件（`AddServerForm`）：原型那张表也是三处共用的
         （"同一张表承担添加与编辑，只有五处换词"）。这里只传编辑那一档。 */
+  /**
+   * 表单提交。库里已有的列原样带回（项目 / 端口 / 文件位置 / 规格 / 凭据引用）——
+   * 表单只管它显示的那几个字段，不带回就等于把没显示出来的东西删掉了。
+   */
+  const submitServer = (draft: ServerFormDraft) => {
+    if (!raw) return
+    actions.save.mutate(
+      {
+        host: raw.host,
+        input: {
+          host: draft.name,
+          ip: draft.ip,
+          sshPort: draft.sshPort,
+          os: raw.os,
+          cores: raw.cores,
+          memGb: raw.memGb,
+          diskGb: raw.diskGb,
+          roleCode: draft.roleCode,
+          envCode: draft.envCode,
+          loginUser: draft.loginUser,
+          authCode: draft.authCode,
+          escMode: draft.escMode,
+          escUser: draft.escUser,
+          credRef: raw.credRef,
+          note: draft.note,
+          projectIds: raw.projects.map((project) => project.id),
+          ports: raw.ports,
+          tags: draft.tags,
+          pathGroups: raw.pathGroups,
+          paths: raw.paths.map((path) => ({
+            group: path.group,
+            use: path.use,
+            path: path.path,
+            note: path.note,
+          })),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast(`已保存 ${draft.name}`)
+          setForm(null)
+        },
+        onError: (error) => toast(`保存失败：${String(error)}`),
+      },
+    )
+  }
+
   if (form) {
     return (
       <div className="sv-page svd-page">
         <AddServerForm
           mode="edit"
           projectName={server.projects[0]?.name ?? ''}
-          server={{ name: server.host, ip: server.ip, cores: server.cores, memGb: server.memGb, os: server.os }}
+          server={{
+            name: raw?.host ?? server.host,
+            ip: raw?.ip ?? server.ip,
+            sshPort: raw?.sshPort,
+            loginUser: raw?.loginUser,
+            envCode: raw?.envCode,
+            roleCode: raw?.roleCode,
+            authCode: raw?.authCode === 'pwd' ? 'pwd' : 'key',
+            escMode: raw?.escMode === 'su' || raw?.escMode === 'sudo' ? raw.escMode : 'none',
+            escUser: raw?.escUser,
+            note: raw?.note,
+            tags: raw?.tags,
+            cores: raw?.cores ?? server.cores,
+            memGb: raw?.memGb ?? server.memGb,
+            os: raw?.os ?? server.os,
+          }}
           siblings={siblings}
+          onSubmit={submitServer}
           onCancel={() => setForm(null)}
         />
       </div>
@@ -571,9 +665,9 @@ export function ServerDetail({ host }: { host: string }) {
         {/* 多一层无类的 div（原型那个 `#dcBody`）：`.dc-shelf:first-child { margin-top: 0 }`
             要的是"第一排不顶上间距"，而直接铺在 `.sec` 里时第一排的 `:first-child` 是
             `.sec-head` ⇒ 每排都吃满 18px，书架与段头之间白出一条。 */}
-        {detail.shelves.length ? (
+        {shelves.length ? (
           <div>
-            {detail.shelves.map((shelf) => (
+            {shelves.map((shelf) => (
             <div className="dc-shelf" key={shelf.projectId}>
               <div className="dc-shead">
                 <OpsIcon name="project" size={13} />

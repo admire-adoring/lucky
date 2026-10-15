@@ -31,7 +31,7 @@ export function sessionToMarkdown(session: AiSession): string {
  * 「导出」这个动作。
  *
  * 原型的导出是 `toast('已导出为 Markdown')` —— 一句没有发生过的事。
- *    应用里没有文件写入通道（`src-tauri` 的命令层只接了 `projects_list` 一个示例），
+ *    应用里没有文件写入通道（命令层只有台账的 `srv_*`，没有文件命令），
  *    所以这里改成"复制到剪贴板"：那件事真的会发生，用户拿到的也是同一份 Markdown。
  *
  * 判据（与消息上的"复制"共用）：这个动作会不会让界面显示一个系统里不存在的状态。

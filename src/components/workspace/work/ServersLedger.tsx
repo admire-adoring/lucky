@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import type { Server } from '../../../api/servers'
 import { cn } from '../../../lib/cn'
-import { buildLedgerGroups, buildServerLedger, fileKindOf, lastDeployAcross, type LedgerServer } from '../../../data/derive'
+import { buildLedgerGroups, fileKindOf, lastDeployAcross, type LedgerServer } from '../../../data/derive'
 import type { PathSeed } from '../../../data/content-pool'
 import { useProjects } from '../../../hooks/use-projects'
+import { useServerActions, useServers } from '../../../hooks/use-servers'
 import { isConnected, markConnected } from '../../../lib/server-conn'
+import { toLedgerServer } from '../../../lib/server-view'
 import { toast } from '../../../stores/toast-store'
-import { AddServerForm } from '../project-detail/AddServerForm'
+import { AddServerForm, type ServerFormDraft } from '../project-detail/AddServerForm'
 import { OpsIcon } from '../project-detail/ops-icon'
 import { PanelModal } from '../project-detail/panel-shell'
 
@@ -36,11 +39,8 @@ import { PanelModal } from '../project-detail/panel-shell'
       代价一处：被筛掉的卡片会卸载 ⇒ 它的浮层也一起没了。原型的做法是把
       被筛掉的卡片上的浮层主动合上 —— 这里等价（筛选变化时把浮层也收掉，见 `applyFilter`）。
    ③ `hidden` 属性一个都没用 ⇒ 一律条件渲染（两个空态、外链计数徽标、浮层的两个 pane）。
-   ④ 移除服务器只给回执：应用里机器是派生的（`buildServerLedger` 从项目池子现算），
-      点一下把那台从界面上抹掉、刷新就回来 —— 那才是真的假成功。与运维页
-      （「清理磁盘 / 移除服务器」）同一条纪律：没有接口就别说成功。
-      连带：原型删掉一台再「撤销」那一整套（`snap` + 原位放回）也不需要 ——
-      不存在"删了但数字还对不上"的漂移，因为没有任何一处数字是另存的。
+   ④ 机器读的是本机数据库（`srv_*` 命令）：新增 / 编辑 / 移除都真写。
+      原型那套"删掉一台再撤销"（`snap` + 原位放回）不需要 —— 刷新即从库里重读。
    ⑤ 新增 / 编辑服务器 = 分区内的整页表单（原型是另一个 `.html`，点「编辑」就离开这一页）。
       应用里那张表是 `AddServerForm`（运维分区在用），这里复用同一个组件、
       以"占满本页"的形态渲染 —— 不另写第二份表单（同一张表两处实现必然分叉），
@@ -458,11 +458,24 @@ function ServerCard({
  * ------------------------------------------------------------------ */
 
 export function ServersLedger() {
-  const { data, isLoading } = useProjects()
-  /** 本页只服务工作域 —— 机器池只有 work 域有内容（life / learn 是空数组） */
+  const { data, isLoading: loadingProjects } = useProjects()
+  /* 机器读的是库（`srv_*` 命令）。演示池那份 `buildServerLedger` 已经不在这一页上了 */
+  const { data: serverData, isLoading: loadingServers, isError, refetch } = useServers()
+  const actions = useServerActions()
+  /** 分组的候选项目取自本模块 —— 与机器自身的 `projects` 取并集（见下面 `groups`） */
   const projects = useMemo(() => (data ?? []).filter((project) => project.scope === 'work'), [data])
-  const ledger = useMemo(() => buildServerLedger(projects), [projects])
-  const groups = useMemo(() => buildLedgerGroups(projects, ledger), [projects, ledger])
+  /** 库里的机器 → 视图形状。一处转换，卡片 / 浮层 / 详情读同一份 */
+  const ledger = useMemo(() => (serverData ?? []).map(toLedgerServer), [serverData])
+  const isLoading = loadingProjects || loadingServers
+  /**
+   * 项目视角的分组。`buildLedgerGroups` 按"服务这个项目的机器"分，分不了
+   * 还没有归属任何项目的机器 ⇒ 末尾补一格，否则新加的机器在默认视角里一台都看不见。
+   */
+  const groups = useMemo(() => {
+    const base = buildLedgerGroups(projects, ledger)
+    const orphans = ledger.filter((server) => server.projects.length === 0)
+    return orphans.length ? [...base, { key: '', label: '未归属项目', servers: orphans }] : base
+  }, [projects, ledger])
 
   /* 台账是就地读池子那份数组的（`paths` 按引用交出去），要一个计数器把重渲叫起来 */
   const [, forceRender] = useReducer((n: number) => n + 1, 0)
@@ -521,9 +534,13 @@ export function ServersLedger() {
 
   /* ---------------- 筛选 ---------------- */
 
+  /* 未归属那一格（key = ''）匹配"还没有项目"的机器；'all' 全过 */
+  const inProject = (server: LedgerServer, key: string) =>
+    key === 'all' ||
+    (key === '' ? server.projects.length === 0 : server.projects.some((project) => project.id === key))
+
   const hit = (server: LedgerServer) =>
-    (filterProject === 'all' || server.projects.some((project) => project.id === filterProject)) &&
-    (filterServer === 'all' || filterServer === server.host)
+    inProject(server, filterProject) && (filterServer === 'all' || filterServer === server.host)
 
   const total = ledger.length
   const shown = ledger.filter(hit).length
@@ -543,7 +560,7 @@ export function ServersLedger() {
        判据走 `projects.some(...)`：共享机器在两个项目里都算"在"。 */
     if (filterServer !== 'all') {
       const target = ledger.find((server) => server.host === filterServer)
-      if (!target || (key !== 'all' && !target.projects.some((project) => project.id === key))) {
+      if (!target || !inProject(target, key)) {
         setFilterServer('all')
       }
     }
@@ -586,10 +603,9 @@ export function ServersLedger() {
      "当前项目下的机器"含共享机器（它确实服务这个项目）。 */
   const serverChips = [
     { key: 'all', label: '全部' },
-    ...(filterProject === 'all'
-      ? ledger
-      : ledger.filter((server) => server.projects.some((project) => project.id === filterProject))
-    ).map((server) => ({ key: server.host, label: server.host })),
+    ...(filterProject === 'all' ? ledger : ledger.filter((server) => inProject(server, filterProject))).map(
+      (server) => ({ key: server.host, label: server.host }),
+    ),
   ]
 
   /* ---------------- 页面级仪表（三格） ---------------- */
@@ -622,18 +638,19 @@ export function ServersLedger() {
     toast(on ? `已连接 ${host}` : `已断开 ${host}`)
   }
 
-  const refresh = () => {
+  const refresh = async () => {
     if (refreshing) return
     setRefreshing(true)
     setLastSync('正在同步…')
-    /* 重播进场动画 = "这一屏重读过了"的反馈 —— 换 `key` 让那两格网格重挂载 */
-    setWallKey((n) => n + 1)
-    window.setTimeout(() => {
+    try {
+      await refetch()
+    } finally {
       const now = new Date()
       setLastSync(`最后更新 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
       setRefreshing(false)
-      toast('数据已刷新')
-    }, 900)
+      /* 重播进场动画 = "这一屏重读过了"的反馈 —— 换 `key` 让那两格网格重挂载 */
+      setWallKey((n) => n + 1)
+    }
   }
 
   const openFile = (item: PathSeed) => {
@@ -648,8 +665,94 @@ export function ServersLedger() {
       desc: '移除后，这台机器不再出现在这份台账里，也不再从它采集日志。',
       warn: '服务器本身不会被停用，上面的应用与数据都不受影响，日后重新添加即可接回。',
       confirmText: '移除服务器',
-      onConfirm: () => toast(`${server.host}：还没有写移除接口`),
+      onConfirm: () =>
+        actions.remove.mutate(server.host, {
+          onSuccess: () => toast(`已移除 ${server.host}`),
+          onError: (error) => toast(`移除失败：${String(error)}`),
+        }),
     })
+  }
+
+  /**
+   * 表单提交。新增与编辑各写一份 `ServerInput`：
+   *   · 编辑：库里已有的字段（项目 / 端口 / 文件位置 / 规格 / 凭据引用）原样带回，
+   *     表单只管它自己那几个字段 —— 不带回就等于把没显示在表单上的东西删掉了；
+   *   · 新增：表单没有的列取默认值（角色 / 环境由表单给，其余空）。
+   */
+  const submitServer = (target: Server | null, draft: ServerFormDraft, again: boolean) => {
+    if (target) {
+      actions.save.mutate(
+        {
+          host: target.host,
+          input: {
+            host: draft.name,
+            ip: draft.ip,
+            sshPort: draft.sshPort,
+            os: target.os,
+            cores: target.cores,
+            memGb: target.memGb,
+            diskGb: target.diskGb,
+            roleCode: draft.roleCode,
+            envCode: draft.envCode,
+            loginUser: draft.loginUser,
+            authCode: draft.authCode,
+            escMode: draft.escMode,
+            escUser: draft.escUser,
+            credRef: target.credRef,
+            note: draft.note,
+            projectIds: target.projects.map((project) => project.id),
+            ports: target.ports,
+            tags: draft.tags,
+            pathGroups: target.pathGroups,
+            paths: target.paths.map((path) => ({
+              group: path.group,
+              use: path.use,
+              path: path.path,
+              note: path.note,
+            })),
+          },
+        },
+        {
+          onSuccess: () => {
+            toast(`已保存 ${draft.name}`)
+            setForm(null)
+          },
+          onError: (error) => toast(`保存失败：${String(error)}`),
+        },
+      )
+      return
+    }
+
+    actions.create.mutate(
+      {
+        host: draft.name,
+        ip: draft.ip,
+        sshPort: draft.sshPort,
+        roleCode: draft.roleCode,
+        envCode: draft.envCode,
+        loginUser: draft.loginUser,
+        authCode: draft.authCode,
+        escMode: draft.escMode,
+        escUser: draft.escUser,
+        note: draft.note,
+        tags: draft.tags,
+        os: '',
+        cores: null,
+        memGb: null,
+        diskGb: null,
+        projectIds: [],
+        ports: [],
+        pathGroups: [],
+        paths: [],
+      },
+      {
+        onSuccess: () => {
+          toast(`已添加 ${draft.name}`)
+          if (!again) setForm(null)
+        },
+        onError: (error) => toast(`添加失败：${String(error)}`),
+      },
+    )
   }
 
   /* `from` 是那三条跳转（日志 / 部署 / 终端）返回时的落点。
@@ -660,15 +763,37 @@ export function ServersLedger() {
 
   if (form) {
     const target = form.mode === 'edit' ? form.server : null
+    /* 编辑要拿库里那一份：提交时得把没显示在表单上的列原样带回，视图那份没有它们 */
+    const real = target ? (serverData ?? []).find((server) => server.host === target.host) ?? null : null
     return (
       <div className="sv-page">
         <AddServerForm
           mode={form.mode}
           projectName={target ? (target.projects[0]?.name ?? '') : '所有项目'}
-          server={target ? { name: target.host, ip: target.ip, cores: target.cores, memGb: target.memGb, os: target.os } : null}
+          server={
+            real
+              ? {
+                  name: real.host,
+                  ip: real.ip,
+                  sshPort: real.sshPort,
+                  loginUser: real.loginUser,
+                  envCode: real.envCode,
+                  roleCode: real.roleCode,
+                  authCode: real.authCode === 'pwd' ? 'pwd' : 'key',
+                  escMode: real.escMode === 'su' || real.escMode === 'sudo' ? real.escMode : 'none',
+                  escUser: real.escUser,
+                  note: real.note,
+                  tags: real.tags,
+                  cores: real.cores,
+                  memGb: real.memGb,
+                  os: real.os,
+                }
+              : null
+          }
           siblings={ledger
             .filter((server) => server.host !== target?.host)
             .map((server) => ({ name: server.host, ip: server.ip }))}
+          onSubmit={(draft, again) => submitServer(real, draft, again)}
           onCancel={() => setForm(null)}
         />
       </div>
@@ -729,7 +854,15 @@ export function ServersLedger() {
             <OpsIcon name="server" size={22} />
           </div>
           <div className="empty-title">正在读取机器台账…</div>
-          <div className="empty-desc">机器由各项目的内容池现算，读完才知道一共有几台</div>
+          <div className="empty-desc">从本机数据库读，读完才知道一共有几台</div>
+        </div>
+      ) : isError ? (
+        <div className="empty-state">
+          <div className="empty-icon" aria-hidden="true">
+            <OpsIcon name="server" size={22} />
+          </div>
+          <div className="empty-title">读不到机器台账</div>
+          <div className="empty-desc">数据在本机数据库里，只有桌面窗口读得到 —— 浏览器里打开时读不到</div>
         </div>
       ) : (
       <>
@@ -925,7 +1058,7 @@ export function ServersLedger() {
             <OpsIcon name="server" size={22} />
           </div>
           <div className="empty-title">还没有登记任何服务器</div>
-          <div className="empty-desc">登记第一台之后，它所在的项目会自动出现在左侧圆盘上</div>
+          <div className="empty-desc">登记第一台之后，它会出现在这份台账里</div>
           <button type="button" className="btn btn-primary" onClick={() => setForm({ mode: 'add' })}>
             <OpsIcon name="plus" size={14} /> 新增服务器
           </button>

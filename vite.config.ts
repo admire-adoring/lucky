@@ -24,8 +24,8 @@ export default defineConfig({
     host: host || false,
     hmr: host ? { protocol: 'ws', host, port: 1421 } : undefined,
     watch: {
-      // src-tauri（Tauri 外壳）由 cargo 自己监听，避免改 Rust 时 Vite 也重启一遍
-      ignored: ['**/src-tauri/**'],
+      // shell/（Tauri 外壳）在 Vite root 之外，由 cargo 自己监听；保留规则防止未来把壳挪回根内
+      ignored: ['**/shell/**'],
     },
   },
   // 让 cargo 的日志不被 Vite 清屏冲掉

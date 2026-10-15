@@ -14,6 +14,10 @@ dist-ssr
 *.local
 *.tsbuildinfo
 
+# Rust（Tauri）构建产物与生成物
+src-tauri/target
+src-tauri/gen/schemas
+
 # 编辑器与系统
 .vscode/*
 !.vscode/extensions.json

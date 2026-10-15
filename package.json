@@ -1,10 +1,10 @@
 {
-  "name": "lucky-y",
+  "name": "lucky-jarvise",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@11.1.3",
-  "description": "Lucky-Y 桌面客户端 —— React 19 + TypeScript + Vite + Tailwind CSS v4 + Zustand + TanStack Query，外壳由 Tauri v2 提供",
+  "description": "Lucky-Y 桌面应用 —— Tauri v2 官方布局：React 19 + TypeScript + Vite 前端与 Rust 后端同住一个工程，壳在 src-tauri/，领域层在 src-tauri/src/server/。",
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",

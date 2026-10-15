@@ -262,22 +262,20 @@ export function DocSourcePage({
             </div>
           ) : null}
         </div>
-        <div className="rd-bar-acts">
-          <button className="btn btn-ghost" onClick={() => notice(`在来源工具里打开：${srcText}`)}>
-            在 {srcText} 里打开
-          </button>
-          {editing ? (
-            <>
-              <button className="btn btn-ghost" onClick={ed.dropChanges} disabled={!ed.dirty && !ed.draft}>放弃修改</button>
-              <button
-                className="btn btn-primary" id="rdSave"
-                disabled={!ed.dirty}
-                title={ed.dirty ? '保存到应用内副本' : '还没有改动'}
-                onClick={ed.save}
-              >保存</button>
-            </>
-          ) : null}
-        </div>
+        {/* 右端只放编辑面那两颗。原来这里还有一颗「在 {来源} 里打开」——
+            文档在应用内可读可写之后它就是多余的一扇门（2026-10-14 用户令去掉）。
+            "正文住在哪儿"这件事仍由正文开头那行「来源」说。 */}
+        {editing ? (
+          <div className="rd-bar-acts">
+            <button className="btn btn-ghost" onClick={ed.dropChanges} disabled={!ed.dirty && !ed.draft}>放弃修改</button>
+            <button
+              className="btn btn-primary" id="rdSave"
+              disabled={!ed.dirty}
+              title={ed.dirty ? '保存到应用内副本' : '还没有改动'}
+              onClick={ed.save}
+            >保存</button>
+          </div>
+        ) : null}
       </div>
 
       {editing ? (

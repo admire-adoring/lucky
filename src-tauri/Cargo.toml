@@ -1,7 +1,7 @@
 [package]
 name = "lucky"
 version = "0.1.0"
-description = "Lucky-Y 桌面外壳（Tauri）。领域逻辑在 backend/lucky_y_server，本 crate 只做窗口、权限与命令注册。"
+description = "Lucky-Y 桌面应用，Tauri v2 官方布局。命令层（窗口/权限/命令注册）在 lib.rs，领域层在 src/server/（不 import tauri）。"
 authors = ["Lucky-Y"]
 edition = "2021"
 rust-version = "1.77"
@@ -24,6 +24,8 @@ tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# 领域层存储。bundled 把 SQLite 一起编进来，机器上不必预装 sqlite3。
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 [profile.release]
 codegen-units = 1

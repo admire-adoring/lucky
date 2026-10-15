@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>登录 · Lucky-Y</title>
+<style>
+/* ============================================================
+   Lucky-Y UI Prototype v1.0 — 登录页
+   Design tokens（与 projects.html / project-detail.html 共用）
+   ============================================================ */
+:root{
+  --font-sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB",
+    "Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+  --font-mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+
+  /* 品牌 / 交互色 */
+  --brand-700:#3730a3;
+  --brand-600:#4338ca;
+  --brand-500:#4f46e5;
+  --brand-400:#6366f1;
+  --brand-100:#e0e7ff;
+  --brand-50:#eef2ff;
+
+  /* 三域语义色 */
+  --life:#0f9d76;    --life-bg:#e7f6f1;   --life-line:#bfe8da;
+  --work:#2f6fed;    --work-bg:#e9f0fe;   --work-line:#c5d9fb;
+  --learn:#7c3aed;   --learn-bg:#f1ebfe;  --learn-line:#dccdfb;
+
+  /* 中性灰阶（冷调） */
+  --ink-900:#101218;
+  --ink-800:#1b1e26;
+  --ink-700:#343a46;
+  --ink-600:#4a515e;
+  --ink-500:#6b7280;
+  --ink-400:#8b93a1;
+  --ink-300:#aeb5c0;
+  --ink-200:#d5d9e0;
+  --ink-100:#e8ebef;
+  --ink-50:#f3f5f8;
+
+  --surface:#ffffff;
+  --bg:#f6f7f9;
+  --border:#e5e8ed;
+  --border-strong:#d3d8e0;
+
+  --danger:#dc2626;
+  --success:#0f9d76;
+  --warning:#d97706;
+
+  /* 圆角 */
+  --r-xs:6px; --r-sm:8px; --r-md:10px; --r-lg:14px; --r-xl:20px; --r-full:999px;
+
+  /* 阴影 */
+  --sh-xs:0 1px 2px rgba(16,18,24,.05);
+  --sh-sm:0 1px 3px rgba(16,18,24,.06),0 1px 2px rgba(16,18,24,.04);
+  --sh-md:0 4px 12px rgba(16,18,24,.07),0 2px 4px rgba(16,18,24,.04);
+  --sh-lg:0 12px 28px rgba(16,18,24,.10),0 4px 8px rgba(16,18,24,.04);
+  --sh-xl:0 24px 48px rgba(16,18,24,.14);
+
+  /* 间距 */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px;
+  --s8:32px; --s10:40px; --s12:48px; --s16:64px;
+
+  /* 动效 */
+  --d-fast:150ms; --d-base:220ms; --d-slow:400ms;
+  --ease-out:cubic-bezier(0,0,.2,1);
+  --ease-in-out:cubic-bezier(.4,0,.2,1);
+  --ease-spring:cubic-bezier(.34,1.4,.64,1);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--font-sans);
+  font-size:16px;
+  line-height:1.7;
+  color:var(--ink-900);
+  background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--brand-500);outline-offset:2px;border-radius:var(--r-xs)}
+
+/* ---------- 布局骨架 ---------- */
+.auth{
+  display:grid;
+  grid-template-columns:minmax(0,1.06fr) minmax(0,1fr);
+  min-height:100vh;
+}
+
+/* ---------- 左侧品牌面板 ---------- */
+.brand-panel{
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:var(--s12) var(--s12) 92px;
+  color:#fff;
+  background:
+    radial-gradient(120% 85% at 8% 4%,rgba(99,102,241,.58) 0%,rgba(99,102,241,0) 58%),
+    radial-gradient(85% 70% at 92% 16%,rgba(124,58,237,.46) 0%,rgba(124,58,237,0) 55%),
+    radial-gradient(110% 90% at 72% 104%,rgba(14,165,233,.30) 0%,rgba(14,165,233,0) 62%),
+    #0b0d13;
+}
+/* 细网格纹理 */
+.brand-panel::before{
+  content:"";
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.038) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.038) 1px,transparent 1px);
+  background-size:56px 56px;
+  mask-image:radial-gradient(120% 100% at 20% 0%,#000 25%,transparent 78%);
+  -webkit-mask-image:radial-gradient(120% 100% at 20% 0%,#000 25%,transparent 78%);
+  pointer-events:none;
+}
+.brand-panel>*{position:relative;z-index:1}
+
+.brand-mark{display:flex;align-items:center;gap:var(--s3)}
+.brand-mark svg{width:38px;height:38px;flex:none;border-radius:11px}
+.brand-mark__name{
+  font-size:19px;font-weight:700;letter-spacing:.01em;line-height:1.2;
+}
+.brand-mark__sub{
+  font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(255,255,255,.5);line-height:1.2;margin-top:2px;
+}
+
+.brand-hero{max-width:520px;margin:auto 0;padding:var(--s10) 0}
+.brand-hero h2{
+  margin:0 0 var(--s5);
+  font-size:clamp(28px,2.7vw,40px);
+  line-height:1.32;
+  font-weight:700;
+  letter-spacing:-.01em;
+  background:linear-gradient(120deg,#fff 30%,rgba(255,255,255,.68) 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.brand-hero p{
+  margin:0;
+  font-size:15px;line-height:1.85;
+  color:rgba(255,255,255,.62);
+  max-width:440px;
+}
+
+.domain-grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:var(--s3);margin-top:var(--s10);
+  max-width:480px;
+}
+.domain{
+  display:flex;align-items:center;gap:var(--s2);
+  padding:11px var(--s3);
+  border-radius:var(--r-md);
+  background:rgba(255,255,255,.055);
+  border:1px solid rgba(255,255,255,.09);
+  font-size:13px;font-weight:500;
+  color:rgba(255,255,255,.86);
+  backdrop-filter:blur(6px);
+}
+.domain__dot{width:7px;height:7px;border-radius:var(--r-full);flex:none}
+.domain--life .domain__dot{background:#34d3a6;box-shadow:0 0 0 3px rgba(52,211,166,.18)}
+.domain--work .domain__dot{background:#6f9dff;box-shadow:0 0 0 3px rgba(111,157,255,.18)}
+.domain--learn .domain__dot{background:#b18cff;box-shadow:0 0 0 3px rgba(177,140,255,.18)}
+
+.brand-foot{
+  display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;
+  padding-top:var(--s5);
+  border-top:1px solid rgba(255,255,255,.09);
+  font-size:12.5px;color:rgba(255,255,255,.45);
+}
+.brand-foot span{display:inline-flex;align-items:center;gap:6px}
+.brand-foot svg{width:13px;height:13px;opacity:.7}
+
+/* ---------- 右侧表单面板 ---------- */
+.auth-panel{
+  display:flex;align-items:center;justify-content:center;
+  padding:var(--s12) var(--s8);
+  background:var(--surface);
+  position:relative;
+}
+.auth-panel__inner{width:100%;max-width:392px}
+
+/* 移动端才显示的紧凑品牌头 */
+.compact-brand{display:none;align-items:center;gap:10px;margin-bottom:var(--s8)}
+.compact-brand svg{width:32px;height:32px;border-radius:9px}
+.compact-brand b{font-size:16px;font-weight:700}
+
+.form-head{margin-bottom:var(--s8)}
+.form-head h1{
+  margin:0 0 var(--s2);
+  font-size:26px;font-weight:700;line-height:1.35;letter-spacing:-.01em;
+  color:var(--ink-900);
+}
+.form-head p{margin:0;font-size:14px;color:var(--ink-500);line-height:1.7}
+
+/* 社交登录 */
+.btn-oauth{
+  width:100%;height:46px;
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--s3);
+  border:1px solid var(--border-strong);
+  border-radius:var(--r-md);
+  background:var(--surface);
+  color:var(--ink-800);
+  font-size:14.5px;font-weight:600;
+  cursor:pointer;
+  transition:background var(--d-fast) var(--ease-out),
+             border-color var(--d-fast) var(--ease-out),
+             transform var(--d-fast) var(--ease-out);
+}
+.btn-oauth svg{width:18px;height:18px}
+.btn-oauth:hover{background:var(--ink-50);border-color:var(--ink-300)}
+.btn-oauth:active{transform:scale(.99)}
+
+/* 分隔线 */
+.divider{
+  display:flex;align-items:center;gap:var(--s4);
+  margin:var(--s6) 0;
+  font-size:12.5px;color:var(--ink-400);
+}
+.divider::before,.divider::after{
+  content:"";flex:1;height:1px;background:var(--border);
+}
+
+/* 表单字段 */
+.field{margin-bottom:var(--s4)}
+.field__head{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.field label{font-size:13.5px;font-weight:600;color:var(--ink-700)}
+.field__link{font-size:13px;font-weight:500;color:var(--brand-600)}
+.field__link:hover{color:var(--brand-700);text-decoration:underline;text-underline-offset:3px}
+
+.input-wrap{position:relative;display:flex;align-items:center}
+.input-wrap>svg.input-icon{
+  position:absolute;left:13px;width:17px;height:17px;
+  color:var(--ink-400);pointer-events:none;transition:color var(--d-fast);
+}
+.input{
+  width:100%;height:46px;
+  padding:0 14px 0 40px;
+  font-family:inherit;font-size:14.5px;color:var(--ink-900);
+  background:var(--surface);
+  border:1px solid var(--border-strong);
+  border-radius:var(--r-md);
+  outline:none;
+  transition:border-color var(--d-fast) var(--ease-out),
+             box-shadow var(--d-fast) var(--ease-out),
+             background var(--d-fast) var(--ease-out);
+}
+.input::placeholder{color:var(--ink-300)}
+.input:hover{border-color:var(--ink-300)}
+.input:focus{border-color:var(--brand-500);box-shadow:0 0 0 3.5px rgba(79,70,229,.13)}
+.input-wrap:focus-within>svg.input-icon{color:var(--brand-500)}
+.input--pw{padding-right:46px}
+
+.pw-toggle{
+  position:absolute;right:8px;
+  width:32px;height:32px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:0;background:transparent;border-radius:var(--r-sm);
+  color:var(--ink-400);cursor:pointer;
+  transition:background var(--d-fast),color var(--d-fast);
+}
+.pw-toggle:hover{background:var(--ink-50);color:var(--ink-600)}
+.pw-toggle svg{width:17px;height:17px}
+
+/* 记住我 */
+.row-between{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);margin:var(--s5) 0 var(--s6)}
+.check{display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none;font-size:13.5px;color:var(--ink-600)}
+.check input{position:absolute;opacity:0;width:0;height:0}
+.check__box{
+  width:17px;height:17px;flex:none;
+  border:1.5px solid var(--border-strong);
+  border-radius:5px;background:var(--surface);
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:all var(--d-fast) var(--ease-out);
+}
+.check__box svg{width:11px;height:11px;color:#fff;opacity:0;transform:scale(.6);transition:all var(--d-fast) var(--ease-spring)}
+.check input:checked+.check__box{background:var(--brand-500);border-color:var(--brand-500)}
+.check input:checked+.check__box svg{opacity:1;transform:scale(1)}
+.check input:focus-visible+.check__box{box-shadow:0 0 0 3.5px rgba(79,70,229,.16)}
+
+/* 主按钮 */
+.btn-submit{
+  position:relative;
+  width:100%;height:48px;
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
+  border:0;border-radius:var(--r-md);
+  background:var(--ink-900);
+  color:#fff;
+  font-size:15px;font-weight:600;letter-spacing:.01em;
+  cursor:pointer;
+  overflow:hidden;
+  transition:background var(--d-fast) var(--ease-out),
+             transform var(--d-fast) var(--ease-out),
+             box-shadow var(--d-base) var(--ease-out);
+}
+.btn-submit::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(120deg,transparent 20%,rgba(255,255,255,.14) 50%,transparent 80%);
+  transform:translateX(-100%);
+  transition:transform var(--d-slow) var(--ease-out);
+}
+.btn-submit:hover{background:#000;box-shadow:var(--sh-lg)}
+.btn-submit:hover::after{transform:translateX(100%)}
+.btn-submit:active{transform:scale(.988)}
+.btn-submit[data-loading="true"]{pointer-events:none;color:transparent}
+.btn-submit[data-loading="true"]::after{display:none}
+.spinner{
+  position:absolute;left:50%;top:50%;
+  width:17px;height:17px;margin:-8.5px 0 0 -8.5px;
+  border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;
+  animation:spin .65s linear infinite;
+  display:none;
+}
+.btn-submit[data-loading="true"] .spinner{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.form-foot{
+  margin-top:var(--s6);
+  text-align:center;
+  font-size:13.5px;color:var(--ink-500);
+}
+.form-foot a{color:var(--brand-600);font-weight:600}
+.form-foot a:hover{text-decoration:underline;text-underline-offset:3px}
+
+.legal{
+  margin-top:var(--s10);padding-top:var(--s5);
+  border-top:1px solid var(--border);
+  font-size:12px;line-height:1.75;color:var(--ink-400);text-align:center;
+}
+.legal a{color:var(--ink-500);text-decoration:underline;text-underline-offset:2px}
+
+/* 原型提示 */
+.proto-badge{
+  position:fixed;left:var(--s6);bottom:var(--s6);z-index:20;
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 13px;
+  border-radius:var(--r-full);
+  background:rgba(16,18,24,.88);
+  color:rgba(255,255,255,.9);
+  font-size:12px;font-weight:500;
+  backdrop-filter:blur(10px);
+  box-shadow:var(--sh-md);
+  animation:fadeUp .6s var(--ease-out) both;
+}
+.proto-badge i{width:6px;height:6px;border-radius:50%;background:#34d3a6;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.auth-panel__inner>*{animation:fadeUp .58s var(--ease-out) both}
+.auth-panel__inner>*:nth-child(1){animation-delay:.02s}
+.auth-panel__inner>*:nth-child(2){animation-delay:.07s}
+.auth-panel__inner>*:nth-child(3){animation-delay:.12s}
+.auth-panel__inner>*:nth-child(4){animation-delay:.17s}
+.auth-panel__inner>*:nth-child(5){animation-delay:.22s}
+.auth-panel__inner>*:nth-child(6){animation-delay:.27s}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:1080px){
+  .auth{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .brand-panel{padding:var(--s8)}
+  .domain-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:880px){
+  .auth{grid-template-columns:1fr}
+  .brand-panel{display:none}
+  .compact-brand{display:flex}
+  .auth-panel{padding:var(--s8) var(--s6);align-items:flex-start}
+  .auth-panel__inner{max-width:420px;margin:0 auto}
+  .proto-badge{left:50%;transform:translateX(-50%);bottom:var(--s4)}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<div class="auth">
+
+  <!-- ==================== 左：品牌面板 ==================== -->
+  <aside class="brand-panel">
+    <div class="brand-mark">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <defs>
+          <linearGradient id="lg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#6366f1"/><stop offset="1" stop-color="#7c3aed"/>
+          </linearGradient>
+        </defs>
+        <rect width="32" height="32" rx="9" fill="url(#lg)"/>
+        <path d="M16 7.5A8.5 8.5 0 0 1 23.36 20.25" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="1"/>
+        <path d="M23.36 20.25A8.5 8.5 0 0 1 8.64 20.25" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".6"/>
+        <path d="M8.64 20.25A8.5 8.5 0 0 1 16 7.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".32"/>
+        <circle cx="16" cy="16" r="2.3" fill="#fff"/>
+      </svg>
+      <div>
+        <div class="brand-mark__name">Lucky-Y</div>
+        <div class="brand-mark__sub">Personal OS</div>
+      </div>
+    </div>
+
+    <div class="brand-hero">
+      <h2>把生活、工作、学习<br>装进同一个系统</h2>
+      <p>三域独立、执行统一。项目是唯一的执行层，用 scope 隔离归属；Markdown 为源、SQLite 为索引、Git 为同步 —— 数据永远在你自己手里。</p>
+
+      <div class="domain-grid">
+        <div class="domain domain--life"><span class="domain__dot"></span>生活</div>
+        <div class="domain domain--work"><span class="domain__dot"></span>工作</div>
+        <div class="domain domain--learn"><span class="domain__dot"></span>学习</div>
+        <div class="domain domain--learn"><span class="domain__dot"></span>项目</div>
+        <div class="domain domain--learn"><span class="domain__dot"></span>知识库</div>
+        <div class="domain domain--life"><span class="domain__dot"></span>设置</div>
+      </div>
+    </div>
+
+    <div class="brand-foot">
+      <span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+        本地优先存储
+      </span>
+      <span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>
+        Git 跨设备同步
+      </span>
+      <span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        端到端加密
+      </span>
+    </div>
+  </aside>
+
+  <!-- ==================== 右：登录表单 ==================== -->
+  <main class="auth-panel">
+    <div class="auth-panel__inner">
+
+      <div class="compact-brand">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <defs>
+            <linearGradient id="lg2" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6366f1"/><stop offset="1" stop-color="#7c3aed"/>
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="9" fill="url(#lg2)"/>
+          <path d="M16 7.5A8.5 8.5 0 0 1 23.36 20.25" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M23.36 20.25A8.5 8.5 0 0 1 8.64 20.25" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".6"/>
+          <path d="M8.64 20.25A8.5 8.5 0 0 1 16 7.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".32"/>
+          <circle cx="16" cy="16" r="2.3" fill="#fff"/>
+        </svg>
+        <b>Lucky-Y</b>
+      </div>
+
+      <div class="form-head">
+        <h1>欢迎回来</h1>
+        <p>登录后进入项目管理，统一查看生活、工作、学习三个域的执行进度。</p>
+      </div>
+
+      <button type="button" class="btn-oauth" onclick="submitLogin(this)">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-1.96c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.18-1.49 3.14-1.18 3.14-1.18.63 1.59.23 2.76.12 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.07.78 2.16v3.2c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5Z"/>
+        </svg>
+        使用 GitHub 登录
+      </button>
+
+      <div class="divider">或使用邮箱登录</div>
+
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <div class="field__head"><label for="email">邮箱地址</label></div>
+          <div class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            <input class="input" id="email" name="email" type="email" autocomplete="email"
+                   placeholder="you@example.com" value="me@lucky-y.app">
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field__head">
+            <label for="password">密码</label>
+            <a class="field__link" href="#" onclick="toast('原型演示：忘记密码流程未包含');return false">忘记密码？</a>
+          </div>
+          <div class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input class="input input--pw" id="password" name="password" type="password"
+                   autocomplete="current-password" placeholder="输入密码" value="lucky-y-2026">
+            <button type="button" class="pw-toggle" id="pwToggle" aria-label="显示密码">
+              <svg id="eyeOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="row-between">
+          <label class="check">
+            <input type="checkbox" id="remember" checked>
+            <span class="check__box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 13 5 5L20 7"/></svg>
+            </span>
+            记住这台设备
+          </label>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submitBtn">
+          <span>登录</span>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+          <span class="spinner"></span>
+        </button>
+      </form>
+
+      <p class="form-foot">还没有账户？<a href="#" onclick="toast('原型演示：注册流程未包含');return false">创建一个</a></p>
+
+      <p class="legal">登录即表示同意 <a href="#" onclick="return false">服务条款</a> 与 <a href="#" onclick="return false">隐私政策</a>。<br>工作机密数据不会同步至个人空间。</p>
+    </div>
+  </main>
+</div>
+
+<div class="proto-badge"><i></i>原型演示 · v1.0 · 点击登录进入项目管理</div>
+
+<div id="toastHost" style="position:fixed;left:50%;top:24px;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none"></div>
+
+<script>
+/* ---------- 密码可见性切换 ---------- */
+document.getElementById('pwToggle').addEventListener('click',function(){
+  var pw=document.getElementById('password');
+  var show=pw.type==='password';
+  pw.type=show?'text':'password';
+  this.setAttribute('aria-label',show?'隐藏密码':'显示密码');
+  this.style.color=show?'var(--brand-500)':'var(--ink-400)';
+});
+
+/* ---------- 轻量提示 ---------- */
+function toast(msg){
+  var host=document.getElementById('toastHost');
+  var el=document.createElement('div');
+  el.textContent=msg;
+  el.style.cssText='pointer-events:auto;padding:11px 18px;border-radius:12px;background:#101218;color:#fff;'+
+    'font-size:13.5px;font-weight:500;box-shadow:0 12px 28px rgba(16,18,24,.22);'+
+    'opacity:0;transform:translateY(-8px);transition:all .24s cubic-bezier(0,0,.2,1)';
+  host.appendChild(el);
+  requestAnimationFrame(function(){el.style.opacity='1';el.style.transform='translateY(0)';});
+  setTimeout(function(){
+    el.style.opacity='0';el.style.transform='translateY(-8px)';
+    setTimeout(function(){el.remove();},260);
+  },2000);
+}
+
+/* ---------- 登录提交 → 进入项目管理 ---------- */
+function submitLogin(btn){
+  if(btn){btn.disabled=true;}
+  toast('正在跳转项目管理…');
+  setTimeout(function(){window.location.href='projects.html';},520);
+}
+document.getElementById('loginForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var btn=document.getElementById('submitBtn');
+  btn.setAttribute('data-loading','true');
+  setTimeout(function(){window.location.href='projects.html';},760);
+});
+</script>
+</body>
+</html>

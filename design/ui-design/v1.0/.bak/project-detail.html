@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>项目详情 · Lucky-Y</title>
+<style>
+/* ============================================================
+   Lucky-Y UI Prototype v1.0 — 项目详情
+   ============================================================ */
+:root{
+  --font-sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB",
+    "Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+  --font-mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+
+  --brand-700:#3730a3; --brand-600:#4338ca; --brand-500:#4f46e5;
+  --brand-400:#6366f1; --brand-100:#e0e7ff; --brand-50:#eef2ff;
+
+  --life:#0f9d76;   --life-bg:#e7f6f1;
+  --work:#2f6fed;   --work-bg:#e9f0fe;
+  --learn:#7c3aed;  --learn-bg:#f1ebfe;
+
+  --ink-900:#101218; --ink-800:#1b1e26; --ink-700:#343a46; --ink-600:#4a515e;
+  --ink-500:#6b7280; --ink-400:#8b93a1; --ink-300:#aeb5c0; --ink-200:#d5d9e0;
+  --ink-100:#e8ebef; --ink-50:#f3f5f8;
+
+  --surface:#ffffff; --bg:#f6f7f9; --border:#e5e8ed; --border-strong:#d3d8e0;
+
+  --danger:#dc2626;  --danger-bg:#fdecec;
+  --success:#0f9d76; --success-bg:#e7f6f1;
+  --warning:#c2740a; --warning-bg:#fdf3e2;
+
+  --r-xs:6px; --r-sm:8px; --r-md:10px; --r-lg:14px; --r-xl:20px; --r-full:999px;
+
+  --sh-xs:0 1px 2px rgba(16,18,24,.05);
+  --sh-sm:0 1px 3px rgba(16,18,24,.06),0 1px 2px rgba(16,18,24,.04);
+  --sh-md:0 4px 12px rgba(16,18,24,.07),0 2px 4px rgba(16,18,24,.04);
+  --sh-lg:0 12px 28px rgba(16,18,24,.10),0 4px 8px rgba(16,18,24,.04);
+  --sh-xl:0 24px 48px rgba(16,18,24,.14);
+
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px;
+  --s8:32px; --s10:40px; --s12:48px; --s16:64px;
+
+  --d-fast:150ms; --d-base:220ms; --d-slow:400ms;
+  --ease-out:cubic-bezier(0,0,.2,1);
+
+  --sidebar-w:248px; --topbar-h:60px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--font-sans);font-size:15px;line-height:1.7;color:var(--ink-900);
+  background:var(--bg);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  overflow:hidden;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:-.01em}
+:focus-visible{outline:2px solid var(--brand-500);outline-offset:2px;border-radius:var(--r-xs)}
+svg{display:block}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--ink-200);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--ink-300);background-clip:content-box;border:3px solid transparent}
+.icon{width:18px;height:18px;flex:none}
+
+/* ---------- 骨架 ---------- */
+.app{display:flex;height:100vh;overflow:hidden}
+
+.sidebar{
+  width:var(--sidebar-w);flex:none;display:flex;flex-direction:column;
+  background:var(--surface);border-right:1px solid var(--border);z-index:30;
+}
+.sidebar__brand{
+  height:var(--topbar-h);flex:none;display:flex;align-items:center;gap:10px;
+  padding:0 var(--s5);border-bottom:1px solid var(--border);
+}
+.sidebar__brand svg{width:28px;height:28px;border-radius:8px;flex:none}
+.sidebar__brand b{font-size:15.5px;font-weight:700}
+.sidebar__brand small{display:block;font-size:10px;font-weight:600;letter-spacing:.13em;
+  color:var(--ink-400);text-transform:uppercase;line-height:1;margin-top:1px}
+.nav{flex:1;overflow-y:auto;padding:var(--s4) var(--s3) var(--s2)}
+.nav__label{padding:var(--s3) var(--s3) 6px;font-size:11px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-400)}
+.nav__item{display:flex;align-items:center;gap:11px;padding:9px var(--s3);margin-bottom:2px;
+  border-radius:var(--r-sm);font-size:14px;font-weight:500;color:var(--ink-600);
+  transition:background var(--d-fast) var(--ease-out),color var(--d-fast) var(--ease-out);position:relative}
+.nav__item .icon{width:17.5px;height:17.5px;color:var(--ink-400);transition:color var(--d-fast)}
+.nav__item:hover{background:var(--ink-50);color:var(--ink-900)}
+.nav__item:hover .icon{color:var(--ink-600)}
+.nav__item.is-active{background:var(--ink-900);color:#fff;font-weight:600}
+.nav__item.is-active .icon{color:#fff}
+.nav__item.is-active::before{content:"";position:absolute;left:-11px;top:50%;transform:translateY(-50%);
+  width:3px;height:18px;border-radius:0 3px 3px 0;background:var(--brand-500)}
+.sidebar__foot{flex:none;padding:var(--s3);border-top:1px solid var(--border)}
+.sync{display:flex;align-items:center;gap:8px;padding:9px 11px;margin-bottom:var(--s3);
+  border-radius:var(--r-sm);background:var(--ink-50);font-size:11.5px;color:var(--ink-500);font-weight:500}
+.sync i{width:6px;height:6px;border-radius:50%;background:#22c55e;flex:none;
+  box-shadow:0 0 0 3px rgba(34,197,94,.16);animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.user-card{display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--r-md);
+  cursor:pointer;transition:background var(--d-fast)}
+.user-card:hover{background:var(--ink-50)}
+.user-card__meta{min-width:0;flex:1}
+.user-card__meta b{display:block;font-size:13px;font-weight:600;line-height:1.35}
+.user-card__meta span{display:block;font-size:11.5px;color:var(--ink-400);line-height:1.35;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-card>svg{width:15px;height:15px;color:var(--ink-300);flex:none}
+
+.avatar{width:32px;height:32px;flex:none;border-radius:9px;display:inline-flex;
+  align-items:center;justify-content:center;font-size:12.5px;font-weight:700;color:#fff;
+  background:linear-gradient(135deg,#6366f1,#7c3aed);letter-spacing:.02em}
+.avatar--sm{width:26px;height:26px;border-radius:7px;font-size:10.5px}
+.avatar--xs{width:22px;height:22px;border-radius:6px;font-size:9.5px}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+
+.topbar{
+  height:var(--topbar-h);flex:none;display:flex;align-items:center;gap:var(--s4);
+  padding:0 var(--s6);background:rgba(255,255,255,.86);
+  backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);
+  border-bottom:1px solid var(--border);z-index:20;
+}
+.hamburger{display:none;width:34px;height:34px;align-items:center;justify-content:center;
+  border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--ink-600)}
+.search{position:relative;flex:1;max-width:400px;display:flex;align-items:center}
+.search .icon{position:absolute;left:11px;width:16px;height:16px;color:var(--ink-400);pointer-events:none}
+.search input{width:100%;height:36px;padding:0 62px 0 35px;font-family:inherit;font-size:13.5px;
+  color:var(--ink-900);background:var(--ink-50);border:1px solid transparent;border-radius:var(--r-md);
+  outline:none;transition:all var(--d-fast) var(--ease-out)}
+.search input::placeholder{color:var(--ink-400)}
+.search input:focus{background:var(--surface);border-color:var(--brand-500);box-shadow:0 0 0 3.5px rgba(79,70,229,.12)}
+.search kbd{position:absolute;right:9px;padding:2px 6px;border-radius:5px;background:var(--surface);
+  border:1px solid var(--border);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-400);line-height:1.5}
+.topbar__spacer{flex:1}
+.icon-btn{width:34px;height:34px;flex:none;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid transparent;border-radius:var(--r-sm);background:transparent;color:var(--ink-500);
+  transition:all var(--d-fast) var(--ease-out)}
+.icon-btn:hover{background:var(--ink-50);color:var(--ink-900)}
+.icon-btn .icon{width:17.5px;height:17.5px}
+.topbar__divider{width:1px;height:22px;background:var(--border);flex:none}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 14px;
+  border-radius:var(--r-md);font-size:13.5px;font-weight:600;border:1px solid transparent;
+  transition:all var(--d-fast) var(--ease-out);white-space:nowrap}
+.btn .icon{width:16px;height:16px}
+.btn--primary{background:var(--ink-900);color:#fff}
+.btn--primary:hover{background:#000;box-shadow:var(--sh-md);transform:translateY(-1px)}
+.btn--ghost{background:var(--surface);border-color:var(--border-strong);color:var(--ink-700)}
+.btn--ghost:hover{background:var(--ink-50);border-color:var(--ink-300);color:var(--ink-900)}
+.btn--sm{height:32px;padding:0 11px;font-size:13px}
+.btn:active{transform:scale(.98)}
+
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:var(--s5) var(--s6) var(--s16)}
+
+/* ---------- 返回 ---------- */
+.back{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:600;color:var(--ink-500);
+  margin-bottom:var(--s4);transition:color var(--d-fast)
+}
+.back:hover{color:var(--brand-600)}
+.back .icon{width:14px;height:14px}
+.back .icon--l{transform:rotate(180deg)}
+
+/* ---------- Hero ---------- */
+.hero{
+  display:grid;grid-template-columns:minmax(0,1fr) 288px;gap:var(--s6);
+  padding:var(--s6);
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);
+  margin-bottom:var(--s5);
+  position:relative;overflow:hidden;
+}
+.hero::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+}
+.hero[data-scope="life"]::before{background:var(--life)}
+.hero[data-scope="work"]::before{background:var(--work)}
+.hero[data-scope="learn"]::before{background:var(--learn)}
+
+.hero__top{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s3)}
+.hero h1{font-size:26px;line-height:1.3;margin-bottom:8px}
+.hero__desc{font-size:14px;color:var(--ink-500);line-height:1.8;max-width:660px;margin:0 0 var(--s5)}
+.hero__actions{display:flex;gap:var(--s2);flex-wrap:wrap}
+
+.metagrid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:var(--s3);margin-top:var(--s5);padding-top:var(--s5);
+  border-top:1px dashed var(--border);
+}
+.metaitem{display:flex;flex-direction:column;gap:3px}
+.metaitem__k{font-size:11.5px;font-weight:600;color:var(--ink-400);display:flex;align-items:center;gap:5px}
+.metaitem__k .icon{width:12.5px;height:12.5px}
+.metaitem__v{font-size:13.5px;font-weight:600;color:var(--ink-800)}
+.metaitem__v.warn{color:var(--danger)}
+
+/* 进度环 */
+.ringcard{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:var(--s5);border-radius:var(--r-lg);background:var(--bg);border:1px solid var(--border);
+  text-align:center;
+}
+.ring{width:132px;height:132px;position:relative}
+.ring__num{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+}
+.ring__num b{font-size:30px;font-weight:700;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.ring__num span{font-size:11.5px;font-weight:600;color:var(--ink-400);margin-top:4px}
+.ringcard__meta{display:flex;gap:var(--s5);margin-top:var(--s4);width:100%;justify-content:center}
+.ringcard__meta div{text-align:center}
+.ringcard__meta b{display:block;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.3}
+.ringcard__meta span{font-size:11.5px;color:var(--ink-400);font-weight:500}
+
+/* ---------- 标签页 ---------- */
+.tabs{
+  display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:var(--s5);
+  overflow-x:auto;
+}
+.tabs button{
+  position:relative;
+  padding:11px 15px;border:0;background:transparent;
+  font-size:13.5px;font-weight:600;color:var(--ink-500);white-space:nowrap;
+  transition:color var(--d-fast) var(--ease-out);
+}
+.tabs button:hover{color:var(--ink-900)}
+.tabs button.is-active{color:var(--ink-900)}
+.tabs button.is-active::after{
+  content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;
+  background:var(--ink-900);border-radius:2px 2px 0 0;
+}
+.tabs .n{
+  display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--r-full);
+  background:var(--ink-100);font-size:11px;font-weight:700;color:var(--ink-500);line-height:18px;
+}
+
+.panel{display:none}
+.panel.is-active{display:block;animation:fadeUp .3s var(--ease-out) both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:var(--s5);align-items:start}
+.cols--wide{grid-template-columns:minmax(0,1fr)}
+.stack{display:flex;flex-direction:column;gap:var(--s5)}
+
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;
+}
+.card__head{
+  display:flex;align-items:center;gap:var(--s2);
+  padding:var(--s4) var(--s5);border-bottom:1px solid var(--border);
+}
+.card__head h3{font-size:14px;font-weight:700}
+.card__head .icon{width:16px;height:16px;color:var(--ink-400)}
+.card__head .sp{flex:1}
+.card__head .hint{font-size:12px;color:var(--ink-400);font-weight:500}
+.card__body{padding:var(--s5)}
+.card__body--flush{padding:0}
+
+/* ---------- 任务列表 ---------- */
+.task{
+  display:flex;align-items:center;gap:var(--s4);
+  padding:12px var(--s5);
+  border-bottom:1px solid var(--border);
+  transition:background var(--d-fast) var(--ease-out);
+}
+.task:last-child{border-bottom:0}
+.task:hover{background:var(--ink-50)}
+.task__check{
+  width:19px;height:19px;flex:none;border-radius:6px;
+  border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;
+  color:#fff;transition:all var(--d-fast) var(--ease-out);
+}
+.task__check .icon{width:11px;height:11px;opacity:0}
+.task.is-done .task__check{background:var(--success);border-color:var(--success)}
+.task.is-done .task__check .icon{opacity:1}
+.task__name{flex:1;min-width:0;font-size:13.5px;font-weight:500;line-height:1.55}
+.task.is-done .task__name{color:var(--ink-400);text-decoration:line-through;text-decoration-color:var(--ink-300)}
+.task__due{font-size:12px;color:var(--ink-400);font-variant-numeric:tabular-nums;white-space:nowrap}
+.task__due.warn{color:var(--danger);font-weight:600}
+
+.pill{
+  display:inline-flex;align-items:center;gap:5px;
+  height:22px;padding:0 9px;border-radius:var(--r-full);
+  font-size:11.5px;font-weight:600;white-space:nowrap;
+}
+.pill i{width:5.5px;height:5.5px;border-radius:50%;flex:none}
+.pill--todo{background:var(--ink-100);color:var(--ink-600)}
+.pill--todo i{background:var(--ink-400)}
+.pill--doing{background:var(--success-bg);color:#0b7a5c}
+.pill--doing i{background:var(--success)}
+.pill--blocked{background:var(--danger-bg);color:#b91c1c}
+.pill--blocked i{background:var(--danger)}
+.pill--done{background:var(--brand-50);color:var(--brand-600)}
+.pill--done i{background:var(--brand-500)}
+
+.badge{
+  display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;
+  border-radius:var(--r-full);font-size:11.5px;font-weight:700;white-space:nowrap;
+}
+.badge i{width:5.5px;height:5.5px;border-radius:50%;flex:none;background:currentColor}
+.badge--life{background:var(--life-bg);color:var(--life)}
+.badge--work{background:var(--work-bg);color:var(--work)}
+.badge--learn{background:var(--learn-bg);color:var(--learn)}
+
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--r-xs);
+  background:var(--ink-50);border:1px solid var(--border);font-size:11.5px;font-weight:500;color:var(--ink-500)}
+
+/* ---------- 里程碑时间线 ---------- */
+.mile{position:relative;padding-left:34px;padding-bottom:var(--s6)}
+.mile:last-child{padding-bottom:0}
+.mile::before{
+  content:"";position:absolute;left:8px;top:20px;bottom:-4px;width:1.5px;background:var(--border);
+}
+.mile:last-child::before{display:none}
+.mile__dot{
+  position:absolute;left:0;top:4px;width:17px;height:17px;border-radius:50%;
+  border:2px solid var(--border-strong);background:var(--surface);
+  display:flex;align-items:center;justify-content:center;
+}
+.mile__dot .icon{width:9px;height:9px;color:#fff;opacity:0}
+.mile.is-done .mile__dot{background:var(--success);border-color:var(--success)}
+.mile.is-done .mile__dot .icon{opacity:1}
+.mile.is-now .mile__dot{border-color:var(--brand-500);background:var(--surface);box-shadow:0 0 0 4px rgba(79,70,229,.14)}
+.mile.is-now .mile__dot::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--brand-500)}
+.mile__name{font-size:13.5px;font-weight:650;line-height:1.5}
+.mile.is-done .mile__name{color:var(--ink-500)}
+.mile__meta{display:flex;align-items:center;gap:10px;margin-top:3px;font-size:12px;color:var(--ink-400)}
+.mile__meta .icon{width:12.5px;height:12.5px}
+
+/* ---------- 文档 ---------- */
+.doc{
+  display:flex;align-items:center;gap:var(--s4);padding:14px var(--s5);
+  border-bottom:1px solid var(--border);transition:background var(--d-fast)
+}
+.doc:last-child{border-bottom:0}
+.doc:hover{background:var(--ink-50)}
+.doc__ic{
+  width:34px;height:34px;flex:none;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center;
+  background:var(--ink-50);color:var(--ink-500);
+}
+.doc__ic .icon{width:16px;height:16px}
+.doc__main{flex:1;min-width:0}
+.doc__main b{display:block;font-size:13.5px;font-weight:600;line-height:1.5;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc__main span{display:block;font-size:12px;color:var(--ink-400);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- 动态 ---------- */
+.feed{position:relative;padding-left:34px}
+.feed__item{position:relative;padding-bottom:var(--s5)}
+.feed__item:last-child{padding-bottom:0}
+.feed__item::before{content:"";position:absolute;left:-22px;top:24px;bottom:-4px;width:1.5px;background:var(--border)}
+.feed__item:last-child::before{display:none}
+.feed__av{position:absolute;left:-34px;top:0}
+.feed__text{font-size:13.5px;line-height:1.7;color:var(--ink-700)}
+.feed__text b{font-weight:650;color:var(--ink-900)}
+.feed__text em{font-style:normal;font-weight:600;color:var(--brand-600)}
+.feed__time{font-size:11.5px;color:var(--ink-400);margin-top:2px}
+
+/* ---------- 信息列表 ---------- */
+.dl{display:flex;flex-direction:column;gap:var(--s4)}
+.dl__row{display:flex;align-items:flex-start;gap:var(--s4)}
+.dl__k{width:76px;flex:none;font-size:12.5px;color:var(--ink-400);font-weight:600;padding-top:1px}
+.dl__v{flex:1;font-size:13px;font-weight:500;color:var(--ink-800);display:flex;align-items:center;
+  gap:6px;flex-wrap:wrap;min-width:0}
+.dl__v .icon{width:14px;height:14px;color:var(--ink-400)}
+.link{color:var(--brand-600);font-weight:600;display:inline-flex;align-items:center;gap:5px}
+.link:hover{text-decoration:underline;text-underline-offset:3px}
+
+/* 风险提示 */
+.alert{
+  display:flex;gap:11px;padding:var(--s4);border-radius:var(--r-md);
+  background:var(--warning-bg);border:1px solid #f2ddb8;
+}
+.alert--danger{background:var(--danger-bg);border-color:#f7cdcd}
+.alert .icon{width:16px;height:16px;color:var(--warning);flex:none;margin-top:2px}
+.alert--danger .icon{color:var(--danger)}
+.alert b{display:block;font-size:13px;font-weight:700;margin-bottom:2px}
+.alert p{margin:0;font-size:12.5px;line-height:1.65;color:var(--ink-600)}
+
+/* ---------- 进度条 ---------- */
+.progress{display:flex;align-items:center;gap:10px;margin-top:var(--s4)}
+.progress__bar{flex:1;height:8px;border-radius:99px;background:var(--ink-100);overflow:hidden}
+.progress__bar span{display:block;height:100%;border-radius:99px;transition:width var(--d-slow) var(--ease-out)}
+.fill-life{background:linear-gradient(90deg,#34d3a6,#0f9d76)}
+.fill-work{background:linear-gradient(90deg,#6f9dff,#2f6fed)}
+.fill-learn{background:linear-gradient(90deg,#a78bfa,#7c3aed)}
+.progress__legend{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-400);font-weight:600}
+
+#toastHost{position:fixed;left:50%;top:22px;transform:translateX(-50%);z-index:80;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{padding:11px 18px;border-radius:12px;background:#101218;color:#fff;font-size:13.5px;
+  font-weight:500;box-shadow:0 12px 28px rgba(16,18,24,.22);opacity:0;transform:translateY(-8px);
+  transition:all .24s cubic-bezier(0,0,.2,1)}
+.toast.is-on{opacity:1;transform:translateY(0)}
+.scrim{display:none;position:fixed;inset:0;background:rgba(16,18,24,.42);backdrop-filter:blur(2px);z-index:29}
+.scrim.is-on{display:block}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:1180px){
+  .hero{grid-template-columns:1fr}
+  .cols{grid-template-columns:1fr}
+}
+@media (max-width:1024px){
+  :root{--sidebar-w:236px}
+  .scroll{padding:var(--s4) var(--s4) var(--s12)}
+  .topbar{padding:0 var(--s4)}
+}
+@media (max-width:860px){
+  .hamburger{display:inline-flex}
+  .sidebar{position:fixed;inset:0 auto 0 0;height:100%;transform:translateX(-100%);
+    transition:transform var(--d-base) var(--ease-out);box-shadow:var(--sh-xl)}
+  .sidebar.is-open{transform:translateX(0)}
+  .search kbd{display:none}
+  .search input{padding-right:12px}
+  .hero{padding:var(--s4)}
+  .hero h1{font-size:21px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-life" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 5.9a5 5 0 0 0-7.1 0L12 7.2l-1.3-1.3a5 5 0 1 0-7.1 7.1l8.4 8.4 8.4-8.4a5 5 0 0 0 0-7.1Z"/></symbol>
+  <symbol id="i-work" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
+  <symbol id="i-learn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3H3Z"/></symbol>
+  <symbol id="i-project" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></symbol>
+  <symbol id="i-knowledge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="9" ry="3.5"/><path d="M3 5.5v13c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5v-13"/><path d="M3 12c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.7-1.7 1.7 1.7 0 0 0-1.2.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H2a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-2.5l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V8a1.7 1.7 0 0 0 1.5 1H22a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 5 5L20 7"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v5.3l3.3 2"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+  <symbol id="i-hamburger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1Z"/><path d="M4 22v-7"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6"/><path d="M18.4 2.6a2 2 0 0 1 2.8 2.8L12 14.6l-3.5.7.7-3.5Z"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></symbol>
+</svg>
+
+<div class="app">
+
+  <!-- 侧边栏 -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar__brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#6366f1"/><stop offset="1" stop-color="#7c3aed"/>
+        </linearGradient></defs>
+        <rect width="32" height="32" rx="9" fill="url(#lg)"/>
+        <path d="M16 7.5A8.5 8.5 0 0 1 23.36 20.25" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M23.36 20.25A8.5 8.5 0 0 1 8.64 20.25" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".6"/>
+        <path d="M8.64 20.25A8.5 8.5 0 0 1 16 7.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".32"/>
+        <circle cx="16" cy="16" r="2.3" fill="#fff"/>
+      </svg>
+      <div><b>Lucky-Y</b><small>Personal OS</small></div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav__label">业务域</div>
+      <a class="nav__item" href="#" data-nav="生活"><svg class="icon"><use href="#i-life"/></svg>生活</a>
+      <a class="nav__item" href="#" data-nav="工作"><svg class="icon"><use href="#i-work"/></svg>工作</a>
+      <a class="nav__item" href="#" data-nav="学习"><svg class="icon"><use href="#i-learn"/></svg>学习</a>
+      <div class="nav__label">统一层</div>
+      <a class="nav__item is-active" href="projects.html"><svg class="icon"><use href="#i-project"/></svg>项目</a>
+      <a class="nav__item" href="#" data-nav="知识库"><svg class="icon"><use href="#i-knowledge"/></svg>知识库</a>
+      <div class="nav__label">系统</div>
+      <a class="nav__item" href="#" data-nav="设置"><svg class="icon"><use href="#i-settings"/></svg>设置</a>
+    </nav>
+
+    <div class="sidebar__foot">
+      <div class="sync"><i></i>Git 已同步 · 3 分钟前</div>
+      <div class="user-card" onclick="toast('原型演示：账户菜单未包含')">
+        <span class="avatar">LY</span>
+        <span class="user-card__meta"><b>刘 阳</b><span>me@lucky-y.app</span></span>
+        <svg class="icon"><use href="#i-chevron"/></svg>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger" aria-label="打开导航"><svg class="icon"><use href="#i-hamburger"/></svg></button>
+      <label class="search">
+        <svg class="icon"><use href="#i-search"/></svg>
+        <input type="search" placeholder="搜索项目、任务、标签…" aria-label="搜索">
+        <kbd>⌘K</kbd>
+      </label>
+      <div class="topbar__spacer"></div>
+      <button class="icon-btn" onclick="toast('原型演示：通知中心未包含')" aria-label="通知"><svg class="icon"><use href="#i-bell"/></svg></button>
+      <div class="topbar__divider"></div>
+      <button class="btn btn--primary" onclick="toast('原型演示：新建任务面板未包含')"><svg class="icon"><use href="#i-plus"/></svg>新建任务</button>
+    </header>
+
+    <div class="scroll">
+      <a class="back" href="projects.html">
+        <svg class="icon icon--l"><use href="#i-arrow-right"/></svg>返回项目管理
+      </a>
+
+      <!-- Hero -->
+      <section class="hero" id="hero" data-scope="life">
+        <div>
+          <div class="hero__top" id="heroTop"></div>
+          <h1 id="heroTitle">—</h1>
+          <p class="hero__desc" id="heroDesc">—</p>
+          <div class="hero__actions">
+            <button class="btn btn--primary" onclick="toast('原型演示：任务编辑面板未包含')"><svg class="icon"><use href="#i-edit"/></svg>编辑项目</button>
+            <button class="btn btn--ghost" onclick="toast('原型演示：分享功能未包含')"><svg class="icon"><use href="#i-share"/></svg>分享</button>
+            <button class="icon-btn" style="border-color:var(--border-strong);background:var(--surface)" onclick="toast('原型演示：更多操作未包含')" aria-label="更多"><svg class="icon"><use href="#i-more"/></svg></button>
+          </div>
+          <div class="metagrid" id="metaGrid"></div>
+        </div>
+
+        <div class="ringcard">
+          <div class="ring">
+            <svg viewBox="0 0 132 132" width="132" height="132" aria-hidden="true">
+              <defs>
+                <linearGradient id="ringFill" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#7c3aed"/>
+                </linearGradient>
+              </defs>
+              <circle cx="66" cy="66" r="56" fill="none" stroke="#e8ebef" stroke-width="10"/>
+              <circle id="ringArc" cx="66" cy="66" r="56" fill="none" stroke="url(#ringFill)" stroke-width="10"
+                      stroke-linecap="round" stroke-dasharray="351.86" stroke-dashoffset="351.86"
+                      transform="rotate(-90 66 66)"
+                      style="transition:stroke-dashoffset .9s cubic-bezier(0,0,.2,1)"/>
+            </svg>
+            <div class="ring__num"><b id="ringPct">0%</b><span>整体进度</span></div>
+          </div>
+          <div class="ringcard__meta">
+            <div><b id="ringTask">—</b><span>任务完成</span></div>
+            <div><b id="ringDays">—</b><span>剩余天数</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tabs -->
+      <div class="tabs" id="tabs">
+        <button class="is-active" data-tab="overview">概览</button>
+        <button data-tab="tasks">任务<span class="n" id="tabTaskN">0</span></button>
+        <button data-tab="milestones">里程碑<span class="n" id="tabMileN">0</span></button>
+        <button data-tab="docs">文档<span class="n" id="tabDocN">0</span></button>
+        <button data-tab="timeline">时间线</button>
+      </div>
+
+      <!-- 概览 -->
+      <section class="panel is-active" id="panel-overview">
+        <div class="cols">
+          <div class="stack">
+            <div class="card">
+              <div class="card__head">
+                <svg class="icon"><use href="#i-layers"/></svg><h3>里程碑进度</h3>
+                <span class="sp"></span><span class="hint" id="mileHint">—</span>
+              </div>
+              <div class="card__body">
+                <div class="progress__legend"><span id="progLeft">已完成 —</span><span id="progRight">—</span></div>
+                <div class="progress">
+                  <div class="progress__bar"><span id="progFill" class="fill-life" style="width:0"></span></div>
+                </div>
+                <div id="mileList" style="margin-top:var(--s6)"></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <svg class="icon"><use href="#i-check"/></svg><h3>近期任务</h3>
+                <span class="sp"></span>
+                <button class="btn btn--ghost btn--sm" onclick="switchTab('tasks')">查看全部</button>
+              </div>
+              <div class="card__body card__body--flush" id="taskPreview"></div>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="card" id="riskCard" style="display:none">
+              <div class="card__body">
+                <div class="alert alert--danger">
+                  <svg class="icon"><use href="#i-alert"/></svg>
+                  <div><b id="riskTitle">风险提示</b><p id="riskDesc">—</p></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><svg class="icon"><use href="#i-file"/></svg><h3>项目信息</h3></div>
+              <div class="card__body"><div class="dl" id="infoList"></div></div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><svg class="icon"><use href="#i-link"/></svg><h3>关联资源</h3></div>
+              <div class="card__body"><div class="dl" id="linkList"></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 任务 -->
+      <section class="panel" id="panel-tasks">
+        <div class="card">
+          <div class="card__head">
+            <svg class="icon"><use href="#i-check"/></svg><h3>任务清单</h3>
+            <span class="sp"></span><span class="hint" id="taskHint">—</span>
+          </div>
+          <div class="card__body card__body--flush" id="taskList"></div>
+        </div>
+      </section>
+
+      <!-- 里程碑 -->
+      <section class="panel" id="panel-milestones">
+        <div class="card">
+          <div class="card__head"><svg class="icon"><use href="#i-flag"/></svg><h3>关键节点</h3></div>
+          <div class="card__body"><div id="mileFull"></div></div>
+        </div>
+      </section>
+
+      <!-- 文档 -->
+      <section class="panel" id="panel-docs">
+        <div class="card">
+          <div class="card__head">
+            <svg class="icon"><use href="#i-file"/></svg><h3>文档索引</h3>
+            <span class="sp"></span><span class="hint">仅存索引与链接，正文留在原工具</span>
+          </div>
+          <div class="card__body card__body--flush" id="docList"></div>
+        </div>
+      </section>
+
+      <!-- 时间线 -->
+      <section class="panel" id="panel-timeline">
+        <div class="card">
+          <div class="card__head"><svg class="icon"><use href="#i-clock"/></svg><h3>项目动态</h3></div>
+          <div class="card__body"><div class="feed" id="feedList"></div></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<div id="toastHost"></div>
+
+<script>
+/* ============================================================
+   数据层（与 projects.html 的 Project 模型对齐）
+   ============================================================ */
+const SCOPE = {
+  life:  { label:'生活', cls:'badge--life',  fill:'fill-life',  color:'#0f9d76', icon:'i-life' },
+  work:  { label:'工作', cls:'badge--work',  fill:'fill-work',  color:'#2f6fed', icon:'i-work' },
+  learn: { label:'学习', cls:'badge--learn', fill:'fill-learn', color:'#7c3aed', icon:'i-learn' }
+};
+const STATUS = {
+  planning:{ label:'待启动',   cls:'pill--todo',    color:'#8b93a1', rank:0 },
+  active:  { label:'进行中',   cls:'pill--doing',   color:'#0f9d76', rank:1 },
+  risk:    { label:'风险阻塞', cls:'pill--blocked', color:'#dc2626', rank:2 },
+  done:    { label:'已完成',   cls:'pill--done',    color:'#4f46e5', rank:3 }
+};
+const PROJECTS = {
+  p1:{ name:'马尔代夫家庭旅行', scope:'life', status:'active', priority:'中', progress:68,
+       desc:'10 月出行，机票、住宿、行程与预算统筹，含双方父母共 6 人。',
+       dueText:'2026年10月01日', days:13, done:13, total:19,
+       tags:['旅行','家庭'], owners:['LY','WQ'], milestone:'行程终版确认', budget:'¥32,000',
+       visibility:'家庭可见', start:'2026年06月12日', repo:'—', docs:'旅行资料库',
+       risk:null },
+  p2:{ name:'老房翻新改造', scope:'life', status:'risk', priority:'高', progress:42,
+       desc:'厨房与主卫改造，工期受建材到货影响已延期 5 天。',
+       dueText:'2026年09月30日', days:12, done:9, total:24,
+       tags:['装修','预算'], owners:['LY'], milestone:'瓦工进场', budget:'¥186,000',
+       visibility:'家庭可见', start:'2026年05月08日', repo:'—', docs:'装修报价与图纸',
+       risk:{ title:'工期已延期 5 天', desc:'主卫瓷砖到货延迟，瓦工无法进场。建议启用备用供应商或顺延交付日期。' } },
+  p3:{ name:'Q4 客户交付系统重构', scope:'work', status:'active', priority:'高', progress:72,
+       desc:'拆分单体模块，统一鉴权与审计链路，保障 Q4 版本按期交付。',
+       dueText:'2026年11月15日', days:58, done:26, total:36,
+       tags:['重构','客户A'], owners:['LY','ZQ','HM'], milestone:'灰度发布', budget:'—',
+       visibility:'工作内部', start:'2026年07月01日', repo:'git@internal:core-platform.git', docs:'技术方案 v3',
+       risk:{ title:'鉴权迁移存在兼容风险', desc:'旧版 Token 与新版 JWT 并存，需在灰度阶段验证双写一致性。' } },
+  p4:{ name:'团队 OKR 落地推进', scope:'work', status:'planning', priority:'中', progress:12,
+       desc:'对齐 Q4 部门目标，拆解关键结果到双周节奏，建立复盘机制。',
+       dueText:'2026年12月31日', days:104, done:3, total:18,
+       tags:['OKR','管理'], owners:['LY'], milestone:'KR 拆解评审', budget:'—',
+       visibility:'工作内部', start:'2026年09月01日', repo:'—', docs:'OKR 对齐文档',
+       risk:null },
+  p5:{ name:'Rust 异步编程精读', scope:'learn', status:'active', priority:'中', progress:80,
+       desc:'精读《Rust 异步编程》并配套实现 mini-runtime，输出 6 篇笔记。',
+       dueText:'2026年09月28日', days:10, done:16, total:20,
+       tags:['Rust','书籍'], owners:['LY'], milestone:'mini-runtime 跑通', budget:'—',
+       visibility:'私有', start:'2026年07月20日', repo:'git@personal:mini-runtime.git', docs:'读书笔记合集',
+       risk:null },
+  p6:{ name:'数据可视化课程实践', scope:'learn', status:'planning', priority:'低', progress:0,
+       desc:'完成课程 12 个作业，用 D3 复刻 3 个经典图表并整理成组件库。',
+       dueText:'2026年11月20日', days:63, done:0, total:14,
+       tags:['课程','D3'], owners:['LY'], milestone:'作业 1-4 完成', budget:'—',
+       visibility:'私有', start:'2026年10月08日', repo:'—', docs:'课程大纲',
+       risk:null },
+  p7:{ name:'个人博客 v2 重写', scope:'learn', status:'done', priority:'低', progress:100,
+       desc:'迁移到 Astro，重构设计系统与文章排版，Lighthouse 全项 95+。',
+       dueText:'2026年08月30日', days:-19, done:22, total:22,
+       tags:['开源','写作'], owners:['LY'], milestone:'正式上线', budget:'—',
+       visibility:'公开', start:'2026年06月01日', repo:'git@personal:blog.git', docs:'设计系统说明',
+       risk:null },
+  p8:{ name:'年度体检与健身计划', scope:'life', status:'done', priority:'中', progress:100,
+       desc:'完成全项体检并按 12 周计划执行力量训练，体脂降至 17%。',
+       dueText:'2026年08月15日', days:-34, done:11, total:11,
+       tags:['健康','习惯'], owners:['LY'], milestone:'12 周计划达成', budget:'¥6,800',
+       visibility:'私有', start:'2026年05月20日', repo:'—', docs:'体检报告索引',
+       risk:null }
+};
+
+/* ---------- 内容池：按 scope 生成真实感内容 ---------- */
+const POOL = {
+  life: {
+    tasks:['确认出行日期与人数','比价机票与住宿','办理签证与保险材料','行程逐日排期','制定预算与分摊表',
+           '预订接送机与当地向导','整理行李清单','打印证件与保险副本','确认随行老人用药','整理归档行程终版'],
+    miles:['需求确认','方案定稿','预订完成','行前准备','正式启动'],
+    docs:['行程与预算表','机票酒店确认单','签证材料清单','保险保单索引'],
+    feed:['更新了行程排期','上传了酒店确认单','调整了预算上限','完成了「预订接送机」']
+  },
+  work: {
+    tasks:['梳理现有模块依赖','拆分服务边界','设计统一鉴权方案','迁移用户中心','补充集成测试',
+           '编写灰度发布预案','性能基线对比','同步接口文档','评审数据迁移方案','准备上线演练'],
+    miles:['方案评审通过','模块拆分完成','鉴权灰度上线','全量发布','复盘归档'],
+    docs:['技术方案 v3','接口契约说明','灰度发布预案','数据迁移评审记录'],
+    feed:['提交了架构方案 v3','完成了鉴权模块评审','更新了里程碑时间','关闭了 3 条 P1 缺陷']
+  },
+  learn: {
+    tasks:['读完第 1-3 章并写笔记','实现 mini-runtime 骨架','跑通第一个 async 示例','整理 Executor 源码笔记',
+           '完成课后练习','复习闪卡 30 张','输出实践总结文章','对照源码验证结论','整理常见坑位清单','归档笔记到知识库'],
+    miles:['制定阅读计划','基础概念打通','实现可运行示例','输出总结文章','归档知识库'],
+    docs:['读书笔记合集','mini-runtime 源码','实践总结草稿','闪卡导出'],
+    feed:['写完了第 6 篇笔记','跑通了 mini-runtime 示例','更新了复习计划','把 3 条笔记升级为永久笔记']
+  }
+};
+
+/* ============================================================
+   工具
+   ============================================================ */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const icon = (id, cls) => '<svg class="icon '+(cls||'')+'"><use href="#'+id+'"/></svg>';
+
+function hash(str){ var h=0; for(var i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))>>>0; } return h; }
+
+function avatar(n, cls){
+  var hues=[265,215,158,25,340];
+  var h=hues[hash(n)%hues.length];
+  return '<span class="avatar '+(cls||'')+'" style="background:linear-gradient(135deg,hsl('+h+',72%,64%),hsl('+((h+330)%360)+',68%,52%))">'+esc(n)+'</span>';
+}
+
+/* 从内容池稳定取值 */
+function pick(arr, seed, count){
+  var out=[], h=hash(seed);
+  for(var i=0;i<count;i++){ out.push(arr[(h+i*3)%arr.length]); }
+  return out;
+}
+
+/* ============================================================
+   生成派生数据
+   ============================================================ */
+function buildTasks(p){
+  var names = pick(POOL[p.scope].tasks, p.id+'task', p.total);
+  var list = [];
+  for(var i=0;i<p.total;i++){
+    // 前 done 个已完成；再往后少量进行中/阻塞，其余待办
+    var st = i < p.done ? 'done' : (i < p.done+2 ? (p.status==='risk'? 'blocked':'doing') : 'todo');
+    var due = p.status==='done' ? '已完成'
+            : (i%5===0 && p.status==='risk' ? '已逾期 2 天' : (i%4)+1+' 天后');
+    list.push({
+      name: names[i] + (i>=names.length? ' ('+(i+1)+')' : ''),
+      status: st,
+      priority: i%4===0 ? '高' : (i%3===0 ? '中' : '低'),
+      owner: p.owners[i % p.owners.length],
+      due: due,
+      late: due.indexOf('逾期')>-1
+    });
+  }
+  // 未完成的任务排前面
+  list.sort(function(a,b){ return (a.status==='done'?1:0)-(b.status==='done'?1:0); });
+  return list;
+}
+
+function buildMiles(p){
+  var names = POOL[p.scope].miles;
+  var doneCount = Math.min(names.length, Math.max(0, Math.round(p.progress/100*names.length)));
+  return names.map(function(n,i){
+    var state = i < doneCount ? 'done' : (i === doneCount ? 'now' : 'todo');
+    return { name:n, state:state,
+      date: state==='done' ? '已完成' : (state==='now' ? '进行中' : '待启动'),
+      detail: state==='done' ? '已于计划内完成' : (state==='now' ? '当前所处阶段' : '等待前序阶段') };
+  });
+}
+
+function buildDocs(p){
+  var srcs = ['腾讯文档','语雀','Git 仓库','本地 Markdown'];
+  return pick(POOL[p.scope].docs, p.id+'doc', 4).map(function(n,i){
+    return { name:n, src:srcs[(hash(p.id)+i)%srcs.length],
+      summary:'索引与外部链接，正文由原工具维护', time:(i*2+1)+' 天前更新' };
+  });
+}
+
+function buildFeed(p){
+  var acts = POOL[p.scope].feed;
+  var times = ['12 分钟前','2 小时前','昨天 18:40','3 天前'];
+  return acts.map(function(a,i){
+    return { who: p.owners[i % p.owners.length], act:a, time:times[i%times.length] };
+  });
+}
+
+/* ============================================================
+   渲染
+   ============================================================ */
+function getProject(){
+  var id = new URLSearchParams(location.search).get('id');
+  if(!PROJECTS[id]) id = 'p1';
+  // 展开数据并把 id 注入，后续内容池的种子依赖 p.id
+  return Object.assign({}, PROJECTS[id], { id:id });
+}
+
+function render(){
+  var p = getProject(), sc = SCOPE[p.scope];
+
+  /* --- Hero --- */
+  document.getElementById('hero').dataset.scope = p.scope;
+  document.title = p.name + ' · Lucky-Y';
+  document.getElementById('heroTop').innerHTML =
+    '<span class="badge '+sc.cls+'"><i></i>'+sc.label+'</span>'+
+    '<span class="pill '+STATUS[p.status].cls+'"><i></i>'+STATUS[p.status].label+'</span>'+
+    '<span class="tag">优先级 '+esc(p.priority)+'</span>';
+  document.getElementById('heroTitle').textContent = p.name;
+  document.getElementById('heroDesc').textContent = p.desc;
+
+  var dayText = p.days >= 0 ? p.days + ' 天' : '已结束';
+  document.getElementById('metaGrid').innerHTML =
+    mi('i-users','负责人', p.owners.length+' 人') +
+    mi('i-calendar','截止日期', p.dueText, p.status!=='done' && p.days<=14) +
+    mi('i-clock','剩余时间', dayText, p.status!=='done' && p.days<=14) +
+    mi('i-lock','可见性', p.visibility) +
+    mi('i-flag','当前里程碑', p.milestone);
+
+  /* --- 进度环 --- */
+  var C = 351.86;
+  document.getElementById('ringArc').style.strokeDashoffset = (C * (1 - p.progress/100)).toFixed(2);
+  document.getElementById('ringPct').textContent = p.progress + '%';
+  document.getElementById('ringTask').textContent = p.done + '/' + p.total;
+  document.getElementById('ringDays').textContent = p.days >= 0 ? p.days : '—';
+
+  /* --- 任务 --- */
+  var tasks = buildTasks(p);
+  var open = tasks.filter(function(t){ return t.status !== 'done'; }).length;
+  document.getElementById('tabTaskN').textContent = p.total;
+  document.getElementById('taskHint').textContent = p.done + ' / ' + p.total + ' 已完成';
+
+  var rowHtml = tasks.map(function(t){
+    return '<div class="task'+(t.status==='done'?' is-done':'')+'">'+
+      '<span class="task__check">'+icon('i-check')+'</span>'+
+      '<span class="task__name">'+esc(t.name)+'</span>'+
+      '<span class="pill '+taskPill(t.status)+'"><i></i>'+taskLabel(t.status)+'</span>'+
+      '<span class="tag">'+esc(t.priority)+'</span>'+
+      '<span class="task__due'+(t.late?' warn':'')+'">'+esc(t.due)+'</span>'+
+      avatar(t.owner,'avatar--xs')+
+    '</div>';
+  }).join('');
+
+  document.getElementById('taskList').innerHTML = rowHtml;
+  document.getElementById('taskPreview').innerHTML =
+    tasks.filter(function(t){ return t.status !== 'done'; }).slice(0,5).map(function(t){
+      return '<div class="task">'+
+        '<span class="task__check">'+icon('i-check')+'</span>'+
+        '<span class="task__name">'+esc(t.name)+'</span>'+
+        '<span class="pill '+taskPill(t.status)+'"><i></i>'+taskLabel(t.status)+'</span>'+
+        '<span class="task__due'+(t.late?' warn':'')+'">'+esc(t.due)+'</span>'+
+      '</div>';
+    }).join('') || '<div style="padding:var(--s8);text-align:center;color:var(--ink-400);font-size:13px">全部任务已完成</div>';
+
+  /* --- 里程碑 --- */
+  var miles = buildMiles(p);
+  var doneMiles = miles.filter(function(m){ return m.state==='done'; }).length;
+  document.getElementById('tabMileN').textContent = miles.length;
+  document.getElementById('mileHint').textContent = doneMiles + ' / ' + miles.length + ' 已达成';
+  document.getElementById('progLeft').textContent = '已完成 ' + doneMiles + ' 个里程碑';
+  document.getElementById('progRight').textContent = p.progress + '%';
+  var fill = document.getElementById('progFill');
+  fill.className = sc.fill;
+  requestAnimationFrame(function(){ fill.style.width = p.progress + '%'; });
+
+  var mileHtml = miles.map(mileRow).join('');
+  document.getElementById('mileList').innerHTML = mileHtml;
+  document.getElementById('mileFull').innerHTML = mileHtml;
+
+  /* --- 文档 --- */
+  var docs = buildDocs(p);
+  document.getElementById('tabDocN').textContent = docs.length;
+  document.getElementById('docList').innerHTML = docs.map(function(d){
+    return '<div class="doc">'+
+      '<span class="doc__ic">'+icon('i-file')+'</span>'+
+      '<span class="doc__main"><b>'+esc(d.name)+'</b><span>'+esc(d.summary)+'</span></span>'+
+      '<span class="tag">'+esc(d.src)+'</span>'+
+      '<span class="task__due">'+esc(d.time)+'</span>'+
+    '</div>';
+  }).join('');
+
+  /* --- 时间线 --- */
+  document.getElementById('feedList').innerHTML = buildFeed(p).map(function(f){
+    return '<div class="feed__item">'+
+      '<span class="feed__av">'+avatar(f.who,'avatar--xs')+'</span>'+
+      '<div class="feed__text"><b>'+esc(f.who==='LY'?'刘阳':f.who)+'</b> '+esc(f.act)+'</div>'+
+      '<div class="feed__time">'+esc(f.time)+'</div>'+
+    '</div>';
+  }).join('');
+
+  /* --- 侧栏信息 --- */
+  document.getElementById('infoList').innerHTML =
+    dl('负责人', p.owners.map(function(o){ return avatar(o,'avatar--xs'); }).join('') +
+      '<span style="font-size:12.5px;color:var(--ink-500)">'+p.owners.length+' 人</span>') +
+    dl('开始日期', esc(p.start)) +
+    dl('截止日期', '<span'+(p.days<=14 && p.status!=='done'?' style="color:var(--danger)"':'')+'>'+esc(p.dueText)+'</span>') +
+    dl('预算', esc(p.budget)) +
+    dl('可见性', icon('i-lock') + esc(p.visibility)) +
+    dl('标签', p.tags.map(function(t){ return '<span class="tag">#'+esc(t)+'</span>'; }).join(''));
+
+  document.getElementById('linkList').innerHTML =
+    dl('代码仓库', p.repo==='—' ? '<span style="color:var(--ink-400)">未关联</span>'
+      : '<a class="link" href="#" onclick="toast(\'原型演示：外部跳转未实现\');return false">'+icon('i-git')+esc(p.repo)+'</a>') +
+    dl('关联文档', '<a class="link" href="#" onclick="toast(\'原型演示：外部跳转未实现\');return false">'+icon('i-link')+esc(p.docs)+'</a>') +
+    dl('同步方式', icon('i-git') + 'Git 异步推送');
+
+  /* --- 风险 --- */
+  if(p.risk){
+    document.getElementById('riskCard').style.display = '';
+    document.getElementById('riskTitle').textContent = p.risk.title;
+    document.getElementById('riskDesc').textContent = p.risk.desc;
+  }
+}
+
+/* ---------- 渲染片段 ---------- */
+function mi(ic,k,v,warn){
+  return '<div class="metaitem">'+
+    '<span class="metaitem__k">'+icon(ic)+esc(k)+'</span>'+
+    '<span class="metaitem__v'+(warn?' warn':'')+'">'+esc(v)+'</span></div>';
+}
+function dl(k,v){
+  return '<div class="dl__row"><span class="dl__k">'+esc(k)+'</span><span class="dl__v">'+v+'</span></div>';
+}
+function taskPill(s){
+  return { todo:'pill--todo', doing:'pill--doing', blocked:'pill--blocked', done:'pill--done' }[s];
+}
+function taskLabel(s){
+  return { todo:'待办', doing:'进行中', blocked:'阻塞', done:'已完成' }[s];
+}
+function mileRow(m){
+  return '<div class="mile is-'+m.state+'">'+
+    '<span class="mile__dot">'+icon('i-check')+'</span>'+
+    '<div class="mile__name">'+esc(m.name)+'</div>'+
+    '<div class="mile__meta">'+icon('i-calendar')+esc(m.date)+' · '+esc(m.detail)+'</div>'+
+  '</div>';
+}
+
+/* ---------- 标签页切换 ---------- */
+function switchTab(name){
+  document.querySelectorAll('#tabs button').forEach(function(b){
+    b.classList.toggle('is-active', b.dataset.tab === name);
+  });
+  document.querySelectorAll('.panel').forEach(function(pnl){
+    pnl.classList.toggle('is-active', pnl.id === 'panel-' + name);
+  });
+  document.querySelector('.scroll').scrollTo({ top:0, behavior:'smooth' });
+}
+document.getElementById('tabs').addEventListener('click', function(e){
+  var b = e.target.closest('button[data-tab]');
+  if(b) switchTab(b.dataset.tab);
+});
+
+/* ---------- 侧边栏 ---------- */
+var sidebar = document.getElementById('sidebar'), scrim = document.getElementById('scrim');
+document.getElementById('hamburger').addEventListener('click', function(){
+  sidebar.classList.add('is-open'); scrim.classList.add('is-on');
+});
+scrim.addEventListener('click', function(){ sidebar.classList.remove('is-open'); scrim.classList.remove('is-on'); });
+document.querySelectorAll('.nav__item[data-nav]').forEach(function(a){
+  a.addEventListener('click', function(e){
+    e.preventDefault(); toast('原型演示：' + this.dataset.nav + ' 模块未包含在 v1.0');
+  });
+});
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ sidebar.classList.remove('is-open'); scrim.classList.remove('is-on'); } });
+
+/* ---------- 提示 ---------- */
+function toast(msg){
+  var host = document.getElementById('toastHost');
+  var el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  host.appendChild(el);
+  requestAnimationFrame(function(){ el.classList.add('is-on'); });
+  setTimeout(function(){ el.classList.remove('is-on'); setTimeout(function(){ el.remove(); }, 260); }, 2100);
+}
+
+render();
+</script>
+</body>
+</html>

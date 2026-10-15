@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lucky-Y 后台架构图</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #fafbfc;
+    --line: #e2e5ea;
+    --line-strong: #cfd4dc;
+    --ink: #1b1f26;
+    --ink-2: #4a5260;
+    --muted: #7b8494;
+    --fe: #2563eb;
+    --fe-bg: #eff4fe;
+    --ipc: #7c3aed;
+    --ipc-bg: #f4f0fe;
+    --shell: #0e7490;
+    --shell-bg: #ecf9fc;
+    --domain: #0f766e;
+    --domain-bg: #e9f7f4;
+    --data: #b45309;
+    --data-bg: #fdf4e7;
+    --danger: #b91c1c;
+    --danger-bg: #fdeeee;
+    --ok: #15803d;
+    --ok-bg: #ecf8f0;
+    --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.04);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.65 -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  header.doc { margin-bottom: 28px; }
+  header.doc h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: .2px; }
+  header.doc p { margin: 0; color: var(--ink-2); font-size: 13px; }
+  header.doc code { background: #eef0f3; border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+
+  section { margin-top: 34px; }
+  h2 { font-size: 15px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  h2 .idx {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 6px; background: var(--ink);
+    color: #fff; font-size: 11px; font-weight: 600;
+  }
+  .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 16px; }
+
+  /* ============ 图一：分层 ============ */
+  .stack { display: grid; grid-template-columns: 1fr 250px; gap: 0 18px; }
+  .layers { display: flex; flex-direction: column; gap: 0; }
+  .layer {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 16px; box-shadow: var(--shadow); display: grid;
+    grid-template-columns: 128px 1fr; gap: 14px; align-items: center;
+  }
+  .layer .tag {
+    font: 600 12px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 6px 8px; border-radius: 6px; text-align: center; word-break: break-all;
+  }
+  .layer .body { font-size: 13px; }
+  .layer .body b { font-weight: 600; }
+  .layer .body .note { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .layer.fe    { border-top: 3px solid var(--fe); }
+  .layer.fe    .tag { background: var(--fe-bg); color: var(--fe); }
+  .layer.ipc   { border-top: 3px solid var(--ipc); }
+  .layer.ipc   .tag { background: var(--ipc-bg); color: var(--ipc); }
+  .layer.shell { border-top: 3px solid var(--shell); }
+  .layer.shell .tag { background: var(--shell-bg); color: var(--shell); }
+  .layer.domain{ border-top: 3px solid var(--domain); }
+  .layer.domain .tag { background: var(--domain-bg); color: var(--domain); }
+  .layer.data  { border-top: 3px solid var(--data); }
+  .layer.data  .tag { background: var(--data-bg); color: var(--data); }
+
+  .arrow { display: flex; flex-direction: column; align-items: center; height: 26px; position: relative; }
+  .arrow::before {
+    content: ""; width: 2px; background: var(--line-strong); flex: 1;
+  }
+  .arrow::after {
+    content: ""; width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid var(--line-strong);
+  }
+  .arrow span {
+    position: absolute; right: calc(50% + 12px); top: 4px; font-size: 11px; color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .rules { display: flex; flex-direction: column; gap: 10px; }
+  .rule {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 11px 13px; box-shadow: var(--shadow); font-size: 12.5px;
+  }
+  .rule .k {
+    font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--danger); background: var(--danger-bg);
+    border-radius: 4px; padding: 3px 6px; display: inline-block; margin-bottom: 6px;
+  }
+  .rule p { margin: 0; color: var(--ink-2); }
+  .rule p + p { margin-top: 5px; }
+
+  .future {
+    margin-top: 14px; border: 1px dashed var(--line-strong); border-radius: 10px;
+    padding: 10px 14px; font-size: 12.5px; color: var(--ink-2); background: var(--surface-2);
+  }
+  .future b { color: var(--domain); }
+
+  /* ============ 图二：crate 目录 ============ */
+  .tree {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: var(--shadow); padding: 18px 20px;
+    font: 13px/1.9 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .tree .row { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: baseline; }
+  .tree .row:hover { background: var(--surface-2); border-radius: 6px; }
+  .tree .path { color: var(--ink); white-space: pre; }
+  .tree .path .dir { color: var(--domain); font-weight: 600; }
+  .tree .path .file { color: var(--data); }
+  .tree .cmt { font-family: -apple-system, "PingFang SC", system-ui, sans-serif; color: var(--muted); font-size: 12px; }
+
+  /* ============ 图三：落地顺序 ============ */
+  .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .step {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: var(--shadow); padding: 13px 14px; position: relative;
+  }
+  .step .n {
+    width: 22px; height: 22px; border-radius: 7px; background: var(--ink); color: #fff;
+    font: 600 12px/22px ui-monospace, Menlo, monospace; text-align: center; margin-bottom: 8px;
+  }
+  .step.done .n { background: var(--ok); }
+  .step h3 { font-size: 13px; margin: 0 0 6px; }
+  .step ul { margin: 0; padding-left: 16px; font-size: 12px; color: var(--ink-2); }
+  .step ul li { margin: 2px 0; }
+  .step .flag {
+    display: inline-block; margin-top: 8px; font-size: 11px; padding: 2px 7px; border-radius: 999px;
+    background: var(--ok-bg); color: var(--ok);
+  }
+  .step .flag.next { background: var(--danger-bg); color: var(--danger); }
+  .step .flag.later { background: #eef0f3; color: var(--muted); }
+
+  .criteria {
+    margin-top: 12px; font-size: 12.5px; color: var(--ink-2);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; box-shadow: var(--shadow);
+  }
+  .criteria b { color: var(--ink); }
+
+  footer.doc { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+  @media (max-width: 900px) {
+    .stack { grid-template-columns: 1fr; }
+    .rules { flex-direction: row; flex-wrap: wrap; }
+    .rule { flex: 1 1 220px; }
+    .steps { grid-template-columns: 1fr; }
+    .tree .row { grid-template-columns: 1fr; gap: 0; }
+    .layer { grid-template-columns: 1fr; gap: 6px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="doc">
+    <h1>Lucky-Y 后台架构图</h1>
+    <p>对应 <code>docs/后台架构设计.md</code>。只画代码怎么摆，不重复 <code>design/sql-design/</code> 的表结构。</p>
+  </header>
+
+  <!-- ==================== 图一 ==================== -->
+  <section>
+    <h2><span class="idx">1</span>分层与依赖方向</h2>
+    <p class="sub">依赖单向向下；左侧为调用链，右侧为四条硬线。</p>
+
+    <div class="stack">
+      <div class="layers">
+
+        <div class="layer fe">
+          <div class="tag">pages /<br>components</div>
+          <div class="body">
+            <b>只读 hook</b>，不 import <code>api/*</code>
+            <div class="note">页面与组件拿不到 invoke，也拿不到 SQL</div>
+          </div>
+        </div>
+        <div class="arrow"><span>useQuery / useMutation</span></div>
+
+        <div class="layer fe">
+          <div class="tag">hooks/<br>use-*.ts</div>
+          <div class="body">
+            <b>TanStack Query</b>：查询、失效策略
+            <div class="note">写操作统一 invalidateQueries({ queryKey: ['域','all'] })</div>
+          </div>
+        </div>
+        <div class="arrow"><span>queryFn / mutationFn</span></div>
+
+        <div class="layer fe">
+          <div class="tag">api/*.ts</div>
+          <div class="body">
+            <b>唯一替换点</b>：TS 类型 + query key + <code>invoke</code>
+            <div class="note">全仓 invoke 只出现在 api/ 与 lib/desktop-window.ts</div>
+          </div>
+        </div>
+        <div class="arrow"><span>invoke('srv_list')</span></div>
+
+        <div class="layer ipc">
+          <div class="tag">Tauri IPC</div>
+          <div class="body">
+            <b>仅 Tauri 窗口内可用</b>；浏览器里抛错
+            <div class="note">待补 isTauri() 判定 → 非 Tauri 回落演示数据，否则 vite dev 只能走错误态</div>
+          </div>
+        </div>
+        <div class="arrow"><span>#tauri::command</span></div>
+
+        <div class="layer shell">
+          <div class="tag">shell</div>
+          <div class="body">
+            <b>壳层</b>：setup 建 Store · manage · 注册命令 · 转发
+            <div class="note">命令体 ≤ 3 行：取 state / 调领域层 / 转错误。命名 &lt;域&gt;_&lt;动作&gt;，如 srv_list / srv_create</div>
+          </div>
+        </div>
+        <div class="arrow"><span>State&lt;Store&gt;</span></div>
+
+        <div class="layer domain">
+          <div class="tag">src-tauri/src/server</div>
+          <div class="body">
+            <b>领域层</b>：Store（Mutex&lt;Connection&gt;）· 域门面 · repo（全部 SQL）· model
+            <div class="note">不含 tauri 类型；子表整组替换；validate() 与 DDL 的 CHECK 是同一批规则的两次书写</div>
+          </div>
+        </div>
+        <div class="arrow"><span>rusqlite (bundled)</span></div>
+
+        <div class="layer data">
+          <div class="tag">SQLite</div>
+          <div class="body">
+            <b>lucky-y.sqlite3</b>（app_data_dir，壳层解析路径）
+            <div class="note">28 表 / 3 视图 · user_version=3 · foreign_keys=ON + WAL（每次连接）</div>
+          </div>
+        </div>
+
+        <div class="future">
+          <b>将来</b>：HTTP 入口可把 <code>server</code> 目录拆回独立 crate 复用，代码零改动；
+          srv 真要执行 SSH 时引入 tokio + 独立任务通道 —— 任务不持有 Connection，算完交给命令层回写。
+        </div>
+      </div>
+
+      <div class="rules">
+        <div class="rule">
+          <span class="k">L1</span>
+          <p><code>#[tauri::command]</code> 只写在 shell。</p>
+          <p>命令函数里出现 if / match 业务分支即违规。</p>
+        </div>
+        <div class="rule">
+          <span class="k">L2</span>
+          <p>领域层不出现 tauri、不出现 serde_json::Value 透传。</p>
+          <p>校验：<code>grep -r "use tauri" backend/</code> 为 0。</p>
+        </div>
+        <div class="rule">
+          <span class="k">L3</span>
+          <p>rusqlite 只被 server 目录内的文件 import。</p>
+          <p>crate 用 path 依赖挂 shell，<b>不建 workspace</b>（会挪 target/ 导致 tauri 整套重编）。</p>
+        </div>
+        <div class="rule">
+          <span class="k">L4</span>
+          <p>组件不 import api/*，只 import hooks/*。</p>
+          <p>校验：<code>grep -rn "invoke(" src/pages src/components</code> 为 0。</p>
+        </div>
+        <div class="rule">
+          <span class="k">跨域</span>
+          <p>只允许「任意域读统一层」（如 srv 的 hydrate JOIN project）。</p>
+          <p>统一层不许读模块专属表；域 A 不写域 B 的 SQL，要改就调对方门面。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 图二 ==================== -->
+  <section>
+    <h2><span class="idx">2</span>crate 内部目录组织</h2>
+    <p class="sub">目录名 = 表前缀簇名；每个域固定 model / repo / mod 三段，门面是自由函数。</p>
+
+    <div class="criteria" style="margin:0 0 14px">
+      <b>「域」是表的归属簇，不是前端的九域模块</b>：`srv` 不属任何单一模块，`common` 也不是一个页面。
+      前端 <code>pages/</code> 按模块摆，后端按「这张表会被谁用」摆。按域摆换来的是
+      <b>编译期强制的域边界</b>（`pub` 之外拿不到）与「删一个域 = 删一个目录」；
+      横切关注点（错误 / 连接 / id 生成）由 crate 根的 <code>error.rs</code> / <code>store.rs</code> / <code>db.rs</code> 收口。
+    </div>
+
+    <div class="tree">
+      <div class="row"><span class="path"><span class="dir">src-tauri/src/server/</span></span><span class="cmt">领域层，唯一依赖 rusqlite + serde</span></div>
+      <div class="row"><span class="path">├── <span class="file">lib.rs</span></span><span class="cmt">模块声明 + 重导出（现重导出 srv::Store，应改为 store::Store）</span></div>
+      <div class="row"><span class="path">├── <span class="file">store.rs</span></span><span class="cmt">Store：open / conn()（pub(crate)）/ 锁中毒处理 —— 从 srv/mod.rs 提出</span></div>
+      <div class="row"><span class="path">├── <span class="file">error.rs</span></span><span class="cmt">Error / Result 全仓一份；待加 code() 让前端能按类型分支</span></div>
+      <div class="row"><span class="path">├── <span class="file">db.rs</span></span><span class="cmt">foreign_keys=ON + WAL；MIGRATIONS 用 include_str! 引 design/sql-design/，不另存副本</span></div>
+      <div class="row"><span class="path">├── <span class="dir">common/</span></span><span class="cmt">统一层：project / task / project_* —— 跨域共用，是第一步要写的</span></div>
+      <div class="row"><span class="path">│&nbsp;&nbsp;&nbsp;├── <span class="file">mod.rs</span></span><span class="cmt">门面：pub fn list(store: &Store) -> Result<…>，取锁后调 repo</span></div>
+      <div class="row"><span class="path">│&nbsp;&nbsp;&nbsp;├── <span class="file">model.rs</span></span><span class="cmt">Xxx（读出）/ XxxInput（写入）；#[serde(rename_all="camelCase")]</span></div>
+      <div class="row"><span class="path">│&nbsp;&nbsp;&nbsp;└── <span class="file">repo.rs</span></span><span class="cmt">全部 SQL，只收 &amp;Connection / &amp;mut Connection，不 import Store</span></div>
+      <div class="row"><span class="path">├── <span class="dir">srv/</span></span><span class="cmt">跨模块簇：服务器台账（mod.rs / model.rs / repo.rs 三段已成型）</span></div>
+      <div class="row"><span class="path">└── <span class="dir">work/</span></span><span class="cmt">工作模块专属：work_contact / work_okr / work_time_log …（第 3 步）</span></div>
+    </div>
+  </section>
+
+  <!-- ==================== 图三 ==================== -->
+  <section>
+    <h2><span class="idx">3</span>落地顺序</h2>
+    <p class="sub">判据：先补底座与已有写入方；修 bug 与补仓储排在开新域之前。</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="n">0</div>
+        <h3>重构</h3>
+        <ul>
+          <li>store.rs 提出 Store</li>
+          <li>域门面改自由函数</li>
+          <li>Error 加 code()</li>
+        </ul>
+        <span class="flag">不碰 SQL</span>
+      </div>
+      <div class="step">
+        <div class="n">1</div>
+        <h3>统一层 common</h3>
+        <ul>
+          <li>project / task / project_* 仓储</li>
+          <li>project_* 命令</li>
+          <li>前端换源</li>
+        </ul>
+        <span class="flag next">现在 0 行</span>
+      </div>
+      <div class="step">
+        <div class="n">2</div>
+        <h3>srv 缺口</h3>
+        <ul>
+          <li>host 唯一性 bug</li>
+          <li>srv_deploy_release 仓储</li>
+          <li>srv_deploy_doc 仓储</li>
+        </ul>
+        <span class="flag">界面在等</span>
+      </div>
+      <div class="step">
+        <div class="n">3</div>
+        <h3>work 域</h3>
+        <ul>
+          <li>9 张表已建</li>
+          <li>联系人 / OKR / 工时</li>
+          <li>周报 / 会议</li>
+        </ul>
+        <span class="flag later">纯接线</span>
+      </div>
+      <div class="step">
+        <div class="n">4</div>
+        <h3>其余域</h3>
+        <ul>
+          <li>生活 life_*</li>
+          <li>学习 learn_*</li>
+          <li>设置</li>
+        </ul>
+        <span class="flag later">先设计 DDL</span>
+      </div>
+    </div>
+
+    <div class="criteria">
+      <b>第 1 步是分水岭</b>：project / task 落地之前，每个域的「关联项目」都是前端假数据 ——
+      先接别的域会返工。<b>DDL 窗口</b>：库已于 10-15 移出，应用下次启动重建并重跑 0001→0003，
+      现在改 <code>0003_srv.sql</code> 不必新开 <code>0004</code>；窗口关了就只能追加新文件。
+    </div>
+  </section>
+
+  <footer class="doc">
+    Lucky-Y · 后台架构图 · 2026-10-15 · 与 docs/后台架构设计.md 同源
+  </footer>
+</div>
+</body>
+</html>
