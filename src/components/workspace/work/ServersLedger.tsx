@@ -2,10 +2,11 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { Server } from '../../../api/servers'
 import { cn } from '../../../lib/cn'
-import { buildLedgerGroups, fileKindOf, lastDeployAcross, type LedgerServer } from '../../../data/derive'
+import { buildLedgerGroups, fileKindOf, type LedgerServer } from '../../../data/derive'
 import type { PathSeed } from '../../../data/content-pool'
 import { useProjects } from '../../../hooks/use-projects'
-import { useServerActions, useServers } from '../../../hooks/use-servers'
+import { useLastRelease, useReleaseCounts, useServerActions, useServers } from '../../../hooks/use-servers'
+import { releasedText } from '../../../lib/server-view'
 import { isConnected, markConnected } from '../../../lib/server-conn'
 import { toLedgerServer } from '../../../lib/server-view'
 import { toast } from '../../../stores/toast-store'
@@ -51,8 +52,8 @@ import { PanelModal } from '../project-detail/panel-shell'
       是项目级的（各自页内有机器选择器 / 由项目派生目标主机），没人读那个参数。
       落点取这台机器服务的第一个项目（一台机器挂多个项目时总得挑一个 —— 与浮层里
       「服务项目」那排的顺序同一个规则：取第一个）。
-   ⑦ 仪表第三格「最近发布」跨了项目（原型是一条常量）：取各项目发布记录里
-      `DEPLOY_TIMES` 下标最小的那一条，同档里回滚优先 —— 见 `lastDeployAcross` 的注释。
+   ⑦ 仪表第三格「最近发布」跨了项目：真实库的 `srv_release_last`（全库最新一条），
+      回滚优先的那套排序判据由 SQL 的 `ORDER BY released_at DESC` 承担。
    ⑧ 卡的点击分两处（2026-09-29 用户口径，原型是"整卡展开"）：
       · 卡主体（名字 / 读数 / 空白处）= 进服务器详情页（`/work/servers/:host`）；
       · 卡脚那排（项目胶囊 / 展开箭头）= 拉开浮层。
@@ -461,11 +462,17 @@ export function ServersLedger() {
   const { data, isLoading: loadingProjects } = useProjects()
   /* 机器读的是库（`srv_*` 命令）。演示池那份 `buildServerLedger` 已经不在这一页上了 */
   const { data: serverData, isLoading: loadingServers, isError, refetch } = useServers()
+  /* 每台机器名下的发布条数（卡脚徽标），写操作后随 ['releases'] 一族失效 */
+  const { data: releaseCounts } = useReleaseCounts()
   const actions = useServerActions()
   /** 分组的候选项目取自本模块 —— 与机器自身的 `projects` 取并集（见下面 `groups`） */
   const projects = useMemo(() => (data ?? []).filter((project) => project.scope === 'work'), [data])
-  /** 库里的机器 → 视图形状。一处转换，卡片 / 浮层 / 详情读同一份 */
-  const ledger = useMemo(() => (serverData ?? []).map(toLedgerServer), [serverData])
+  /** 库里的机器 → 视图形状。一处转换，卡片 / 浮层 / 详情读同一份；
+   *    发布条数按机器名并进去（视图层不管它从哪张表来）。 */
+  const ledger = useMemo(() => {
+    const counts = new Map((releaseCounts ?? []).map((row) => [row.host, row.count]))
+    return (serverData ?? []).map((server) => ({ ...toLedgerServer(server), deployCount: counts.get(server.host) ?? 0 }))
+  }, [serverData, releaseCounts])
   const isLoading = loadingProjects || loadingServers
   /**
    * 项目视角的分组。`buildLedgerGroups` 按"服务这个项目的机器"分，分不了
@@ -625,7 +632,8 @@ export function ServersLedger() {
     : testCount
       ? `涉及线上数据 · 另有 ${testCount} 台测试环境`
       : '全部是生产环境，动手前确认机器名'
-  const lastDeploy = useMemo(() => lastDeployAcross(projects), [projects])
+  /* 最近发布：全库最新一条（`srv_release_last`），没有就是还没有发布记录 */
+  const { data: lastDeploy } = useLastRelease()
 
   /* ---------------- 动作 ---------------- */
 
@@ -904,12 +912,12 @@ export function ServersLedger() {
             </span>
             <span className="kpi-label">最近发布</span>
           </div>
-          <div className={cn('kpi-val', lastDeploy?.result === 'success' && 'ok')}>
-            {lastDeploy ? (lastDeploy.result === 'success' ? '成功' : '回滚') : '—'}
+          <div className={cn('kpi-val', lastDeploy?.resultCode === 'success' && 'ok')}>
+            {lastDeploy ? (lastDeploy.resultCode === 'success' ? '成功' : '回滚') : '—'}
           </div>
           <div className="kpi-sub">
             {lastDeploy
-              ? `${lastDeploy.version} · ${lastDeploy.projectName} · ${lastDeploy.when}`
+              ? `${lastDeploy.version} · ${lastDeploy.projectName} · ${releasedText(lastDeploy.releasedAt)}`
               : '还没有发布记录'}
           </div>
         </div>

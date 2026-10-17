@@ -33,6 +33,11 @@ export function useEdWork(
   doc: { id: string; name: string },
   body: RdBlock[] | undefined,
   onSaved?: () => void,
+  /**
+   * 落到哪儿去。默认是应用内副本（`doc-copies`）；本地正文那一类换成正文件 ——
+   * 见 `DocSourcePage` 传进来的那一个（写 `.md` + 刷新索引）。
+   */
+  persist?: (id: string, name: string, blocks: RdBlock[]) => void,
 ) {
   /* 一律从 ref 里读"当前这一篇"的初值：重置 effect 只依赖 `doc.id`（换篇才重置），
      而 `doc.name` / `body` 在保存之后会变 —— 跟着它们重置就等于"保存一次、回到解放前"。 */
@@ -160,13 +165,14 @@ export function useEdWork(
     if (nocopy) return
     const blocks = mdOfSource(md)
     const trimmed = name.trim() || doc.name
-    saveCopy(doc.id, trimmed, blocks)
+    /* 本地正文的那些写回 `.md` 文件，其余仍存应用内副本（来源工具的原文不该被我们改） */
+    ;(persist ?? saveCopy)(doc.id, trimmed, blocks)
     const norm = mdOfBlocks(blocks)
     resetTo(norm, trimmed)
     DRAFTS.delete(doc.id)
     setDraft(undefined)
     onSaved?.()
-  }, [doc.id, doc.name, md, name, nocopy, onSaved, resetTo])
+  }, [doc.id, doc.name, md, name, nocopy, onSaved, persist, resetTo])
 
   /* 放弃修改 = 回到上一次保存的版本（连带把那篇的草稿一起丢掉）。 */
   const dropChanges = useCallback(() => {

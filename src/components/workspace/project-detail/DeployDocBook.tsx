@@ -10,7 +10,8 @@ import { OpsIcon } from './ops-icon'
  * 为什么单独一个组件、而不是复用 `DocBook.tsx`：
  *   `DocBook` 的 `kind` 是 `DocKind` 这个枚举（方案 / 设计 / 接口 / …），
  *   它的 `db-tag` 走 `DOC_KIND_LABEL`、`db-icon` 走 `DOC_KIND_ICON`。
- *   而部署文档的 `kind` 是自由字符串（手册 / 流程 / 脚本，池子 `DeployDocSeed` 里声明的），
+ *   而部署文档的 `kind` 是自由字符串（手册 / 流程 / 脚本，`toDeployDocItem` 从
+ *   `kindCode` 换出来的中文），
  *   图形也跟着它分（脚本 → rocket，其余 → book）。硬塞进 `DocBook` 要么放开枚举、
  *   要么在调用处转写一层 —— 两条都会让"同一本书"长出一个第二说法。
  *   ⇒ 两本共用同一套基类（`.doc-book` / `.db-*` 在 `[data-module]` 一级只有一份），

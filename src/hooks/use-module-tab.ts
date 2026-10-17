@@ -6,7 +6,7 @@ import type { ModuleTab } from '../data/workspace/types'
  * Tab 状态 —— 由路由驱动，不是组件内部 state。
  *
  * 为什么不用 `useState`：原型的 Tab 是纯前端状态，刷新就回到第一个；
- * 而 `docs/模块设计.md` 给每个页面都规定了子路径（`/life/habits` 这类）。
+ * 而 `design/architecture-design/模块设计.md` 给每个页面都规定了子路径（`/life/habits` 这类）。
  * 走路由之后，深链、后退键、以及"从别处跳进某个 Tab"三件事同时成立 ——
  * 用 state 实现这三件事都要额外补代码，还补不全。
  *

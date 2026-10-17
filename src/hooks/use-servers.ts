@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createDeployDoc,
   createRelease,
@@ -23,6 +23,8 @@ import {
   type DeployReleaseInput,
   type ServerInput,
 } from '../api/servers'
+import { toOpsServer } from '../lib/server-view'
+import type { ServerItem } from '../data/derive'
 
 /* ============================================================================
    服务器台账的数据钩子
@@ -49,6 +51,33 @@ export function useServer(host: string | undefined) {
     queryFn: () => getServer(host as string),
     enabled: Boolean(host),
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * 某个项目名下的机器，运维分区 / 日志 / 部署三个视图共用的换算：
+ * 在册机器按"服务项目"过滤后转成 OpsPanel 的视图形状。
+ * 库里没有负载与版本这类"连上才读得到"的读数，视图层一律零值。
+ */
+export function useProjectServers(projectId: string | undefined): ServerItem[] {
+  const { data } = useServers()
+  if (!data || !projectId) return []
+  return data
+    .filter((server) => server.projects.some((project) => project.id === projectId))
+    .map(toOpsServer)
+}
+
+/**
+ * 多个项目的部署文档（服务器详情页书架按项目分排，项目数运行时才知道）。
+ * `useQueries` 支持动态数组，每个项目一条查询、各自的 query key。
+ */
+export function useDeployDocsMany(projectIds: string[]) {
+  return useQueries({
+    queries: projectIds.map((projectId) => ({
+      queryKey: deployDocKeys.byProject(projectId),
+      queryFn: () => listDeployDocs(projectId),
+      staleTime: 5 * 60 * 1000,
+    })),
   })
 }
 

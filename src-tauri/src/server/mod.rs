@@ -8,15 +8,23 @@
 
 pub mod db;
 pub mod error;
+pub mod project;
 pub mod srv;
 pub mod store;
+pub mod task;
+
+mod id;
 
 // 重导出是领域层的公共面：命令层只消费一部分，其余留给将来的 HTTP 入口与测试。
 #[allow(unused_imports)]
 pub use error::{Error, Result};
+#[allow(unused_imports)]
+pub use project::{DocContent, Document, DocumentInput, Project, ProjectInput, ProjectRisk};
 #[allow(unused_imports)]
 pub use srv::{
     DeployDoc, DeployDocInput, DeployRelease, DeployReleaseInput, Server, ServerInput, ServerPath,
     ServerPathInput, ServerPort, ServerProjectRef, ServerReleaseCount,
 };
 pub use store::Store;
+#[allow(unused_imports)]
+pub use task::{Task, TaskInput};

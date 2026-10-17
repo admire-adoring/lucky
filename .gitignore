@@ -18,6 +18,9 @@ dist-ssr
 src-tauri/target
 src-tauri/gen/schemas
 
+# 运行时数据库（工程 db/ 下）
+db/
+
 # 编辑器与系统
 .vscode/*
 !.vscode/extensions.json

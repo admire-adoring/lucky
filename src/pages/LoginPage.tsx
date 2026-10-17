@@ -17,7 +17,7 @@ const BRAND_FOOT = [
   { icon: 'i-lock', label: '端到端加密' },
 ] as const
 
-/** 六个顶层模块（与 docs/模块设计.md 一致） */
+/** 六个顶层模块（与 design/architecture-design/模块设计.md 一致） */
 const DOMAINS = [
   { key: '生活', tone: '#34d3a6', ring: 'rgba(52,211,166,.18)' },
   { key: '工作', tone: '#6f9dff', ring: 'rgba(111,157,255,.18)' },

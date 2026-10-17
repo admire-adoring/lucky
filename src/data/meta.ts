@@ -81,6 +81,30 @@ export const TASK_STATUS_META: Record<TaskStatus, { label: string; pill: string;
   done: { label: '已完成', pill: 'bg-brand-50 text-brand-600', dot: 'bg-brand-500' },
 }
 
+/**
+ * 可见性 code → 人话。库里存 code（D3：中文标签不入库），展示名在这里一处定义。
+ * 哪个域能用哪几个由 DDL 的 `scope × visibility` 约束管，这里只管怎么念。
+ */
+export const VISIBILITY_META: Record<string, string> = {
+  private: '私有',
+  family: '家庭可见',
+  work_internal: '工作内部',
+  confidential: '机密',
+  public: '公开',
+}
+
+/**
+ * 文档来源 code → 人话（库里存 code，展示名在这里一处定义）。
+ * 与 `content-pool.ts` 的 `DOC_SOURCES` 是同一批词 —— 那个数组是按下标的旧口径（演示数据存中文），
+ * 新口径认 code，所以映射写显式的一份，不再靠下标对齐。
+ */
+export const DOC_SOURCE_META: Record<string, string> = {
+  local_md: '本地 Markdown',
+  tencent_doc: '腾讯文档',
+  yuque: '语雀',
+  git: 'Git 仓库',
+}
+
 /** 项目列表工具栏的排序项 */
 export const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'default', label: '默认排序' },

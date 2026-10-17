@@ -2,8 +2,9 @@ import { useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../../lib/cn'
 import { Icon } from '../icons/Icon'
-import { buildBugs, buildServers, computeStats, isClosed } from '../../data/derive'
+import { buildBugs, computeStats, isClosed } from '../../data/derive'
 import { useProjectDetail, useProjects } from '../../hooks/use-projects'
+import { useProjectServers } from '../../hooks/use-servers'
 import {
   averageProgress,
   filterProjects,
@@ -184,6 +185,7 @@ function OverviewSlot() {
      那个 query 自己就不取数（`enabled: Boolean(id)`）。挪到 return 之后会当场破钩子序。 */
   const projectId = projectIdFromPath(pathname)
   const { data: detail } = useProjectDetail(projectId ?? undefined)
+  const servers = useProjectServers(projectId ?? undefined)
 
   /* ---------- 列表态：说"当前这一批项目" ---------- */
   if (pathname === '/projects') {
@@ -219,7 +221,6 @@ function OverviewSlot() {
   if (projectId) {
     const project = detail?.project
     const bugs = project ? buildBugs(project) : null
-    const servers = project ? buildServers(project) : null
 
     return (
       <KpiList
@@ -228,7 +229,8 @@ function OverviewSlot() {
           ['逾期', detail ? String(detail.tasks.filter((task) => task.late).length) : '—', false],
           ['Bug 待处理', bugs ? String(bugs.filter((bug) => bug.status !== 'fixed').length) : '—', true],
           ['文档', detail ? String(detail.documents.length) : '—', false],
-          ['服务器', servers ? String(servers.length) : '—', false],
+          /* 真实台账：这个项目名下在册的机器数（未关联的项目自然是 0） */
+          ['服务器', String(servers.length), false],
         ]}
       />
     )

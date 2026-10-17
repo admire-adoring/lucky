@@ -4,7 +4,6 @@ import { MacWindow } from '../../components/shell/MacWindow'
 import { LOG_GROUP_LABEL, LOG_GROUP_ORDER, LOG_LINES, LOG_SOURCES, type LogGroupKey } from '../../data/content-pool'
 import {
   buildLogSources,
-  buildServers,
   splitLogText,
   type LogLevel,
   type LogLine,
@@ -13,6 +12,7 @@ import {
 } from '../../data/derive'
 import { useDocumentTitle } from '../../hooks/use-document-title'
 import { useProjectDetail } from '../../hooks/use-projects'
+import { useProjectServers } from '../../hooks/use-servers'
 import { cn } from '../../lib/cn'
 import { useThemeStore } from '../../stores/theme-store'
 
@@ -438,6 +438,7 @@ const TOAST_ICON: Record<ToastState['type'], LgIconName> = { ok: 'check', info: 
 export function LogViewerPage() {
   const { id } = useParams<{ id: string }>()
   const { data, isLoading, isError } = useProjectDetail(id)
+  const serversAll = useProjectServers(id)
   const location = useLocation()
   const navigate = useNavigate()
   const theme = useThemeStore((state) => state.theme)
@@ -445,10 +446,11 @@ export function LogViewerPage() {
 
   useDocumentTitle(`日志 · ${data?.project.name ?? ''} · Lucky-Y`)
 
-  /** 只列有日志源的机器：停机的测试机没有日志可看，列进分段就是永远空白一页 */
+  /** 只列有日志源的机器：停机的测试机没有日志可看，列进分段就是永远空白一页。
+   *    机器本身走真实库（`srv_list` 按"服务本项目"过滤），日志源仍按角色声明。 */
   const servers = useMemo(
-    () => (data ? buildServers(data.project).filter((s) => (LOG_SOURCES[s.role] ?? []).length > 0) : []),
-    [data],
+    () => (data ? serversAll.filter((s) => (LOG_SOURCES[s.role] ?? []).length > 0) : []),
+    [data, serversAll],
   )
 
   const [serverId, setServerId] = useState<string | null>(null)

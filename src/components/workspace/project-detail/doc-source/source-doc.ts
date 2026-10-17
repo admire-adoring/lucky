@@ -21,6 +21,12 @@ export interface SourceDoc {
   source?: string
   author?: string
   updatedAt?: string
+  /**
+   * 本地正文的落点（相对 documents 根）。**有值 = 这一页读写的是一份 `.md` 文件**：
+   * 正文从文件读、保存写回文件；没有 = 正文在来源工具里（页面回落演示稿，保存只进副本）。
+   * 文档索引那一族的 `DocumentItem` 带这个字段，部署文档没有。
+   */
+  filePath?: string | null
 }
 
 /* 文档索引那一族的 `DocumentItem` 本身就是这个形状的超集，调用处直接传，不转写。 */

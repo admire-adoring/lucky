@@ -5,9 +5,10 @@ import { copyOf, useDocCopies } from '../../../../data/workspace/doc-copies'
 import { DOC_KIND_LABEL } from '../../../../data/content-pool'
 import { DocEditor, EdIcon } from './DocEditor'
 import { applyCodePrefs, codeBoxOf, codeClick, codeMenuClose } from './code-block'
-import { edCharsText, edCountText, mdOfBlocks } from './md'
+import { edCharsText, edCountText, mdOfBlocks, mdOfSource } from './md'
 import { rdBlockHtml, rdCharsText, rdTocItems } from './rd-render'
 import { useEdWork } from './use-ed-work'
+import { useDocActions, useDocContent } from '../../../../hooks/use-docs'
 import type { SourceDoc } from './source-doc'
 
 /* 文档原文 · 单独一页（原型 v6.1）。
@@ -61,13 +62,22 @@ export function DocSourcePage({
   onEditMeta?: (doc: SourceDoc) => void
   notice: (text: string) => void
 }) {
-  useDocCopies()   /* 订阅：保存之后这一页（与书墙）当场更新 */
+  useDocCopies()   /* 订阅：演示副本保存之后这一页（与书墙）当场更新 */
+
+  /* 本地正文（`filePath` 有值的那一类）从 `.md` 文件读；其余回落演示稿 / 骨架。
+     读不到不算错 —— 那篇的正文本来就在来源工具里，本仓只有索引。 */
+  const localDoc = useDocContent(doc.filePath ? doc.id : undefined)
+  const saveDoc = useDocActions()
   /* 没有转写正文的那几篇用登记信息起一份骨架 ⇒ 这一页永远有正文可写 */
-  const basBody = useMemo(() => bodyOf(doc) ?? seedBodyOf(doc), [doc])
+  const basBody = useMemo(() => {
+    const md = localDoc.data?.content
+    if (md != null) return mdOfSource(md)
+    return bodyOf(doc) ?? seedBodyOf(doc)
+  }, [localDoc.data, doc])
   const copy = copyOf(doc.id)
-  /* 正文副本优先 —— 保存之后读到的就是刚写的那一份。 */
-  const body = copy?.body ?? basBody
-  const docName = copy?.name ?? doc.name
+  /* 副本优先 —— 但只对演示态生效：本地正文的那些以文件为源，不看应用内副本。 */
+  const body = doc.filePath ? basBody : copy?.body ?? basBody
+  const docName = doc.filePath ? doc.name : copy?.name ?? doc.name
   /* 来源工具名。部署文档没有这一说，缺了就说「来源工具」，不留空也不替它编一个名字。 */
   const srcText = doc.source || '来源工具'
   /* 类型：文档索引给的是 `DocKind` 键（查表），部署文档给的是自由串（它自己就是文案）。 */
@@ -81,7 +91,20 @@ export function DocSourcePage({
   const [pane, setPane] = useState<Pane>(initialPane ?? PANE)
   const [active, setActive] = useState<string | null>(null)
 
-  const ed = useEdWork(doc, body, () => notice('已保存到应用内副本 —— 来源工具里的原文没有被改动'))
+  const ed = useEdWork(
+    doc,
+    body,
+    () =>
+      notice(
+        doc.filePath
+          ? '已写入 documents 里的正文文件'
+          : '已保存到应用内副本 —— 来源工具里的原文没有被改动',
+      ),
+    /* 本地正文写回 `.md`（顺带把编辑器里改过的标题落进索引）；其余存应用内副本 */
+    doc.filePath
+      ? (_id, name, blocks) => saveDoc.save.mutate({ id: doc.id, content: mdOfBlocks(blocks), name })
+      : undefined,
+  )
 
   const toc = useMemo(() => (body ? rdTocItems(body) : []), [body])
   const html = useMemo(() => (body ? body.map((b, i) => rdBlockHtml(b, i)).join('') : ''), [body])

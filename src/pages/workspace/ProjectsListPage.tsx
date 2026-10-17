@@ -236,17 +236,12 @@ export function ProjectsListPage() {
   const remove = (project: Project) => {
     setDeleting(null)
     actions.remove.mutate(project.id, {
-      onSuccess: (removed) => {
+      onSuccess: () => {
         forgetRecent(`/projects/${project.id}`)
         forgetRecent(`/work/projects/${project.id}`)
-        toast(`已删除「${removed.project.name}」`, {
-          label: '撤销',
-          onClick: () => {
-            actions.unremove.mutate(removed, {
-              onSuccess: () => toast(`已恢复「${removed.project.name}」`),
-            })
-          },
-        })
+        /* 没有撤销：`project_delete` 是硬删（卫星表级联、任务回到收件箱），
+           界面不该承诺一件做不到的事。 */
+        toast(`已删除「${project.name}」`)
       },
     })
   }
@@ -263,9 +258,10 @@ export function ProjectsListPage() {
     actions.save.mutate(
       { id, patch: value },
       {
-        onSuccess: (list) => {
-          const latest = list.find((item) => item.id === id)
-          const visible = latest ? projectHit(latest, filter) : true
+        /* 返回的就是更新后回读的那一行（后端 `project_update` 里 `get` 过一次）——
+           不需要再去列表里找"最新的那份"。 */
+        onSuccess: (updated) => {
+          const visible = projectHit(updated, filter)
           toast(`已保存「${value.name}」${visible ? '' : '· 它已不在当前筛选里'}`)
         },
       },

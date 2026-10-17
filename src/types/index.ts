@@ -93,7 +93,7 @@ export type IconName =
 
 /**
  * 项目 —— 统一执行层的唯一模型，用 scope 隔离归属。
- * 与 docs/模块设计.md 的 Project 结构保持一致。
+ * 与 design/architecture-design/模块设计.md 的 Project 结构保持一致。
  */
 export interface Project {
   id: string
@@ -244,6 +244,11 @@ export interface DocumentItem {
   updatedHours: number
   /** 负责人。取项目负责人轮转，与 `buildActivity` / `buildMeetings` 同一条口径 */
   author: string
+  /**
+   * 本地正文的落点（相对 documents 根）。**有值 = 这一篇的正文是本地 `.md` 文件**，
+   * 能读能写；没有 = 正文在来源工具里，本仓只有索引 —— 原文页据此决定走哪条路。
+   */
+  filePath?: string | null
 }
 
 export interface ActivityItem {

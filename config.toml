@@ -1,0 +1,15 @@
+# Lucky-Y 应用配置。路径相对工程根解析（绝对路径则原样使用），文件缺失时用内置默认值。
+
+[database]
+# SQLite 库文件；父目录不存在会自动创建
+path = "db/lucky/lucky.db"
+
+[log]
+# error | warn | info | debug | trace
+level = "info"
+# 日志输出文件；父目录不存在会自动创建
+file = "db/app.log"
+
+[documents]
+# 文档正文（.md）的根；正文按 <root>/<项目id>/<文件名>.md 落盘，库里只存索引
+root = "documents"

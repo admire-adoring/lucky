@@ -28,7 +28,7 @@ import { useWorkbenchStore } from '../stores/workbench-store'
  * 两者必须都能进。
  *
  * 已知漂移（未修，改动会牵动生成器三方）：`ENTER` 里「任务清单」与「日程」
- * 的目标是 `/work/tasks`、`/work/calendar`（依据 `docs/模块设计.md`：它们在文档里是
+ * 的目标是 `/work/tasks`、`/work/calendar`（依据 `design/architecture-design/模块设计.md`：它们在文档里是
  * 工作模块内的页面）。而新建的 8 个原型把两者提升成了顶层页面（`/tasks`、`/calendar`）。
  * 于是从环上进「任务清单」会落到「工作 / 任务」那个 Tab 上 —— 是个真页面，只是不是同一处。
  * 事实源在 `design/gen-modules.mjs` 的 `ENTER`，改动要连带重跑 `run-gen.mjs`

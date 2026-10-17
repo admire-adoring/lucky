@@ -88,7 +88,7 @@ interface ModuleRingProps {
   current: string
   onSelect: (key: string) => void
   /** 「进门」：进入当前模块的主页面。跳不跳得成由调用方决定 ——
-   *  路由存在于 `docs/模块设计.md`，但代码里未必已经实现，
+   *  路由存在于 `design/architecture-design/模块设计.md`，但代码里未必已经实现，
    *  所以这里只上报意图，不自己 navigate。 */
   onEnter: (module: WorkbenchModule) => void
 }

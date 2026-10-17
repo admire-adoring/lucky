@@ -24,6 +24,11 @@ tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# 配置文件与日志
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
 # 领域层存储。bundled 把 SQLite 一起编进来，机器上不必预装 sqlite3。
 rusqlite = { version = "0.32", features = ["bundled"] }
 

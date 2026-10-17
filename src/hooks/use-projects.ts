@@ -4,7 +4,6 @@ import {
   deleteProject,
   fetchProjectDetail,
   fetchProjects,
-  insertProject,
   projectKeys,
   setProjectStatus,
   updateProject,
@@ -30,14 +29,14 @@ export function useProjectDetail(id: string | undefined) {
 }
 
 /**
- * 项目的写操作 —— 新建 / 编辑 / 改状态（归档·恢复·撤销归档）/ 删除 / 撤销删除。
+ * 项目的写操作 —— 新建 / 编辑 / 改状态（归档·恢复·撤销归档）/ 删除。
  *
- * 六个动作都收在一处失效上：改完让 `['projects']` 那一族全失效。
+ * 五个动作收在一处失效上：改完让 `['projects']` 那一族全失效。
  *    只失效列表是不够的 —— 详情页读的是 `['projects','detail',id]`，
  *    归档之后点进那个项目，Hero 上的徽标还写着「进行中」。
  *
- * 这些 mutation 当前写的是内存里的假后端（见 `api/projects.ts` 那一段），
- *    刷新即回到种子数据。语义与原型逐条一致。
+ * 写的是哪一份由 `api/projects.ts` 分派：Tauri 里落真实库，浏览器里落演示种子。
+ *    删除不可恢复（撤销入口随换源撤掉了）。
  */
 export function useProjectActions() {
   const queryClient = useQueryClient()
@@ -54,6 +53,5 @@ export function useProjectActions() {
       onSuccess: invalidate,
     }),
     remove: useMutation({ mutationFn: deleteProject, onSuccess: invalidate }),
-    unremove: useMutation({ mutationFn: insertProject, onSuccess: invalidate }),
   }
 }

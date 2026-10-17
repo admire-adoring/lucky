@@ -83,12 +83,14 @@ import {
   BUG_STATUS_LABEL,
   buildAccounts,
   buildBugs,
-  buildDeployDocs,
-  buildDeploys,
   buildMeetings,
-  buildServers,
   ownerDisplayName,
+  type DeployItem,
+  type ServerItem,
 } from '../../../data/derive'
+import { toDeployDocItem, toDeployItem } from '../../../lib/server-view'
+import { useDeployDocs, useProjectServers, useReleases } from '../../../hooks/use-servers'
+import { useDocs } from '../../../hooks/use-docs'
 import { adaptDocs, adaptTasks, type WsDoc, type WsTask } from '../../../data/workspace/project'
 import {
   applyOverride,
@@ -430,8 +432,8 @@ function OverviewPanel({
   tasks: WsTask[]
   bugs: ReturnType<typeof buildBugs>
   docs: WsDoc[]
-  servers: ReturnType<typeof buildServers>
-  deploys: ReturnType<typeof buildDeploys>
+  servers: ServerItem[]
+  deploys: DeployItem[]
   meetings: ReturnType<typeof buildMeetings>
   accounts: ReturnType<typeof buildAccounts>
   gotoTab: (key: TabKey) => void
@@ -632,17 +634,23 @@ export function useProjectDetailView(id: string | undefined, basePath: string) {
     [data, override],
   )
 
-  const docs = useMemo(() => (data ? adaptDocs(data.documents) : []), [data])
+  /* 文档索引走自己的查询（库里的索引 + 本地正文那一半都归它）——
+     与 `useProjectServers` 同形：真实库还是演示池由 api 层按宿主分派。 */
+  const docItems = useDocs(data?.project.id)
+  const docs = useMemo(() => adaptDocs(docItems), [docItems])
   const bugs = useMemo(() => (data ? buildBugs(data.project) : []), [data])
-  const servers = useMemo(() => (data ? buildServers(data.project) : []), [data])
-  const deploys = useMemo(() => (data ? buildDeploys(data.project) : []), [data])
-  const deployDocs = useMemo(() => (data ? buildDeployDocs(data.project) : []), [data])
+  /* 运维三样走真实库：机器按"服务本项目"过滤，发布记录与部署文档按项目查 */
+  const servers = useProjectServers(data?.project.id)
+  const { data: releases } = useReleases(data?.project.id)
+  const { data: rawDeployDocs } = useDeployDocs(data?.project.id)
+  const deploys = useMemo(() => (releases ?? []).map(toDeployItem), [releases])
+  const deployDocs = useMemo(() => (rawDeployDocs ?? []).map(toDeployDocItem), [rawDeployDocs])
   const meetings = useMemo(() => (data ? buildMeetings(data.project) : []), [data])
   const accounts = useMemo(() => (data ? buildAccounts(data.project) : []), [data])
 
   /* 可见分区：见文件头 ①。数据没到之前按全集渲染，免得环上先少几格再补回来。
-     运维的判据只看 `servers`：它是"这一整块"的主语（发布记录与部署文档的派生器
-        自己也按同一个池子早退，所以三者的空/非空是同步的）。 */
+     运维的判据只看 `servers`：库里没给这个项目登记机器，就没有这一格 ——
+     发布记录与部署文档挂在机器名下，机器为空时它们也无处可放。 */
   const sections = useMemo<ModuleTab[]>(() => {
     if (!data) return SECTION_TABS
     return SECTION_TABS.filter((tab) => {

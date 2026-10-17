@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MacWindow } from '../../components/shell/MacWindow'
-import { buildServers, type ServerItem } from '../../data/derive'
+import type { ServerItem } from '../../data/derive'
+import { useProjectServers } from '../../hooks/use-servers'
 import {
   ASK_TIMEOUT_MS,
   CONFIGS,
@@ -66,8 +67,8 @@ import { useThemeStore } from '../../stores/theme-store'
    ============================================================================
    ① 整窗页面（`/deploy/:id`）+ `MacWindow`。原型那条 `#win` / `window.close()` /
       "回跳运维页" 的分支全部删掉 —— 关窗交给窗框红钮，`onClose` 回项目详情的运维分区。
-   ② 目标主机与环境由项目派生，不再读 URL 的 `?host=`：`buildServers(project)` 里
-      那台生产机（`prod-<role>-01`）。原型固定 `prod-web-01`，是因为它的假数据只有 web。
+   ② 目标主机与环境由项目派生，不再读 URL 的 `?host=`：真实台账里"服务本项目"的
+      机器（优先生产环境）。原型固定 `prod-web-01`，是因为它的假数据只有 web。
       「这次连接身份」仍然是页面状态（`deploy` / `root` / `appuser`），默认 `deploy`。
    ③ 主题开关用应用的那份实现（`theme-store`，切 `<html data-theme>`），但外观
       仍走原型的 `.theme-toggle` —— 与日志页同一条口径，照搬原型的 `.dark` + 自己的
@@ -439,8 +440,8 @@ export function DeployViewerPage() {
 
   useDocumentTitle(`部署 · ${data?.project.name ?? ''} · Lucky-Y`)
 
-  /* ---- 目标主机：从项目派生（见文件头 ②）。没有服务器数据时退回原型那个默认名 —— */
-  const servers = useMemo(() => (data ? buildServers(data.project) : []), [data])
+  /* ---- 目标主机：走真实库（见文件头 ②），"当前版本"库里没有，恒显 '—' —— */
+  const servers = useProjectServers(id)
   const target: ServerItem | null = servers.find((s) => s.env === 'prod') ?? servers[0] ?? null
   const host = target?.name ?? 'prod-web-01'
   const envLabel = target && target.env === 'test' ? '测试环境' : '生产环境'

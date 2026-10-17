@@ -3,6 +3,7 @@
 use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
 
 use crate::server::error::{Error, Result};
+use crate::server::id::new_id;
 use crate::server::srv::model::{
     DeployDoc, DeployDocInput, DeployRelease, DeployReleaseInput, Server, ServerInput, ServerPath,
     ServerPort, ServerProjectRef, ServerReleaseCount,
@@ -120,7 +121,7 @@ pub fn create(conn: &mut Connection, input: &ServerInput) -> Result<Server> {
             id
         }
         None => {
-            let id = new_id();
+            let id = new_id("srv");
             tx.execute(
                 "INSERT INTO srv_server
                    (id, host, ip, ssh_port, os, cores, mem_gb, disk_gb, role_code, env_code,
@@ -303,7 +304,7 @@ pub fn release_counts(conn: &Connection) -> Result<Vec<ServerReleaseCount>> {
 /// 新增一条发布记录。`released_at` 缺省时由 SQL 取当前时刻 —— 补录历史才需要给。
 pub fn release_create(conn: &mut Connection, input: &DeployReleaseInput) -> Result<DeployRelease> {
     validate_release(input)?;
-    let id = new_id();
+    let id = new_id("srv");
     conn.execute(
         "INSERT INTO srv_deploy_release
            (id, project_id, server_id, version, result_code, released_at, operator_code,
@@ -437,7 +438,7 @@ pub fn doc_list(conn: &Connection, project_id: &str) -> Result<Vec<DeployDoc>> {
 /// 新增一份部署文档。顺序取该项目现有最大值 + 1 —— 新登记的排在书架末尾。
 pub fn doc_create(conn: &mut Connection, input: &DeployDocInput) -> Result<DeployDoc> {
     validate_doc(input)?;
-    let id = new_id();
+    let id = new_id("srv");
     conn.execute(
         "INSERT INTO srv_deploy_doc (id, project_id, name, kind_code, version, updated_at, sort_order)
          VALUES (?1,?2,?3,?4,?5, strftime('%Y-%m-%dT%H:%M:%SZ','now'),
@@ -530,7 +531,7 @@ fn write_children(tx: &Transaction<'_>, server_id: &str, input: &ServerInput) ->
         tx.execute(
             "INSERT INTO srv_server_path (id, server_id, group_name, use_label, path, note, sort_order)
              VALUES (?1,?2,?3,?4,?5,?6,?7)",
-            params![new_id(), server_id, path.group, path.use_label, path.path, path.note, i as i64],
+            params![new_id("srv"), server_id, path.group, path.use_label, path.path, path.note, i as i64],
         )?;
     }
     Ok(())
@@ -621,17 +622,4 @@ fn validate(input: &ServerInput) -> Result<()> {
         }
     }
     Ok(())
-}
-
-/// id 由写入方生成，不引入自增整数：离线创建与乐观更新都需要 id 先于写库存在。
-fn new_id() -> String {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static SEQ: AtomicU64 = AtomicU64::new(0);
-
-    let seq = SEQ.fetch_add(1, Ordering::Relaxed);
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    format!("srv-{nanos:x}-{seq:x}")
 }

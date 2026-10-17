@@ -10687,16 +10687,14 @@ html[data-theme='dark'] .mw-root[data-module='work'] .sv-page .sv-card:hover {
   filter: brightness(1.06);
 }
 
+/* 竖脊底色取模块色（工作 = 玫红）。2026-10-15 用户口径「服务器这个灯带配色换成红色」：
+   原来测试环境另走一支中性灰，改成与生产同一支 —— 环境由 `.sv-tag` 说。 */
 .mw-root[data-module='work'] .sv-page .sv-spine {
   position: relative; flex-shrink: 0; width: 48px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px 0; background: linear-gradient(180deg, var(--mw-m-main) 0%, var(--pd-m-fill) 100%); box-shadow: inset -1px 0 0 rgba(15, 23, 42, 0.16), inset 1px 0 0 rgba(255, 255, 255, 0.12); transition: filter 0.3s ease;
 }
 
 .mw-root[data-module='work'] .sv-page .sv-spine::before {
   content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(180deg, transparent 0 2px, rgba(255, 255, 255, 0.05) 2px 4px); pointer-events: none;
-}
-
-.mw-root[data-module='work'] .sv-page .sv-card.is-test .sv-spine {
-  background: linear-gradient(180deg, #97A2B4 0%, #67738A 100%);
 }
 
 .mw-root[data-module='work'] .sv-page .sv-led {

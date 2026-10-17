@@ -1,7 +1,6 @@
 import {
   ACTIVITY_TIMES,
   BUG_VERSIONS,
-  DEPLOY_TIMES,
   DOC_KIND_LABEL,
   DOC_SOURCES,
   LOG_LINES,
@@ -187,7 +186,7 @@ export function docUpdatedText(hours: number): string {
  * 文档索引：仅存索引与链接，正文留在原工具。
  *
  * 条数 = 池子长度（不再固定 4 份）：`POOL[scope].documents` 每一条就是一篇。
- * 这与 `buildServers` / `buildAccounts` 同形 —— 之前写成
+ * 这与 `buildAccounts` 同形 —— 之前写成
  * `pick(pool, seed, 4)` 时，"4" 是个与池子无关的常数（池子变长也还是 4 份）。
  *
  * 字段的来源各不相同，别把它们当成同类：
@@ -401,23 +400,6 @@ export function buildBugs(project: Project): BugItem[] {
   }))
 }
 
-/** 负载档：≥90 告警、≥75 注意。KPI 条的"环境健康"与每一格的染色都用这一条判据 */
-export const loadLevel = (pct: number): 'ok' | 'warn' | 'danger' =>
-  pct >= 90 ? 'danger' : pct >= 75 ? 'warn' : 'ok'
-
-/**
- * 目录占用份额（%）。
- * `ldd` 之外这几条是 Linux 机器上的固定目录，份额是一张声明的表：
- *    每台机器的"用了多少 G"由 `diskGb × disk%` 再乘份额得到，不另外编数字。
- *    「其他」取剩余 —— 免得表里改了数、总量对不上。
- */
-const DISK_SHARES: [string, number][] = [
-  ['/var/log', 20],
-  ['/opt/app', 16],
-  ['/var/lib/docker', 15],
-  ['/usr', 10],
-  ['/home', 6],
-]
 
 /** 一个"端口 + 它是干什么的"。一台机器上跑着几个服务就有几条 —— 所以它不是一串数字 */
 export interface PortChip {
@@ -425,26 +407,6 @@ export interface PortChip {
   svc: string
 }
 
-/**
- * 角色 → 端口。这几条是技术事实（web 8080/8443、pg 5432、redis 6379），不是编的。
- * 每条都带服务名：`8080 / 8443` 这种只报数字的写法，看的人得自己去猜哪个是 HTTP、
- *    哪个是管理口 —— 而"这台机器上有几个口、分别给谁"正是打开这个面板要问的事。
- */
-const PORTS_BY_ROLE: Record<string, PortChip[]> = {
-  web: [
-    { port: '8080', svc: 'HTTP' },
-    { port: '8443', svc: 'HTTPS' },
-    { port: '9000', svc: '管理' },
-    { port: '9100', svc: '指标' },
-    { port: '9229', svc: '调试' },
-  ],
-  db: [
-    { port: '5432', svc: 'PostgreSQL' },
-    { port: '6432', svc: '连接池' },
-    { port: '9187', svc: '指标' },
-  ],
-  cache: [{ port: '6379', svc: 'Redis' }],
-}
 
 /**
  * 路径备注里的 `{v}` 换成当前版本号。
@@ -544,20 +506,6 @@ export function fsDirFor(root: FsNode, parts: string[], home: string[]): string[
   return home
 }
 
-/**
- * 关键指标的换算系数 —— 把三格负载换成"网络出 / 活跃连接 / 磁盘 IOPS"。
- * 这是声明的系数，不是真实读数：应用里没有监控系统，这几个量本来就无处可取。
- *    放在这里而不是散在组件里，是因为它们与"负载"是同一份数据的两面。
- */
-export const METRIC_COEF = { net: 0.06, conn: 3.2, iops: 1.05 }
-
-/** 12 个采样点：围绕基准负载做 ±9 的确定性抖动（同一次渲染里结果稳定） */
-function sparkSeries(base: number, seed: string): number[] {
-  return Array.from({ length: 12 }, (_, i) => {
-    const wobble = (hash(`${seed}#${i}`) % 19) - 9
-    return Math.max(2, Math.min(99, Math.round(base + wobble)))
-  })
-}
 
 /** 短提交号。派生出来的 7 位十六进制，够像一次提交、也够说明它是编的 */
 export function shortSha(seed: string): string {
@@ -634,95 +582,6 @@ export interface ServerMetric {
   v: string
   unit: string
 }
-
-/**
- * 服务器清单。条数 = 池子长度（work 域 2 台；其余域池子为空 ⇒ 返回空数组）。
- *
- * 停机那台的负载与 `on` 仍然算得出（池子里已经没有 `env === 'test'` 的种子了，
- *    但这条规矩留着）：给它编一组"停着但 CPU 62%"的读数，
- *    是这一页最容易看起来对、实际上错的地方。
- */
-export function buildServers(project: Project): ServerItem[] {
-  const seeds = POOL[project.scope].servers
-  return seeds.map((seed, i) => {
-    const on = seed.env === 'prod'
-    const name = `${seed.env === 'prod' ? 'prod' : 'test'}-${seed.role}-01`
-    const diskUsedGb = Math.round(seed.diskGb * seed.disk) / 100
-    return {
-      id: `${project.id}-s${i + 1}`,
-      name,
-      role: seed.role,
-      env: seed.env,
-      on,
-      ip: seed.ip,
-      spec: `${seed.cores}C${seed.memGb}G`,
-      cores: seed.cores,
-      memGb: seed.memGb,
-      os: seed.os,
-      user: seed.user,
-      auth: seed.auth,
-      esc: seed.esc,
-      info: seed.info,
-      reclaim: seed.reclaim,
-      /* 行上那行小字（`生产 · 47.100.23.11 · Ubuntu 22.04`）在这里不拼：
-         它中间那个地址要单独包一层 `.meta-ip` 染色，拼成字符串就包不进去了。
-         由页面按 `env / ip / os / info(inMeta)` 现拼 —— 只有一处消费者，不存在第二份。 */
-      logCount: (LOG_SOURCES[seed.role] ?? []).length,
-      cpu: seed.cpu,
-      mem: seed.mem,
-      disk: seed.disk,
-      alert: loadLevel(seed.disk) === 'danger' || loadLevel(seed.cpu) === 'danger' || loadLevel(seed.mem) === 'danger',
-      uptimeDays: 60 + (hash(`${project.id}${seed.role}up`) % 200),
-      version: latestVersion(project),
-      ports: PORTS_BY_ROLE[seed.role] ?? [],
-      /* 这三份按引用交出去（`paths` 连同数组本体）：页面上的增删改就地发生在这一份上，
-         所以"清单"和"路径浏览器那棵树"永远看同一份数据 —— 另存一份副本就会出现
-         "刚加的这条在清单里、在浏览器里却找不到"。 */
-      pathGroups: seed.pathGroups,
-      paths: seed.paths,
-      fsExtra: seed.fsExtra,
-      fsHome: seed.fsHome,
-      series: {
-        cpu: sparkSeries(seed.cpu, `${project.id}${seed.role}cpu`),
-        mem: sparkSeries(seed.mem, `${project.id}${seed.role}mem`),
-        disk: sparkSeries(seed.disk, `${project.id}${seed.role}disk`),
-      },
-      diskUsage: diskUsageOf(diskUsedGb, seed.diskGb),
-      diskUsedGb,
-      diskTotalGb: seed.diskGb,
-    }
-  })
-}
-
-/** 目录占用：份额表 × 已用量。最后补一条「其他」把剩下的吃掉 */
-function diskUsageOf(usedGb: number, totalGb: number): DiskUsageItem[] {
-  const rows = DISK_SHARES.map(([path, share]) => ({
-    path,
-    size: `${Math.round(usedGb * share) / 100} G`,
-    pct: Math.round((usedGb * share) / totalGb),
-  }))
-  const restShare = 100 - DISK_SHARES.reduce((sum, [, share]) => sum + share, 0)
-  rows.push({
-    path: '其他',
-    size: `${Math.round(usedGb * restShare) / 100} G`,
-    pct: Math.round((usedGb * restShare) / totalGb),
-  })
-  return rows
-}
-
-/** 6 个关键指标。`平均负载` 是算出来的，另外三个走 `METRIC_COEF`，两个与硬件同尺度的走哈希 */
-export function buildServerMetrics(server: ServerItem): ServerMetric[] {
-  const load = (server.cpu / 100) * server.cores
-  return [
-    { k: '平均负载', v: load.toFixed(2), unit: `/ ${server.cores}.0` },
-    { k: '网络出', v: (server.mem * METRIC_COEF.net).toFixed(1), unit: 'MB/s' },
-    { k: '活跃连接', v: String(Math.round(server.mem * METRIC_COEF.conn)), unit: '' },
-    { k: '磁盘 IOPS', v: String(Math.round(server.disk * METRIC_COEF.iops)), unit: '' },
-    { k: '进程数', v: String(18 + (hash(`${server.id}proc`) % 12)), unit: '' },
-    { k: 'P99 响应', v: String(60 + (hash(`${server.id}p99`) % 40)), unit: 'ms' },
-  ]
-}
-
 /* ============================================================================
    跨项目的机器台账（`/work/servers`）
    ----------------------------------------------------------------------------
@@ -783,42 +642,6 @@ export function buildLedgerGroups(projects: Project[], ledger: LedgerServer[]): 
       servers: ledger.filter((server) => server.projects.some((item) => item.id === project.id)),
     }))
     .filter((group) => group.servers.length > 0)
-}
-
-/** 仪表第三格「最近发布」—— 跨项目的最近一条。 */
-export interface LastDeploy {
-  result: 'success' | 'rollback'
-  version: string
-  projectName: string
-  host: string
-  when: string
-}
-
-/**
- * 跨项目的"最近发布"。
- *
- * 判据两层，都要写清楚，否则下一个人会以为是随手取的：
- *   ① 时间档取 `DEPLOY_TIMES` 里下标最小的那一条 —— 那张表本身就是从近到远排的
- *      （`['昨天', '5 天前', '10 天前', '2 周前']`），所以"下标"就是时间序，不必解析文案；
- *   ② 同一档里多个项目都有记录时，回滚优先。这一格问的是"有没有正在烧的火"，
- *      而回滚就是那团火 —— 按项目顺序取第一条会在"p3 成功、p4 回滚（同一天）"时说"成功"，
- *      那正是这一格最不该犯的错。并列且都是成功时取项目顺序在前的那一个。
- */
-export function lastDeployAcross(projects: Project[]): LastDeploy | null {
-  const rows = projects.flatMap((project) =>
-    buildDeploys(project).map((item, index) => ({ item, index, project })),
-  )
-  if (!rows.length) return null
-  const nearest = Math.min(...rows.map((row) => row.index))
-  const at = rows.filter((row) => row.index === nearest)
-  const pick = at.find((row) => row.item.result === 'rollback') ?? (at[0] as (typeof at)[number])
-  return {
-    result: pick.item.result,
-    version: pick.item.version,
-    projectName: pick.project.name,
-    host: pick.item.server,
-    when: pick.item.when,
-  }
 }
 
 /* ============================================================================
@@ -963,55 +786,6 @@ export interface DeployItem {
   changes: string
   /** 回滚到哪一版；只有 `result === 'rollback'` 时有值 */
   rollbackTo: string | null
-}
-
-/**
- * 发布记录。条数固定 4（原型 4 条；`buildDocuments` 固定 4 份同一条取舍）。
- *
- * 运维是一整块：服务器 / 发布记录 / 部署文档要么都有、要么都没有。
- *    判据统一取 `servers` 池是否为空（服务器是这一块的主语）——
- *    否则会出现"一趟家庭旅行有一个运维分区、里面 4 条发布记录"这种事。
- *    别把这条判据只写在页面的 `visibleTabs` 里：那样三个派生器各自
- *       还会产出内容，只靠页面挡着；哪天换个入口就漏出来了。
- */
-export function buildDeploys(project: Project): DeployItem[] {
-  if (POOL[project.scope].servers.length === 0) return []
-  const servers = buildServers(project)
-  const base = versionBase(project)
-  const notes = POOL[project.scope].deployNotes
-  return DEPLOY_TIMES.map((when, i) => {
-    /* 只有一条回滚，位置由哈希定（不是每次都第 3 条） */
-    const rollbackAt = 1 + (hash(`${project.id}rb`) % 3)
-    const result: DeployItem['result'] = i === rollbackAt ? 'rollback' : 'success'
-    return {
-      id: `${project.id}-d${i + 1}`,
-      version: `${base}.${DEPLOY_TIMES.length - i}`,
-      result,
-      when,
-      server: servers[0]?.name ?? 'prod-web-01',
-      who: ownerDisplayName(project.owners[i % project.owners.length] as string),
-      /* 只有成功的发布才有"部署耗时" —— 回滚没有这个概念，空串让页面不渲染那一格 */
-      duration: result === 'success' ? `2m ${String(8 + ((hash(`${project.id}${i}`) % 50) + i)).padStart(2, '0')}s` : '',
-      commit: shortSha(`${project.id}c${i}`),
-      /* 变更说明（回滚那条读作"原因"）。池子给几条就用几条，缺的那条退成占位 */
-      changes: notes[i] ?? '—',
-      /* 回滚到哪一版：列表里更旧的那一条。已经是最后一版时退到 `.1`（最早那一版） */
-      rollbackTo: result === 'rollback' ? `${base}.${Math.max(1, DEPLOY_TIMES.length - i - 1)}` : null,
-    }
-  })
-}
-
-/** 版本号的主次号跟着项目走（哈希那一位只区分项目，不区分记录），补丁号倒着数。 */
-function versionBase(project: Project): string {
-  return `v${2 + (hash(project.id) % 2)}.3`
-}
-
-/**
- * 最新一版的版本号 —— 服务器的"当前版本"与发布记录第一条用同一个函数。
- * 不能各写一份：`buildServers` 里再调 `buildDeploys` 会互相递归（后者要前者的名字）。
- */
-export function latestVersion(project: Project): string {
-  return `${versionBase(project)}.${DEPLOY_TIMES.length}`
 }
 
 /* ============================================================
@@ -1179,11 +953,11 @@ export const ACCOUNT_TYPES: Record<AccountItem['type'], { name: string; plain: b
 /**
  * 账户。条数 = 池子长度（work 域 8 条；其余域池子为空 ⇒ 返回空数组）。
  *
- * 这里不新建对象 —— 返回的就是池子里那一份数组。与 `buildServers` 里的 `paths`
- *    同一条口径：账户页会就地改它（添加 / 编辑 / 停用 / 删除 / 轮换），
+ * 这里不新建对象 —— 返回的就是池子里那一份数组。
+ *    账户页会就地改它（添加 / 编辑 / 停用 / 删除 / 轮换），
  *    每次新建一份的话，改完只活到下一次 render。
  * 连带一条：池子是按域共享的（p3 与 p4 都是 work 域）⇒ 在 p3 上改一条，p4 也变。
- *    这是"演示池"的既成口径（`servers` / `deployDocs` 同理），不是这一轮引入的。
+ *    这是"演示池"的既成口径，不是这一轮引入的。
  */
 export function buildAccounts(project: Project): AccountItem[] {
   return POOL[project.scope].accounts
@@ -1276,21 +1050,4 @@ export interface DeployDocItem {
   /** 原始小时数。书墙上那枚书签的判据是"今天动过"，它按这个数判，
    *  不解析 `updatedAt` 那句文案（文案是给人看的，判据读它等于两处口径） */
   updatedHours: number
-}
-
-/**
- * 部署文档。条数 = 池子长度（同 servers/accounts，只在 work 域有；判据见 `buildDeploys`）。
- * 原来的 `kind` 是按下标从 `['手册','流程','脚本','配置']` 里取的、`version` 是 `v2.${len-i}` ——
- *    两样都是"位置决定内容"，于是「deploy.sh」这种一眼是脚本的东西可能被标成「手册」。
- *    现在三样都声明在池子里（`DeployDocSeed`），这里只补 id 与时间文案。
- */
-export function buildDeployDocs(project: Project): DeployDocItem[] {
-  return POOL[project.scope].deployDocs.map((doc, i) => ({
-    id: `${project.id}-dd${i + 1}`,
-    name: doc.name,
-    kind: doc.kind,
-    version: doc.version,
-    updatedAt: docUpdatedText(doc.updatedHours),
-    updatedHours: doc.updatedHours,
-  }))
 }

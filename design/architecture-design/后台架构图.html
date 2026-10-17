@@ -171,7 +171,7 @@
 
   <header class="doc">
     <h1>Lucky-Y 后台架构图</h1>
-    <p>对应 <code>docs/后台架构设计.md</code>。只画代码怎么摆，不重复 <code>design/sql-design/</code> 的表结构。</p>
+    <p>对应 <code>design/architecture-design/后台架构设计.md</code>。只画代码怎么摆，不重复 <code>design/sql-design/</code> 的表结构。</p>
   </header>
 
   <!-- ==================== 图一 ==================== -->
@@ -273,8 +273,8 @@
         </div>
         <div class="rule">
           <span class="k">跨域</span>
-          <p>只允许「任意域读统一层」（如 srv 的 hydrate JOIN project）。</p>
-          <p>统一层不许读模块专属表；域 A 不写域 B 的 SQL，要改就调对方门面。</p>
+          <p>只允许「任意域读项目域 / 任务域」（如 srv 的 hydrate JOIN project 取项目名）。</p>
+          <p>项目域 / 任务域不许读模块专属表；域 A 不写域 B 的 SQL，要改就调对方门面。</p>
         </div>
       </div>
     </div>
@@ -298,7 +298,8 @@
       <div class="row"><span class="path">├── <span class="file">store.rs</span></span><span class="cmt">Store：open / conn()（pub(crate)）/ 锁中毒处理 —— 从 srv/mod.rs 提出</span></div>
       <div class="row"><span class="path">├── <span class="file">error.rs</span></span><span class="cmt">Error / Result 全仓一份；待加 code() 让前端能按类型分支</span></div>
       <div class="row"><span class="path">├── <span class="file">db.rs</span></span><span class="cmt">foreign_keys=ON + WAL；MIGRATIONS 用 include_str! 引 design/sql-design/，不另存副本</span></div>
-      <div class="row"><span class="path">├── <span class="dir">common/</span></span><span class="cmt">统一层：project / task / project_* —— 跨域共用，是第一步要写的</span></div>
+      <div class="row"><span class="path">├── <span class="dir">project/</span></span><span class="cmt">执行层「项目」域：project / member / tag / milestone / document(_link) / risk / activity</span></div>
+      <div class="row"><span class="path">├── <span class="dir">task/</span></span><span class="cmt">全局层「任务清单」域：task —— 不挂项目时是收件箱任务</span></div>
       <div class="row"><span class="path">│&nbsp;&nbsp;&nbsp;├── <span class="file">mod.rs</span></span><span class="cmt">门面：pub fn list(store: &Store) -> Result<…>，取锁后调 repo</span></div>
       <div class="row"><span class="path">│&nbsp;&nbsp;&nbsp;├── <span class="file">model.rs</span></span><span class="cmt">Xxx（读出）/ XxxInput（写入）；#[serde(rename_all="camelCase")]</span></div>
       <div class="row"><span class="path">│&nbsp;&nbsp;&nbsp;└── <span class="file">repo.rs</span></span><span class="cmt">全部 SQL，只收 &amp;Connection / &amp;mut Connection，不 import Store</span></div>
@@ -325,7 +326,7 @@
       </div>
       <div class="step">
         <div class="n">1</div>
-        <h3>统一层 common</h3>
+        <h3>项目域 project / 任务域 task</h3>
         <ul>
           <li>project / task / project_* 仓储</li>
           <li>project_* 命令</li>
@@ -373,7 +374,7 @@
   </section>
 
   <footer class="doc">
-    Lucky-Y · 后台架构图 · 2026-10-15 · 与 docs/后台架构设计.md 同源
+    Lucky-Y · 后台架构图 · 2026-10-15 · 与 design/architecture-design/后台架构设计.md 同源
   </footer>
 </div>
 </body>

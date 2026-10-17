@@ -16,78 +16,6 @@ import type { DocKind, DocLinkFamily, DocLinkKind, Scope } from '../types'
  *       分类与时间刻度都是"这一页要用的最小信息"，不是给每个项目手写一份内容。
  */
 /**
- * 服务器档 —— 运维分区要每台机器的规格与负载，而 `Project` 上只有"这是个什么项目"。
- *
- * 9 个字段里有 6 个是这台机器自己的事实（角色/环境/系统/核数/内存/磁盘），
- *    3 个是负载读数。两者分开写在这里，因为它们是同一件事的两面：
- *    规格决定"这台机器能装多少"（`spec`、目录占用都从 `cores/memGb/diskGb` 算），
- *    负载决定"现在用了多少"（KPI 条的"环境健康"直接数 ≥90 的那几项）。
- *    写死在派生器里更糟 —— 那会把"db 一定 95%"变成藏在 if 里的业务规则。
- */
-export interface ServerSeed {
-  /** 角色后缀：web / db / cache */
-  role: string
-  env: 'prod' | 'test'
-  /**
-   * 地址。写全（原型的 `47.100.23.11`）—— 行上的小字与信息面板两处都读它，
-   * 而"这台机器是哪个地址"是这一页最常被复制走的一个值。
-   */
-  ip: string
-  os: string
-  /**
-   * 登录身份：登录用户 / 认证方式 / 登录后提权。
-   *
-   * 与「添加服务器」那张表存的是同一组字段（词表也照它：`su -` / `sudo -u root -n`）。
-   * 判据一句话："这个值，没连上的时候存在吗？" —— 登录方式与提权方式是配置，
-   * 不用连就知道 ⇒ 可以进服务器详情页的字段区；而负载 / 版本 / 运行时长要连上才读得到
-   * ⇒ 它们永不进字段区（见 `ServerDetail` 的文件头）。
-   */
-  user: string
-  auth: 'key' | 'pwd'
-  esc: 'none' | 'su' | 'sudo'
-  /**
-   * 信息面板里"不用连也能知道"的那几项（地址 / 系统之外的）。
-   * `inMeta` 的那几项同时出现在行上的小字里 —— 一份声明、两处引用，不各写一份。
-   * 规格 / 运行时长 / 版本 / 健康检查 / 资源使用都要连上才读得到，不在这里（监控分区已撤）。
-   */
-  info: InfoField[]
-  /** 核数 —— 平均负载 = `cpu%` × 核数，内存/磁盘的"用了多少 G"也从这三个数算 */
-  cores: number
-  memGb: number
-  diskGb: number
-  /** 负载百分比。任意一项 ≥ 90 即算告警 */
-  cpu: number
-  mem: number
-  disk: number
-  /**
-   * 「哪些文件可以清」那一段（读作提示行 + 清理按钮）。缺省 = 这台机器上没有可回收的东西，
-   * 那一整段不渲染。
-   *
-   * 它说的是"哪些文件可以清"，不是"磁盘告警"：本页管的是部署文件 / 查看日志，
-   *    磁盘使用率不是它要回答的问题（真出问题由云监控去吼）。
-   */
-  reclaim?: ReclaimSeed
-  /**
-   * 项目文件位置的分组。数组顺序就是显示顺序。
-   * 空数组 = 这台机器不登记文件位置（`paths` 也必须为空）。
-   */
-  pathGroups: string[]
-  /**
-   * 这个项目在这台机器上的文件在哪（配置 / 产物 / 日志目录…），不是整机目录占用 ——
-   * 管这台机器时真正要问的是"我要改、要传的那个文件在哪儿"，所以每条给「用途 / 路径 / 备注」。
-   * 这是可增删改的清单（页面里就地改这一份，见 `OpsPanel`），所以它是数组、不是查表。
-   */
-  paths: PathSeed[]
-  /**
-   * 路径浏览器里那些"这台机器上确实有、只是还没登记"的同级项。
-   * 树不是手写的第二份清单：主体由 `paths` 自己长出来，这里只补它没覆盖到的兄弟节点
-   *    （手写一棵树 + 一份清单必然走岔 —— 清单里换了路径，树里还留着旧的）。
-   */
-  fsExtra: FsSeed[]
-  /** 路径为空时浏览器的落点（这台机器最常去的那一层），从 `/` 往下逐级写 */
-  fsHome: string[]
-}
-
 /** 信息面板里的一条「标签 / 值」。`inMeta` 的会同时进行上那行小字 */
 export interface InfoField {
   label: string
@@ -125,15 +53,6 @@ export interface FsSeed {
   time?: string
 }
 
-/** 部署文档档。原来是纯字符串数组，`kind`/`version` 由下标硬编 —— 三样都改成声明 */
-export interface DeployDocSeed {
-  name: string
-  /** 手册 / 流程 / 脚本 */
-  kind: string
-  version: string
-  updatedHours: number
-}
-
 /**
  * 账户档（项目详情「账户」页，`工作-项目-项目详情-账户-index.html`，2026-09-27 重做）。
  *
@@ -144,7 +63,7 @@ export interface DeployDocSeed {
  *    存绝对日期的话，「3 天后」和那个日期迟早互相打脸（原型文件头那条判据）。
  *    ⇒ 因此 `dueDays` 与 `cycle - rotatedDays` 必须自洽，改一个要连着改另一个。
  * 这一份是可增删改的清单（添加 / 编辑 / 停用 / 删除 / 轮换都就地改它），
- *    与 `ServerSeed.paths` 同一条口径 —— 池子是演示数据的唯一来源，没有接口。
+ *    池子是演示数据的唯一来源，没有接口。
  */
 export interface AccountSeed {
   /** 内部键（展开面板 / 复制都按它找）。不用中文平台名，免得把非 ASCII 带进 id */
@@ -473,19 +392,10 @@ export const POOL: Record<
     activity: string[]
     /** 问题清单的标题（work 域读作 Bug） */
     bugs: string[]
-    /** 服务器档；空数组 = 这个域没有服务器（运维整块的判据就是它） */
-    servers: ServerSeed[]
     /** 会议名 */
     meetings: string[]
     /** 账户凭据档；空数组 = 这个域没有账户表（同 servers，只在 work 域有） */
     accounts: AccountSeed[]
-    /** 部署文档；空数组 = 这个域没有部署手册（同 servers/accounts，只在 work 域有） */
-    deployDocs: DeployDocSeed[]
-    /**
-     * 发布记录里每条"变更说明"（回滚那条读作"原因"）。
-     * 与 `DEPLOY_TIMES` 一样按下标取，所以条数必须 ≥ 发布记录的条数（4 条）。
-     */
-    deployNotes: string[]
   }
 > = {
   life: {
@@ -528,11 +438,8 @@ export const POOL: Record<
     ],
     activity: ['更新了行程排期', '上传了酒店确认单', '调整了预算上限', '完成了「预订接送机」'],
     bugs: ['酒店超订需要重新确认', '转机时间只有 50 分钟', '保险覆盖范围与行程不符', '接送机时间与航班对不上'],
-    servers: [],
     meetings: ['行前家庭会议', '与向导确认行程', '保险条款沟通'],
     accounts: [],
-    deployDocs: [],
-    deployNotes: [],
   },
   work: {
     tasks: [
@@ -620,294 +527,6 @@ export const POOL: Record<
     ],
     activity: ['提交了架构方案 v3', '完成了鉴权模块评审', '更新了里程碑时间', '关闭了 3 条 P1 缺陷'],
     bugs: ['支付回调偶发超时', '对账金额精度丢失', '灰度开关偶发不生效', '导出任务偶发卡死', '鉴权 token 刷新竞态'],
-    /**
-     * 2026-09-27：这一块从 3 台收敛成 2 台，与原型同构。
-     *    原来第三台是 `test-cache-01`（停机的），它的存在意义只有一个：
-     *    "停机的那台不显示负载"。而行内负载表整组撤掉之后，停机这件事在本页没有表达
-     *    （服务器行只剩 名称 / 连接开关 / 地址那一行小字），留着一台"看不出停机的停机机器"
-     *    是给页面添一个说不清楚的角落。它也不是被删掉的功能 —— 是随监控一起下线的那半块。
-     *    另外两台各自带的 `paths` 就是原型 `PATHS` 那一份，逐条同值。
-     */
-    servers: [
-      {
-        role: 'web',
-        env: 'prod',
-        ip: '47.100.23.11',
-        user: 'deploy',
-        auth: 'key',
-        esc: 'sudo',
-        os: 'Ubuntu 22.04',
-        /* 这一台"不用连也能知道"的是地址与系统 —— 数据库/备份策略是 db 那台的事。
-           系统这一项写在 info 里（而不是由组件另拼一格）：db 那台的信息面板里
-              没有"操作系统"这一格，两台的差别是内容的差别，不该在组件里判。 */
-        info: [{ label: '操作系统', value: 'Ubuntu 22.04' }],
-        cores: 4,
-        memGb: 8,
-        diskGb: 80,
-        cpu: 11,
-        mem: 40,
-        disk: 40,
-        pathGroups: ['应用与产物', '配置与日志'],
-        fsHome: ['opt', 'app'],
-        paths: [
-          {
-            group: '应用与产物',
-            use: '前端静态文件',
-            path: '/opt/app/web/dist',
-            note: '{v}',
-            preview: `total 1.1M
-drwxr-xr-x  3 deploy deploy 4.0K 今天 14:30 assets/
--rw-r--r--  1 deploy deploy 2.1K 今天 14:30 index.html
--rw-r--r--  1 deploy deploy  15K 9月20日   favicon.ico
-
-assets/
-  app.9f2c1a.js    842K  今天 14:30
-  app.4b7d0e.css    61K  今天 14:30`,
-          },
-          {
-            group: '应用与产物',
-            use: '后端 jar 包',
-            path: '/opt/app/pay-api.jar',
-            note: '{v} · 2.4 MB',
-            preview: '二进制文件 · 2.4 MB · 无法在浏览器里预览\n\n要用它的话：在部署面板里上传替换，或先下载到本机再处理。',
-          },
-          {
-            group: '应用与产物',
-            use: '启动脚本',
-            path: '/opt/app/release.sh',
-            note: '9月20日',
-            preview: `#!/usr/bin/env bash
-set -euo pipefail
-
-APP_HOME=/opt/app
-TS=$(date +%Y%m%d-%H%M%S)
-
-# 1) 先把当前版本留一份回滚点
-mkdir -p "$APP_HOME/releases/$TS"
-cp "$APP_HOME/pay-api.jar" "$APP_HOME/releases/$TS/"
-
-# 2) 换包 + 重启（进程由 supervisor 托管，这里不用自己拉起）
-install -m 644 /tmp/upload/pay-api.jar "$APP_HOME/pay-api.jar"
-supervisorctl restart pay-api
-
-# 3) 探活：20 秒内没起来就报错退出，交给人来判断
-for i in $(seq 1 20); do
-  curl -fs http://127.0.0.1:9000/health && exit 0
-  sleep 1
-done
-echo "健康检查未通过，请人工确认" >&2
-exit 1`,
-          },
-          {
-            group: '配置与日志',
-            use: 'Nginx 配置',
-            path: '/etc/nginx/conf.d/pay.conf',
-            note: '9月20日',
-            preview: `server {
-    listen       8080;
-    server_name  pay.example.com;
-
-    location / {
-        proxy_pass         http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header   Host              $host;
-        proxy_set_header   X-Real-IP         $remote_addr;
-        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_read_timeout 60s;
-    }
-
-    location /metrics {
-        proxy_pass http://127.0.0.1:9100;
-    }
-}`,
-          },
-          {
-            group: '配置与日志',
-            use: 'Supervisor 配置',
-            path: '/etc/supervisor/conf.d/pay-api.conf',
-            note: '9月18日',
-            preview: `[program:pay-api]
-command=/usr/bin/java -jar /opt/app/pay-api.jar --spring.profiles.active=prod
-directory=/opt/app
-user=deploy
-autostart=true
-autorestart=true
-startretries=3
-stopwaitsecs=30
-stdout_logfile=/var/log/pay-api/stdout.log
-stderr_logfile=/var/log/pay-api/stderr.log
-environment=JAVA_OPTS="-Xms1g -Xmx2g -XX:+UseG1GC"`,
-          },
-          {
-            group: '配置与日志',
-            use: '环境变量',
-            path: '/opt/app/.env',
-            note: '仅 root 可读',
-            preview: `NODE_ENV=production
-APP_PORT=8080
-ADMIN_PORT=9000
-
-DB_HOST=47.100.23.12
-DB_PORT=5432
-DB_NAME=pay
-DB_USER=pay_app
-DB_PASSWORD=******          # 由密钥管理注入，不写在这里
-
-REDIS_URL=redis://127.0.0.1:6379/0
-LOG_LEVEL=info`,
-          },
-          {
-            group: '配置与日志',
-            use: '日志目录',
-            path: '/var/log/pay-api/',
-            note: '7 天 · 2.1 G',
-            preview: `total 2.7G
--rw-r--r-- 1 deploy deploy 412M 今天 14:32 stdout.log
--rw-r--r-- 1 deploy deploy 1.2M 今天 09:15 stderr.log
--rw-r--r-- 1 deploy deploy 1.9G 今天 14:32 access.log
--rw-r--r-- 1 deploy deploy 380M 9月25日   stdout.log.1
--rw-r--r-- 1 deploy deploy  42M 9月24日   stdout.log.2.gz`,
-          },
-        ],
-        fsExtra: [
-          { path: '/opt/app/releases/20260925-1812', dir: true },
-          { path: '/opt/app/releases/20260924-0930', dir: true },
-          { path: '/opt/app/releases/20260923-1714', dir: true },
-          { path: '/opt/app/releases/20260922-1026', dir: true },
-          { path: '/opt/app/releases/20260921-1902', dir: true },
-          { path: '/opt/app/releases/20260920-1138', dir: true },
-          { path: '/opt/app/releases/20260919-1645', dir: true },
-          { path: '/opt/app/releases/20260918-0921', dir: true },
-          { path: '/opt/app/logs', dir: true },
-          { path: '/opt/app/backup/pre-20260925.dump', size: '420 MB', time: '今天 09:18' },
-          { path: '/etc/nginx/nginx.conf', size: '2.4 KB', time: '9月10日' },
-          { path: '/etc/nginx/conf.d/default.conf', size: '1.1 KB', time: '9月10日' },
-          { path: '/etc/supervisor/supervisord.conf', size: '3.2 KB', time: '9月12日' },
-          { path: '/etc/hosts', size: '220 B', time: '9月12日' },
-          { path: '/home/deploy/.bashrc', size: '3.1 KB', time: '9月12日' },
-          { path: '/usr/local/bin/healthcheck.sh', size: '1.4 KB', time: '9月20日' },
-          { path: '/var/log/nginx/access.log', size: '186 MB', time: '2 分钟前' },
-          { path: '/var/log/nginx/error.log', size: '4.2 MB', time: '今天 10:12' },
-          { path: '/var/log/syslog', size: '12 MB', time: '今天 10:15' },
-        ],
-      },
-      {
-        role: 'db',
-        env: 'prod',
-        ip: '47.100.23.12',
-        user: 'deploy',
-        auth: 'key',
-        esc: 'sudo',
-        os: 'Ubuntu 22.04',
-        info: [
-          { label: '数据库', value: 'PostgreSQL 15', inMeta: true },
-          { label: '备份策略', value: '每日 03:00 全量' },
-        ],
-        reclaim: {
-          note: '可回收 **约 12 G**：WAL 归档 7.8 G + 历史日志 4.2 G。',
-          desc: '将清理 WAL 归档（7.8 G）与 14 天前的历史日志（4.2 G），预计释放约 12 G。',
-          warn: '清理后的 WAL 归档无法用于时间点恢复。若仍需要该时间区间的恢复能力，请先完成一次全量备份。',
-        },
-        cores: 8,
-        memGb: 16,
-        diskGb: 160,
-        cpu: 23,
-        mem: 43,
-        disk: 95,
-        pathGroups: ['数据', '配置与日志'],
-        fsHome: ['etc', 'postgresql', '15', 'main'],
-        paths: [
-          {
-            group: '数据',
-            use: '数据目录',
-            path: '/var/lib/postgresql/15/main',
-            note: '128.4 G',
-            preview: `drwx------ 19 postgres postgres 4.0K 今天 14:31 base/
-drwx------  3 postgres postgres 4.0K 今天 14:31 pg_wal/
--rw-------  1 postgres postgres   78 9月12日   postgresql.auto.conf
--rw-------  1 postgres postgres    3 2026-05-12 PG_VERSION
-
-base/ 下是本项目的库：pay（86 GB）、pay_replica（42 GB）`,
-          },
-          {
-            group: '数据',
-            use: 'WAL 归档',
-            path: '/var/lib/postgresql/wal',
-            note: '7.8 G',
-            preview: `total 7.8G
--rw------- 1 postgres postgres 16M 今天 14:20 0000000100000000000000A1
--rw------- 1 postgres postgres 16M 今天 14:30 0000000100000000000000A2
--rw------- 1 postgres postgres 16M 今天 14:31 0000000100000000000000A3
-drwx------ 2 postgres postgres 4.0K 今天 14:31 archive_status/`,
-          },
-          {
-            group: '数据',
-            use: '备份目录',
-            path: '/var/backups/pg/',
-            note: '每日 03:00',
-            preview: `total 54G
--rw-r--r-- 1 postgres postgres 18.4G 今天 03:12 pay-20260926-0300.dump
--rw-r--r-- 1 postgres postgres 18.1G 9月25日   pay-20260925-0300.dump
--rw-r--r-- 1 postgres postgres 17.9G 9月24日   pay-20260924-0300.dump`,
-          },
-          {
-            group: '配置与日志',
-            use: '主配置',
-            path: '/etc/postgresql/15/main/postgresql.conf',
-            note: '9月12日',
-            preview: `# —— 与本项目相关的几项，其余保持默认 ——
-listen_addresses = 'localhost'
-port = 5432
-max_connections = 200
-shared_buffers = 4GB
-effective_cache_size = 12GB
-wal_level = replica
-archive_mode = on
-archive_command = 'cp %p /var/lib/postgresql/wal/%f'
-log_directory = '/var/log/postgresql'`,
-          },
-          {
-            group: '配置与日志',
-            use: '访问控制',
-            path: '/etc/postgresql/15/main/pg_hba.conf',
-            note: '9月12日',
-            preview: `# —— 本项目新增的两条 ——
-host    pay    pay_app       47.100.23.11/32    scram-sha-256
-host    pay    pay_replica   47.100.23.0/24     scram-sha-256
-
-# 其余保持默认：
-local   all    postgres                      peer
-host    all    all         127.0.0.1/32      scram-sha-256`,
-          },
-          {
-            group: '配置与日志',
-            use: '日志目录',
-            path: '/var/log/postgresql/',
-            note: '7 天 · 9.2 G',
-            preview: `total 512M
--rw-r----- 1 postgres postgres 128M 今天 14:32 postgresql-2026-09-26.log
--rw-r----- 1 postgres postgres 342M 9月25日   postgresql-2026-09-25.log
--rw-r----- 1 postgres postgres  42M 9月24日   postgresql-2026-09-24.log.gz`,
-          },
-        ],
-        fsExtra: [
-          { path: '/var/lib/postgresql/15/main/base', dir: true },
-          { path: '/var/lib/postgresql/15/main/pg_wal', dir: true },
-          { path: '/var/lib/postgresql/15/main/PG_VERSION', size: '3 B', time: '5月12日' },
-          { path: '/var/lib/postgresql/wal/archive_status', dir: true },
-          { path: '/var/backups/pg/pay-20260926-0300.dump', size: '18.4 G', time: '今天 03:12' },
-          { path: '/var/backups/pg/pay-20260925-0300.dump', size: '18.1 G', time: '9月25日' },
-          { path: '/var/backups/pg/pay-20260924-0300.dump', size: '17.9 G', time: '9月24日' },
-          { path: '/etc/postgresql/15/main/pg_ident.conf', size: '2.1 KB', time: '9月12日' },
-          { path: '/etc/postgresql/15/main/start.conf', size: '480 B', time: '9月12日' },
-          { path: '/etc/postgresql/15/main/conf.d', dir: true },
-          { path: '/opt/pgbackrest/pgbackrest.conf', size: '2.8 KB', time: '9月12日' },
-          { path: '/usr/lib/postgresql/15/bin/pg_dump', size: '1.2 MB', time: '8月02日' },
-          { path: '/var/log/postgresql/postgresql-2026-09-26.log', size: '128 MB', time: '今天 14:32' },
-          { path: '/var/log/postgresql/postgresql-2026-09-25.log', size: '342 MB', time: '9月25日' },
-        ],
-      },
-    ],
     meetings: ['项目评审', '技术方案评审', '周会', '上线演练'],
     /* 8 条，与原型 `CREDS` 逐字一致（3 个平台：阿里云 3 / GitLab 2 / 星辰后台 3）。
        `dueDays` = `cycle - rotatedDays`，三条要一起自洽（见 `AccountSeed` 的注释）。
@@ -935,17 +554,6 @@ host    all    all         127.0.0.1/32      scram-sha-256`,
         cycle: 180, rotatedDays: 128, rotatedBy: '何敏', dueDays: 52, secret: 'Qa3$kN7wZp' },
       { id: 'xc-ops', platform: '星辰后台', user: 'xingchen_ops', type: 'password', env: 'prod',
         cycle: 90, rotatedDays: 57, rotatedBy: '张琪', dueDays: 33, secret: 'Op5%vB2mHs' },
-    ],
-    deployDocs: [
-      { name: '生产环境部署手册', kind: '手册', version: 'v2.3', updatedHours: 26 },
-      { name: '回滚流程', kind: '流程', version: 'v1.2', updatedHours: 72 },
-      { name: 'deploy.sh', kind: '脚本', version: 'v1.4', updatedHours: 120 },
-    ],
-    deployNotes: [
-      '修复支付回调超时，优化对账精度',
-      '新增对账模块，重构支付核心链路',
-      '对账精度问题，回滚至上一版',
-      '支付网关超时配置调整',
     ],
   },
   learn: {
@@ -986,11 +594,8 @@ host    all    all         127.0.0.1/32      scram-sha-256`,
     ],
     activity: ['写完了第 6 篇笔记', '跑通了 mini-runtime 示例', '更新了复习计划', '把 3 条笔记升级为永久笔记'],
     bugs: ['示例在 nightly 上编译不过', '第 4 章结论与源码不一致', '闪卡导出缺了 6 张'],
-    servers: [],
     meetings: ['读书会', '结对复盘'],
     accounts: [],
-    deployDocs: [],
-    deployNotes: [],
   },
 }
 
@@ -1025,5 +630,3 @@ export const ACTIVITY_TIMES = ['12 分钟前', '2 小时前', '昨天 18:40', '3
 /** 问题清单的版本标签（就近取，与「发布记录」的版本号同一个形状） */
 export const BUG_VERSIONS = ['v2.3.1', 'v2.3.0', 'v2.2.9', 'v2.2.8', 'v2.2.7']
 
-/** 发布记录的版本号尾数 —— 由索引倒着数，不编一个会撞车的流水号 */
-export const DEPLOY_TIMES = ['昨天', '5 天前', '10 天前', '2 周前']

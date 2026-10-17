@@ -7,6 +7,7 @@
 ```text
 lucky-jarvise/
 ├─ package.json            一份管两层：前端依赖 + @tauri-apps/api + @tauri-apps/cli
+├─ config.toml             应用配置：数据库路径 · 日志级别与输出文件（缺失时用内置默认值）
 ├─ index.html · vite.config.ts · tsconfig.json
 ├─ src/                    React 19 前端
 │  ├─ api/                 数据访问层（invoke 只出现在这里）
@@ -21,8 +22,11 @@ lucky-jarvise/
 │  └─ src/server/          领域层（原独立 crate lucky_y_server 并入）
 │     ├─ mod.rs store.rs error.rs db.rs
 │     └─ srv/              服务器台账域：mod.rs（门面）· model.rs · repo.rs
-├─ docs/                   架构与模块设计文档
+├─ docs/                   设计验收记录与令牌一致性核对
+├─ db/                     运行时数据库（lucky-y.sqlite3，gitignore，应用启动自动建）
+├─ documents/              文档正文（<项目id>/<文件名>.md；库只存索引与文件坐标）
 └─ design/
+   ├─ architecture-design/ 架构设计：后台架构设计 · 后台架构图 · 模块设计 · 技术选型
    ├─ sql-design/          DDL 单一事实源（db.rs 用 include_str! 编译期引入，删改会断编译）
    ├─ ui-design/           v1.0 初版三页原型
    └─ prototypes/          活跃原型库与设计令牌（design-tokens/design-tokens.md）

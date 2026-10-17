@@ -141,7 +141,7 @@ export interface ChatMessage {
   time: string
 }
 
-/** 「进入主页面」CTA。路由取自 docs/模块设计.md，不自造 */
+/** 「进入主页面」CTA。路由取自 design/architecture-design/模块设计.md，不自造 */
 export interface ModuleEnter {
   text: string
   path: string

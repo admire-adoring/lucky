@@ -51,7 +51,7 @@ export const WORKSPACE_NAV: NavGroup[] = [
 /** 展开成一维，供「按 key 取标签」与「按路径找模块」用。 */
 export const WORKSPACE_NAV_FLAT: NavItem[] = WORKSPACE_NAV.flatMap((group) => group.items)
 
-/** 每个模块的路由前缀 —— 与 `docs/模块设计.md` 的路由口径一致。 */
+/** 每个模块的路由前缀 —— 与 `design/architecture-design/模块设计.md` 的路由口径一致。 */
 export const MODULE_BASE_PATH: Record<WorkspaceModuleKey, string> = {
   dashboard: '/home',
   tasks: '/tasks',

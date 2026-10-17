@@ -18,9 +18,8 @@ import { ProjectShelf } from '../project-detail/ProjectShelf'
    ============================================================================
    版面全部来自 `components/workspace/project-detail/ProjectShelf.tsx`；
    这里只声明属于学习模块的三样：
-     · `scope="learn"` —— `docs/模块设计.md` §4「学习项目，scope=learning」。
-       文档里那个 `learning` 是模块名，项目上的 `scope` 字段取值是 `learn`
-          （见 `types/index.ts` 的 `Scope`）。两处不是一个命名空间，别混。
+     · `scope="learn"` —— `design/architecture-design/模块设计.md` §4「学习项目，scope=learn」。
+       文档已与 `types/index.ts` 的 `Scope` 同口径。
      · 基路径 `/learning/projects` —— 与 `filterProjects` 里的 scope 无关，
        它只决定"点开抽屉去哪儿"，对应路由挂在 `App.tsx`。
      · 页头措辞「实践项目」。`.accent` 那两个字自动取学习模块的强调色

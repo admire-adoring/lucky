@@ -15,7 +15,7 @@ import type { SortMode } from '../../../types'
    用户选的是后者。v1 的原型还在（`work_project_v1.html`），要回看旧版式去那里。
 
    口径没变（这是这一页唯一容易搞错的地方）：
-     `docs/模块设计.md` §2 ——「工作项目 `/work/projects` = 调用项目模块，scope=work」。
+     `design/architecture-design/模块设计.md` §2 ——「工作项目 `/work/projects` = 调用项目模块，scope=work」。
      所以只列 `scope === 'work'` 的项目。
    原型里那 4 个「支付系统重构 / 用户中心改版 / 数据看板 / 性能优化专项」是设计样本，
       不是数据源；真实项目在 `src/data/projects.ts`（这一页实际是 2 个 work 项目）。
