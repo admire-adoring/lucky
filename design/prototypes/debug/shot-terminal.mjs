@@ -36,6 +36,7 @@ const DUMP = process.argv.includes('--dump')
 const COMMAND = arg('command', 'ls -la /srv/app && df -h')
 const FAIL = arg('fail', '')
 const ESC = arg('esc', 'none')
+const SCROLL = process.argv.includes('--scroll')
 const VIEW = arg('view', 'dev')
 
 if (!fs.existsSync(path.join(DIST, 'index.html'))) {
@@ -119,10 +120,18 @@ const MOCK = `
     term_tail: function () { return tail },
     term_exec: function (args) {
       var command = (args && args.command) || ''
-      if (command.indexOf('cat') === 0) {
-        return { stdout: '', stderr: 'cat: /root/missing.txt: No such file or directory', code: 1, durationMs: 61, cwd: opened.cwd, truncated: false, closed: false }
+      if (command.indexOf('seq') === 0) {
+        var bulk = []
+        for (var i = 1; i <= 120; i++) bulk.push(String(i))
+        return { stdout: bulk.join('\\n'), stderr: '', code: 0, durationMs: 42, cwd: opened.cwd, truncated: false, closed: false, hint: '' }
       }
-      return { stdout: runOut, stderr: '', code: 0, durationMs: 128, cwd: opened.cwd, truncated: false, closed: false }
+      if (command.indexOf('cat') === 0) {
+        return { stdout: '', stderr: 'cat: /root/missing.txt: No such file or directory', code: 1, durationMs: 61, cwd: opened.cwd, truncated: false, closed: false, hint: '' }
+      }
+      if (command.indexOf('su') === 0) {
+        return { stdout: '', stderr: 'Password: su: Authentication failure', code: 1, durationMs: 1131, cwd: opened.cwd, truncated: false, closed: false, hint: 'su 要一个真终端才能问密码 —— 这里的命令走 stdin、没有 tty，它读到空密码就退出了，不是密码错。要 root 权限：把台账的提权方式设成 sudo（开会话时已用登录密码预热），之后命令本来就以 root 跑；或者换一个能直接登录的 root 账户。' }
+      }
+      return { stdout: runOut, stderr: '', code: 0, durationMs: 128, cwd: opened.cwd, truncated: false, closed: false, hint: '' }
     },
     term_history: function () {
       return [
@@ -169,7 +178,14 @@ const afterLoad = `<script>setTimeout(function(){
     var tabs = document.querySelectorAll('.tm-tab');
     if (tabs[1]) tabs[1].click();
   }
-}, 900)</script>`
+}, 900)
+/* headless 的虚拟时钟跑不完 CSS transition —— 截图会停在宽度过半的样子。
+   这一步只是把过渡去掉让布局落到终态，页面本身不动。 */
+setTimeout(function(){
+  var s = document.createElement('style');
+  s.textContent = '*{transition:none !important}';
+  document.head.appendChild(s);
+}, 2600)</script>`
 
 const typeCommand = `<script>setTimeout(function(){
   var el = document.querySelector('.tm-term-input');
@@ -180,8 +196,25 @@ const typeCommand = `<script>setTimeout(function(){
   el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 }, 1500)</script>`
 
+/* 先刷满一屏，再把输出滚回顶部，然后敲第二条 —— 用来验"有新输出"的跳转 */
+const scrollScript = `<script>
+function tmRun(text) {
+  var el = document.querySelector('.tm-term-input')
+  var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set
+  setter.call(el, text)
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+}
+setTimeout(function () { tmRun('seq 1 120') }, 1400)
+setTimeout(function () {
+  var box = document.querySelector('.tm-term-output')
+  if (box) { box.scrollTop = 0; box.dispatchEvent(new Event('scroll', { bubbles: true })) }
+}, 2400)
+setTimeout(function () { tmRun('df -h') }, 2800)
+</script>`
+
 let html = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8').replace('</head>', `${seed}\n<script>${MOCK}</script>\n</head>`)
-html = html.replace('</body>', `${afterLoad}\n${FAIL ? '' : typeCommand}\n</body>`)
+html = html.replace('</body>', `${afterLoad}\n${FAIL ? '' : SCROLL ? scrollScript : typeCommand}\n</body>`)
 const page = path.join(DIST, '__term-shot.html')
 fs.writeFileSync(page, html)
 

@@ -160,3 +160,76 @@ fn mtime_of(meta: &fs::Metadata) -> i64 {
         .map(|since| since.as_millis() as i64)
         .unwrap_or(0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 临时沙箱：一个文件 + 一个子目录。每支测试各用一个，跑完自己收。
+    fn sandbox(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("lucky-localfs-{tag}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("nested")).unwrap();
+        fs::write(dir.join("app.jar"), b"0123456789").unwrap();
+        dir
+    }
+
+    #[test]
+    fn stat_sees_a_real_file_with_size_and_time() {
+        let dir = sandbox("stat");
+        let path = dir.join("app.jar");
+        let meta = stat(path.to_str().unwrap()).unwrap().expect("真实文件应探到");
+        assert_eq!(meta.name, "app.jar");
+        assert!(!meta.dir);
+        assert_eq!(meta.size, 10);
+        assert!(meta.mtime > 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn stat_returns_none_for_a_path_that_is_not_there() {
+        let dir = sandbox("stat-miss");
+        let missing = dir.join("never-built.jar");
+        assert!(stat(missing.to_str().unwrap()).unwrap().is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn list_reads_one_layer_and_zeroes_dir_size() {
+        let dir = sandbox("list");
+        let listed = list(dir.to_str().unwrap()).unwrap();
+        assert_eq!(listed.entries.len(), 2);
+        let nested = listed.entries.iter().find(|e| e.name == "nested").expect("子目录要在列表里");
+        assert!(nested.dir);
+        assert_eq!(nested.size, 0);
+        let file = listed.entries.iter().find(|e| e.name == "app.jar").expect("文件要在列表里");
+        assert_eq!(file.size, 10);
+        assert_eq!(listed.note, "");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn list_rejects_a_file_path() {
+        let dir = sandbox("list-file");
+        let path = dir.join("app.jar");
+        assert!(list(path.to_str().unwrap()).is_err());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn dir_for_falls_back_to_the_parent_dir() {
+        let dir = sandbox("dir-for");
+        let file = dir.join("app.jar");
+        assert_eq!(dir_for(file.to_str().unwrap()).unwrap(), dir.to_string_lossy());
+        /* 整条都不存在 → 退到最近一层存在的祖先，而不是报错 */
+        let gone = dir.join("deleted").join("app.jar");
+        assert_eq!(dir_for(gone.to_str().unwrap()).unwrap(), dir.to_string_lossy());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn relative_paths_are_rejected() {
+        assert!(stat("build/app.jar").is_err());
+        assert!(list("build").is_err());
+    }
+}

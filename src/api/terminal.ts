@@ -44,6 +44,8 @@ export interface TermRun {
   truncated: boolean
   /** 这条命令把会话关了（`exit` / `logout`） */
   closed: boolean
+  /** 需要交互密码这类"注定跑不了"的命令，后端给的一句解释（空串 = 没有） */
+  hint: string
 }
 
 export interface TermProc {

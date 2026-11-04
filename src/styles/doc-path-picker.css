@@ -2,14 +2,19 @@
    存放位置选择器（`components/workspace/project-detail/DocPathPicker.tsx`）
    ------------------------------------------------------------
    自成一套 `pk-` 类名，不引用各模块那份 `.modal` —— 这个选择器在文档库、
-   学习的笔记页都可能被叫出来，样式必须一处定义、处处一样。
-   配色仍走全局令牌，四支面阶（浅灰 / 纯白 / 护眼绿 / 书籍黄）与暗色自动跟随。
+   学习的笔记页都可能被叫出来，样式必须一处定义、处处一样。配色走全局令牌，
+   四支面阶与暗色自动跟随。
 
-   末尾那一组 `.fm-path*` 是新建弹窗里「存放位置」那一格本身（弹窗仍用内核的
-   `.fm-field` / `.fm-label`），因为它是这个选择器的入口，跟着一起放。
+   选择器一律写成 `.pk-mask .pk-*`（权重 0,2,0）：内核那条重置是
+   `.mw-root * { margin:0; padding:0 }`（0,1,0），打包后它排在本文件之后，
+   同权重时后者赢 —— 整套内边距会被清零，标题贴着卡片边、路径框没有留白。
+   遮罩自己用 `div.pk-mask` 顶掉同样的坑。
+
+   末尾那一组 `.fm-field .fm-path*` 是新建弹窗里「存放位置」那一格本身
+   （弹窗仍用内核的 `.fm-field` / `.fm-label`），它是这个选择器的入口。
    ============================================================ */
 
-.pk-mask {
+div.pk-mask {
   position: fixed;
   inset: 0;
   z-index: 220; /* 盖在主弹窗（100）之上：这是它的下一层 */
@@ -21,9 +26,10 @@
   animation: pk-fade 0.14s ease-out;
 }
 
-.pk {
+.pk-mask .pk {
   width: 100%;
-  max-width: 760px;
+  /* 与「新建文档」那张 `.modal.wide` 同宽：选择器是它的下一层，浮出来时正好盖住它 */
+  max-width: 640px;
   max-height: 100%;
   display: flex;
   flex-direction: column;
@@ -37,7 +43,7 @@
   animation: pk-pop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.pk-head {
+.pk-mask .pk-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -45,14 +51,14 @@
   padding: 24px 28px 0;
 }
 
-.pk-title {
+.pk-mask .pk-title {
   font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--mw-text-primary, #0f172a);
 }
 
-.pk-close {
+.pk-mask .pk-close {
   flex-shrink: 0;
   border: 0;
   background: transparent;
@@ -70,12 +76,12 @@
   transition: background 0.18s ease, color 0.18s ease;
 }
 
-.pk-close:hover {
+.pk-mask .pk-close:hover {
   background: var(--mw-border-subtle, rgba(15, 23, 42, 0.06));
   color: var(--mw-text-primary, #0f172a);
 }
 
-.pk-body {
+.pk-mask .pk-body {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -84,13 +90,13 @@
 
 /* ---------- 面包屑 ---------- */
 
-.pk-nav {
+.pk-mask .pk-nav {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.pk-crumbs {
+.pk-mask .pk-crumbs {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -101,13 +107,13 @@
   font-weight: 600;
 }
 
-.pk-shortcuts {
+.pk-mask .pk-shortcuts {
   flex-shrink: 0;
   display: flex;
   gap: 6px;
 }
 
-.pk-shortcut {
+.pk-mask .pk-shortcut {
   padding: 4px 9px;
   border: 0;
   border-radius: 7px;
@@ -120,12 +126,12 @@
   transition: color 0.16s ease, background 0.16s ease;
 }
 
-.pk-shortcut:hover {
+.pk-mask .pk-shortcut:hover {
   background: var(--mw-border-subtle, rgba(15, 23, 42, 0.06));
   color: var(--mw-text-primary, #0f172a);
 }
 
-.pk-crumb {
+.pk-mask .pk-crumb {
   padding: 3px 6px;
   border: 0;
   background: transparent;
@@ -136,28 +142,36 @@
   transition: color 0.16s ease;
 }
 
-.pk-crumb:hover {
+.pk-mask .pk-crumb:hover {
   color: var(--mw-m-main, #2f6fed);
 }
 
 /* 最后一段 = 当前目录，不再可点（点它等于原地刷新） */
-.pk-crumb.is-last {
+.pk-mask .pk-crumb.is-last {
   color: var(--mw-text-primary, #0f172a);
   cursor: default;
 }
 
-.pk-crumb-sep {
+.pk-mask .pk-crumb-sep {
   color: var(--mw-text-muted, #94a3b8);
   font-weight: 400;
 }
 
+/* 路径太深时中间那段折成「…」：一条面包屑铺三四行，把列表挤没了 */
+.pk-mask .pk-crumb-gap {
+  padding: 3px 4px;
+  color: var(--mw-text-muted, #94a3b8);
+  font-weight: 400;
+  cursor: default;
+}
+
 /* ---------- 路径输入 ---------- */
 
-.pk-path {
+.pk-mask .pk-path {
   margin-top: 14px;
 }
 
-.pk-path input {
+.pk-mask .pk-path input {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid transparent;
@@ -171,14 +185,14 @@
   transition: border-color 0.16s ease, background 0.16s ease;
 }
 
-.pk-path input:focus {
+.pk-mask .pk-path input:focus {
   border-color: var(--mw-m-main, #2f6fed);
   background: var(--mw-bg-card, #fff);
 }
 
 /* ---------- 列表 ---------- */
 
-.pk-list {
+.pk-mask .pk-list {
   margin-top: 16px;
   min-height: 120px;
   max-height: min(46vh, 420px);
@@ -188,7 +202,7 @@
   border-radius: 14px;
 }
 
-.pk-row {
+.pk-mask .pk-row {
   width: 100%;
   display: flex;
   align-items: center;
@@ -204,39 +218,35 @@
   transition: background 0.14s ease;
 }
 
-.pk-row:first-child {
+.pk-mask .pk-row:first-child {
   border-top: 0;
-}
-
-/* 滚起来时上下两行也要跟容器圆角对齐 */
-.pk-row:first-child {
   border-top-left-radius: 13px;
   border-top-right-radius: 13px;
 }
 
-.pk-row:last-child {
+.pk-mask .pk-row:last-child {
   border-bottom-left-radius: 13px;
   border-bottom-right-radius: 13px;
 }
 
-.pk-row:hover {
+.pk-mask .pk-row:hover {
   background: var(--mw-bg-page, #f6f8fb);
 }
 
-.pk-row-icon {
+.pk-mask .pk-row-icon {
   flex-shrink: 0;
   width: 18px;
   height: 18px;
   color: var(--mw-text-muted, #94a3b8);
 }
 
-.pk-row.is-dir .pk-row-icon {
+.pk-mask .pk-row.is-dir .pk-row-icon {
   width: 16px;
   height: 16px;
   color: var(--mw-text-secondary, #475569);
 }
 
-.pk-row-name {
+.pk-mask .pk-row-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -246,13 +256,13 @@
   color: var(--mw-text-secondary, #475569);
 }
 
-/* 文件夹名加粗 —— 截图里那两行文件是常规字重，一眼就能分出"能进"和"能选" */
-.pk-row.is-dir .pk-row-name {
+/* 文件夹名加粗 —— 文件行是常规字重，一眼就能分出"能进"和"能选" */
+.pk-mask .pk-row.is-dir .pk-row-name {
   font-weight: 700;
   color: var(--mw-text-primary, #0f172a);
 }
 
-.pk-row-meta {
+.pk-mask .pk-row-meta {
   flex-shrink: 0;
   font-size: 12px;
   color: var(--mw-text-muted, #94a3b8);
@@ -260,14 +270,14 @@
   font-variant-numeric: tabular-nums;
 }
 
-.pk-empty {
+.pk-mask .pk-empty {
   padding: 34px 16px;
   text-align: center;
   font-size: 13px;
   color: var(--mw-text-muted, #94a3b8);
 }
 
-.pk-tip {
+.pk-mask .pk-tip {
   margin-top: 12px;
   display: flex;
   align-items: center;
@@ -276,19 +286,19 @@
   color: var(--mw-text-muted, #94a3b8);
 }
 
-.pk-loading {
+.pk-mask .pk-loading {
   color: var(--mw-text-secondary, #475569);
 }
 
 /* ---------- 新建弹窗里「存放位置」那一格 ---------- */
 
-.fm-path {
+.fm-field .fm-path {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.fm-path-value {
+.fm-field .fm-path-value {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -303,25 +313,25 @@
   color: var(--mw-text-secondary, #475569);
 }
 
-.fm-path-value .icon {
+.fm-field .fm-path-value .icon {
   flex-shrink: 0;
   width: 14px;
   height: 14px;
   color: var(--mw-text-muted, #94a3b8);
 }
 
-.fm-path-text {
+.fm-field .fm-path-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.fm-path-value.is-empty {
+.fm-field .fm-path-value.is-empty {
   color: var(--mw-text-muted, #94a3b8);
 }
 
-.fm-path-btn {
+.fm-field .fm-path-btn {
   flex-shrink: 0;
   height: 36px;
   padding: 0 14px;
@@ -336,12 +346,12 @@
   transition: border-color 0.16s ease, color 0.16s ease;
 }
 
-.fm-path-btn:hover {
+.fm-field .fm-path-btn:hover {
   border-color: var(--mw-m-main, #2f6fed);
   color: var(--mw-m-main, #2f6fed);
 }
 
-.fm-path-hint {
+.fm-field .fm-path-hint {
   margin-top: 6px;
   font-size: 11.5px;
   color: var(--mw-text-muted, #94a3b8);
@@ -349,7 +359,7 @@
 
 /* ---------- 动作条 ---------- */
 
-.pk-foot {
+.pk-mask .pk-foot {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -358,7 +368,7 @@
   border-top: 1px solid var(--mw-border-subtle, rgba(15, 23, 42, 0.08));
 }
 
-.pk-foot-hint {
+.pk-mask .pk-foot-hint {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -368,7 +378,7 @@
   color: var(--mw-text-muted, #94a3b8);
 }
 
-.pk-btn {
+.pk-mask .pk-btn {
   flex-shrink: 0;
   padding: 9px 18px;
   border: 1px solid var(--mw-border-subtle, rgba(15, 23, 42, 0.1));
@@ -382,25 +392,25 @@
   transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.pk-btn:hover {
+.pk-mask .pk-btn:hover {
   background: var(--mw-bg-page, #f6f8fb);
   color: var(--mw-text-primary, #0f172a);
 }
 
-.pk-btn-primary {
+.pk-mask .pk-btn-primary {
   border-color: transparent;
   background: var(--mw-m-main, #2f6fed);
   color: #fff;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--mw-m-main, #2f6fed) 30%, transparent);
 }
 
-.pk-btn-primary:hover {
+.pk-mask .pk-btn-primary:hover {
   background: var(--mw-m-main, #2f6fed);
   color: #fff;
   filter: brightness(0.96);
 }
 
-.pk-btn-primary:disabled {
+.pk-mask .pk-btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -420,22 +430,22 @@
 
 /* 窄屏：留白与圆角收一档，列表给弹窗让高 */
 @media (max-width: 640px) {
-  .pk-mask {
+  div.pk-mask {
     padding: 12px;
   }
-  .pk {
+  .pk-mask .pk {
     border-radius: 18px;
   }
-  .pk-head,
-  .pk-body,
-  .pk-foot {
+  .pk-mask .pk-head,
+  .pk-mask .pk-body,
+  .pk-mask .pk-foot {
     padding-left: 18px;
     padding-right: 18px;
   }
-  .pk-list {
+  .pk-mask .pk-list {
     max-height: 40vh;
   }
-  .pk-foot-hint {
+  .pk-mask .pk-foot-hint {
     display: none;
   }
 }

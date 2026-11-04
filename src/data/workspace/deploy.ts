@@ -52,9 +52,6 @@ export interface RawCmdItem {
 /** 命令来源：结构化数组，或表单隐藏 input 上的 JSON / 纯文本（旧的「每行一条」）。 */
 export type CmdInput = string | RawCmdItem[] | null | undefined
 
-/** 演示失败链用的失败点（对应 `buildSteps` 里那几个步骤的 key）。 */
-export type FailPoint = 'check' | 'upload' | 'backup' | 'start' | 'health'
-
 /** 一条部署配置：传到服务器哪个位置（path）+ 传完执行什么（cmd）。 */
 export interface DeployConfig {
   id: string
@@ -63,11 +60,9 @@ export interface DeployConfig {
   group?: string
   path: string
   cmd: CmdItem[]
-  /** 仅用于把「失败链」演示出来（健康检查不通过 → 自动回滚）。 */
-  failAt?: FailPoint
 }
 
-/** 步骤 key，与 `FAIL_MSG` / `cfg().failAt` / 终端行 `data-step` 共用一套。 */
+/** 步骤 key，与终端行的 `data-step` 共用一套。 */
 export type DeployStepKey = 'check' | 'upload' | 'backup' | 'start' | 'health' | 'done'
 
 /** 一个执行步骤 —— 决定右侧「执行任务」那一列。 */
@@ -76,8 +71,6 @@ export interface DeployStep {
   name: string
   /** 步骤下方的说明行，空串表示不显示。 */
   line: string
-  /** 演示用的基线耗时（ms）。0 表示终态步（只做标记，不再走秒）。 */
-  ms: number
   /** 是否带进度条（只有上传那一步）。 */
   bar?: boolean
 }
@@ -124,39 +117,23 @@ export interface AutoSummary {
   full: boolean
 }
 
-/** 清单里的一条文件。pick 来源只有 name/size；local 来源带 path/time/found。 */
+/**
+ * 清单里的一条文件。
+ *
+ * 两种来源都带 `path` —— 上传要的是本机绝对路径，所以「从本机选择」也是先拿到
+ * 路径再进清单（拖拽或本机选择器），不再有只有名字与大小的条目。
+ */
 export interface StagedFile {
   src: FileSrc
   name: string
   size: number
-  /** 仅 local */
+  /** 本机绝对路径。没有它的条目传不出去 */
   path?: string
-  /** 仅 local */
+  /** 修改时间文案（`今天 09:41`） */
   time?: string
-  /** 仅 local：`false` 会挡住「开始部署」。 */
+  /** `false` 会挡住「开始部署」；`undefined` = 还没探完 */
   found?: boolean
 }
-
-/** 本机假表里一条记录（真表里来自本地 agent 的探测结果）。 */
-export interface LocalFileMeta {
-  size: number
-  time: string
-}
-
-/** 服务器目录树的目录节点。 */
-export interface FsDir {
-  type: 'd'
-  children: Record<string, FsNode>
-}
-
-/** 服务器目录树的文件节点（这个选择器只列目录，但文件节点保留）。 */
-export interface FsFile {
-  type: 'f'
-  size: string
-  time: string
-}
-
-export type FsNode = FsDir | FsFile
 
 /* ------------------------------------------------------------------ *
  * 常量数据
@@ -171,10 +148,10 @@ export const DEPLOY_GROUPS: readonly DeployGroup[] = [
 ]
 
 /**
- * 演示用的 5 条配置。页面会把它拷进自己的状态再增删改，所以这里是种子数据。
+ * 种子配置。页面会把它拷进自己的状态再增删改 —— 它们是起点，不是演示脚本。
  *
- * c3 的 `failAt: 'health'` 用来演示失败链；c4 第 2 条命令带 `ask: true`，
- * 演示「需要人工输入」（su 会停下来等密码）；c5 是同一件事的免密写法（全自动）。
+ * c4 第 2 条命令带 `ask: true`（su 会停在那里等密码），c5 是同一件事的免密写法。
+ * 执行到 `ask` 那一条会弹框现填输入，喂给远端一个伪终端；输入不存库、也不进日志。
  */
 export const CONFIGS: DeployConfig[] = [
   {
@@ -207,7 +184,6 @@ export const CONFIGS: DeployConfig[] = [
       { op: '备份当前库', run: 'pg_dump -Fc -f /opt/db/pre-migration.dump paydb' },
       { op: '执行迁移', run: 'psql -f /opt/db/migrations/latest.sql paydb' },
     ],
-    failAt: 'health',
   },
   {
     id: 'c4',
@@ -255,127 +231,6 @@ export const PATH_PRESETS: readonly string[] = [
   '/var/www/pay-web/dist',
   '/opt/db/migrations',
 ]
-
-/**
- * 「绑定本机文件」的常用项。第三条本机没有（见 LOCAL_FS）——
- * 刻意留着，绑定之后立刻能看到「未找到」长什么样。
- */
-export const LOCAL_PRESETS: readonly string[] = [
-  '/Users/yangliu/build/pay-api.jar',
-  '/Users/yangliu/build/pay-web-dist.tar.gz',
-  '/Users/yangliu/build/pay-api-2.3.1.jar',
-]
-
-/**
- * 本机文件假表 —— 真实产品里这一步来自本地 agent：
- * 请求一个绝对路径 → 返回 存在 / 大小 / 修改时间。没列进来的一律算「本机没有」。
- */
-export const LOCAL_FS: Record<string, LocalFileMeta> = {
-  '/Users/yangliu/build/pay-api.jar': { size: 134873088, time: '今天 09:41' },
-  '/Users/yangliu/build/pay-web-dist.tar.gz': { size: 18874368, time: '今天 10:02' },
-  '/Users/yangliu/build/legacy/app-old.jar': { size: 96468992, time: '9月18日' },
-}
-
-/** 目录 / 文件节点的构造器（原型的 `fsDir` / `fsFile`），树是嵌套字面量，读起来才像一棵树。 */
-export function fsDir(children: Record<string, FsNode>): FsDir {
-  return { type: 'd', children: children }
-}
-
-export function fsFile(size: string, time: string): FsFile {
-  return { type: 'f', size: size, time: time }
-}
-
-/**
- * 服务器目录假树 —— 点「浏览服务器目录」时展开的就是它。
- * 真实产品里这一段来自服务端（打开 → 请求当前目录 → 点目录 → 再请求下一级）。
- *
- * 层级刻意与三条常用路径对齐，所以「选出来的目录」和「手输的目录」落在同一套位置上；
- * `/opt/app/releases` 给到 10 个历史版本目录 —— 真实机器的发布目录就长这样，
- * 筛选框也才有存在的理由。树里保留文件节点（那是机器上的事实），但选择器只列目录。
- */
-export const HOST_FS: FsDir = fsDir({
-  bin: fsDir({}),
-  etc: fsDir({
-    nginx: fsDir({ 'nginx.conf': fsFile('2.4 KB', '9月10日'), 'mime.types': fsFile('3.1 KB', '9月10日') }),
-    systemd: fsDir({ system: fsDir({ 'pay-api.service': fsFile('680 B', '9月18日') }) }),
-    hosts: fsFile('220 B', '9月12日'),
-  }),
-  home: fsDir({
-    deploy: fsDir({ '.bash_history': fsFile('18 KB', '今天 09:41'), 'release.sh': fsFile('1.2 KB', '9月20日') }),
-  }),
-  opt: fsDir({
-    app: fsDir({
-      releases: fsDir({
-        '20260925-1812': fsDir({}),
-        '20260924-0930': fsDir({}),
-        '20260923-1714': fsDir({}),
-        '20260922-1026': fsDir({}),
-        '20260921-1902': fsDir({}),
-        '20260920-1138': fsDir({}),
-        '20260919-1645': fsDir({}),
-        '20260918-0921': fsDir({}),
-        '20260917-1533': fsDir({}),
-        '20260916-1047': fsDir({}),
-      }),
-      current: fsDir({
-        config: fsDir({ 'application.yml': fsFile('4.6 KB', '今天 09:20') }),
-        static: fsDir({}),
-        VERSION: fsFile('12 B', '今天 09:20'),
-      }),
-      shared: fsDir({
-        config: fsDir({}),
-        logs: fsDir({ 'pay-api.log': fsFile('62 MB', '今天 10:14') }),
-        uploads: fsDir({}),
-      }),
-      backup: fsDir({ 'pre-20260925.dump': fsFile('420 MB', '今天 09:18') }),
-    }),
-    db: fsDir({
-      migrations: fsDir({
-        'V1__init.sql': fsFile('8.2 KB', '9月02日'),
-        'V2__add_order_index.sql': fsFile('1.4 KB', '9月14日'),
-        'latest.sql': fsFile('12 KB', '今天 08:40'),
-      }),
-      backups: fsDir({}),
-    }),
-  }),
-  srv: fsDir({}),
-  tmp: fsDir({}),
-  usr: fsDir({ local: fsDir({}), share: fsDir({}) }),
-  var: fsDir({
-    www: fsDir({
-      'pay-web': fsDir({
-        dist: fsDir({
-          'index.html': fsFile('4.1 KB', '今天 09:22'),
-          assets: fsDir({}),
-          'favicon.ico': fsFile('15 KB', '9月12日'),
-        }),
-        static: fsDir({}),
-        conf: fsDir({ 'nginx.include': fsFile('820 B', '9月14日') }),
-      }),
-      html: fsDir({ 'index.html': fsFile('4.1 KB', '9月12日') }),
-    }),
-    log: fsDir({
-      nginx: fsDir({ 'access.log': fsFile('186 MB', '2 分钟前'), 'error.log': fsFile('4.2 MB', '今天 10:12') }),
-      syslog: fsFile('12 MB', '今天 10:15'),
-    }),
-    lib: fsDir({ docker: fsDir({ containers: fsDir({}) }) }),
-  }),
-})
-
-/**
- * 路径为空时目录选择器落在哪：`/opt/app` 是发布包最常待的地方 ——
- * 让人每次都从根目录点三层才到，是把「目录结构」的教育成本转嫁给日常操作。
- */
-export const FS_HOME: readonly string[] = ['opt', 'app']
-
-/** 失败原因文案，按步骤 key 索引。 */
-export const FAIL_MSG: Record<FailPoint, string> = {
-  check: '本地文件不可读或校验值不匹配',
-  upload: '目标目录写入失败（磁盘空间不足）',
-  backup: '回滚点创建失败',
-  start: '启动命令返回非 0 退出码',
-  health: '健康检查连续 3 次未通过（/healthz 返回 502）',
-}
 
 /** 来源的中文名，用在提示与日志里。 */
 export const SRC_LABEL: Record<FileSrc, string> = {
@@ -462,13 +317,26 @@ export function baseName(p: string): string {
   return String(p).replace(/\/+$/, '').split('/').pop() || ''
 }
 
-/** 探测本机是否存在这个文件：命中返回 {size,time}，否则 null。 */
-export function localProbe(path: string): LocalFileMeta | null {
-  return LOCAL_FS[path] || null
-}
-
 export function pad2(n: number): string {
   return String(n).padStart(2, '0')
+}
+
+/**
+ * 修改时间的展示文案。后端只给 epoch 毫秒，时区与"今天"的边界在这里判一次。
+ *
+ * 今天 → `今天 09:41`；昨天 → `昨天 10:02`；今年 → `9月18日`；更早 → `2025年12月3日`。
+ * 组装产物的时间只用来判断"这份是不是刚打出来的"，精确到分钟已经够了。
+ */
+export function mtimeText(ms: number, now: Date = new Date()): string {
+  if (!ms) return '—'
+  const at = new Date(ms)
+  const hm = `${pad2(at.getHours())}:${pad2(at.getMinutes())}`
+  const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const diffDays = Math.round((dayStart(now) - dayStart(at)) / 86400000)
+  if (diffDays === 0) return `今天 ${hm}`
+  if (diffDays === 1) return `昨天 ${hm}`
+  const md = `${at.getMonth() + 1}月${at.getDate()}日`
+  return at.getFullYear() === now.getFullYear() ? md : `${at.getFullYear()}年${md}`
 }
 
 /** 控制台/状态行的时间戳。原型无参读当前时间，这里允许显式传 `Date`（便于验证）。 */
@@ -725,48 +593,13 @@ export function autoSummary(c: DeployConfig | null | undefined, sessionUser: str
  * `sessionUser` 只影响 `start.line` 的后缀（root 身份下某些命令不再算「需输入」）。
  */
 export function buildSteps(c: DeployConfig, sessionUser: string): DeployStep[] {
+  /* 耗时不再是写死的数字：真跑的时长由页面按秒算，这里只给"这一步做什么"。 */
   return [
-    { key: 'check', name: '校验本地文件', line: '检查可读性与校验值', ms: 700 },
-    { key: 'upload', name: '上传到 ' + c.path, line: '', ms: 1900, bar: true },
-    { key: 'backup', name: '备份当前版本', line: '生成回滚点', ms: 900 },
-    { key: 'start', name: '执行启动命令', line: cmdBrief(c.cmd, sessionUser), ms: 1300 },
-    { key: 'health', name: '健康检查', line: 'GET /healthz', ms: 950 },
-    { key: 'done', name: '部署完成', line: '', ms: 0 },
+    { key: 'check', name: '校验本地文件', line: '本机路径是否都还在' },
+    { key: 'upload', name: '上传到 ' + c.path, line: '', bar: true },
+    { key: 'backup', name: '备份当前版本', line: '同名旧文件复制到 .deploy-backup' },
+    { key: 'start', name: '执行启动命令', line: cmdBrief(c.cmd, sessionUser) },
+    { key: 'health', name: '健康检查', line: '配置里的 curl 命令' },
+    { key: 'done', name: '部署完成', line: '' },
   ]
-}
-
-/* ------------------------------------------------------------------ *
- * 目录树查找（目录选择器用）
- * ------------------------------------------------------------------ */
-
-/** 从根开始按段走。中途撞到文件或走丢都返回 null。 */
-export function fsNodeAt(parts: readonly string[]): FsNode | null {
-  let node: FsNode | undefined = HOST_FS
-  for (let i = 0; i < parts.length && node; i++) {
-    if (node.type !== 'd') return null
-    node = node.children[parts[i]]
-  }
-  return node || null
-}
-
-/**
- * 已填的路径可能指向目录、指向文件、或早就没了（配置是历史留下的）。
- * 三种都要落到一个能用的位置上：目录本身 → 它所在的那一级 → 最长的存在前缀 → 默认。
- */
-export function fsDirFor(parts: readonly string[]): string[] {
-  const cut = parts.slice()
-  while (cut.length) {
-    const node = fsNodeAt(cut)
-    if (node) return node.type === 'd' ? cut : cut.slice(0, -1)
-    cut.pop()
-  }
-  return FS_HOME.slice()
-}
-
-/**
- * 只数子目录：这个视图只列目录，拿 children 总数会把看不见的文件算进去，
- * 出现「显示 3 项却只有 2 行」这种对不上的账。
- */
-export function dirCount(node: FsDir): number {
-  return Object.keys(node.children).filter((k) => node.children[k].type === 'd').length
 }

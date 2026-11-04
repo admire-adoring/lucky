@@ -64,6 +64,8 @@ export function useEdWork(
   const histLock = useRef(false)
   const timer = useRef<number | undefined>(undefined)
   const debounced = useRef<string | null>(null)
+  /* 工作副本还是"空纸起头"、等着正文到货（见下面那个补初始化的 effect） */
+  const seeded = useRef(false)
 
   const resetTo = useCallback((nextMd: string, nextName: string) => {
     setMd(nextMd)
@@ -81,7 +83,24 @@ export function useEdWork(
     resetTo(b, ctx.current.name)
     setDraft(DRAFTS.get(doc.id))
     setForced(false)
+    seeded.current = !ctx.current.body?.length
   }, [doc.id, resetTo])
+
+  /* 正文是异步读来的（`useDocContent`）：这一页挂载那一刻正文往往还在路上，
+     `body` 是空数组 ⇒ 工作副本从空纸起步，之后也不会自己长出来。
+     表现就是"阅读里正文好好的，点编辑一片空白、0 字"（2026-11-04 用户截图）。
+     正文到了补一次初始化；只在还是空纸时补 —— 已经敲过字就不能拿文件盖掉他。 */
+  const arrived = !!ctx.current.body?.length
+  useEffect(() => {
+    if (!arrived || !seeded.current) return
+    seeded.current = false
+    /* 空纸的判定按"空白"而不是 ""：`mdOfBlocks([])` 给的是 "\n"（最后那一个换行） */
+    if (md.trim() !== '') return
+    resetTo(mdOfBlocks(ctx.current.body as RdBlock[]), ctx.current.name)
+    /* 可视面只认 `paint`（不跟 md，跟了每敲一个字光标就跳）。补种是"md 被整份换掉"
+       的一种 ⇒ 借 histToken 让编辑面重画一遍，否则数据在、纸还是空的。 */
+    setHistToken((t) => t + 1)
+  }, [arrived, doc.id, md, resetTo])
 
   const dirty = !nocopy && (md !== base || name !== baseName)
 

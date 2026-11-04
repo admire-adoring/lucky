@@ -106,6 +106,7 @@ const HELP_LINES = [
   'clear 清屏 · help 这段说明 · history 这台机器上敲过的命令',
   'exit / logout 关闭会话（回到未连接状态）',
   '全屏程序（top / vim）需要伪终端，这里跑不了 —— 用 ps / tail 这类一次性的命令',
+  'su、不带 -n 的 sudo 也要终端才能问密码 —— 要 root 就用 sudo -n（台账提权方式设 sudo），或换 root 账户登录',
   '单条命令最多等 120 秒；再长的（整包构建）建议拆开跑',
 ]
 
@@ -258,7 +259,7 @@ export function TerminalPage() {
 
   const [theme, setTheme] = useState<ThemeKey>('green')
   const [clock, setClock] = useState(() => new Date())
-  const [view, setView] = useState<'dev' | 'monitor'>('dev')
+  const [viewWant, setViewWant] = useState<'dev' | 'monitor'>('dev')
   const [conn, setConn] = useState<ConnState>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [opened, setOpened] = useState<TermOpen | null>(null)
@@ -282,6 +283,9 @@ export function TerminalPage() {
   const histIdx = useRef(-1)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const outBodyRef = useRef<HTMLDivElement | null>(null)
+  /* 是否贴着底：贴底才自动跟随新输出，否则给一个"有新输出"的跳转 */
+  const stickRef = useRef(true)
+  const [unread, setUnread] = useState(false)
 
   /**
    * 方向键翻的历史：最近的在最前。
@@ -336,12 +340,11 @@ export function TerminalPage() {
       setLines([])
       setConn('live')
       pushLines([
-        { kind: 'note', text: `${result.user}@${result.ip} · ${result.os}` },
+        { kind: 'note', text: `${result.user}@${result.ip} · ${result.os} · ${result.shell}` },
         {
           kind: 'note',
-          text: `第 ${result.sessionNo} 次会话 · 建连 ${result.connectMs}ms · shell ${result.shell}`,
+          text: `第 ${result.sessionNo} 次会话 · 建连 ${result.connectMs}ms · 输入 help 看这一页支持什么`,
         },
-        { kind: 'note', text: '输入 help 看这一页支持什么；cd 会留在会话上' },
       ])
       /* 台账里的提权配置被跳过时，这一页得说一声 —— 不然用户会以为 sudo 生效了 */
       if (result.escNote) pushLines([{ kind: 'note', text: result.escNote }])
@@ -451,11 +454,32 @@ export function TerminalPage() {
     }
   }, [conn, opened])
 
-  /* ---- 输出滚到底 ---- */
+  /* ---- 输出滚到底：只贴底时跟着走，往上看历史时别把人拽回来 ---- */
   useEffect(() => {
     const box = outBodyRef.current
-    if (box) box.scrollTop = box.scrollHeight
+    if (!box) return
+    if (stickRef.current) {
+      box.scrollTop = box.scrollHeight
+      setUnread(false)
+    } else if (lines.length) {
+      setUnread(true)
+    }
   }, [lines, busy])
+
+  const onOutputScroll = () => {
+    const box = outBodyRef.current
+    if (!box) return
+    const near = box.scrollHeight - box.scrollTop - box.clientHeight < 24
+    stickRef.current = near
+    if (near) setUnread(false)
+  }
+
+  const jumpToBottom = () => {
+    const box = outBodyRef.current
+    stickRef.current = true
+    setUnread(false)
+    if (box) box.scrollTop = box.scrollHeight
+  }
 
   const promptUser = opened?.effectiveUser || server?.loginUser || 'user'
   const promptHost = opened?.host || host || 'host'
@@ -506,6 +530,11 @@ export function TerminalPage() {
         if (!aliveRef.current) return
         if (result.stdout) pushLines([{ kind: 'out', text: result.stdout }])
         if (result.stderr) pushLines([{ kind: 'err', text: result.stderr }])
+        if (result.hint) pushLines([{ kind: 'note', text: result.hint }])
+        /* 慢命令给个耗时：跑了两三秒以上，人总会怀疑是不是卡住了 */
+        if (result.code === 0 && result.durationMs >= 1500) {
+          pushLines([{ kind: 'note', text: `耗时 ${(result.durationMs / 1000).toFixed(1)}s` }])
+        }
         if (result.truncated) pushLines([{ kind: 'note', text: '（输出太长，只留了最后一段）' }])
         if (result.code !== 0) {
           pushLines([{ kind: 'note', text: `退出码 ${result.code} · ${result.durationMs}ms` }])
@@ -592,6 +621,9 @@ export function TerminalPage() {
   const failure = classifyFailure(errorMessage)
   const failureCopy = FAILURE_COPY[failure]
   const live = conn === 'live'
+  /* 监控视图的两栏都要有连接才有内容。没连上还停在这一屏，等于占着一整屏空白，
+     连失败原因都看不见 —— 所以未连接时一律回到终端视图。 */
+  const view = live ? viewWant : 'dev'
   /* 没连上就没有"当前目录"这回事：写个 ~ 是在替远端猜 */
   const promptPathText = opened || live ? promptPath : ''
 
@@ -657,21 +689,33 @@ export function TerminalPage() {
           </div>
         </div>
 
-        {/* 标签：真的切视图 —— monitor 收起主终端、把负载与日志铺满 */}
+        {/* 标签：真的切视图 —— 监控 收起主终端、把负载与日志铺满 */}
         <div className="tm-tabs">
-          {(['dev', 'monitor'] as const).map((key) => (
-            <div
-              key={key}
-              className={cn('tm-tab', view === key && 'tm-active')}
-              onClick={() => {
-                setView(key)
-                if (key === 'dev') inputRef.current?.focus()
-              }}
-            >
-              <span className="tm-dot-ind" />
-              <span>{key}</span>
-            </div>
-          ))}
+          {(['dev', 'monitor'] as const).map((key) => {
+            /* 没连上时监控是空的，点了也只是换一屏空白 —— 直接按不动，并给出原因 */
+            const locked = key === 'monitor' && !live
+            return (
+              <div
+                key={key}
+                className={cn('tm-tab', view === key && 'tm-active', locked && 'tm-tab-lock')}
+                title={
+                  locked
+                    ? '连上以后才能看监控'
+                    : key === 'dev'
+                      ? '主终端 + 右侧负载与日志'
+                      : '把负载与日志铺满整屏'
+                }
+                onClick={() => {
+                  if (locked) return
+                  setViewWant(key)
+                  if (key === 'dev') inputRef.current?.focus()
+                }}
+              >
+                <span className="tm-dot-ind" />
+                <span>{key === 'dev' ? '终端' : '监控'}</span>
+              </div>
+            )
+          })}
         </div>
 
         <div className="tm-screen">
@@ -680,11 +724,44 @@ export function TerminalPage() {
               <span className={cn('tm-tag', live ? 'tm-g' : 'tm-tag-off')}>{`[${promptHost}]`}</span>
               {live ? (
                 <>
-                  <span>0:bash{view === 'dev' ? '*' : ''}</span>
+                  <span
+                    className={cn('tm-win', view === 'dev' && 'tm-on')}
+                    role="button"
+                    tabIndex={0}
+                    title="切到终端"
+                    onClick={() => setViewWant('dev')}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') setViewWant('dev')
+                    }}
+                  >
+                    {`0:bash${view === 'dev' ? '*' : ''}`}
+                  </span>
                   <span className="tm-sep">·</span>
-                  <span>1:htop</span>
+                  <span
+                    className={cn('tm-win', view === 'monitor' && 'tm-on')}
+                    role="button"
+                    tabIndex={0}
+                    title="切到监控"
+                    onClick={() => setViewWant('monitor')}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') setViewWant('monitor')
+                    }}
+                  >
+                    1:htop
+                  </span>
                   <span className="tm-sep">·</span>
-                  <span>2:logs</span>
+                  <span
+                    className={cn('tm-win', view === 'monitor' && 'tm-on')}
+                    role="button"
+                    tabIndex={0}
+                    title="切到监控"
+                    onClick={() => setViewWant('monitor')}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') setViewWant('monitor')
+                    }}
+                  >
+                    2:logs
+                  </span>
                 </>
               ) : (
                 /* 没有会话就没有窗口 —— 别摆三个假的出来 */
@@ -700,7 +777,8 @@ export function TerminalPage() {
             </div>
           </div>
 
-          <div className="tm-panes" data-view={view}>
+          {/* 没连上时右栏只有两格「未连接」，折起来让主终端占满；连上再滑出来 */}
+          <div className="tm-panes" data-view={view} data-rail={live ? 'open' : 'fold'}>
             <div className="tm-pane tm-master">
               <div className="tm-pane-header">
                 <div className="tm-title">
@@ -712,12 +790,25 @@ export function TerminalPage() {
                 </div>
               </div>
               <div className="tm-pane-body tm-term-body" onClick={() => inputRef.current?.focus()}>
-                <div className="tm-term-output" ref={outBodyRef}>
+                <div className="tm-term-output" ref={outBodyRef} onScroll={onOutputScroll}>
                   {lines.map((line) => (
                     <div key={line.id} className={LINE_CLASS[line.kind]}>
                       {line.text || '\u00a0'}
                     </div>
                   ))}
+                  {!lines.length && conn === 'idle' ? (
+                    <div className="tm-empty">
+                      <div className="tm-empty-k">未连接</div>
+                      <div>点右上角「连接」，用台账里这台机器的账户与凭据发起 SSH</div>
+                    </div>
+                  ) : null}
+                  {unread ? (
+                    <div className="tm-jump-row">
+                      <button type="button" className="tm-jump" onClick={jumpToBottom}>
+                        有新输出 ↓
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 {conn === 'error' ? (
@@ -809,7 +900,9 @@ export function TerminalPage() {
                 </div>
                 <div className="tm-pane-body">
                   {conn !== 'live' ? (
-                    <div className="tm-htop-empty">{conn === 'connecting' ? '正在建连…' : '未连接'}</div>
+                    <div className="tm-htop-empty">
+                      {conn === 'connecting' ? '正在建连…' : '连上以后这里显示实时负载'}
+                    </div>
                   ) : statsError ? (
                     <div className="tm-htop-empty">{statsError}</div>
                   ) : (
@@ -818,6 +911,7 @@ export function TerminalPage() {
                     </div>
                   )}
                 </div>
+                <div className="tm-pane-fade" aria-hidden="true" />
               </div>
 
               <div className="tm-pane">
@@ -841,10 +935,13 @@ export function TerminalPage() {
                         </div>
                       ))
                     ) : (
-                      <div className="tm-htop-empty">{conn === 'live' ? '还在读日志…' : '未连接'}</div>
+                      <div className="tm-htop-empty">
+                        {conn === 'live' ? '还在读日志…' : '连上以后这里跟日志'}
+                      </div>
                     )}
                   </div>
                 </div>
+                <div className="tm-pane-fade" aria-hidden="true" />
               </div>
             </div>
           </div>

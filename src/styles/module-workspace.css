@@ -9300,6 +9300,14 @@ html[data-theme='dark'] .dp-root .step-wait .step-dot { color: #0F172A; }
 
 .dp-root .modal-form .modal-field { margin-top: 14px; }
 
+/* 等输入那条命令的原文：等宽、可换行，先让人看清要跑什么 */
+.dp-root .dp-ask-cmd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.6; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--dpl-border-strong); background: var(--dpl-card-solid); color: var(--mw-text-secondary); word-break: break-all; }
+
+.dp-root .dp-ask-note { margin-top: 10px; font-size: 10.5px; line-height: 1.6; color: var(--mw-text-muted); }
+
+/* 输入空着时「继续」不该可点 —— work 域内核没有 .btn:disabled 这条 */
+.dp-root .modal-actions .btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+
 .dp-root .modal-form .form-group-head + .modal-field { margin-top: 0; }
 
 .dp-root .modal-form .field-label { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
@@ -10120,6 +10128,8 @@ animation: none !important;
 .tm-root .tm-tab .tm-dot-ind { width: 6px; height: 6px; border-radius: 50%; background: var(--fg-mute); transition: all 0.15s; }
 
 .tm-root .tm-tab:hover { color: var(--fg); }
+/* 没连上时「监控」按不动：那两栏这会儿是空的，点进去只有一屏空白 */
+.tm-root .tm-tab.tm-tab-lock, .tm-root .tm-tab.tm-tab-lock:hover { color: var(--fg-mute); opacity: .5; cursor: not-allowed; }
 .tm-root .tm-tab.tm-active { color: var(--fg); border-bottom-color: var(--accent); }
 .tm-root .tm-tab.tm-active .tm-dot-ind { background: var(--green-bright); box-shadow: 0 0 8px var(--green-bright); }
 .tm-root .tm-tab .tm-close { opacity: 0; font-size: 14px; line-height: 1; color: var(--fg-mute); transition: opacity 0.15s; }
@@ -10149,8 +10159,28 @@ animation: none !important;
 
 .tm-root .tm-pane { background: var(--bg-0); display: flex; flex-direction: column; overflow: hidden; position: relative; }
 
-.tm-root .tm-pane.tm-master { flex: 1.4; }
-.tm-root .tm-pane.tm-side { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+/* 主终端与右栏按 1.4 : 1 分。右栏宽度用 width 表达：百分比之间的插值可靠，
+   而 flex-basis 混 px 与 % 时过渡会退化成硬切 —— 连上的瞬间就跳一下版式。 */
+.tm-root .tm-pane.tm-master { flex: 1 1 0; min-width: 0; }
+.tm-root .tm-pane.tm-side {
+  flex: 0 0 auto;
+  width: 41.667%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  transition: width .26s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* 未连接时右栏没有内容可看：收成 0 宽，把空间还给主终端。
+   淡出排在宽度收缩之后 —— 先看见它收走，再消失；反过来会先闪白再收窄。 */
+.tm-root .tm-panes[data-rail='fold'] .tm-pane.tm-side {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: width .26s cubic-bezier(.4, 0, .2, 1), opacity .1s ease .16s;
+}
+.tm-root .tm-panes[data-rail='fold'] { column-gap: 0; }
 .tm-root .tm-pane.tm-side .tm-pane { flex: 1; }
 
 .tm-root .tm-pane-header { height: 22px; padding: 0 10px; background: var(--bg-1); border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--fg-mute); letter-spacing: 0.3px; flex-shrink: 0; }
@@ -10278,7 +10308,9 @@ animation: none !important;
 
 /* 主终端的输入行要贴在窗底（真终端就是这样）：输出自己滚，输入与修复条固定在下沿 */
 .tm-root .tm-pane-body.tm-term-body { display: flex; flex-direction: column; overflow: hidden; }
-.tm-root .tm-term-body .tm-term-output { flex: 1; min-height: 0; overflow: auto; }
+/* 输出按内容长，超出才自己滚 —— 提示符跟在最后一行后面（原型就是这样），
+   而不是被钉在窗底留一大片空的；长输出时它自然落到最下面并且始终可见 */
+.tm-root .tm-term-body .tm-term-output { flex: 0 1 auto; min-height: 0; overflow: auto; }
 .tm-root .tm-term-body .tm-term-input-line,
 .tm-root .tm-term-body .tm-fix { flex-shrink: 0; }
 
@@ -10296,8 +10328,9 @@ animation: none !important;
 .tm-root .tm-tmux-status .tm-tag.tm-tag-off { background: var(--bg-3); color: var(--fg-mute); }
 .tm-root .tm-tmux-status .tm-off-text { color: var(--fg-mute); font-style: italic; }
 
-/* 认不通时的就地修复条：改凭据不必绕回台账编辑页 */
-.tm-root .tm-fix { margin: 10px 0 6px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--red) 45%, var(--line)); border-radius: 6px; background: color-mix(in srgb, var(--red) 8%, transparent); display: flex; flex-direction: column; gap: 8px; }
+/* 认不通时的就地修复条：改凭据不必绕回台账编辑页。
+   终端占满整行时它会拉得过宽，一句话要横着读两屏，给它一个上限。 */
+.tm-root .tm-fix { margin: 10px 0 6px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--red) 45%, var(--line)); border-radius: 6px; background: color-mix(in srgb, var(--red) 8%, transparent); display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 860px; }
 .tm-root .tm-fix-head { display: flex; gap: 8px; font-size: 11.5px; line-height: 1.6; color: var(--fg-dim); }
 .tm-root .tm-fix-label { color: var(--red); font-weight: 700; flex-shrink: 0; }
 .tm-root .tm-fix-actions { display: flex; align-items: center; gap: 10px; }
@@ -10310,10 +10343,62 @@ animation: none !important;
 .tm-root .tm-fix-link { color: var(--cyan); font-size: 11px; text-decoration: none; }
 .tm-root .tm-fix-link:hover { text-decoration: underline; }
 
+/* ---------- 终端页视觉收口 ---------- */
+/* 一页终端就该用等宽字体：数字列、路径、耗时都要能对齐 */
+.tm-root { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+/* 长行不折：日志按行读，断在词中间反而更难看；给横向滚动 */
+.tm-root .tm-term-output.tm-tail { white-space: pre; word-break: normal; overflow-x: auto; }
+
+/* 细滚动条：macOS 默认那条会把 14px 的内容挤走 */
+.tm-root .tm-term-output::-webkit-scrollbar { width: 8px; height: 8px; }
+.tm-root .tm-term-output::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
+.tm-root .tm-term-output::-webkit-scrollbar-thumb:hover { background: var(--line); }
+.tm-root .tm-term-output::-webkit-scrollbar-track { background: transparent; }
+
+/* 输入行是一条固定的行，不是输出的一部分 */
+.tm-root .tm-term-body { position: relative; }
+.tm-root .tm-term-body .tm-term-input-line { margin-top: 6px; }
+
+/* 往上翻历史时有新输出：贴底再跟随，别把人拽回来 */
+.tm-root .tm-jump-row { position: sticky; bottom: 0; display: flex; justify-content: flex-end; padding: 4px 0 2px; background: linear-gradient(180deg, rgba(10,12,16,0), var(--bg-0) 62%); }
+.tm-root .tm-jump { height: 22px; padding: 0 10px; border-radius: 11px; border: 1px solid var(--green); background: var(--bg-1); color: var(--green-bright); font-family: inherit; font-size: 11px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.45); transition: background .15s ease; }
+.tm-root .tm-jump:hover { background: color-mix(in srgb, var(--green) 18%, var(--bg-1)); }
+
+.tm-root .tm-empty { padding: 6px 0; color: var(--fg-mute); font-size: 12px; line-height: 1.8; }
+.tm-root .tm-empty-k { color: var(--fg-dim); font-weight: 600; }
+
+/* 滚动区底边渐隐：半行被切在边框上很难看，让它淡出去 */
+.tm-root .tm-pane-fade { position: absolute; left: 1px; right: 1px; bottom: 1px; height: 18px; pointer-events: none; background: linear-gradient(180deg, rgba(10,12,16,0), var(--bg-0) 82%); }
+
+/* tmux 窗口条现在是能点的：它列的正好是屏上那几块 */
+.tm-root .tm-tmux-status .tm-win { padding: 1px 6px; border-radius: 3px; cursor: pointer; color: var(--fg-dim); transition: color .15s ease, background .15s ease; }
+.tm-root .tm-tmux-status .tm-win:hover { color: var(--fg); }
+/* 当前那块给个底色：只靠颜色深浅，隔着一屏根本分不出哪块是亮的 */
+.tm-root .tm-tmux-status .tm-win.tm-on { color: var(--green-bright); background: rgba(63,185,80,0.14); }
+
+/* 进程表按列定宽，COMMAND 拿剩下的；不然数字列被长命令挤歪 */
+.tm-root .tm-htop table { table-layout: fixed; }
+.tm-root .tm-htop table th:nth-child(1), .tm-root .tm-htop table td:nth-child(1) { width: 48px; }
+.tm-root .tm-htop table th:nth-child(2), .tm-root .tm-htop table td:nth-child(2) { width: 76px; }
+.tm-root .tm-htop table th:nth-child(3), .tm-root .tm-htop table td:nth-child(3),
+.tm-root .tm-htop table th:nth-child(4), .tm-root .tm-htop table td:nth-child(4) { width: 50px; }
+/* `www-data` 这类名字不能断行，宁可省略 */
+.tm-root .tm-htop table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 负载条再高一点，四列的间距跟数字对齐 */
+.tm-root .tm-htop .tm-meters { gap: 3px 14px; }
+.tm-root .tm-htop .tm-meter .tm-bar-mini { height: 9px; }
+.tm-root .tm-htop .tm-meter .tm-label { width: 20px; }
+
+/* 主题切换：没选中的压暗，别跟状态灯抢注意力 */
+.tm-root .tm-theme-btn { opacity: .45; }
+.tm-root .tm-theme-btn.tm-active, .tm-root .tm-theme-btn:hover { opacity: 1; }
+
 /* monitor 标签：收起主终端，把负载与日志铺满。窄屏（≤860）不让它生效，
-   否则两栏都会消失 —— 那一档本来就把侧栏藏了。 */
+   否则两栏都会消失 —— 那一档本来就把侧栏藏了。切标签是瞬时的，不走宽度过渡。 */
 .tm-root .tm-panes[data-view='monitor'] .tm-pane.tm-master { display: none; }
-.tm-root .tm-panes[data-view='monitor'] .tm-pane.tm-side { flex: 1; flex-direction: row; }
+.tm-root .tm-panes[data-view='monitor'] .tm-pane.tm-side { flex: 1; width: auto; flex-direction: row; transition: none; }
 .tm-root .tm-panes[data-view='monitor'] .tm-pane.tm-side .tm-pane { flex: 1; }
 
 /* ---------- 响应式 ---------- */
@@ -10326,7 +10411,8 @@ animation: none !important;
 .tm-root .tm-terminal { height: 100%; }
 .tm-root .tm-title .tm-path { display: none; }
 .tm-root .tm-title-actions .tm-kbd { display: none; }
-.tm-root .tm-sb-right .tm-sb-item:nth-child(-n+3) { display: none; }
+/* 这一档塞不下右侧的 CPU/MEM/时钟，整块收掉 —— 只隐藏 item 会剩下几个分隔点 */
+.tm-root .tm-sb-right { display: none; }
 }
 @media (max-width: 560px) {
 .tm-root .tm-htop table .tm-col-hide { display: none; }
@@ -10338,6 +10424,8 @@ animation: none !important;
 .tm-root .tm-led {
 animation: none !important;
 }
+/* 右栏收放也不要动 */
+.tm-root .tm-pane.tm-side { transition: none; }
 }
 
 /* ============================================================================
@@ -12169,6 +12257,73 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
 }
 .mw-root[data-module] .rd-page .rd-main {
   width: 100%; max-width: 768px; margin: 0 auto; padding: 0;
+}
+/* 正文还没读到时的占位（编辑面）：一句话，居中偏上，不画骨架、不给可编辑的空纸 */
+.mw-root[data-module] .rd-page .rd-loading {
+  padding: 96px 26px; text-align: center;
+  font-size: 13px; color: var(--mw-text-muted);
+}
+/* 笔记属性（Obsidian 的属性面板）：绑定的正文开头那段 YAML 在这里画成表格，
+   不再当正文段落读（否则一屏全是 `title: …` / `- roll-call`）。
+   面板底色跟着面阶走（`--rd-slot` 是这一页的浅底），所以护眼绿 / 书籍黄下不会突出一块。 */
+.mw-root[data-module] .rd-page .rd-props {
+  margin: 0 0 30px; padding-bottom: 22px;
+  border-bottom: 1px solid var(--mw-border-subtle);
+}
+.mw-root[data-module] .rd-page .rd-props-title {
+  font-size: 24px; line-height: 1.35; font-weight: 700;
+  color: var(--mw-text-primary);
+  /* 标题下那根发丝线：Obsidian 的内联标题与属性之间就有一条，靠它把"这一篇叫什么"
+     与"这一篇有哪些属性"分开 */
+  margin: 0 0 16px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--mw-border-subtle);
+  overflow-wrap: anywhere;
+}
+.mw-root[data-module] .rd-page .rd-props-head {
+  font-size: 13.5px; font-weight: 600; line-height: 1.6;
+  color: var(--mw-text-primary); margin: 0 0 2px;
+}
+.mw-root[data-module] .rd-page .rd-props-rows {
+  display: flex; flex-direction: column;
+}
+.mw-root[data-module] .rd-page .rd-prop {
+  display: grid; grid-template-columns: 132px minmax(0, 1fr);
+  gap: 10px; align-items: start; padding: 8px 0;
+}
+.mw-root[data-module] .rd-page .rd-prop-key {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; line-height: 1.7; color: var(--mw-text-muted);
+}
+.mw-root[data-module] .rd-page .rd-prop-key svg {
+  width: 15px; height: 15px; flex: 0 0 auto; opacity: 0.8;
+}
+.mw-root[data-module] .rd-page .rd-prop-val {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  min-width: 0; font-size: 13.5px; line-height: 1.7; color: var(--mw-text-primary);
+  overflow-wrap: anywhere;
+}
+.mw-root[data-module] .rd-page .rd-prop-chip {
+  display: inline-flex; align-items: center;
+  padding: 2px 9px; border-radius: 999px;
+  /* 底色读卡片令牌，不读 `--rd-slot`：那一支按四支面阶写死浅色，
+     暗色主题下胶囊会是一块白底、里面却是浅灰字（糊成一片）。 */
+  background: var(--mw-bg-card); border: 1px solid var(--mw-border-subtle);
+  font-size: 12.5px; color: var(--mw-text-secondary);
+}
+.mw-root[data-module] .rd-page .rd-prop-date {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--mw-text-secondary);
+}
+.mw-root[data-module] .rd-page .rd-prop-date svg {
+  width: 14px; height: 14px; flex: 0 0 auto; opacity: 0.85;
+}
+.mw-root[data-module] .rd-page .rd-prop-empty {
+  color: var(--mw-text-muted);
+}
+@media (max-width: 760px) {
+  .mw-root[data-module] .rd-page .rd-prop {
+    grid-template-columns: minmax(0, 1fr); gap: 2px;
+  }
 }
 /* 页脚读数：这一篇的坐标 + 字数，压在这一页的左下角。
    原来坐标在正文开头、后面还跟着一条"副本不会回流"的说明 —— 阅读时那两行挡在正文前面，

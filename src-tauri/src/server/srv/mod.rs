@@ -4,12 +4,14 @@ mod cred;
 mod draft;
 mod model;
 mod probe;
+mod remote;
 mod repo;
 mod term;
 mod term_repo;
 
 pub use draft::{LoginOutcome, LoginProbeInput, ReachOutcome};
 pub use probe::ProbeOutcome;
+pub use remote::{ExecOutcome, RemoteDir, RemoteMeta, UploadOutcome};
 pub use model::{
     DeployRelease, DeployReleaseInput, Server, ServerInput, ServerPath,
     ServerPathInput, ServerPort, ServerProjectRef, ServerReleaseCount,
@@ -194,4 +196,42 @@ pub fn term_history(store: &Store, host: &str, limit: i64) -> Result<Vec<TermCom
 /// 这台机器上的终端会话记录。
 pub fn term_sessions(store: &Store, host: &str, limit: i64) -> Result<Vec<TermSessionRow>> {
     term::sessions(store, host, limit)
+}
+
+/* ============================================================
+   远端文件与一次性命令（部署页）
+   ------------------------------------------------------------
+   与本机那套 `fs_*` 同一个形状，只是路径在 SSH 那头。
+   不开终端会话，也不落审计行 —— 这些是页面的读操作。
+   ============================================================ */
+
+/// 读远端一层目录。
+pub fn remote_list(store: &Store, host: &str, path: &str) -> Result<RemoteDir> {
+    remote::list(store, host, path)
+}
+
+/// 探远端一个路径；不存在回 `None`。
+pub fn remote_stat(store: &Store, host: &str, path: &str) -> Result<Option<RemoteMeta>> {
+    remote::stat(store, host, path)
+}
+
+/// 目录选择器的起点：目录取自己、文件取父级、不存在就往上退。
+pub fn remote_dir_for(store: &Store, host: &str, path: &str) -> Result<String> {
+    remote::dir_for(store, host, path)
+}
+
+/// 在 `cwd` 下真跑一条命令。`feed` 非空时给交互式命令喂输入（远端开 pty）。
+pub fn remote_run(
+    store: &Store,
+    host: &str,
+    cwd: &str,
+    command: &str,
+    feed: Option<&str>,
+) -> Result<ExecOutcome> {
+    remote::run(store, host, cwd, command, feed)
+}
+
+/// 本机文件 → 远端路径。
+pub fn remote_upload(store: &Store, host: &str, local: &str, to: &str) -> Result<UploadOutcome> {
+    remote::upload(store, host, local, to)
 }

@@ -1695,6 +1695,28 @@ export function DocLibrary({
     setModuleKey('all')
   }
 
+  /* 登记信息弹窗（新建 / 编辑 / 删除）。它必须与 `sourceNode` 一样挂在**两个** return 上：
+     详情屏是早返回，只在主页那一支挂它的话，详情页点「编辑信息」就是"点了没反应"——
+     状态改了、没东西画（2026-11-04 用户截图）。 */
+  const docModalNode = docModal ? (
+    <DocModal
+      mode={docModal.mode}
+      doc={docModal.id ? docs.find((d) => d.id === docModal.id) : undefined}
+      docs={docs}
+      projectName={projectName}
+      /* 新建时把当前筛选带进来：在「用户中心 › 登录鉴权」下点的新建，这四项已经填好了 */
+      defaultModule={moduleKey}
+      defaultFunc={funcKey}
+      dirRoot={docDirRoot}
+      dirRootPath={dirList.data?.root}
+      onClose={() => setDocModal(null)}
+      onDelete={() => setDocModal({ mode: 'delete', id: docModal.id })}
+      onConfirmDelete={owner ? handleDelete : undefined}
+      onSubmit={owner ? handleSubmit : undefined}
+      notice={notice}
+    />
+  ) : null
+
   /* 详情屏：主从的"从"。放在这里返回（而不是另开路由）—— 主页那一套筛选状态留在 state 里，
      返回时原样还在（原型那条注释：搜索词不复位，"框里写着关键词、列出来的却是全部"最糟）。 */
   if (opened) {
@@ -1716,6 +1738,7 @@ export function DocLibrary({
           notice={notice}
         />
         {sourceNode}
+        {docModalNode}
       </>
     )
   }
@@ -2073,24 +2096,7 @@ export function DocLibrary({
           放在这里而不是路由里：与主页 / 详情共用同一份状态（哪一篇、从哪来），换屏不用跳转。 */}
       {sourceNode}
 
-      {docModal ? (
-        <DocModal
-          mode={docModal.mode}
-          doc={docModal.id ? docs.find((d) => d.id === docModal.id) : undefined}
-          docs={docs}
-          projectName={projectName}
-          /* 新建时把当前筛选带进来：在「用户中心 › 登录鉴权」下点的新建，这四项已经填好了 */
-          defaultModule={moduleKey}
-          defaultFunc={funcKey}
-          dirRoot={docDirRoot}
-          dirRootPath={dirList.data?.root}
-          onClose={() => setDocModal(null)}
-          onDelete={() => setDocModal({ mode: 'delete', id: docModal.id })}
-          onConfirmDelete={owner ? handleDelete : undefined}
-          onSubmit={owner ? handleSubmit : undefined}
-          notice={notice}
-        />
-      ) : null}
+      {docModalNode}
     </div>
   )
 }

@@ -15,7 +15,7 @@
 //!   终端要 PTY + 终端模拟器，这一版只做逐条执行的命令终端。
 //! · 不持久化环境变量（`export` 只在那一条命令里有效）；`cd` 例外，见 `exec`。
 use std::collections::HashMap;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
@@ -58,6 +58,8 @@ struct Session {
     user: String,
     esc: String,
     esc_user: String,
+    /// 台账的提权方式被降级时的说明（空串 = 没降级）
+    esc_note: String,
     cred: Credential,
     /// 认证方式的码（`key` / `pwd`）：断开时给失败文案用，从凭据推出来
     auth_kind: &'static str,
@@ -173,6 +175,9 @@ pub struct TermRun {
     pub truncated: bool,
     /// 这条命令把会话关了（`exit` / `logout`）
     pub closed: bool,
+    /// 给用户的一句解释（比如"这条要 tty 才能问密码"）。
+    /// 放在 stderr 外面，免得一句建议被涂成报错的红。
+    pub hint: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -233,8 +238,11 @@ fn esc_mode_for(user: &str, mode: &str, esc_user: &str) -> String {
     }
 }
 
-/// 打开一条真连接。凭据来自 `srv_server.secret`（解密后只在本进程内存里过一手）。
-pub fn open(store: &Store, hub: &Hub, host: &str) -> Result<TermOpen> {
+/// 从库里的机器装配一份连接。`tag` 决定 ControlMaster socket 的名字：
+/// 同一个 tag 复用同一根主连接，不同用途（终端会话 / 一次性任务）各开各的。
+///
+/// 凭据来自 `srv_server.secret`，解密后只在本进程内存里过一手。
+fn prepare(store: &Store, host: &str, tag: &str) -> Result<Session> {
     let (params, secret) = {
         let conn = store.conn()?;
         let params = repo::conn_params(&conn, host)?;
@@ -281,18 +289,28 @@ pub fn open(store: &Store, hub: &Hub, host: &str) -> Result<TermOpen> {
         },
     };
 
-    let session_id = new_id("ts");
-    let started_at = now_iso();
+    let session_id = format!("{tag}-{}", params.id);
     let control = control_socket(&session_id);
 
-    let mut session = Session {
-        id: session_id.clone(),
+    /* 台账写着 sudo/su、实际按 none 跑时要说明一句，否则用户会以为提权没生效 */
+    let esc_note = if esc_mode != params.esc_mode {
+        format!(
+            "台账里登记的提权方式 {} 已跳过：登录账户本来就是 root",
+            params.esc_mode
+        )
+    } else {
+        String::new()
+    };
+
+    Ok(Session {
+        id: session_id,
         server_id: params.id.clone(),
         host: params.host.clone(),
         ip: params.ip.clone(),
         port: params.port,
         user: params.user.clone(),
         esc: esc_mode.clone(),
+        esc_note,
         esc_user: params.esc_user.clone(),
         auth_kind: if params.auth_code == "pwd" { "pwd" } else { "key" },
         cred: credential,
@@ -301,7 +319,13 @@ pub fn open(store: &Store, hub: &Hub, host: &str) -> Result<TermOpen> {
         home: String::new(),
         shell: String::new(),
         os: String::new(),
-    };
+    })
+}
+
+/// 打开一条真连接（终端用）。凭据装配见 `prepare`。
+pub fn open(store: &Store, hub: &Hub, host: &str) -> Result<TermOpen> {
+    let started_at = now_iso();
+    let mut session = prepare(store, host, &new_id("ts"))?;
 
     let begin = Instant::now();
     let outcome = run_ssh(&session, "sh -s", CONNECT_SCRIPT.as_bytes(), OPEN_TIMEOUT)?;
@@ -345,14 +369,7 @@ pub fn open(store: &Store, hub: &Hub, host: &str) -> Result<TermOpen> {
     };
 
     let connect_ms = begin.elapsed().as_millis() as i64;
-    let esc_note = if esc_mode != params.esc_mode {
-        format!(
-            "台账里登记的提权方式 {} 已跳过：登录账户本来就是 root",
-            params.esc_mode
-        )
-    } else {
-        String::new()
-    };
+    let esc_note = session.esc_note.clone();
     let open = TermOpen {
         session_id: session.id.clone(),
         host: session.host.clone(),
@@ -422,6 +439,7 @@ pub fn exec(store: &Store, hub: &Hub, session_id: &str, command: &str) -> Result
             cwd: session.cwd,
             truncated: false,
             closed: true,
+            hint: String::new(),
         });
     }
 
@@ -484,6 +502,7 @@ pub fn exec(store: &Store, hub: &Hub, session_id: &str, command: &str) -> Result
         hub.update_cwd(&session.id, &frame.cwd);
     }
 
+    let hint = interactive_hint(command, frame.code, &stderr).unwrap_or_default();
     Ok(TermRun {
         stdout,
         stderr,
@@ -492,7 +511,33 @@ pub fn exec(store: &Store, hub: &Hub, session_id: &str, command: &str) -> Result
         cwd: frame.cwd,
         truncated: out_cut || err_cut,
         closed: false,
+        hint,
     })
+}
+
+/// 要交互输密码的命令在这个终端里注定失败：命令是塞进脚本从 stdin 送过去的，
+/// 没有 tty 可以问密码。不说清楚的话，用户会以为密码错了 —— 其实它读到的是空。
+fn interactive_hint(command: &str, code: i32, stderr: &str) -> Option<String> {
+    if code == 0 {
+        return None;
+    }
+    let head = command.trim_start().split_whitespace().next().unwrap_or("");
+    if head == "su" && (stderr.contains("Authentication failure") || stderr.contains("Password:")) {
+        return Some(
+            "su 要一个真终端才能问密码 —— 这里的命令走 stdin、没有 tty，它读到空密码就退出了，不是密码错。\
+             要 root 权限：把台账的提权方式设成 sudo（开会话时已用登录密码预热），之后命令本来就以 root 跑；\
+             或者换一个能直接登录的 root 账户。"
+                .into(),
+        );
+    }
+    if head == "sudo" && (stderr.contains("a password is required") || stderr.contains("no tty present")) {
+        return Some(
+            "sudo 要输密码，而这里没有终端可以问 —— 把台账的提权方式设成 sudo（会用登录密码预热），\
+             或在那台机器上给这个账户配 NOPASSWD。"
+                .into(),
+        );
+    }
+    None
 }
 
 /* ------------------------------------------------------------------ *
@@ -565,6 +610,23 @@ struct RunOutcome {
 
 /// 跑一次 ssh：脚本从 stdin 进，stdout/stderr 分两路读完，超时由本地掐。
 fn run_ssh(session: &Session, remote: &str, payload: &[u8], timeout: Duration) -> Result<RunOutcome> {
+    let mut input = payload;
+    run_ssh_with(session, remote, Some(&mut input), timeout, false)
+}
+
+/// 同 `run_ssh`，但 stdin 可以是任意流（上传时是本地文件）。
+/// `None` 表示不喂数据 —— 远端命令自己立即返回。
+///
+/// `tty` 只在喂交互输入时开：`su` / `passwd` / `ssh` 读的是 `/dev/tty` 而不是 stdin，
+/// 不给伪终端就只能读到 EOF。开了之后远端 stderr 会并进 stdout（pty 只有一条流），
+/// 输出里带 `\r`，调用方要按这个前提看结果。
+fn run_ssh_with(
+    session: &Session,
+    remote: &str,
+    input: Option<&mut dyn Read>,
+    timeout: Duration,
+    tty: bool,
+) -> Result<RunOutcome> {
     let mut command = Command::new("ssh");
     let control = format!("ControlPath={}", session.control.display());
     command
@@ -576,6 +638,11 @@ fn run_ssh(session: &Session, remote: &str, payload: &[u8], timeout: Duration) -
         .args(["-o", "ControlPersist=300"])
         .arg("-p")
         .arg(session.port.to_string());
+
+    if tty {
+        /* `-t` 在本地没有终端时只会警告，`-tt` 才是强制分配 */
+        command.arg("-tt");
+    }
 
     /* askpass 目录要活到子进程结束；密码档之外是 None */
     let _askpass = draft::apply_auth(&mut command, &session.cred)?;
@@ -593,7 +660,9 @@ fn run_ssh(session: &Session, remote: &str, payload: &[u8], timeout: Duration) -
 
     if let Some(mut stdin) = child.stdin.take() {
         /* 远端可能提前退出（认证失败），写失败不算错 —— 结论由退出码与 stderr 给 */
-        let _ = stdin.write_all(payload);
+        if let Some(reader) = input {
+            let _ = std::io::copy(reader, &mut stdin);
+        }
     }
 
     let mut stdout = child
@@ -644,6 +713,206 @@ fn run_ssh(session: &Session, remote: &str, payload: &[u8], timeout: Duration) -
     let stdout = out_thread.join().unwrap_or_default();
     let stderr = err_thread.join().unwrap_or_default();
     Ok(RunOutcome { code: status.code().unwrap_or(-1), stdout, stderr })
+}
+
+/* ------------------------------------------------------------------ *
+ * 一次性执行
+ * ------------------------------------------------------------
+ * 部署页要列远端目录、上传文件、跑启动命令 —— 都是"跑一次就走"，
+ * 不需要终端会话、也不该往审计表里塞行。所以这里只复用连接装配与
+ * ControlMaster，其余一概不开。
+ *
+ * 并发：同一台机器的所有一次性调用共用一根主连接（tag = "job"），
+ * 但**首次**建这根连接必须串行 —— 两个 ssh 同时去建同一个 socket，
+ * 后到的会把自己的判断变成"已存在"然后失败。所以锁只管预热那一小段，
+ * 预热完成后多个上传可以并排跑（ControlMaster 本来就是多路复用的）。
+ * ------------------------------------------------------------------ */
+
+/// 建主连接这一段串行化。持锁的是"握手 + 一次 true"，不是整趟上传。
+static JOB_LOCK: Mutex<()> = Mutex::new(());
+
+/// 已经预热过主连接的 session id。进程内缓存，掉电即失（对的：连接也没了）。
+static WARM: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn is_warm(session_id: &str) -> bool {
+    WARM
+        .lock()
+        .map(|list| list.iter().any(|id| id == session_id))
+        .unwrap_or(false)
+}
+
+fn mark_cold(session_id: &str) {
+    if let Ok(mut list) = WARM.lock() {
+        list.retain(|id| id != session_id);
+    }
+}
+
+/// 装配连接，并把主连接建起来（每台机器只建一次）。
+fn warm(store: &Store, host: &str) -> Result<Session> {
+    let session = prepare(store, host, "job")?;
+    if is_warm(&session.id) {
+        return Ok(session);
+    }
+    let _guard = JOB_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    /* 等锁的时候别人可能已经建好了 */
+    if is_warm(&session.id) {
+        return Ok(session);
+    }
+    let outcome = run_ssh(&session, "true", b"", SAMPLE_TIMEOUT)?;
+    if outcome.code != 0 {
+        return Err(Error::Invalid(format!(
+            "连不上 {}：{}",
+            session.ip,
+            ssh_failure(
+                &String::from_utf8_lossy(&outcome.stderr),
+                &session.ip,
+                session.port,
+                session.auth_kind,
+            )
+        )));
+    }
+    if let Ok(mut list) = WARM.lock() {
+        list.push(session.id.clone());
+    }
+    Ok(session)
+}
+
+/// 一次性执行的结论。没有会话、没有审计行、没有 cwd 跟踪。
+pub(super) struct JobRun {
+    pub code: i32,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+/// 跑一段脚本并拿完整输出。远端与 `exec` 走同一层壳（sudo 档整段以 root 跑）。
+pub(super) fn run_job(store: &Store, host: &str, script: &str, timeout: Duration) -> Result<JobRun> {
+    let session = warm(store, host)?;
+    prime_sudo(&session)?;
+    let remote = session.remote_shell()?;
+    let mut source = script.as_bytes();
+    deliver(&session, &remote, Some(&mut source), timeout, false)
+}
+
+/// 命令走 argv、stdin 交给"输入"（交互式命令用）。
+///
+/// 与 `run_job` 的区别只有两点：脚本不再从 stdin 走（它占着 stdin），
+/// 以及开 `-tt` 分配远端伪终端 —— `su` / `passwd` 这类命令只认 `/dev/tty`。
+pub(super) fn run_job_fed(
+    store: &Store,
+    host: &str,
+    script: &str,
+    feed: &str,
+    timeout: Duration,
+) -> Result<JobRun> {
+    let session = warm(store, host)?;
+    prime_sudo(&session)?;
+    let cmdline = format!("sh -c {}", quote(script));
+    let remote = if session.esc == "sudo" {
+        format!("sudo -n {cmdline}")
+    } else {
+        cmdline
+    };
+    /* 末尾补一个换行：`read` / `su` 都在等回车，不给就永远收不到这一行的结束 */
+    let input = format!("{feed}\n");
+    let mut cursor = std::io::Cursor::new(input.as_bytes());
+    let outcome = deliver(&session, &remote, Some(&mut cursor), timeout, true)?;
+    Ok(outcome_scrubbed(outcome, feed))
+}
+
+/// pty 会把喂进去的内容原样回显 —— 里面可能是密码，不能就这么进日志。
+/// 逐行比对后换成 `***`，同时去掉 pty 带来的 `\r`。
+fn outcome_scrubbed(mut run: JobRun, feed: &str) -> JobRun {
+    let secrets: Vec<&str> = feed
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect();
+    let scrub = |text: &str| -> String {
+        let mut out = String::with_capacity(text.len());
+        /* `\x04` / `\x08` 是 pty 收到 EOF 时回车出来的东西（^D 加两个退格），
+           留着会在日志里变成一行乱码 */
+        let cleaned = text
+            .replace('\r', "")
+            .replace('\u{4}', "")
+            .replace('\u{8}', "");
+        for line in cleaned.split('\n') {
+            let hit = secrets.iter().any(|secret| line.trim() == *secret);
+            if hit {
+                out.push_str("***");
+            } else {
+                out.push_str(line);
+            }
+            out.push('\n');
+        }
+        out
+    };
+    run.stdout = scrub(&run.stdout);
+    run.stderr = scrub(&run.stderr);
+    run
+}
+
+/// 命令走 argv、数据走 stdin（上传用）：脚本与数据不能同占一条 stdin。
+/// `offset` > 0 表示续传：本地先跳到那个字节位置，远端用 `>>` 追加。
+pub(super) fn run_job_with_file(
+    store: &Store,
+    host: &str,
+    remote: &str,
+    file: &Path,
+    offset: u64,
+    timeout: Duration,
+) -> Result<JobRun> {
+    let session = warm(store, host)?;
+    prime_sudo(&session)?;
+    let mut source = std::fs::File::open(file)
+        .map_err(|error| Error::Invalid(format!("打不开本地文件 {}：{error}", file.display())))?;
+    if offset > 0 {
+        use std::io::{Seek, SeekFrom};
+        source
+            .seek(SeekFrom::Start(offset))
+            .map_err(|error| Error::Invalid(format!("回不到上次的位置：{error}")))?;
+    }
+    /* 命令走 argv（不能走 stdin，stdin 已经是文件内容），所以重定向要包一层 `sh -c`；
+       提权档让这一层壳也在 sudo 下，写 root 拥有的目录才不需要额外授权 */
+    let cmdline = format!("sh -c {}", quote(remote));
+    let remote = if session.esc == "sudo" {
+        format!("sudo -n {cmdline}")
+    } else {
+        cmdline
+    };
+    deliver(&session, &remote, Some(&mut source), timeout, false)
+}
+
+fn deliver(
+    session: &Session,
+    remote: &str,
+    input: Option<&mut dyn Read>,
+    timeout: Duration,
+    tty: bool,
+) -> Result<JobRun> {
+    let outcome = run_ssh_with(session, remote, input, timeout, tty)?;
+    if outcome.code == 255 {
+        /* 主连接断了，下次得重新预热 */
+        mark_cold(&session.id);
+        return Err(Error::Invalid(format!(
+            "连接断了：{}",
+            ssh_failure(
+                &String::from_utf8_lossy(&outcome.stderr),
+                &session.ip,
+                session.port,
+                session.auth_kind,
+            )
+        )));
+    }
+    Ok(JobRun {
+        code: outcome.code,
+        stdout: strip_ansi(&String::from_utf8_lossy(&outcome.stdout)),
+        stderr: strip_ansi(&String::from_utf8_lossy(&outcome.stderr)),
+    })
+}
+
+/// 远端脚本 / 命令里所有来自外部的字符串都过这里。
+pub(super) fn shell_quote(value: &str) -> String {
+    quote(value)
 }
 
 /// `ssh -O exit`：把主连接收掉，别让它 ControlPersist 里挂着。
@@ -1135,9 +1404,26 @@ fn control_socket(session_id: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{
-        clip, esc_mode_for, exec_script, parse_frame, parse_stats, parse_tail, quote, strip_ansi,
-        tail_script, OUTPUT_LIMIT,
+        clip, esc_mode_for, exec_script, interactive_hint, outcome_scrubbed, parse_frame,
+        parse_stats, parse_tail, quote, strip_ansi, tail_script, JobRun, OUTPUT_LIMIT,
     };
+
+    #[test]
+    fn fed_output_does_not_leak_the_input() {
+        /* pty 会把喂进去的密码原样回显 —— 回显那几行必须抹掉，
+           同时把 pty 带来的 \r 与 EOF 时的 ^D 清掉，否则日志里是一行乱码 */
+        let run = JobRun {
+            code: 0,
+            stdout: "secret\r\n^D\u{8}\u{8}密码不对\r\n".into(),
+            stderr: String::new(),
+        };
+        let out = outcome_scrubbed(run, "secret");
+        assert!(!out.stdout.contains("secret"), "密码不该出现在日志里：{}", out.stdout);
+        assert!(out.stdout.contains("***"));
+        assert!(out.stdout.contains("密码不对"));
+        assert!(!out.stdout.contains('\r'));
+        assert!(!out.stdout.contains('\u{4}'));
+    }
 
     #[test]
     fn root_login_does_not_escalate() {
@@ -1152,6 +1438,18 @@ mod tests {
         /* 普通账户照登记的执行 */
         assert_eq!(esc_mode_for("deploy", "sudo", ""), "sudo");
         assert_eq!(esc_mode_for("deploy", "none", ""), "none");
+    }
+
+    #[test]
+    fn interactive_password_commands_get_an_explanation() {
+        /* `su` 在这里必然认证失败：没有 tty，它读到的是空密码 */
+        assert!(interactive_hint("su -", 1, "Password: su: Authentication failure").is_some());
+        assert!(interactive_hint("sudo apt update", 1, "sudo: a password is required").is_some());
+        assert!(interactive_hint("sudo -S id", 1, "sudo: no tty present").is_some());
+        /* 成功的不解释；别的命令的报错也不该被塞一句提权的话 */
+        assert!(interactive_hint("su -", 0, "").is_none());
+        assert!(interactive_hint("cat /nope", 1, "No such file or directory").is_none());
+        assert!(interactive_hint("suspend", 1, "a password is required").is_none());
     }
 
     #[test]

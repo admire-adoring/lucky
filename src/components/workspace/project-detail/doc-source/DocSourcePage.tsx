@@ -4,6 +4,8 @@ import { bodyOf } from '../../../../data/workspace/doc-bodies'
 import { copyOf, useDocCopies } from '../../../../data/workspace/doc-copies'
 import { DOC_KIND_LABEL } from '../../../../data/content-pool'
 import { DocEditor, EdIcon } from './DocEditor'
+import { DocProps } from './DocProps'
+import { parseFrontmatter } from './frontmatter'
 import { applyCodePrefs, codeBoxOf, codeClick, codeMenuClose } from './code-block'
 import { edCharsText, edCountText, mdOfBlocks, mdOfSource } from './md'
 import { rdBlockHtml, rdCharsText, rdTocItems } from './rd-render'
@@ -68,11 +70,16 @@ export function DocSourcePage({
      都没有就是空正文 —— 不往里造骨架：登记那几行由纸头一行与页脚说，正文留白。 */
   const localDoc = useDocContent(doc.filePath ? doc.id : undefined)
   const saveDoc = useDocActions()
+  /* 文件头那段 YAML 单独切出来：正文只留 `---` 之后的部分，头交给属性面板画。
+     绑定的多半是 Obsidian 仓里的笔记，头本来就是"这一篇的属性"，不是正文段落。 */
+  const fm = useMemo(
+    () => (localDoc.data?.content != null ? parseFrontmatter(localDoc.data.content) : null),
+    [localDoc.data],
+  )
   const basBody = useMemo(() => {
-    const md = localDoc.data?.content
-    if (md != null) return mdOfSource(md)
+    if (fm) return mdOfSource(fm.body)
     return bodyOf(doc) ?? []
-  }, [localDoc.data, doc])
+  }, [fm, doc])
   const copy = copyOf(doc.id)
   /* 副本优先 —— 但只对演示态生效：本地正文的那些以文件为源，不看应用内副本。 */
   const body = doc.filePath ? basBody : copy?.body ?? basBody
@@ -112,9 +119,14 @@ export function DocSourcePage({
           ? '已写入 documents 里的正文文件'
           : '已保存到应用内副本 —— 来源工具里的原文没有被改动',
       ),
-    /* 本地正文写回 `.md`（顺带把编辑器里改过的标题落进索引）；其余存应用内副本 */
+    /* 本地正文写回 `.md`（顺带把编辑器里改过的标题落进索引）；其余存应用内副本。
+       文件头那段 YAML 原样贴回去 —— 编辑器里只有正文，不贴就等于"保存一次把头删了"。 */
     doc.filePath
-      ? (_id, name, blocks) => saveDoc.save.mutate({ id: doc.id, content: mdOfBlocks(blocks), name })
+      ? (_id, name, blocks) => saveDoc.save.mutate({
+          id: doc.id,
+          content: (fm?.head ? fm.head + '\n\n' : '') + mdOfBlocks(blocks),
+          name,
+        })
       : undefined,
   )
 
@@ -238,6 +250,8 @@ export function DocSourcePage({
   }
 
   const editing = pane === 'edit'
+  /* 本地正文是异步读来的：还没到手时编辑面先给一张"正在读"（详见下面那支分支） */
+  const loadingBody = Boolean(doc.filePath) && localDoc.isLoading
 
   return (
     <div className="rd-page" ref={pageRef} data-doc-bg={bg} data-pane={pane} onScroll={onScroll}>
@@ -314,6 +328,11 @@ export function DocSourcePage({
       </div>
 
       {editing ? (
+        loadingBody ? (
+          /* 正文还在路上：给一张"正在读"，而不是让他对着一张空纸敲 ——
+             空纸上敲出来的东西一保存就会盖掉文件里的原文。 */
+          <div className="rd-loading">正在读取正文…</div>
+        ) : (
         <DocEditor
           md={ed.md}
           name={ed.name}
@@ -357,6 +376,7 @@ export function DocSourcePage({
             </div>
           )}
         />
+        )
       ) : (
         <div className="rd-layout">
           <aside className="card rd-toc">
@@ -378,6 +398,9 @@ export function DocSourcePage({
           </aside>
 
           <article className="rd-main">
+            {/* 笔记属性：头里有 YAML 才出。标题取文件名 —— 与 Obsidian 的内联标题同一件事
+                （属性在上、正文在下，正文自己的 `# 一句话结论` 不跟着挪）。 */}
+            {fm?.head ? <DocProps title={docName} entries={fm.entries} /> : null}
             {/* eslint-disable-next-line react/no-danger -- 见文件头：编辑态的「可视」面要求真实 DOM */}
             <div className="rd-body" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: html }} />
           </article>

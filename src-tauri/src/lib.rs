@@ -192,6 +192,54 @@ fn fs_dir_for(path: String) -> Result<String, ApiError> {
     localfs::dir_for(&path).map_err(ApiError::from)
 }
 
+/* —— 远端文件与命令（部署页「选择服务器目录」/ 上传 / 启动命令，走 SSH） —— */
+
+#[tauri::command]
+fn srv_fs_list(store: State<'_, Store>, host: String, path: String) -> Result<srv::RemoteDir, ApiError> {
+    srv::remote_list(&store, &host, &path).map_err(ApiError::from)
+}
+
+#[tauri::command]
+fn srv_fs_stat(store: State<'_, Store>, host: String, path: String) -> Result<Option<srv::RemoteMeta>, ApiError> {
+    srv::remote_stat(&store, &host, &path).map_err(ApiError::from)
+}
+
+#[tauri::command]
+fn srv_fs_dir_for(store: State<'_, Store>, host: String, path: String) -> Result<String, ApiError> {
+    srv::remote_dir_for(&store, &host, &path).map_err(ApiError::from)
+}
+
+/// 在远端跑一条命令。`cwd` 为空时在登录目录里跑。
+/// `feed` 给交互式命令的输入（`su` 要密码之类）—— 给了就开远端 pty。
+#[tauri::command]
+fn srv_run(
+    store: State<'_, Store>,
+    host: String,
+    cwd: Option<String>,
+    command: String,
+    feed: Option<String>,
+) -> Result<srv::ExecOutcome, ApiError> {
+    srv::remote_run(
+        &store,
+        &host,
+        cwd.as_deref().unwrap_or(""),
+        &command,
+        feed.as_deref(),
+    )
+    .map_err(ApiError::from)
+}
+
+/// 本机文件 → 远端路径。落地后用字节数核对。
+#[tauri::command]
+fn srv_upload(
+    store: State<'_, Store>,
+    host: String,
+    local_path: String,
+    remote_path: String,
+) -> Result<srv::UploadOutcome, ApiError> {
+    srv::remote_upload(&store, &host, &local_path, &remote_path).map_err(ApiError::from)
+}
+
 /* —— 部署文档 —— */
 
 /* ============================================================
@@ -1157,6 +1205,7 @@ pub fn run() {
             srv_probe_reach, srv_probe_login, srv_secret, srv_secret_set,
             term_open, term_exec, term_stats, term_tail, term_close, term_history, term_sessions,
             fs_home, fs_stat, fs_list, fs_dir_for,
+            srv_fs_list, srv_fs_stat, srv_fs_dir_for, srv_run, srv_upload,
             task_list, task_create, task_update, task_set_state, task_delete,
             event_list_range, event_list_all, event_create, event_update, event_delete,
             setting_list, setting_list_by_category, setting_get_value,

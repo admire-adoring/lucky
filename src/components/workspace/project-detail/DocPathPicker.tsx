@@ -26,24 +26,27 @@ export function shortPath(path: string, root?: string) {
   return path
 }
 
-/** 面包屑：根固定叫「本机」，与截图一致。 */
+/** 面包屑：根固定叫「本机」，与截图一致。`.` / `..` 这种段不进面包屑（它们是写法，不是位置）。 */
 function crumbsOf(path: string): { label: string; path: string }[] {
   const norm = path.replace(/\\/g, '/')
   /* Windows 盘符：`C:/Users/...`，第一段就是盘本身 */
   if (/^[A-Za-z]:\//.test(norm)) {
     const drive = norm.slice(0, 3)
-    const rest = norm.slice(3).split('/').filter(Boolean)
+    const rest = norm.slice(3).split('/').filter((s) => s && s !== '.' && s !== '..')
     return [
       { label: drive.replace(/\/$/, ''), path: drive },
       ...rest.map((seg, i) => ({ label: seg, path: drive + rest.slice(0, i + 1).join('/') })),
     ]
   }
-  const parts = norm.split('/').filter(Boolean)
+  const parts = norm.split('/').filter((s) => s && s !== '.' && s !== '..')
   return [
     { label: '本机', path: '/' },
     ...parts.map((seg, i) => ({ label: seg, path: `/${parts.slice(0, i + 1).join('/')}` })),
   ]
 }
+
+/** 面包屑一行最多显示几段：超过就把中间折成「…」（头一段是「本机」，必须留）。 */
+const CRUMB_MAX = 6
 
 function sizeText(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -107,6 +110,13 @@ export function DocPathPicker({
   }, [onClose])
 
   const crumbs = crumbsOf(data?.path ?? draft ?? '/')
+  /* 深路径把中间折掉：`本机 › … › documents › project › pj-xxx`。
+     一段不折的话，二十层目录能把列表挤到看不见（悬在「…」上能看全）。 */
+  const tailCount = CRUMB_MAX - 2
+  const trail: ({ label: string; path: string } | null)[] = crumbs.length > CRUMB_MAX
+    ? [crumbs[0] as { label: string; path: string }, null, ...crumbs.slice(-tailCount)]
+    : crumbs
+  const folded = crumbs.slice(1, crumbs.length - tailCount).map((c) => c.label).join(' › ')
 
   const go = (next: string) => {
     const value = next.trim()
@@ -133,16 +143,22 @@ export function DocPathPicker({
         <div className="pk-body">
           <div className="pk-nav">
             <div className="pk-crumbs">
-              {crumbs.map((crumb, index) => (
-                <Fragment key={crumb.path}>
+              {trail.map((crumb, index) => (
+                <Fragment key={crumb?.path ?? 'gap'}>
                   {index > 0 ? <span className="pk-crumb-sep">›</span> : null}
-                  <button
-                    type="button"
-                    className={cn('pk-crumb', index === crumbs.length - 1 && 'is-last')}
-                    onClick={() => go(crumb.path)}
-                  >
-                    {crumb.label}
-                  </button>
+                  {crumb ? (
+                    <button
+                      type="button"
+                      className={cn('pk-crumb', index === trail.length - 1 && 'is-last')}
+                      onClick={() => go(crumb.path)}
+                    >
+                      {crumb.label}
+                    </button>
+                  ) : (
+                    <span className="pk-crumb-gap" title={folded}>
+                      …
+                    </span>
+                  )}
                 </Fragment>
               ))}
             </div>

@@ -3,7 +3,7 @@
 //! 相对路径以工程根为基准解析（编译期 `CARGO_MANIFEST_DIR` 回一层），
 //! 配置文件随项目搬家仍指向同一批文件；写绝对路径则原样使用。
 
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use serde::Deserialize;
 
@@ -68,7 +68,20 @@ fn project_root() -> PathBuf {
 }
 
 fn resolve(p: &Path) -> PathBuf {
-    if p.is_absolute() { p.to_path_buf() } else { project_root().join(p) }
+    let raw = if p.is_absolute() { p.to_path_buf() } else { project_root().join(p) };
+    /* 折掉 `..` / `.`：`project_root()` 是 `CARGO_MANIFEST_DIR/..`，不折的话文档根
+       会带着 `/src-tauri/../` 一路显示到界面上（选择器里全是这种段）。 */
+    let mut out = PathBuf::new();
+    for part in raw.components() {
+        match part {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
 }
 
 impl Config {
@@ -106,4 +119,19 @@ pub fn init_log(cfg: &LogConfig) {
         .with_writer(appender)
         .with_env_filter(tracing_subscriber::EnvFilter::new(&cfg.level))
         .try_init();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_folds_parent_segments() {
+        let root = resolve(Path::new("documents"));
+        /* `project_root()` 本身是 `<manifest>/..` —— 不折的话界面上会看到 `/src-tauri/../` */
+        let text = root.display().to_string();
+        assert!(!text.contains(".."), "{text}");
+        assert!(root.is_absolute(), "{text}");
+        assert!(text.ends_with("/documents"), "{text}");
+    }
 }

@@ -1,18 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
+import { useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MacWindow } from '../../components/shell/MacWindow'
 import type { ServerItem } from '../../data/derive'
 import { useProjectServers } from '../../hooks/use-servers'
+import { createRelease, releaseKeys } from '../../api/servers'
 import {
-  ASK_TIMEOUT_MS,
   CONFIGS,
   CMD_PRESETS,
   DEPLOY_GROUPS,
-  FAIL_MSG,
-  FS_HOME,
-  HOST_FS,
-  LOCAL_FS,
-  LOCAL_PRESETS,
   PATH_PRESETS,
   SRC_LABEL,
   TOAST_ICON,
@@ -28,17 +25,20 @@ import {
   groupFor,
   groupFromPath,
   hhmmss,
-  localProbe,
+  mtimeText,
   needsHuman,
   totalSize,
   type CmdItem,
   type DeployConfig,
   type DeployStep,
   type FileSrc,
-  type FsDir,
-  type FsNode,
   type StagedFile,
 } from '../../data/workspace/deploy'
+import { errorText } from '../../api/error'
+import { dirForLocal, localFsKeys, statLocal } from '../../api/local-fs'
+import { dirForRemote, remoteFsKeys, runRemote, statRemote, uploadRemote } from '../../api/srv-remote'
+import { useLocalDir, useLocalHome, useLocalProbe, probeLocalFile } from '../../hooks/use-local-fs'
+import { useRemoteDir } from '../../hooks/use-srv-remote'
 import { useDocumentTitle } from '../../hooks/use-document-title'
 import { useProjectDetail } from '../../hooks/use-projects'
 import { cn } from '../../lib/cn'
@@ -81,6 +81,15 @@ import { useThemeStore } from '../../stores/theme-store'
       原型是把表单 DOM 摘下来暂存，React 里对应的就是"状态不在 dialog 里"。
    ⑥ 实时跟随是本地状态：控制台自动滚到底 / 手动往上翻就退出跟随，`↓ 回到底部`
       恢复。"跟随"这件事在两端都是纯视图行为，与数据无关。
+   ⑦ 文件与执行都是真的，没有一张写死的表：
+      · 本机 → `fs_stat` / `fs_list`（`localfs.rs`），`useLocalProbe` / `useLocalDir`；
+      · 服务器 → `srv_fs_stat` / `srv_fs_list`（`srv/remote.rs`，走 SSH），`useRemoteDir`；
+      · 上传 → `srv_upload`（`ssh 'cat > 路径'`，落地后核对字节数）；
+      · 启动命令与健康检查 → `srv_run`，成功与否只看远端退出码。
+      原型里 `LOCAL_FS` / `HOST_FS` 是两张假表，照搬的结果是"本机明明有这个包、
+      界面说没有""服务器目录全是编的"。两侧的行都收敛成 `PickRow`。
+      文件身份是绝对路径：拖拽走 Tauri 的 `onDragDropEvent`、选择走本机选择器，
+      不再用 `<input type=file>` —— 那个拿不到路径，上传时只传得出一个名字。
 
    ============================================================================
    四条容易写错、且错了不会报错的判据
@@ -200,71 +209,20 @@ function DpIcon({
 }
 
 /* ------------------------------------------------------------------ *
- * 本机目录树 —— 从 LOCAL_FS 现算，不另存一份清单
+ * 目录选择器的两条数据源
  *
- * 两份清单一定会走岔（换了文件却忘了改树，浏览里就永远看不见它）。
- * 结构与服务器那棵 HOST_FS 完全同构，所以选择器只差一个"根"与一种"选中语义"。
+ * 两侧都是真读：本机走 `fs_list`（磁盘），服务器走 `srv_fs_list`（SSH）。
+ * 返回的形状一样，所以视图只有一个、行都收敛成 `PickRow`。
+ * 这里曾经有一棵用假表算出来的树 —— 它列的文件哪台机器上都没有，
+ * 照着它挑出来的路径全都用不了。
  * ------------------------------------------------------------------ */
-function buildLocalTree(): FsDir {
-  const root: FsDir = { type: 'd', children: {} }
-  Object.keys(LOCAL_FS).forEach((p) => {
-    const segs = p.split('/').filter(Boolean)
-    let node = root
-    segs.forEach((seg, i) => {
-      if (i === segs.length - 1) {
-        const meta = LOCAL_FS[p]
-        node.children[seg] = { type: 'f', size: fmtSize(meta.size), time: meta.time }
-      } else {
-        const next = node.children[seg]
-        if (next && next.type === 'd') {
-          node = next
-        } else {
-          const made: FsDir = { type: 'd', children: {} }
-          node.children[seg] = made
-          node = made
-        }
-      }
-    })
-  })
-  return root
-}
 
-const LOCAL_TREE: FsDir = buildLocalTree()
-/** 路径为空时落在哪：第一条本机文件所在的目录（与服务器树取 `/opt/app` 同一个理由） */
-const LOCAL_HOME: readonly string[] = (Object.keys(LOCAL_FS)[0] ?? '').split('/').filter(Boolean).slice(0, -1)
-
-/** 两棵树共用同一套查找：把根传进去。写死根的第二份实现一定会走岔。 */
-function fsNodeAtIn(root: FsNode, parts: readonly string[]): FsNode | null {
-  let node: FsNode | null = root
-  for (let i = 0; i < parts.length && node; i += 1) {
-    if (node.type !== 'd') return null
-    node = node.children[parts[i]] ?? null
-  }
-  return node
-}
-
-/**
- * 已填的路径可能指向目录、指向文件、或早就没了（配置是历史留下的）。
- * 三种都要落到一个能用的位置上：目录本身 → 它所在的那一级 → 最长的存在前缀 → 默认。
- */
-function fsDirForIn(root: FsNode, parts: readonly string[], home: readonly string[]): string[] {
-  const cut = parts.slice()
-  while (cut.length) {
-    const node = fsNodeAtIn(root, cut)
-    if (node) return node.type === 'd' ? cut : cut.slice(0, -1)
-    cut.pop()
-  }
-  return home.slice()
-}
-
-/**
- * 这一层看得见几条：选目录时只算子目录，选文件时文件也算。
- * 两个方向都会出账不对 —— 多算看不见的文件会"显示 3 项却只有 2 行"，
- * 少算文件则会"明明有 12 个文件却不给筛选框"。
- */
-function childCount(node: FsNode, withFiles: boolean): number {
-  if (node.type !== 'd') return 0
-  return Object.keys(node.children).filter((k) => withFiles || node.children[k].type === 'd').length
+/** 选择器里的一行。目录是"继续往下走"，文件是"到这儿为止"。 */
+interface PickRow {
+  name: string
+  dir: boolean
+  /** 右侧那串小字：文件是 `大小 · 时间`，目录留空 */
+  meta: string
 }
 
 /* 备选连接身份。URL 可能带来预设之外的身份（`?user=ci-runner`）也要能显示，
@@ -273,6 +231,13 @@ const EXEC_USERS = ['deploy', 'root', 'appuser'] as const
 
 /** 分组里那个"什么都不匹配"的兜底组。它认 id，不认位置（见 `deploy.ts` 的注释）。 */
 const OTHER_GROUP = 'other'
+
+/**
+ * 会删改机器上数据的那几类命令。只用来在真跑之前要一次确认 ——
+ * 种子配置里的路径与命令是示例，对着一台真机器一键执行没有回头路。
+ */
+const RISKY_CMD =
+  /\brm\s+-[a-zA-Z]*[rf]|\brsync\b[^\n]*--delete\b|\bmkfs\b|\bdd\s+if=|\bshutdown\b|\breboot\b|\btruncate\b|\bdrop\s+(table|database)\b/i
 
 /* ------------------------------------------------------------------ *
  * 类型
@@ -287,19 +252,16 @@ interface StepState {
   badge: string
   /** 冻结的耗时文案（`待执行` / `0.0s` / `跳过` / `已中止`）。进行中时按 `clock` 现算。 */
   time: string
-  /** 比基线慢 50% 以上时的百分比（`title` 用），否则 undefined */
-  slowPct?: number
   /** 上传那一步的进度条宽度（%） */
   barPct?: number
   /** 单步重试次数（>0 时圆点上加一圈标记） */
   retry?: number
 }
 
-/** 控制台里的一行。`ask` 存在时这一行是"等你输入"那一行（原型的 `.console-line.ask`）。 */
+/** 控制台里的一行。 */
 interface ConsoleLine {
   id: number
   t: string
-  /** 正文。`ask` 行没有正文 */
   text?: string
   /** 空态那一行（`等待开始部署…`）。有别的行进来时它先被摘掉 */
   empty?: boolean
@@ -308,18 +270,6 @@ interface ConsoleLine {
   header?: boolean
   /** 点某一步要定位到的锚（步骤 key，`logAt` 的第三个参数） */
   stepKey?: string
-  ask?: AskLine
-}
-
-interface AskLine {
-  prompt: string
-  /** 高亮的那一行，`0.0s` 与「等待 X.Xs」都靠它 —— 状态行与徽标两处都要用同一个时刻 */
-  label: string
-  value: string
-  msg: string
-  note: string
-  /** 认证通过/失败之后补上的那串点 */
-  dots: boolean
 }
 
 /** 一条配置在弹窗里的编辑态。它的生命周期比 `dialog` 长 —— 进目录选择器时它必须留着。 */
@@ -373,21 +323,6 @@ interface GroupItem {
   name: string
 }
 
-/** 等输入那一刻的现场。存在 ref 里 —— 它是命令式流程的上下文，不是要渲染的东西。 */
-interface AskCtx {
-  lineId: number
-  idx: number
-  stepKey: string
-  /** 识别出来的种类（sudo 会缓存凭据、su 不缓存） */
-  askKind: string
-  prompt: string
-  op: string
-  t0: number
-  onDone: () => void
-  tries: number
-  timeoutId: number
-}
-
 const STEP_CLASS: Record<StepStatus, string> = {
   idle: 'step-idle',
   run: 'step-run',
@@ -437,13 +372,14 @@ export function DeployViewerPage() {
   const navigate = useNavigate()
   const theme = useThemeStore((state) => state.theme)
   const toggleTheme = useThemeStore((state) => state.toggleTheme)
+  const queryClient = useQueryClient()
 
   useDocumentTitle(`部署 · ${data?.project.name ?? ''} · Lucky-Y`)
 
-  /* ---- 目标主机：走真实库（见文件头 ②），"当前版本"库里没有，恒显 '—' —— */
+  /* ---- 目标主机：走真实库（见文件头 ②）。没有登记服务器时留空 —— 编一个名字只会连到别人的机器 ---- */
   const servers = useProjectServers(id)
   const target: ServerItem | null = servers.find((s) => s.env === 'prod') ?? servers[0] ?? null
-  const host = target?.name ?? 'prod-web-01'
+  const host = target?.name ?? ''
   const envLabel = target && target.env === 'test' ? '测试环境' : '生产环境'
   const version = target?.version ?? '—'
 
@@ -472,6 +408,11 @@ export function DeployViewerPage() {
   })
   const [dragOver, setDragOver] = useState(false)
   const bindTimer = useRef<number | null>(null)
+  /** 边打边查的轮次戳：慢的那次回来时路径早换了，结论不能落到新路径上 */
+  const bindSeq = useRef(0)
+  const [bindBusy, setBindBusy] = useState(false)
+  /** 绑定成功过的路径（本次会话），接替原来那张写死的"常用项" */
+  const [recentBinds, setRecentBinds] = useState<string[]>([])
 
   /* ---- 会话与顶栏 ---- */
   const [sessionUser, setSessionUser] = useState<string>('deploy')
@@ -505,6 +446,16 @@ export function DeployViewerPage() {
   const [showJump, setShowJump] = useState(false)
   const [followTail, setFollowTail] = useState(true)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  /**
+   * 执行到「需输入」的命令时弹的那个框。
+   * `resolve(null)` = 用户取消（或中途按了中止）—— 那条命令就不跑了。
+   */
+  const [askInput, setAskInput] = useState<{
+    op: string
+    run: string
+    resolve: (value: string | null) => void
+  } | null>(null)
+  const [askDraft, setAskDraft] = useState('')
 
   /* ---- 命令式流程用的 ref（定时器里读不到最新 state，所以镜像一份） ---- */
   const runRef = useRef(false)
@@ -513,20 +464,39 @@ export function DeployViewerPage() {
   const linesRef = useRef<ConsoleLine[]>([])
   const lineSeq = useRef(0)
   const timers = useRef<number[]>([])
-  const barTimer = useRef<number | null>(null)
   const deployStart = useRef(0)
-  const credCache = useRef<Record<string, boolean>>({})
-  const askCtx = useRef<AskCtx | null>(null)
-  /** 进行中那一格：`mode` 决定徽标显示「X.Xs」还是「等待 X.Xs」 */
+  /** 进行中那一格：徽标按它现算「X.Xs」 */
   const tickRef = useRef<{ idx: number; t0: number; waitT0: number; mode: 'run' | 'wait' } | null>(null)
   const [clock, setClock] = useState(0)
   const stepListRef = useRef<HTMLDivElement | null>(null)
   const consoleRef = useRef<HTMLDivElement | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const nameRef = useRef<HTMLInputElement | null>(null)
 
   const from = (location.state as { from?: string } | null)?.from
   const goBack = useCallback(() => navigate(from ?? `/work/projects/${id ?? ''}`), [from, id, navigate])
+
+  /* ================================================================== *
+   * 本机文件：路径在不在、目录里有什么，一律现读磁盘
+   * ------------------------------------------------------------------
+   * 表格里那几条路径曾经是写死的假清单，于是"本机明明有这个包、界面说未找到"。
+   * 现在的口径：`fs_stat` 探存在性，`fs_list` 读一层目录，前端不再持有任何清单。
+   * ================================================================== */
+
+  /** 真实家目录。只用于输入框占位与选择器起点，不参与"找没找到"的判定。 */
+  const localHome = useLocalHome()
+  /** 已绑定路径 → 探测结果的批量查询（key 就是这批路径） */
+  /* 两侧的文件都在本机上：拖进来的也要跟着磁盘走，不能只探绑定那一侧 */
+  const localPaths = useMemo(
+    () => staged.local.concat(staged.pick).map((f) => f.path ?? ''),
+    [staged.local, staged.pick],
+  )
+  const localProbeQuery = useLocalProbe(localPaths)
+  /** 选择器只在该模式下才去读盘；另一侧不查（`enabled` 靠 null 关掉） */
+  const pickLocalPath = dialog && dialog.kind === 'pick' && dialog.src === 'local' ? `/${dialog.parts.join('/')}` : null
+  const pickLocalDir = useLocalDir(pickLocalPath)
+  /** 服务器那侧走 SSH：这台机器上的这一层目录 */
+  const pickRemotePath = dialog && dialog.kind === 'pick' && dialog.src === 'host' ? `/${dialog.parts.join('/')}` : null
+  const pickRemoteDir = useRemoteDir(host, pickRemotePath)
 
   /* ================================================================== *
    * 派生值
@@ -557,11 +527,11 @@ export function DeployViewerPage() {
   if (summary.full) {
     specClass = 'auto'
     specBadge = '全自动'
-    specTitle = '配置里没有会等输入的命令，执行时不需要人工介入（自研脚本的交互识别不出来，要它自己用 >_ 标记）'
+    specTitle = '配置里没有会等输入的命令（自研脚本的交互识别不出来，要它自己用 >_ 标记）'
   } else if (summary.askN) {
     specClass = 'need'
-    specBadge = `需输入 ${summary.askN} 处`
-    specTitle = `有 ${summary.askN} 处命令会停下来等输入`
+    specBadge = `${summary.askN} 处要输入`
+    specTitle = `有 ${summary.askN} 处命令会停下来等输入 —— 执行到那一条会弹框现填（内容不存库）`
   } else if (summary.rew) {
     specClass = 'fix'
     specBadge = `可免密 ${summary.rew} 处`
@@ -705,7 +675,7 @@ export function DeployViewerPage() {
   }
 
   const copyConsole = () => {
-    const rows = linesRef.current.filter((l) => !l.empty && !l.ask)
+    const rows = linesRef.current.filter((l) => !l.empty)
     if (!rows.length) return
     const text = rows.map((l) => `${l.t}  ${l.text ?? ''}`.trim()).join('\n')
     copyText(text, 'console', '已复制全部日志')
@@ -735,21 +705,13 @@ export function DeployViewerPage() {
   const clearTimers = useCallback(() => {
     timers.current.forEach((t) => window.clearTimeout(t))
     timers.current = []
-    if (barTimer.current !== null) {
-      window.clearInterval(barTimer.current)
-      barTimer.current = null
-    }
   }, [])
 
   const markStep = useCallback((i: number, status: StepStatus, badge: string, time: string) => {
     setStepState((prev) => {
       const next = prev.slice()
       const cur = next[i] ?? { status: 'idle' as StepStatus, badge: String(i + 1), time: '待执行' }
-      /* 比基线慢 50% 以上就把耗时标成琥珀色 */
-      const base = stepsRef.current[i]?.ms
-      const ms = Number.parseFloat(time) * 1000
-      const slowPct = base && !Number.isNaN(ms) && ms > base * 1.5 ? Math.round((ms / base - 1) * 100) : undefined
-      next[i] = { ...cur, status, badge, time, slowPct }
+      next[i] = { ...cur, status, badge, time }
       return next
     })
   }, [])
@@ -762,23 +724,8 @@ export function DeployViewerPage() {
     })
   }, [])
 
-  const startBar = useCallback(
-    (i: number, ms: number) => {
-      if (barTimer.current !== null) window.clearInterval(barTimer.current)
-      const t0 = Date.now()
-      barTimer.current = window.setInterval(() => {
-        setBarPct(i, Math.min(97, ((Date.now() - t0) / ms) * 100))
-      }, 80)
-    },
-    [setBarPct],
-  )
-
   /** `fillUp = true` 走成功路径（补满）；失败/中止时停在当前进度 —— 补满等于假报成功 */
   const stopBar = useCallback((fillUp: boolean) => {
-    if (barTimer.current !== null) {
-      window.clearInterval(barTimer.current)
-      barTimer.current = null
-    }
     if (fillUp) setStepState((prev) => prev.map((s) => (s.barPct === undefined ? s : { ...s, barPct: 100 })))
   }, [])
 
@@ -797,115 +744,35 @@ export function DeployViewerPage() {
    */
   const markRemainingSkipped = useCallback((fromIdx: number) => {
     setStepState((prev) =>
-      prev.map((s, i) => (i > fromIdx && s.status === 'idle' ? { ...s, status: 'skip' as StepStatus, badge: '—', time: '跳过', slowPct: undefined } : s)),
+      prev.map((s, i) => (i > fromIdx && s.status === 'idle' ? { ...s, status: 'skip' as StepStatus, badge: '—', time: '跳过' } : s)),
     )
   }, [])
 
-  /* ---- 等输入 ---- */
-
-  const patchAsk = useCallback(
-    (lineId: number, patch: Partial<AskLine>) => {
-      putLines(linesRef.current.map((l) => (l.id === lineId && l.ask ? { ...l, ask: { ...l.ask, ...patch } } : l)))
-    },
-    [putLines],
-  )
-
-  const endAsk = useCallback((note: string, tags: { dots?: boolean } = {}) => {
-    const ctx = askCtx.current
-    if (!ctx) return null
-    window.clearTimeout(ctx.timeoutId)
-    askCtx.current = null
-    patchAsk(ctx.lineId, { note, dots: Boolean(tags.dots), value: '' })
-    return ctx
-  }, [patchAsk])
-
-  const askFail = useCallback(
-    (txt: string, extra?: string) => {
-      const ctx = endAsk('✕ 失败')
-      if (!ctx) return
-      markStep(ctx.idx, 'err', '✕', `${((Date.now() - ctx.t0) / 1000).toFixed(1)}s`)
-      tickRef.current = null
-      logAt(`✕ ${txt}`, 'err', ctx.stepKey)
-      if (extra) logAt(extra, 'warn', ctx.stepKey)
-      markRemainingSkipped(ctx.idx)
-      later(() => finishRef.current?.(false), 800)
-    },
-    [endAsk, logAt, markRemainingSkipped, markStep, later],
-  )
-
-  const askSubmit = useCallback(() => {
-    const ctx = askCtx.current
-    const line = linesRef.current.find((l) => l.id === ctx?.lineId)
-    if (!ctx || !line?.ask) return
-    const v = line.ask.value
-    if (!v) {
-      patchAsk(ctx.lineId, { msg: '密码不能为空' })
-      return
-    }
-    /* su 会给 3 次机会；演示里不足 4 位就当密码错 */
-    if (v.length < 4) {
-      ctx.tries += 1
-      logAt('su: Authentication failure', 'err', ctx.stepKey)
-      if (ctx.tries >= 3) {
-        askFail('连续 3 次认证失败')
-        return
-      }
-      patchAsk(ctx.lineId, { msg: `密码错误，还剩 ${3 - ctx.tries} 次机会`, value: '' })
-      return
-    }
-    endAsk('✓ 认证通过', { dots: true })
-    /* sudo 的凭据默认缓存 15 分钟，同一次执行里不必反复问；su 不缓存 */
-    if (ctx.askKind === 'sudo') credCache.current[ctx.askKind] = true
-    logAt(`${ctx.prompt} •••••••• 认证通过 → 继续执行`, 'ok', ctx.stepKey)
-    setMeta('执行中…', 'run')
-    setHintText('正在执行…', false, true)
-    tickRef.current = { idx: ctx.idx, t0: ctx.t0, waitT0: 0, mode: 'run' }
-    later(ctx.onDone, 240)
-  }, [askFail, endAsk, later, logAt, patchAsk, setHintText, setMeta])
-
-  /** 命令自己停了下来：终端那一行里直接给输入框 —— 不弹窗、不跳页，输出流不断。 */
-  const askFor = useCallback(
-    (it: CmdItem, i: number, t0: number, onDone: () => void) => {
-      const st = stepsRef.current[i]
-      if (!st) return
-      const det = detectAsk(it.run)
-      const kind = det ? det.kind : 'input'
-      const prompt = (det && det.prompt) || 'Input:'
-
-      if (kind === 'sudo' && credCache.current[kind]) {
-        logAt(`${prompt} •••••••• 已复用本次执行输入的 sudo 凭据`, 'sub', st.key)
-        later(onDone, 220)
-        return
-      }
-
-      tickRef.current = { idx: i, t0, waitT0: Date.now(), mode: 'wait' }
-      /* 立刻写成「等待 0.0s」而不是先落在「等待输入」上 —— 秒数每 100ms 才刷一次，
-         中间那一帧会露出与下方不一致的文案 */
-      markStep(i, 'wait', '>_', '等待 0.0s')
-      setMeta('等你输入…', 'wait')
-      setHintText('命令停下来了，需要你手动输入 —— 输完按回车或点「继续」', true, false)
-
-      const kept = linesRef.current.filter((l) => !l.empty)
-      const line: ConsoleLine = {
-        id: (lineSeq.current += 1),
-        t: hhmmss(),
-        stepKey: st.key,
-        ask: { prompt, label: it.op || prompt, value: '', msg: '', note: '', dots: false },
-      }
-      putLines([...kept, line])
-
-      /* 无限等下去等于把这台机器挂在这儿 —— 真实系统里超时即失败 */
-      const timeoutId = window.setTimeout(
-        () => askFail(`等待输入超时（${ASK_TIMEOUT_MS / 1000}s 未输入）`, '终止本次部署 → 服务保持原状'),
-        ASK_TIMEOUT_MS,
-      )
-      timers.current.push(timeoutId)
-      askCtx.current = { lineId: line.id, idx: i, stepKey: st.key, askKind: kind, prompt, op: it.op, t0, onDone, tries: 0, timeoutId }
-    },
-    [askFail, logAt, later, markStep, putLines, setHintText, setMeta],
-  )
-
   /* ---- 步骤推进 ---- */
+
+  /**
+   * 部署成功之后落一条发布记录 —— 运维页的「最近发布」与机器的发布条数读的就是它。
+   * 写失败不改判部署结果：机器上已经成功了，不能因为一条记录回退成失败。
+   */
+  const recordRelease = useCallback(
+    async (files: number, path: string) => {
+      if (!id || !host) return
+      try {
+        await createRelease({
+          projectId: id,
+          serverHost: host,
+          version: `deploy-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`,
+          resultCode: 'success',
+          durationSec: Math.max(1, Math.round((Date.now() - deployStart.current) / 1000)),
+          changes: `${files} 个文件 → ${path}`,
+        })
+        void queryClient.invalidateQueries({ queryKey: releaseKeys.all })
+      } catch (error) {
+        showToast(`发布记录没写上：${errorText(error)}`, 'warn')
+      }
+    },
+    [host, id, queryClient, showToast],
+  )
 
   const finish = useCallback(
     (ok: boolean) => {
@@ -921,14 +788,16 @@ export function DeployViewerPage() {
         setHintText(`部署完成 · ${hhmmss()}`, false, false)
         setMeta(`部署完成 · ${hhmmss()}`, 'ok')
         showToast('部署完成')
+        const done = factsRef.current?.()
+        if (done?.cfg) void recordRelease(done.files.length, done.cfg.path)
       } else {
-        setHintText('部署失败，已自动回滚到上一个版本', true, false)
-        setMeta('部署失败，已自动回滚', 'err')
-        showToast('部署失败，已自动回滚', 'danger')
+        setHintText('部署失败 —— 后续步骤已停止，服务停在失败前的状态', true, false)
+        setMeta('部署失败', 'err')
+        showToast('部署失败', 'danger')
       }
       setFollowTail(true)
     },
-    [clearTimers, setHintText, setMeta, showToast],
+    [clearTimers, recordRelease, setHintText, setMeta, showToast],
   )
   /* 定时器里要调 finish，但它自己在 `later` 的回调里被引用 —— 用 ref 打断这个环 */
   const finishRef = useRef<((ok: boolean) => void) | null>(null)
@@ -936,68 +805,222 @@ export function DeployViewerPage() {
     finishRef.current = finish
   }, [finish])
 
-  const completeStep = useCallback(
-    (i: number, t0: number, cmdArr: CmdItem[]) => {
-      if (!runRef.current) return // 中止之后不再往下推进
-      const st = stepsRef.current[i]
-      if (!st) return
-      tickRef.current = null
-      const sec = `${((Date.now() - t0) / 1000).toFixed(1)}s`
-      const cur = cfgRef.current
+  /* ---- 每一步真干什么 ----
+   * 全部走 SSH：`srv_run` 跑命令、`srv_upload` 收文件。
+   * 成功与否只看远端退出码与连接结果 —— 没有"演示失败链"，也没有假耗时。
+   * ------------------------------------------------------------------ */
 
-      /* 演示失败链：健康检查不通过 → 中止后续步骤并回滚 */
-      if (cur && cur.failAt === st.key) {
-        if (st.bar) stopBar(false)
-        markStep(i, 'err', '✕', sec)
-        logAt(`✕ ${st.name} 失败：${FAIL_MSG[st.key as keyof typeof FAIL_MSG]}`, 'err', st.key)
-        logAt('触发自动回滚 → 恢复上一个版本', 'warn')
-        markRemainingSkipped(i)
-        later(() => finishRef.current?.(false), 900)
-        return
+  /** 一次执行用到的事实。异步回调里读 state 只会读到旧值，统一走 ref。 */
+  const factsRef = useRef<(() => { files: StagedFile[]; cfg: DeployConfig | null; host: string }) | null>(null)
+  useEffect(() => {
+    factsRef.current = () => ({ files: staged[fileSrc], cfg, host })
+  }, [staged, fileSrc, cfg, host])
+
+  /**
+   * 命令输出按行打进控制台。一次构建可能刷几百行，留前 200 行就够定位。
+   *
+   * 整批一次写进去：逐行 `logAt` 会让一个 200 行的构建触发 200 次渲染，
+   * 每步都卡一下（而且是白卡 —— 用户看不到中间态）。
+   */
+  const logOutput = useCallback(
+    (text: string, key: string, kind: '' | 'warn') => {
+      const lines = text.replace(/\r\n/g, '\n').split('\n').filter((line) => line.trim())
+      if (!lines.length) return
+      const LIMIT = 200
+      const kept = linesRef.current.filter((l) => !l.empty)
+      const added: ConsoleLine[] = lines.slice(0, LIMIT).map((line) => ({
+        id: (lineSeq.current += 1),
+        t: hhmmss(),
+        text: line,
+        kind,
+        stepKey: key,
+      }))
+      if (lines.length > LIMIT) {
+        added.push({
+          id: (lineSeq.current += 1),
+          t: hhmmss(),
+          text: `… 还有 ${lines.length - LIMIT} 行未显示`,
+          kind: 'sub',
+          stepKey: key,
+        })
       }
-
-      if (st.bar) stopBar(true)
-
-      if (st.key === 'upload') logAt(`✓ 已上传到 ${cur?.path ?? ''}`, 'ok', st.key)
-      else if (st.key === 'start')
-        logAt(`✓ ${cmdArr.length > 1 ? `${cmdArr.length} 条命令依次执行完成` : '命令执行完成'}（退出码 0）`, 'ok', st.key)
-      else if (st.key === 'health') logAt('✓ 健康检查通过（/healthz 200 · 12ms）', 'ok', st.key)
-      else if (st.key === 'backup') logAt('✓ 回滚点已生成', 'ok', st.key)
-      else logAt(`✓ ${st.line || st.name}`, 'ok', st.key)
-
-      markStep(i, 'ok', '✓', sec)
-      runStepRef.current?.(i + 1)
+      putLines([...kept, ...added])
     },
-    [logAt, markRemainingSkipped, markStep, stopBar, later],
+    [putLines],
   )
 
-  const runCmdSequence = useCallback(
-    (i: number, st: DeployStep, items: CmdItem[], t0: number) => {
-      let k = 0
-      const next = () => {
-        if (!runRef.current) return
-        if (k >= items.length) {
-          completeStepRef.current?.(i, t0, items)
-          return
-        }
-        const it = items[k]
-        /* 逐条打印：先给操作名（弱化），再给命令 —— 长命令序列才分得清哪步是哪步 */
-        if (it.op) logAt(`· ${it.op}`, 'sub', st.key)
-        logAt(`$ ${it.run}`, '', st.key)
-        const stepOn = () => {
-          k += 1
-          next()
-        }
-        if (needsHuman(it, sessionUser)) askFor(it, i, t0, stepOn)
-        else later(stepOn, 300)
+  /**
+   * 第一步：本机文件都还在，远端目标位置可用。
+   *
+   * 远端也在这里先探一次：连不上 / 认证不对，现在就该知道 —— 等到传完几百兆
+   * 才报"连接失败"是同一件事晚了一步。目标目录不存在不算错（上传会建），
+   * 但目标是个文件要立刻停：上传会把它盖掉。
+   */
+  const stepCheck = useCallback(async () => {
+    const f = factsRef.current?.()
+    if (!f) return
+    if (!f.files.length) throw new Error('没有要部署的文件')
+    const missing: string[] = []
+    for (const file of f.files) {
+      if (!file.path) {
+        missing.push(`${file.name}（这条没有本机路径）`)
+        continue
       }
-      next()
+      try {
+        const meta = await statLocal(file.path)
+        if (!meta || meta.dir) missing.push(`${file.name} → ${file.path}`)
+        else logAt(`✓ ${file.name} · ${fmtSize(meta.size)} · ${mtimeText(meta.mtime)}`, 'sub', 'check')
+      } catch (error) {
+        missing.push(`${file.name} → ${errorText(error)}`)
+      }
+    }
+    if (missing.length) throw new Error(`本机缺文件：${missing.join('；')}`)
+
+    const dir = f.cfg?.path.replace(/\/+$/, '')
+    if (!dir) return
+    if (!f.host) throw new Error('这个项目没有可用的服务器')
+    const meta = await statRemote(f.host, dir)
+    if (!meta) logAt(`目标目录 ${dir} 还不存在 —— 上传时创建`, 'sub', 'check')
+    else if (!meta.dir) throw new Error(`目标路径 ${dir} 是一个文件，不是目录`)
+    else logAt(`✓ 目标目录 ${dir} 存在`, 'sub', 'check')
+  }, [logAt])
+
+  /**
+   * 第二步：真上传到 `<path>/<文件名>`，多个文件并排传。
+   *
+   * 并发的根据：同一台机器的一次性调用共用一根 SSH 主连接（ControlMaster
+   * 本来就是多路复用的），串行的等待全耗在往返上而不是带宽上。
+   * 字节数由后端核对，断点续传也在后端（远端 `.part` 就是进度）。
+   */
+  const stepUpload = useCallback(
+    async (i: number) => {
+      const f = factsRef.current?.()
+      if (!f?.cfg) return
+      const host = f.host
+      if (!host) throw new Error('这个项目没有可用的服务器，传不了')
+      const dir = f.cfg.path.replace(/\/+$/, '')
+      const files = f.files
+      let done = 0
+      let failed = false
+      const queue = [...files]
+
+      const worker = async () => {
+        for (;;) {
+          if (failed || !runRef.current) return
+          const file = queue.shift()
+          if (!file) return
+          if (!file.path) throw new Error(`${file.name} 没有本机路径，传不了`)
+          const to = `${dir}/${file.name}`
+          logAt(`↑ ${file.name} · ${fmtSize(file.size)}`, '', 'upload')
+          let out
+          try {
+            out = await uploadRemote(host, file.path, to)
+          } catch (error) {
+            failed = true
+            throw error
+          }
+          done += 1
+          setBarPct(i, Math.round((done / files.length) * 100))
+          const from = out.resumedFrom > 0 ? ` · 从 ${fmtSize(out.resumedFrom)} 续传` : ''
+          logAt(
+            `✓ ${to} · ${fmtSize(out.remoteSize)} · ${(out.durationMs / 1000).toFixed(1)}s${from}`,
+            'ok',
+            'upload',
+          )
+        }
+      }
+
+      /* 三条并排：再多对单根连接的收益就很小了，远端磁盘反而开始抢 */
+      const width = Math.min(3, files.length)
+      await Promise.all(Array.from({ length: width }, worker))
     },
-    [askFor, later, logAt, sessionUser],
+    [logAt, setBarPct],
+  )
+
+  /** 第三步：把即将被覆盖的同名文件复制到 `<path>/.deploy-backup/`。
+   *  第一次往空目录里传时没有旧文件 —— 这是"没有可备份的"，不是失败。 */
+  const stepBackup = useCallback(async () => {
+    const f = factsRef.current?.()
+    if (!f?.cfg || !f.files.length) return
+    if (!f.host) throw new Error('这个项目没有可用的服务器')
+    const dir = f.cfg.path.replace(/\/+$/, '')
+    const names = f.files.map((x) => `'${x.name.replace(/'/g, "'\\''")}'`).join(' ')
+    const script = [
+      'ts=$(date +%Y%m%d-%H%M%S)',
+      'made=0',
+      `for n in ${names}; do`,
+      `  if [ -f "${dir}/$n" ]; then`,
+      `    mkdir -p "${dir}/.deploy-backup" && cp -a "${dir}/$n" "${dir}/.deploy-backup/$n.$ts" || exit 1`,
+      '    made=1',
+      '  fi',
+      'done',
+      'if [ "$made" = 1 ]; then echo BAKED; else echo NONE; fi',
+    ].join('\n')
+    const out = await runRemote(f.host, '', script)
+    if (out.code !== 0) throw new Error(out.stderr.trim() || `备份脚本退出码 ${out.code}`)
+    if (out.stdout.includes('BAKED')) logAt(`✓ 回滚点 ${dir}/.deploy-backup`, 'ok', 'backup')
+    else logAt('目标目录里没有同名旧文件（首次部署），这一步没有可备份的', 'warn', 'backup')
+  }, [logAt])
+
+  /**
+   * 弹框要一段输入，等用户填完再继续。
+   *
+   * 输入不落库、也不进日志：它多半是密码，进了配置 JSON 就等于明文存了一份，
+   * 进了日志就会被复制/截图带出去。后端还会把 pty 回显的那几行抹成 `***`。
+   */
+  const askForInput = useCallback((op: string, run: string) => {
+    return new Promise<string | null>((resolve) => {
+      setAskDraft('')
+      setAskInput({ op, run, resolve })
+    })
+  }, [])
+
+  const answerAsk = useCallback(
+    (value: string | null) => {
+      if (!askInput) return
+      askInput.resolve(value)
+      setAskInput(null)
+      setAskDraft('')
+    },
+    [askInput],
+  )
+
+  /** 跑一组命令。退出码非 0 即这一步失败 —— 后面的命令不再执行。 */
+  const runCommands = useCallback(
+    async (items: CmdItem[], key: string) => {
+      const f = factsRef.current?.()
+      if (!f?.cfg) return
+      if (!f.host) throw new Error('这个项目没有可用的服务器')
+      for (const it of items) {
+        if (!runRef.current) return
+        if (it.op) logAt(`· ${it.op}`, 'sub', key)
+        logAt(`$ ${it.run}`, '', key)
+
+        let feed: string | undefined
+        if (needsHuman(it, sessionUser)) {
+          logAt('这条命令要输入 —— 等你在弹窗里填（内容不进日志）', 'sub', key)
+          const answer = await askForInput(it.op || it.run, it.run)
+          if (!runRef.current) return
+          if (answer === null) throw new Error('你取消了这条命令的输入，部署停在这里')
+          feed = answer
+        }
+
+        const out = await runRemote(f.host, f.cfg.path, it.run, feed)
+        if (out.stdout.trim()) logOutput(out.stdout, key, '')
+        /* 带输入时远端开了 pty，stderr 并进 stdout（上面已经打过了） */
+        if (!out.fed && out.stderr.trim()) logOutput(out.stderr, key, 'warn')
+        if (out.code !== 0) {
+          const tail = out.stderr.trim().split('\n').filter(Boolean).pop() ?? ''
+          throw new Error(`「${it.op || it.run}」退出码 ${out.code}${tail ? `：${tail}` : ''}`)
+        }
+        logAt(`✓ 退出码 0 · ${(out.durationMs / 1000).toFixed(1)}s`, 'ok', key)
+      }
+    },
+    [askForInput, logAt, logOutput, sessionUser],
   )
 
   const runStep = useCallback(
-    (i: number) => {
+    async (i: number) => {
       if (!runRef.current) return
       const list = stepsRef.current
       if (i >= list.length) {
@@ -1007,48 +1030,65 @@ export function DeployViewerPage() {
       const st = list[i]
 
       /* 终态步：只做标记 */
-      if (st.ms === 0) {
+      if (st.key === 'done') {
         markStep(i, 'ok', '✓', '—')
-        logAt('部署完成，服务已启动', 'ok', st.key)
+        logAt('部署流程结束', 'ok', st.key)
         finishRef.current?.(true)
         return
       }
 
+      const t0 = Date.now()
       markStep(i, 'run', '●', '0.0s')
       logStepHeader(st)
-      const t0 = Date.now()
       tickRef.current = { idx: i, t0, waitT0: 0, mode: 'run' }
       setHintText(`第 ${i + 1} / ${list.length} 步 · ${st.name}`, false, true)
+      if (st.bar) setBarPct(i, 0)
 
-      /* 命令条数决定这一步的时长：一条条地走，而不是所有命令挤在同一瞬间 */
-      const cmdArr = st.key === 'start' ? cmdList(cfgRef.current?.cmd) : []
-      const dur = cmdArr.length ? 320 + cmdArr.length * 300 : st.ms
+      const cur = cfgRef.current
+      const all = cur ? cmdList(cur.cmd) : []
+      const isCurl = (x: CmdItem) => /^curl\b/i.test(x.run)
+      const startCmds = all.filter((x) => !isCurl(x))
+      const healthCmds = all.filter(isCurl)
 
-      if (st.bar) {
-        startBar(i, st.ms)
-        logAt(`↑ 上传 ${fmtSize(totalSizeOfRef.current?.() ?? 0)} → ${cfgRef.current?.path ?? ''}`, '', st.key)
-      } else if (st.key === 'start' && cmdArr.length) {
-        runCmdSequence(i, st, cmdArr, t0)
-        return
-      } else {
-        logAt(`${st.name} …`, '', st.key)
+      try {
+        if (st.key === 'check') await stepCheck()
+        else if (st.key === 'upload') await stepUpload(i)
+        else if (st.key === 'backup') await stepBackup()
+        else if (st.key === 'start') await runCommands(startCmds, 'start')
+        else if (st.key === 'health') {
+          if (!healthCmds.length) {
+            /* 没有 curl 命令 = 这条配置没配健康检查，跳过而不是假装通过 */
+            tickRef.current = null
+            markStep(i, 'skip', '—', '跳过')
+            logAt('配置里没有健康检查命令（curl），这一步跳过', 'warn', 'health')
+            runStepRef.current?.(i + 1)
+            return
+          }
+          await runCommands(healthCmds, 'health')
+        }
+        if (!runRef.current) return
+        tickRef.current = null
+        if (st.bar) stopBar(true)
+        markStep(i, 'ok', '✓', `${((Date.now() - t0) / 1000).toFixed(1)}s`)
+        runStepRef.current?.(i + 1)
+      } catch (error) {
+        /* 中止打断的那条请求也会落到这里，别把它报成失败 */
+        if (!runRef.current) return
+        tickRef.current = null
+        if (st.bar) stopBar(false)
+        markStep(i, 'err', '✕', `${((Date.now() - t0) / 1000).toFixed(1)}s`)
+        logAt(`✕ ${st.name} 失败：${errorText(error)}`, 'err', st.key)
+        markRemainingSkipped(i)
+        later(() => finishRef.current?.(false), 600)
       }
-      later(() => completeStepRef.current?.(i, t0, cmdArr), dur)
     },
-    [logAt, logStepHeader, markStep, runCmdSequence, setHintText, startBar, later],
+    [logAt, logStepHeader, markRemainingSkipped, markStep, runCommands, setBarPct, setHintText, stepBackup, stepCheck, stepUpload, stopBar, later],
   )
 
   const runStepRef = useRef<((i: number) => void) | null>(null)
-  const completeStepRef = useRef<((i: number, t0: number, cmdArr: CmdItem[]) => void) | null>(null)
   useEffect(() => {
     runStepRef.current = runStep
-    completeStepRef.current = completeStep
-  }, [runStep, completeStep])
-  /* 「上传了多少」在一次执行里是固定的，但定时器回调读不到最新 state ⇒ 走 ref */
-  const totalSizeOfRef = useRef<(() => number) | null>(null)
-  useEffect(() => {
-    totalSizeOfRef.current = () => totalSize(staged[fileSrc])
-  }, [staged, fileSrc])
+  }, [runStep])
 
   /* ---- 步骤列表的重建与复位 ---- */
 
@@ -1071,8 +1111,6 @@ export function DeployViewerPage() {
       runRef.current = false
       setRunning(false)
       tickRef.current = null
-      askCtx.current = null
-      credCache.current = {}
       setRunLabel('开始部署')
       setHintText('')
       setMeta('等待开始')
@@ -1106,8 +1144,6 @@ export function DeployViewerPage() {
     putSteps(list)
     setStepState(idleStates(list))
     clearConsole()
-    askCtx.current = null
-    credCache.current = {}
     setRunLabel('开始部署')
     setHintText('')
     setMeta('等待开始')
@@ -1132,6 +1168,11 @@ export function DeployViewerPage() {
       showToast('请先在左栏选择一个部署配置', 'warn')
       return
     }
+    if (!host) {
+      showToast('这个项目还没有登记服务器，没法部署', 'warn')
+      setHintText('这个项目还没有登记服务器 —— 先到台账里连一台，再回来部署', true, false)
+      return
+    }
     const list = staged[fileSrc]
     if (!list.length) {
       showToast(`请先在「${SRC_LABEL[fileSrc]}」这一边备好文件`, 'warn')
@@ -1141,12 +1182,25 @@ export function DeployViewerPage() {
       }
       return
     }
-    /* 绑定文件在本机找不到就别让它跑到第三步才失败 —— 这里挡住，并指出是哪一条 */
+    /* 路径在本机找不到就别让它跑到上传那一步才失败 —— 这里挡住，并指出是哪一条 */
     const miss = list.filter((f) => f.found === false)
     if (miss.length) {
-      showToast(`有 ${miss.length} 个绑定文件在本机找不到：${miss.map((f) => f.name).join('、')}`, 'warn')
-      setHintText(`本机找不到这段路径：${miss[0].path} —— 改对路径或先解绑，再开始部署`, true, false)
+      showToast(`有 ${miss.length} 个文件在本机找不到：${miss.map((f) => f.name).join('、')}`, 'warn')
+      setHintText(`本机找不到这段路径：${miss[0].path} —— 改对路径或先移除，再开始部署`, true, false)
       return
+    }
+
+    /* 真跑之前给一次确认：这些命令会改动机器上的东西，而配置里的路径可能是示例。
+       只对"会删/会覆盖"的命令要确认 —— 每条都弹一次等于训练用户闭眼点确定。 */
+    const allCmds = cmdList(cur.cmd)
+    const risky = allCmds.filter((x) => RISKY_CMD.test(x.run))
+    if (risky.length) {
+      const ok = window.confirm(
+        `要对 ${host} 执行 ${allCmds.length} 条命令，其中 ${risky.length} 条会删改数据：\n\n` +
+          risky.map((x) => `· ${x.run}`).join('\n') +
+          `\n\n目标目录：${cur.path}\n\n确认执行吗？`,
+      )
+      if (!ok) return
     }
 
     runRef.current = true
@@ -1154,8 +1208,6 @@ export function DeployViewerPage() {
     deployStart.current = Date.now()
     setRunLabel('部署中…')
     setHintText('正在执行…', false, true)
-    credCache.current = {}
-    askCtx.current = null
     setTaskTotal(null)
     setTaskCountOverride(null)
     setTaskFolded(false)
@@ -1170,10 +1222,8 @@ export function DeployViewerPage() {
 
     logAt(`开始部署「${cur.name}」→ ${host}（连接身份 ${sessionUser}）`, '')
     logAt(`目标路径 ${cur.path} · 来源「${SRC_LABEL[fileSrc]}」${list.length} 个文件 / ${fmtSize(totalSize(list))}`, '')
-    /* 绑定文件不走上传：进部署时直接读本机那一份，所以单独说一句 */
-    list
-      .filter((f) => f.src === 'local')
-      .forEach((f) => logAt(`绑定本机 ${f.path} → 已找到 ${fmtSize(f.size)}（${f.time}），直接使用`, 'sub'))
+    /* 每个文件都会真上传：先说清"从哪个本机路径传到哪个远端路径"，出问题时日志才追得下去 */
+    list.forEach((f) => logAt(`· ${f.path ?? '（无本机路径）'} → ${cur.path.replace(/\/+$/, '')}/${f.name}`, 'sub'))
     /* 提权那一刻本来最容易停下来问人 —— 这里先说明这条配置不会问。
        root 身份下不存在"授权不足"，那句话就不该出现 */
     if (
@@ -1188,7 +1238,10 @@ export function DeployViewerPage() {
   const abortDeploy = useCallback(() => {
     if (!runRef.current) return
     /* 正等着输入时中止：那个输入框要先收掉，否则会留在终端里点得动 */
-    if (askCtx.current) endAsk('已中止')
+    setAskInput((cur) => {
+      cur?.resolve(null)
+      return null
+    })
     clearTimers()
     runRef.current = false
     setRunning(false)
@@ -1203,11 +1256,11 @@ export function DeployViewerPage() {
     }
     logAt('用户中止了本次部署', 'warn')
     setRunLabel('重新部署')
-    setHintText('已中止 · 服务保持中止前的状态', true, false)
+    setHintText('已中止 · 后续步骤不再执行（正在跑的那条命令停不下来）', true, false)
     setMeta('已中止', 'err')
     setTaskCountOverride('已中止')
     showToast('已中止部署', 'warn')
-  }, [activeStepIdx, clearTimers, endAsk, logAt, markRemainingSkipped, markStep, setHintText, setMeta, showToast])
+  }, [activeStepIdx, clearTimers, logAt, markRemainingSkipped, markStep, setHintText, setMeta, showToast])
 
   /** 单步重试：该步及其之后全部复位，从这一格重新往下跑。 */
   const retryStep = useCallback(
@@ -1245,20 +1298,26 @@ export function DeployViewerPage() {
 
   /* ---- 顶栏与左栏的动作 ---- */
 
-  const refresh = () => {
+  const refresh = async () => {
     if (runRef.current) {
       showToast('部署执行中，完成后再刷新', 'warn')
       return
     }
     if (refreshing) return
     setRefreshing(true)
-    setLastSync('正在同步…')
-    window.setTimeout(() => {
-      setRefreshing(false)
-      setLastSync(`更新于 ${hhmmss().slice(0, 5)}`)
+    setLastSync('正在重读…')
+    try {
+      /* 两侧都是磁盘的事实：本机刚打过包、服务器上刚被人动过目录，都要重读一遍才算"刷新" */
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: localFsKeys.all }),
+        queryClient.invalidateQueries({ queryKey: remoteFsKeys.all }),
+      ])
       resetRun(cfgRef.current)
+      setLastSync(`更新于 ${hhmmss().slice(0, 5)}`)
       showToast('已刷新部署配置')
-    }, 600)
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   const selectConfig = (nextId: string) => {
@@ -1298,49 +1357,158 @@ export function DeployViewerPage() {
    * 上传：① 选文件 / 拖入　② 绑定本机路径
    * ================================================================== */
 
-  /** 每次重画都重查一遍本机 —— "自动查找"不能只在绑定的那一刻发生一次 */
-  const recheckLocal = useCallback((rows: StagedFile[]): StagedFile[] =>
-    rows.map((f) => {
-      if (f.src !== 'local') return f
-      const hit = localProbe(f.path ?? '')
-      return { ...f, found: Boolean(hit), size: hit ? hit.size : 0, time: hit ? hit.time : '' }
-    }), [])
+  /**
+   * 探测结果回来就写回清单 —— "自动查找"不能只在绑定的那一刻发生一次。
+   * 只在新结论与旧值不同时才换对象，否则每次重画都会造一份新清单，把下面的
+   * `staged` 依赖全带起来。
+   */
+  useEffect(() => {
+    const hit = localProbeQuery.data
+    if (!hit) return
+    setStaged((prev) => {
+      let dirty = false
+      const refresh = (arr: StagedFile[]) =>
+        arr.map((f) => {
+          const meta = hit[f.path ?? '']
+          const found = Boolean(meta) && !meta?.dir
+          const size = meta && found ? meta.size : 0
+          const time = meta && found ? mtimeText(meta.mtime) : ''
+          if (f.found === found && f.size === size && f.time === time) return f
+          dirty = true
+          return { ...f, found, size, time }
+        })
+      const local = refresh(prev.local)
+      const pick = refresh(prev.pick)
+      return dirty ? { ...prev, local, pick } : prev
+    })
+  }, [localProbeQuery.data])
+
+  /**
+   * 加一批本机文件。拖拽与「选择文件」都走这里 —— 两条路拿到的都是绝对路径。
+   *
+   * 上传要的就是路径：浏览器里的 `File` 对象出不了这个进程，拿不到路径就只能传个名字。
+   * 所以这一侧不再有 `<input type=file>`，改成原生拖拽 + 本机目录选择器。
+   */
+  const addLocalPaths = useCallback(
+    async (paths: string[]) => {
+      if (!paths.length) return
+      if (runRef.current) {
+        showToast('部署执行中，请先中止或等待完成', 'warn')
+        return
+      }
+      const rows: StagedFile[] = []
+      const bad: string[] = []
+      for (const path of paths) {
+        try {
+          const meta = await statLocal(path)
+          if (!meta) {
+            bad.push(`${baseName(path)}（本机没有）`)
+            continue
+          }
+          if (meta.dir) {
+            bad.push(`${meta.name}（是目录）`)
+            continue
+          }
+          rows.push({ src: 'pick', name: meta.name, size: meta.size, path, time: mtimeText(meta.mtime), found: true })
+        } catch (error) {
+          bad.push(`${baseName(path)}（${errorText(error)}）`)
+        }
+      }
+      if (!rows.length) {
+        showToast(bad.length ? `没能加入：${bad.join('、')}` : '没有可加入的文件', 'warn')
+        return
+      }
+      setFileSrc('pick')
+      setStaged((prev) => {
+        const arr = prev.pick.slice()
+        rows.forEach((it) => {
+          const i = arr.findIndex((x) => x.path === it.path || x.name === it.name)
+          if (i > -1) arr[i] = it // 同名或同路径覆盖，避免列出两个一样的
+          else arr.push(it)
+        })
+        return { ...prev, pick: arr }
+      })
+      showToast(`已添加 ${rows.length} 个文件${bad.length ? ` · ${bad.length} 个跳过` : ''}`)
+    },
+    [showToast],
+  )
+
+  /** 拖放区上是否真的悬着东西：Tauri 的拖拽事件是窗口级的，要自己判位置 */
+  const dzRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    setStaged((prev) => ({ ...prev, local: recheckLocal(prev.local) }))
-  }, [recheckLocal])
+    let stop: (() => void) | null = null
+    let disposed = false
+    try {
+      void getCurrentWebview()
+        .onDragDropEvent((event) => {
+          const p = event.payload
+          if (p.type === 'leave') {
+            setDragOver(false)
+            return
+          }
+          const rect = dzRef.current?.getBoundingClientRect()
+          const dpr = window.devicePixelRatio || 1
+          const inside =
+            Boolean(rect) &&
+            fileSrc === 'pick' &&
+            p.position.x / dpr >= rect!.left &&
+            p.position.x / dpr <= rect!.right &&
+            p.position.y / dpr >= rect!.top &&
+            p.position.y / dpr <= rect!.bottom
+          if (p.type === 'enter' || p.type === 'over') {
+            setDragOver(inside)
+            return
+          }
+          setDragOver(false)
+          if (inside) void addLocalPaths(p.paths)
+        })
+        .then((fn) => {
+          if (disposed) fn()
+          else stop = fn
+        })
+    } catch {
+      /* 浏览器里没有 Tauri 环境（`vite dev`）：拖拽不上传，页面其余部分照常 */
+    }
+    return () => {
+      disposed = true
+      stop?.()
+    }
+  }, [addLocalPaths, fileSrc])
 
   const pickFiles = () => {
     if (runRef.current) {
       showToast('部署执行中，请先中止或等待完成', 'warn')
       return
     }
-    fileInputRef.current?.click()
-  }
-
-  const onFilesPicked = (list: FileList | null) => {
-    if (!list || !list.length) return
-    /* 能手选文件，就说明这次要用"从本机选择" */
-    setFileSrc('pick')
-    setStaged((prev) => {
-      const arr = prev.pick.slice()
-      Array.from(list).forEach((f) => {
-        const i = arr.findIndex((x) => x.name === f.name)
-        const it: StagedFile = { src: 'pick', name: f.name, size: f.size }
-        if (i > -1) arr[i] = it // 同名覆盖，避免列出两个同名文件
-        else arr.push(it)
-      })
-      return { ...prev, pick: arr }
+    /* 复用本机目录选择器（它读的是真磁盘），选中的文件直接进清单 */
+    openPicker({
+      src: 'local',
+      mode: 'file',
+      currentPath: '',
+      standalone: true,
+      take: (value) => void addLocalPaths([value]),
     })
-    if (fileInputRef.current) fileInputRef.current.value = ''
-    showToast(`已添加 ${list.length} 个文件`)
   }
 
+  /**
+   * 绑定一条本机路径。
+   *
+   * 探测要读磁盘，所以是异步的：先挡明显不合法的输入，再等 `fs_stat` 回来落结论。
+   * 结论只有三种 —— 找到了（带大小与修改时间）/ 本机没有 / 读不到（权限）。
+   * 第三种以前混在"没有这个文件"里，用户照着一句"没有"去查路径，白找一遍。
+   */
   const submitBind = (raw: string) => {
+    void bindPathNow(raw)
+  }
+
+  const bindPathNow = async (raw: string) => {
     if (runRef.current) {
       showToast('部署执行中，暂不能改文件列表', 'warn')
       return
     }
+    /* 点「绑定」会先触发失焦：把在途的那次探测作废，别让它的结论盖掉这一次的 */
+    bindSeq.current += 1
     const path = raw.trim()
     if (!path) {
       setBindState({ kind: 'bad', text: '先填一个本机文件的绝对路径', detail: '' })
@@ -1355,8 +1523,37 @@ export function DeployViewerPage() {
       setBindState({ kind: 'bad', text: '这个路径指向的是一个目录', detail: '' })
       return
     }
-    const hit = localProbe(path)
-    const it: StagedFile = { src: 'local', path, name, size: hit ? hit.size : 0, time: hit ? hit.time : '', found: Boolean(hit) }
+
+    setBindBusy(true)
+    let meta: Awaited<ReturnType<typeof probeLocalFile>> = null
+    let failure = ''
+    try {
+      meta = await probeLocalFile(path)
+    } catch (error) {
+      failure = errorText(error)
+    }
+    setBindBusy(false)
+
+    if (failure) {
+      setBindState({ kind: 'bad', text: failure, detail: path })
+      setBindInvalid(true)
+      return
+    }
+    if (meta && meta.dir) {
+      setBindState({ kind: 'bad', text: '这个路径指向的是一个目录，要的是文件', detail: path })
+      setBindInvalid(true)
+      return
+    }
+
+    const found = Boolean(meta)
+    const it: StagedFile = {
+      src: 'local',
+      path,
+      name,
+      size: meta ? meta.size : 0,
+      time: meta ? mtimeText(meta.mtime) : '',
+      found,
+    }
     /* 能填路径绑定，就说明这次要用"绑定本地文件" —— 顺手把来源切过去（面板本来就该是它） */
     setFileSrc('local')
     setStaged((prev) => {
@@ -1369,20 +1566,22 @@ export function DeployViewerPage() {
     /* 加进去就该清空 —— 它是个"新增"入口，不是待提交的表单字段 */
     setBindPath('')
     setBindInvalid(false)
+    if (found) setRecentBinds((prev) => [path, ...prev.filter((p) => p !== path)].slice(0, 4))
     setBindState(
-      hit
-        ? { kind: 'ok', text: `本机已找到 ${name} · 已加入清单`, detail: fmtSize(hit.size) }
+      found && meta
+        ? { kind: 'ok', text: `本机已找到 ${name} · 已加入清单`, detail: `${fmtSize(meta.size)} · ${mtimeText(meta.mtime)}` }
         : { kind: 'bad', text: '本机没有这个文件 · 已标记「未找到」', detail: path },
     )
     showToast(
-      hit ? `已绑定 ${name}（本机已找到，直接用这份）` : `已绑定 ${name}，但本机没找到 —— 部署会被它挡住`,
-      hit ? 'ok' : 'warn',
+      found ? `已绑定 ${name}（本机已找到，直接用这份）` : `已绑定 ${name}，但本机没找到 —— 部署会被它挡住`,
+      found ? 'ok' : 'warn',
     )
   }
 
   /**
    * 边打边查：只要命中就立刻绿字。
    * 查不到先不说（打字打一半被红字打断很烦），留给失焦 / 绑定 / 按回车那一刻。
+   * 读盘是异步的，所以每次查询带一个轮次戳：慢的那次回来时路径早换了，结论不能落上去。
    */
   const onBindTyping = (value: string) => {
     setBindPath(value)
@@ -1394,10 +1593,20 @@ export function DeployViewerPage() {
       return
     }
     bindTimer.current = window.setTimeout(() => {
-      const hit = localProbe(path)
-      /* 没命中就把上一轮的结论清掉 —— 留着一条已经过期的绿字比不显示更糟 */
-      if (hit) setBindState({ kind: 'ok', text: '本机已找到', detail: `${fmtSize(hit.size)} · ${hit.time}` })
-      else setBindState({ kind: '', text: '', detail: '' })
+      const seq = ++bindSeq.current
+      void probeLocalFile(path)
+        .then((meta) => {
+          if (seq !== bindSeq.current) return
+          if (!meta || meta.dir) {
+            setBindState({ kind: '', text: '', detail: '' })
+            return
+          }
+          setBindState({ kind: 'ok', text: '本机已找到', detail: `${fmtSize(meta.size)} · ${mtimeText(meta.mtime)}` })
+        })
+        .catch(() => {
+          /* 打字途中的权限错误不弹红字，交给失焦那一刻说清楚 */
+          if (seq === bindSeq.current) setBindState({ kind: '', text: '', detail: '' })
+        })
     }, 220)
   }
 
@@ -1409,13 +1618,27 @@ export function DeployViewerPage() {
       setBindInvalid(false)
       return
     }
-    const hit = localProbe(path)
-    setBindState(
-      hit
-        ? { kind: 'ok', text: '本机已找到', detail: `${fmtSize(hit.size)} · ${hit.time}` }
-        : { kind: 'bad', text: '本机没有这个文件', detail: path },
-    )
-    setBindInvalid(!hit)
+    const seq = ++bindSeq.current
+    void probeLocalFile(path)
+      .then((meta) => {
+        if (seq !== bindSeq.current) return
+        if (meta && !meta.dir) {
+          setBindState({ kind: 'ok', text: '本机已找到', detail: `${fmtSize(meta.size)} · ${mtimeText(meta.mtime)}` })
+          setBindInvalid(false)
+          return
+        }
+        setBindState(
+          meta
+            ? { kind: 'bad', text: '这个路径指向的是一个目录，要的是文件', detail: path }
+            : { kind: 'bad', text: '本机没有这个文件', detail: path },
+        )
+        setBindInvalid(true)
+      })
+      .catch((error) => {
+        if (seq !== bindSeq.current) return
+        setBindState({ kind: 'bad', text: errorText(error), detail: path })
+        setBindInvalid(true)
+      })
   }
 
   const removeFile = (name: string) => {
@@ -1529,8 +1752,9 @@ export function DeployViewerPage() {
       showToast('部署执行中，暂不能改配置', 'warn')
       return
     }
+    /* 配置还没落库（这一页的增删改是会话内的），上限 6 条只是把左栏维持在能看全的规模 */
     if (!base && configs.length >= 6) {
-      showToast('原型里最多演示 6 个配置', 'warn')
+      showToast('最多 6 条部署配置 —— 先删掉一条再新增', 'warn')
       return
     }
     lastFocused.current = document.activeElement as HTMLElement | null
@@ -1575,11 +1799,22 @@ export function DeployViewerPage() {
   const configById = (did: string) => configs.find((c) => c.id === did) ?? null
 
   /** 目录选择器：两个入口共用（表单里的「浏览服务器目录」/ 绑定行的「浏览…」），差异只有数据源与选中语义 */
+  /**
+   * 目录选择器：两个入口共用（表单里的「浏览服务器目录」/ 绑定行的「浏览…」），
+   * 差异只有数据源与选中语义。
+   *
+   * 本机这一侧先问一次磁盘"该从哪一层开始"：已填的可能是文件、目录，也可能
+   * 早就删了。`fs_dir_for` 在 Rust 那边一次算完，省得前端拿着一条不存在的路径
+   * 开一个空选择器。
+   */
   const openPicker = (opts: { src: PickSrc; mode: PickMode; currentPath: string; standalone: boolean; take: (v: string) => void }) => {
-    const root: FsNode = opts.src === 'local' ? LOCAL_TREE : HOST_FS
-    const home = opts.src === 'local' ? LOCAL_HOME : FS_HOME
-    const parts = fsDirForIn(root, opts.currentPath.split('/').filter(Boolean), home)
-    setDialog({ kind: 'pick', standalone: opts.standalone, src: opts.src, mode: opts.mode, parts, filter: '', take: opts.take })
+    const open = (parts: string[], src: PickSrc) => {
+      setDialog({ kind: 'pick', standalone: opts.standalone, src, mode: opts.mode, parts, filter: '', take: opts.take })
+    }
+    /* 两侧都要先问一句"该从哪一层开始"：已填的可能是文件、目录，也可能早删了 */
+    const start = opts.src === 'local' ? dirForLocal(opts.currentPath.trim()) : dirForRemote(host, opts.currentPath.trim() || '/')
+    const fallback = opts.src === 'local' ? localHome : '/'
+    void start.catch(() => fallback).then((dir) => open(dir.split('/').filter(Boolean), opts.src))
   }
 
   const pickTitle = (d: Extract<Dialog, { kind: 'pick' }>) => {
@@ -1718,19 +1953,34 @@ export function DeployViewerPage() {
 
   /** 目录选择器（弹窗正文的第二种视图，不是第五种浮层 —— 见文件头 ⑤） */
   function renderPicker(d: Extract<Dialog, { kind: 'pick' }>) {
-    const root: FsNode = d.src === 'local' ? LOCAL_TREE : HOST_FS
     const withFiles = d.mode === 'file'
-    const node: FsNode = fsNodeAtIn(root, d.parts) ?? { type: 'd', children: {} }
     const kw = d.filter.toLowerCase()
-    const entries =
-      node.type === 'd'
-        ? Object.keys(node.children)
-            .map((name) => ({ name, node: node.children[name] }))
-            .filter((e) => withFiles || e.node.type === 'd') // 选目录的视图里，文件只会分散注意力
-            .filter((e) => !kw || e.name.toLowerCase().includes(kw))
-            /* 目录在前、文件在后：目录是"继续往下走"，文件是"到这儿为止" */
-            .sort((a, b) => (a.node.type === b.node.type ? a.name.localeCompare(b.name) : a.node.type === 'd' ? -1 : 1))
-        : []
+    const isLocal = d.src === 'local'
+
+    /* 两种数据源收敛成同一种行：本机从磁盘读，服务器从 SSH 读；返回的形状一样 */
+    const query = isLocal ? pickLocalDir : pickRemoteDir
+    let rows: PickRow[] = []
+    let listed = 0
+    let notice: ReactNode = null
+    if (!isLocal && !host) {
+      /* 没有机器可读 —— 这里必须说清楚，不然会一直停在"正在读取" */
+      notice = <div className="pick-empty">这个项目还没有登记服务器，先到台账里连一台</div>
+    } else if (query.isPending) {
+      notice = <div className="pick-empty">{isLocal ? '正在读取本机目录…' : `正在读取 ${host} 上的目录…`}</div>
+    } else if (query.error) {
+      notice = <div className="pick-empty">{errorText(query.error)}</div>
+    } else {
+      const all = (query.data?.entries ?? []).filter((e) => withFiles || e.dir) // 选目录的视图里，文件只会分散注意力
+      listed = all.length
+      rows = all
+        .filter((e) => !kw || e.name.toLowerCase().includes(kw))
+        /* 目录在前、文件在后：目录是"继续往下走"，文件是"到这儿为止" */
+        .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
+        .map((e) => ({ name: e.name, dir: e.dir, meta: e.dir ? '' : `${fmtSize(e.size)} · ${mtimeText(e.mtime)}` }))
+      /* 读不到的项（权限）要点出来：少了几行却不说，用户只会以为文件没了 */
+      if (query.data?.note) notice = <div className="pick-empty">{query.data.note}</div>
+    }
+
     const rootLabel = d.src === 'local' ? '本机' : host
     const crumbs = [{ label: rootLabel, parts: [] as string[] }].concat(
       d.parts.map((seg, i) => ({ label: seg, parts: d.parts.slice(0, i + 1) })),
@@ -1774,7 +2024,7 @@ export function DeployViewerPage() {
         </div>
 
         {/* 条目多时才给筛选框：三级目录里放个搜索框是给不存在的需求配控件 */}
-        {childCount(node, withFiles) >= 10 ? (
+        {listed >= 10 ? (
           <input
             id="pickFilter"
             className="modal-input"
@@ -1787,33 +2037,26 @@ export function DeployViewerPage() {
         ) : null}
 
         <div className="pick-list" id="pickList" tabIndex={-1}>
-          {entries.length === 0 ? (
-            <div className="pick-empty">{emptyText}</div>
-          ) : (
-            entries.map((e) => {
-              const isFile = e.node.type === 'f'
-              const file = e.node.type === 'f' ? e.node : null
-              return (
-                <button
-                  key={e.name}
-                  type="button"
-                  className={cn('pick-row', isFile && 'is-file')}
-                  title={isFile ? `/${d.parts.concat(e.name).join('/')}` : undefined}
-                  onClick={() => {
-                    if (isFile) takeFromPicker(`/${d.parts.concat(e.name).join('/')}`)
-                    /* 点目录就是往里走 —— 选择器里没有"确认"那一步 */
-                    else setDialog({ ...d, parts: d.parts.concat(e.name), filter: '' })
-                  }}
-                >
-                  <span className="pick-ico" aria-hidden="true">
-                    <DpIcon name={isFile ? 'file' : 'chev'} cls={isFile ? 'pick-file' : 'pick-chev'} outline={false} />
-                  </span>
-                  <span className="pick-name">{e.name}</span>
-                  <span className="pick-meta">{isFile && file ? `${file.size} · ${file.time}` : `${childCount(e.node, withFiles)} 项`}</span>
-                </button>
-              )
-            })
-          )}
+          {notice ?? (rows.length === 0 ? <div className="pick-empty">{emptyText}</div> : null)}
+          {rows.map((row) => (
+            <button
+              key={row.name}
+              type="button"
+              className={cn('pick-row', !row.dir && 'is-file')}
+              title={row.dir ? undefined : `/${d.parts.concat(row.name).join('/')}`}
+              onClick={() => {
+                if (!row.dir) takeFromPicker(`/${d.parts.concat(row.name).join('/')}`)
+                /* 点目录就是往里走 —— 选择器里没有"确认"那一步 */
+                else setDialog({ ...d, parts: d.parts.concat(row.name), filter: '' })
+              }}
+            >
+              <span className="pick-ico" aria-hidden="true">
+                <DpIcon name={row.dir ? 'chev' : 'file'} cls={row.dir ? 'pick-chev' : 'pick-file'} outline={false} />
+              </span>
+              <span className="pick-name">{row.name}</span>
+              <span className="pick-meta">{row.meta}</span>
+            </button>
+          ))}
         </div>
       </>
     )
@@ -2243,6 +2486,65 @@ export function DeployViewerPage() {
 
   const overlay = (
     <>
+      {/* 执行到「需输入」的命令时挡在最前面。它不是配置表单的一部分 ——
+          这一格里的内容只活到这次执行，不写库、不进日志。 */}
+      {askInput ? (
+        <div
+          className="modal-mask open"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) answerAsk(null)
+          }}
+        >
+          <div className="modal modal-form" role="dialog" aria-modal="true" aria-labelledby="dpAskTitle">
+            <div className="modal-head">
+              <div className="modal-title" id="dpAskTitle">
+                {`命令在等输入 · ${askInput.op}`}
+              </div>
+              <button type="button" className="modal-close" aria-label="取消" onClick={() => answerAsk(null)}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="dp-ask-cmd">{askInput.run}</div>
+              <div className="modal-field">
+                <input
+                  className="modal-input"
+                  type="password"
+                  autoComplete="off"
+                  autoFocus
+                  aria-label="喂给这条命令的内容"
+                  placeholder="多数时候是密码 · 只用于这一次，不存库也不进日志"
+                  value={askDraft}
+                  onChange={(event) => setAskDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && askDraft.trim()) {
+                      event.preventDefault()
+                      answerAsk(askDraft)
+                    }
+                  }}
+                />
+              </div>
+              <div className="dp-ask-note">
+                这条命令会拿到一个远端伪终端，所以它的 stderr 会并进 stdout；回显的输入已抹成 ***。
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => answerAsk(null)}>
+                跳过这条
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!askDraft.trim()}
+                onClick={() => answerAsk(askDraft)}
+              >
+                继续
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {dialog ? (
         <div
           className="modal-mask open"
@@ -2517,7 +2819,7 @@ export function DeployViewerPage() {
                         <span
                           className="dp-spec-v"
                           title={specCmdArr
-                            .map((x) => `${x.op ? `[${x.op}] ` : ''}${x.run}${needsHuman(x, sessionUser) ? '（需人工输入）' : ''}`)
+                            .map((x) => `${x.op ? `[${x.op}] ` : ''}${x.run}${needsHuman(x, sessionUser) ? '（需要终端输入，会失败）' : ''}`)
                             .join('\n')}
                         >
                           {specCmdArr.length ? specCmdArr[0].run : '—'}
@@ -2566,29 +2868,15 @@ export function DeployViewerPage() {
                   {/* ① 从本机选择 */}
                   {fileSrc === 'pick' ? (
                     <div className="src-panel">
+                      {/* 拖拽由 Tauri 的窗口事件接管（WebView 会拦掉 HTML5 的 drop），
+                          所以这里只有点击与键盘 —— 见 `onDragDropEvent` 那个 effect */}
                       <div
+                        ref={dzRef}
                         className={cn('dropzone', dragOver && 'over')}
                         role="button"
                         tabIndex={0}
                         aria-label="选择或拖入要部署的文件"
                         onClick={pickFiles}
-                        onDragEnter={(event) => {
-                          event.preventDefault()
-                          setDragOver(true)
-                        }}
-                        onDragOver={(event) => {
-                          event.preventDefault()
-                          setDragOver(true)
-                        }}
-                        onDragLeave={(event) => {
-                          event.preventDefault()
-                          setDragOver(false)
-                        }}
-                        onDrop={(event) => {
-                          event.preventDefault()
-                          setDragOver(false)
-                          onFilesPicked(event.dataTransfer?.files ?? null)
-                        }}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter' || event.key === ' ') {
                             event.preventDefault()
@@ -2602,7 +2890,6 @@ export function DeployViewerPage() {
                         <span className="dz-t">拖文件到这里，或点击选择</span>
                         <span className="dz-d">jar / zip / tar.gz / sql / 静态资源</span>
                       </div>
-                      <input ref={fileInputRef} type="file" multiple onChange={(event) => onFilesPicked(event.target.files)} />
                     </div>
                   ) : (
                     /* ② 绑定本地文件：填本机路径，自动查有没有，有就直接用 */
@@ -2614,7 +2901,7 @@ export function DeployViewerPage() {
                           spellCheck={false}
                           autoComplete="off"
                           aria-label="本机文件的绝对路径"
-                          placeholder="/Users/you/build/pay-api.jar"
+                          placeholder={`${localHome}/Downloads/app.jar`}
                           value={bindPath}
                           onChange={(event) => onBindTyping(event.target.value)}
                           onBlur={onBindBlur}
@@ -2649,7 +2936,9 @@ export function DeployViewerPage() {
                       </div>
                       {/* 结果行：只在"有话要说"时写字，平时留一条同高的空行（打字时整块不跳） */}
                       <div className={cn('bind-state', bindState.kind)} role="status">
-                        {bindState.text ? (
+                        {bindBusy ? (
+                          <span>正在查本机…</span>
+                        ) : bindState.text ? (
                           <>
                             <span>{bindState.text}</span>
                             {bindState.detail ? (
@@ -2663,23 +2952,27 @@ export function DeployViewerPage() {
                           </>
                         ) : null}
                       </div>
-                      <div className="bind-presets">
-                        {/* 常用项只印文件名：三条完整路径必然折成两行，而它们的前缀是重复的 */}
-                        {LOCAL_PRESETS.map((p) => (
-                          <button
-                            key={p}
-                            type="button"
-                            className="bind-chip"
-                            title={`${p}${localProbe(p) ? '（本机已找到）' : '（本机没有这个文件）'}`}
-                            onClick={() => {
-                              setBindPath(p)
-                              submitBind(p)
-                            }}
-                          >
-                            {baseName(p)}
-                          </button>
-                        ))}
-                      </div>
+                      {/* 最近绑定成功的路径。这里曾经是一组写死的"常用项"—— 那几条
+                          路径在本机根本不存在，点一下只会得到"未找到"。现在只列真的
+                          绑定成功过的，一条都没有就整行不渲染。 */}
+                      {recentBinds.length ? (
+                        <div className="bind-presets">
+                          {recentBinds.map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              className="bind-chip"
+                              title={p}
+                              onClick={() => {
+                                setBindPath(p)
+                                submitBind(p)
+                              }}
+                            >
+                              {baseName(p)}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   )}
 
@@ -2790,7 +3083,7 @@ export function DeployViewerPage() {
                               <span className="step-dot-n">{s?.badge ?? String(i + 1)}</span>
                             </span>
                             <StepName text={st.name} />
-                            <span className={cn('step-time', s?.slowPct ? 'slow' : null)} title={s?.slowPct ? `比基线慢 ${s.slowPct}%` : undefined}>
+                            <span className="step-time">
                               {time}
                             </span>
                             <button
@@ -2876,49 +3169,11 @@ export function DeployViewerPage() {
                             'console-line',
                             l.header && 'step-header',
                             l.kind,
-                            l.ask && 'ask',
-                            l.ask?.note && 'done',
                             flashKey && l.stepKey === flashKey && 'flash',
                           )}
                         >
                           <span className="console-t">{l.t}</span>
-                          {l.ask ? (
-                            /* 终端那一行里直接给输入框 —— 不弹窗、不跳页，输出流不断 */
-                            <span className="console-x ask-row">
-                              <span className="ask-label">{l.ask.prompt}</span>
-                              {l.ask.note ? (
-                                <>
-                                  {l.ask.dots ? <span className="ask-dots">••••••••</span> : null}
-                                  <span className="ask-note">{l.ask.note}</span>
-                                </>
-                              ) : (
-                                <>
-                                  <input
-                                    className="ask-input"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    spellCheck={false}
-                                    placeholder="演示：任意 4 位以上算正确"
-                                    aria-label={l.ask.label}
-                                    value={l.ask.value}
-                                    onChange={(event) => patchAsk(l.id, { value: event.target.value, msg: '' })}
-                                    onKeyDown={(event) => {
-                                      if (event.key === 'Enter') {
-                                        event.preventDefault()
-                                        askSubmit()
-                                      }
-                                    }}
-                                  />
-                                  <button type="button" className="ask-go" onClick={askSubmit}>
-                                    继续
-                                  </button>
-                                  <span className="ask-err">{l.ask.msg}</span>
-                                </>
-                              )}
-                            </span>
-                          ) : (
-                            <span className={cn('console-x', l.empty && 'console-empty')}>{l.text}</span>
-                          )}
+                          <span className={cn('console-x', l.empty && 'console-empty')}>{l.text}</span>
                         </div>
                       ))}
                     </div>
