@@ -1019,4 +1019,6 @@ export interface DeployDocItem {
   /** 原始小时数。书墙上那枚书签的判据是"今天动过"，它按这个数判，
    *  不解析 `updatedAt` 那句文案（文案是给人看的，判据读它等于两处口径） */
   updatedHours: number
+  /** 本地正文的落点（相对 documents 根）。null = 这篇没有本地正文 */
+  filePath: string | null
 }

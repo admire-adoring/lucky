@@ -22,11 +22,13 @@ import type { Server } from '../../../api/servers'
 /* 连接状态全站一份（运维分区与服务器台账共用），见那个模块的文件头 */
 import { isConnected, markConnected } from '../../../lib/server-conn'
 import { AddServerForm, type ServerFormDraft } from './AddServerForm'
+import { NewDeployDocDialog } from './NewDeployDocDialog'
 import { OpsIcon, type OpsIconName } from './ops-icon'
 import { PanelCard as OpsCard, PanelModal as OpsModal } from './panel-shell'
 import { DeployDocBook } from './DeployDocBook'
 import { deploySourceDoc } from './doc-source/source-doc'
 import { useSourceOverlay } from './doc-source/use-source-overlay'
+import { toDeployDocItem, toServerFormInitial } from '../../../lib/server-view'
 
 /* ============================================================================
    运维 —— 项目详情「运维」分区
@@ -70,6 +72,9 @@ import { useSourceOverlay } from './doc-source/use-source-overlay'
       好让终端窗口用 `storage` 事件同步回这一页。应用里终端页的连接是它自己的页面状态，
       没有可共享的通道 ⇒ 退成模块级集合：切分区再回来还在，刷新回到「未连接」。
       为它引一条跨页协议（storage 事件 + 键名约定）代价大于收益，留到有后端那一轮。
+   ⑧ 部署文档的书架读真实库（`doc` 里宿主是机器的那些），「+ 新建」也不再是回执：
+      走 `doc_create` 落一份 `.md` 骨架，建完直接进编辑面。宿主必须是一台机器 ——
+      项目下一台机器都没有时不给开表单，先让人去加机器。
    ============================================================================ */
 
 /** 卡片折叠状态。三个 key 与原型的三张卡一一对应 */
@@ -211,6 +216,8 @@ export function OpsPanel({
   const [openServer, setOpenServer] = useState<string | null>(null)
   const [serverTab, setServerTab] = useState<ServerTab>('info')
   const [openDeploy, setOpenDeploy] = useState<string | null>(null)
+  /* 新建部署文档那张弹窗。它的宿主是一台机器，所以没有机器时不开口子 */
+  const [newDoc, setNewDoc] = useState(false)
   /* 落库：与台账页（`ServersLedger.submitServer`）同一套 —— 编辑原样带回没显示在表单上的列，
      新增取默认值。此前这张表单没接 onSubmit，提交只会得到"填好了"的回执（不写库）。 */
   const queryClient = useQueryClient()
@@ -241,8 +248,7 @@ export function OpsPanel({
             authCode: draft.authCode,
             escMode: draft.escMode,
             escUser: draft.escUser,
-            credRef: target.credRef,
-            /* 留空 = 不动钥匙串里那份；填了才覆盖 */
+            /* 留空 = 清掉这台机器的凭据；有值就加密写库 */
             secret: draft.secret,
             note: draft.note,
             projectIds: target.projects.map((project) => project.id),
@@ -598,6 +604,16 @@ export function OpsPanel({
   /** 路径浏览器要的那台机器。不走 `as ServerItem` —— 找不到就不渲染，别让断言变成运行期崩溃 */
   const pickerServer = draft ? servers.find((item) => item.name === draft.host) : undefined
 
+  /* 新建部署文档：卡头那颗「+ 新建」与空态那颗走同一处判断 ——
+     宿主是机器，一台都没有时先让人去加机器，别打开一个没有落点的表单 */
+  const openNewDoc = () => {
+    if (!servers.length) {
+      notice('先添加一台服务器 —— 部署文档挂在机器下面')
+      return
+    }
+    setNewDoc(true)
+  }
+
   const latest = deploys[0]
   const rollbackCount = deploys.filter((item) => item.result === 'rollback').length
 
@@ -606,22 +622,16 @@ export function OpsPanel({
      `siblings` 在编辑模式下必须排除「自己」，否则「同网段已有」会把自己列进去。 */
   if (serverForm) {
     const target = serverForm.mode === 'edit' ? serverForm.server : null
-    /* 视图形态没有 credRef（注释里那句）—— 从库里那份补上，表单才能判断"要不要重填凭据" */
+    /* 编辑要库里那份 raw：视图形态的字段名是 `user` / `auth` / `esc`，而且没有 tags / note，
+       直接递给表单会被它的可选字段吃掉，保存一次就把那些列覆盖成空 */
     const rawTarget = target ? (serverData ?? []).find((item) => item.host === target.name) ?? null : null
     return (
       <div className="ops-page rc-ops">
         <AddServerForm
           mode={serverForm.mode}
           projectName={projectName}
-          server={target ? { ...target, credRef: rawTarget?.credRef ?? null } : null}
-          onSubmit={(draft, again) => {
-            /* 编辑要用库里那份 raw（视图形态没有 credRef / ports / pathGroups） */
-            const real =
-              serverForm.mode === 'edit'
-                ? (serverData ?? []).find((item) => item.host === target?.name) ?? null
-                : null
-            submitServerForm(real, draft, again)
-          }}
+          server={rawTarget ? toServerFormInitial(rawTarget) : null}
+          onSubmit={(draft, again) => submitServerForm(rawTarget, draft, again)}
           siblings={servers
             .filter((item) => item.name !== target?.name)
             .map((item) => ({ name: item.name, ip: item.ip }))}
@@ -1057,7 +1067,7 @@ export function OpsPanel({
             className="btn btn-primary btn-sm"
             onClick={(event) => {
               event.stopPropagation()
-              notice('新建部署文档：还没有写接口')
+              openNewDoc()
             }}
           >
             <OpsIcon name="plus" size={14} /> 新建
@@ -1105,6 +1115,19 @@ export function OpsPanel({
           {/* 这儿原来还有一格虚线「新建文档」，与卡头那颗「+ 新建」是同一个动作两个入口；
               留着它还多一个副作用：它不是书，却站在"书架"这一排里 ⇒ 已删，新建只走卡头。 */}
         </div>
+        {/* 空书架要说清"下一步做什么" —— 0 篇加一片灰底等于把人留在死路口 */}
+        {deployDocs.length ? null : (
+          <div className="empty-state">
+            <div className="empty-icon" aria-hidden="true">
+              <OpsIcon name="book" size={22} />
+            </div>
+            <div className="empty-title">还没有部署文档</div>
+            <div className="empty-desc">把发版、回滚、排查写成一篇 —— 换人值班时不用再问一遍</div>
+            <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={openNewDoc}>
+              <OpsIcon name="plus" size={14} /> 新建第一篇
+            </button>
+          </div>
+        )}
       </OpsCard>
 
       {/* ---------------- 发布记录 ----------------
@@ -1446,6 +1469,21 @@ export function OpsPanel({
             </div>
           ) : null}
         </OpsModal>
+      ) : null}
+
+      {/* ---------------- 弹窗：新建部署文档 ---------------- */}
+      {newDoc ? (
+        <NewDeployDocDialog
+          projectId={projectId}
+          servers={servers.map((item) => ({ name: item.name, ip: item.ip }))}
+          onCreated={(row) => {
+            setNewDoc(false)
+            notice(`已新建「${row.name}」`)
+            /* 建完直接进编辑面：骨架里的三段正等着填，回到书架再点一次是多余的一步 */
+            openSource(deploySourceDoc(toDeployDocItem(row), projectName), 'edit')
+          }}
+          onClose={() => setNewDoc(false)}
+        />
       ) : null}
 
       {sourceNode}

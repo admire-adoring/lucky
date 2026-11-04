@@ -47,8 +47,8 @@ export interface ServerPathInput {
 /**
  * 台账里的一台机器 —— 主表一行，加上项目 / 端口 / 标签 / 文件位置。
  *
- * 凭据不在其中：密码与私钥正文存本机钥匙串，这里只有 `credRef`（引用）与
- * `authCode` / `escMode` / `escUser`（怎么连，不是用什么连）。
+ * 凭据正文不在这里：密码 / 私钥路径加密存在 `srv_server.secret`，出门只有
+ * `hasSecret` 这个布尔。要明文只有编辑页那一格，走 `serverSecret()`。
  */
 export interface Server {
   id: string
@@ -73,8 +73,10 @@ export interface Server {
   escMode: string
   /** 提权到的账户；none 时为空串 */
   escUser: string
-  /** 钥匙串条目引用；null = 凭据不在本机 */
+  /** 历史遗留的钥匙串引用；凭据现在在 `srv_server.secret`，这一列不再写 */
   credRef: string | null
+  /** 这台机器存过凭据没有（编辑页据此把框留空 / 回填） */
+  hasSecret: boolean
   /** 这台机器是干什么的 */
   note: string
   sortOrder: number
@@ -109,12 +111,12 @@ export interface ServerInput {
   /** 缺省 'none' */
   escMode?: string
   escUser?: string
-  /** 钥匙串条目引用；由后端按 `secret` 现算，前端不必传 */
+  /** 历史遗留；后端不再读它，前端不必传 */
   credRef?: string | null
   /**
    * 凭据正文：密钥档是私钥路径，密码档是密码。三态 ——
    * 不给 = 不动（编辑时留空的常态），空串 = 清掉，有值 = 写入。
-   * **不进库**，后端转交本机钥匙串。
+   * 后端加密后写进 `srv_server.secret`。
    */
   secret?: string
   note?: string
@@ -309,10 +311,10 @@ export interface LoginProbeInput {
   /** 密码模式的登录密码 —— 经 SSH_ASKPASS 交给 ssh，不进命令行 */
   password?: string
   /**
-   * 编辑态已存凭据的引用（`server/{id}`）。上面两格留空时后端拿它去本机钥匙串取 ——
-   * 密码不需要回到前端，也就不会被回填进输入框。
+   * 编辑态：上面两格留空时，后端按这个机器名去库里取上次存的那份凭据。
+   * 新增时不给。
    */
-  credRef?: string
+  savedHost?: string
   escMode: 'none' | 'su' | 'sudo'
   escUser?: string
 }
@@ -340,8 +342,26 @@ export function probeReach(host: string, port: number): Promise<ReachOutcome> {
 
 /**
  * 认证 / 提权 / 系统识别。两档都真跑：密钥走 `-i`，密码走 `SSH_ASKPASS`。
- * 密码 / 私钥路径两格留空时，后端按 `credRef` 去本机钥匙串取。
+ * 密码 / 私钥路径两格留空时，后端按 `savedHost` 去库里取上次存的那份。
  */
 export function probeLogin(input: LoginProbeInput): Promise<LoginOutcome> {
   return call(() => invoke<LoginOutcome>('srv_probe_login', { input }))
+}
+
+/**
+ * 这台机器存过的凭据明文（私钥路径 / 密码）。没存过 → `null`。
+ *
+ * 只给编辑页回填用：列表与详情拿到的 `Server` 里只有 `hasSecret`，
+ * 不给明文 —— 一个页面不需要密码，就不该让它拿得到。
+ */
+export function serverSecret(host: string): Promise<string | null> {
+  return call(() => invoke<string | null>('srv_secret', { host }))
+}
+
+/**
+ * 只换凭据正文（终端页认不通时就地重填）。空串 = 清掉。
+ * 与编辑页那条 `srv_update` 走同一套加密落库，区别是不动台账的其它字段。
+ */
+export function setServerSecret(host: string, secret: string): Promise<void> {
+  return call(() => invoke<void>('srv_secret_set', { host, secret }))
 }

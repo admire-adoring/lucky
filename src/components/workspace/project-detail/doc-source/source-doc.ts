@@ -40,5 +40,8 @@ export function deploySourceDoc(doc: DeployDocItem, projectName: string): Source
     func: '部署文档',
     kind: doc.kind,
     updatedAt: doc.updatedAt,
+    /* 新建的部署文档有本地 `.md`：给上落点，这一页才读写文件；
+       老登记行没有，页面照旧回落演示稿 */
+    filePath: doc.filePath,
   }
 }

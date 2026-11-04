@@ -15,6 +15,7 @@ import { errorText } from '../../../api/error'
 import { cn } from '../../../lib/cn'
 import { Icon } from '../../icons/Icon'
 import { DocBook } from './DocBook'
+import { DocPathPicker, shortPath, type DocPick } from './DocPathPicker'
 import { useSourceOverlay } from './doc-source/use-source-overlay'
 import { copyAgoText, copyOf, useDocCopies } from '../../../data/workspace/doc-copies'
 import { useDocDirs, useDocMutations } from '../../../hooks/use-docs'
@@ -1104,7 +1105,6 @@ function DocModal({
   defaultModule,
   defaultFunc,
   dirRoot,
-  dirs,
   dirRootPath,
   onClose,
   onDelete,
@@ -1126,8 +1126,6 @@ function DocModal({
    * 这一页还没接库，存哪儿都无从谈起。
    */
   dirRoot?: string
-  /** 文档根下已有的目录（相对根），由后端扫出来 */
-  dirs?: string[]
   /** 文档根绝对路径：那一格下面要写清"文件真落到哪" */
   dirRootPath?: string
   onClose: () => void
@@ -1136,7 +1134,17 @@ function DocModal({
   /** 删除态的主按钮：真的删（索引与正文文件一起走） */
   onConfirmDelete?: () => void
   /** 新建 / 编辑态的主按钮：交给宿主落库 */
-  onSubmit?: (patch: { name: string; module: string; func: string; kind: string; source: string; dir?: string }) => void
+  onSubmit?: (patch: {
+    name: string
+    module: string
+    func: string
+    kind: string
+    source: string
+    /** 新建时落哪个文件夹（绝对或相对文档根） */
+    dir?: string
+    /** 绑定本机已有文件（绝对路径） */
+    file?: string
+  }) => void
   notice: (text: string) => void
 }) {
   /* 候选池：模块去重保序 + 每个模块自己的功能（功能只可能属于某一个模块）。
@@ -1187,39 +1195,42 @@ function DocModal({
   )
   const [kind, setKind] = useState<DocKind>(doc?.kind ?? 'plan')
   const [source, setSource] = useState(doc?.source ?? options.sources[0] ?? '')
-  /* 存放目录：默认就是宿主目录（后端也是这么落的）。弹窗里新建的文件夹只活在
-     这一份草稿里 —— 真正的目录由后端写文件时 `create_dir_all` 落地，不必先建一遍。 */
-  const [dir, setDir] = useState(dirRoot ?? '')
-  const [extraDirs, setExtraDirs] = useState<string[]>([])
+  /* 存放位置：默认就是宿主目录（后端也是这么落的）。选出来的只有两种可能 ——
+     一个文件夹（新建）或一个已存在的 .md（绑定）。真正的目录由后端写文件时
+     `create_dir_all` 落地，不必先建一遍。 */
+  const [pick, setPick] = useState<DocPick | null>(() => {
+    const abs = dirRootPath && dirRoot ? `${dirRootPath.replace(/\/+$/, '')}/${dirRoot}` : ''
+    return abs ? { kind: 'dir', path: abs } : null
+  })
+  const [picking, setPicking] = useState(false)
   /** 哪一维正在"新建"（原型 `fmAdding`）：一次只允许一维在编辑 */
-  const [adding, setAdding] = useState<'module' | 'func' | 'dir' | null>(null)
+  const [adding, setAdding] = useState<'module' | 'func' | null>(null)
   const [draftNew, setDraftNew] = useState('')
 
-  /* 候选目录 = 宿主目录 + 它下面的子目录 + 这次新建的。
-     宿主目录可能还没落盘（第一篇文档），所以它不是"从盘上读来的"，必须自己补进第一位；
-     别的宿主的目录（另一个项目的文件夹）不列 —— 把这一篇存到别人家的目录里，只会让
-     "删项目 ⇒ 收掉它的目录"这件事变得说不清。 */
-  const dirChoices = useMemo(() => {
-    const under = (dirs ?? []).filter((d) => dirRoot && d.startsWith(`${dirRoot}/`))
-    return [...new Set([dirRoot ?? '', ...under, ...extraDirs].filter(Boolean))]
-  }, [dirRoot, dirs, extraDirs])
-  /** 胶囊上只写尾段：宿主目录本身没有可读的尾段（那是项目 id），就别写它 */
-  const dirLabel = (d: string) =>
-    !dirRoot ? d : d === dirRoot ? '默认目录' : d.startsWith(`${dirRoot}/`) ? d.slice(dirRoot.length + 1) : d
-  const dirFullPath = `${dirRootPath ?? 'documents'}${dir ? `/${dir}` : ''}`
   /* 只有本地正文有"存哪儿"这回事：其余来源的正文留在原工具里，本仓只有索引。
      `source` 为空 = 这一批文档一篇都没有、来源那排胶囊是空的 —— 这时落库本来也按
      `local_md` 兜底（见 `DocLibrary` 的 `sourceCodeOf`），所以照样让选目录。 */
   const needsDir =
     !editing && Boolean(dirRoot) && (source === '' || source === DOC_SOURCE_META.local_md)
 
+  const pickDirPath = pick?.kind === 'dir' ? pick.path : ''
+  const pickFilePath = pick?.kind === 'file' ? pick.path : ''
+
+  /* 文档根是异步查回来的：第一帧它还没到，默认落点补不上。
+     到了就补一次 —— 只在"还没选过"时补，不覆盖用户挑过的位置。 */
+  useEffect(() => {
+    if (pick || !dirRoot || !dirRootPath) return
+    setPick({ kind: 'dir', path: `${dirRootPath.replace(/\/+$/, '')}/${dirRoot}` })
+  }, [pick, dirRoot, dirRootPath])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      /* 选择器开着时 Esc 只收它自己 —— 否则一下把整张新建弹窗也带走，填了一半的表单没了 */
+      if (event.key === 'Escape' && !picking) onClose()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [onClose, picking])
 
   /** 一组胶囊。`canAdd` 只给"会长的那两维"（模块 / 功能）。 */
   const picks = (key: 'module' | 'func' | 'kind' | 'source', label: string, values: string[], value: string, onPick: (v: string) => void, canAdd = false) => (
@@ -1287,154 +1298,154 @@ function DocModal({
   )
 
   return (
-    <div
-      className="modal-mask open"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
-    >
-      <div className="modal wide" role="dialog" aria-modal="true" aria-label={heading}>
-        <div className="modal-head">
-          <div className="modal-titles">
-            <div className="modal-title">{heading}</div>
-            <div className="modal-subtitle">{projectName}</div>
-          </div>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="关闭">
-            ✕
-          </button>
-        </div>
-
-        <div className="modal-body">
-          {/* 删除态整块表单不渲染（原型是给那块加 hidden，这里按本仓口径用条件渲染：
-              `hidden` 属性一律别用）—— 破坏性动作的确认页只该说清"删的是哪一篇、会连带什么"。 */}
-          {del && doc ? (
-            <p className="doc-confirm">
-              删除后《{doc.name}》会从书墙上消失，它连出去的 {doc.links.length} 条关联、
-              以及引用它的 {doc.back.length} 篇的记录会一起失效。
-            </p>
-          ) : (
-            <>
-              <div className="fm-field">
-                <label className="fm-label" htmlFor="doc-name">
-                  文档名
-                </label>
-                <input
-                  id="doc-name"
-                  className="fm-input"
-                  value={name}
-                  autoFocus={!del}
-                  placeholder="例如：登录鉴权技术方案"
-                  autoComplete="off"
-                  onChange={(event) => setName(event.target.value)}
-                />
-              </div>
-
-              {picks('module', '模块', modules, module, (v) => {
-                setModule(v)
-                /* 模块换了 ⇒ 功能列表跟着换（功能只可能属于选中的那个模块），旧的选中项不再有效 */
-                setFunc((options.funcsOf[v] ?? [])[0] ?? '')
-              }, true)}
-
-              {picks('func', '功能', funcsOf[module] ?? [], func, setFunc, true)}
-
-              {picks('kind', '类型', DOC_KINDS as unknown as string[], kind, (v) => setKind(v as DocKind))}
-
-              {picks('source', '来源', options.sources, source, setSource)}
-
-              {/* 存放目录：正文是本地文件时才有得选。默认宿主目录，可以挑已有文件夹或现建一个 ——
-                  落点是 `file_path`，建完就固定（改名 / 换模块都不挪文件）。 */}
-              {needsDir ? (
-                <div className="fm-field">
-                  <span className="fm-label">存放目录</span>
-                  <div className="fm-picks">
-                    {dirChoices.map((d) => (
-                      <button
-                        key={d}
-                        type="button"
-                        className={cn('fm-chip', d === dir && 'active')}
-                        aria-pressed={d === dir}
-                        title={d}
-                        onClick={() => setDir(d)}
-                      >
-                        {dirLabel(d)}
-                      </button>
-                    ))}
-                    {adding === 'dir' ? (
-                      <input
-                        key="new-dir"
-                        className="fm-input fm-inline"
-                        autoFocus
-                        value={draftNew}
-                        placeholder="新文件夹名，回车确认"
-                        onChange={(event) => setDraftNew(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Enter') return
-                          /* 一层一个文件夹：名字里的 `/` 折成 `-`，要嵌套就再建一层 */
-                          const v = draftNew.trim().replace(/^\/+|\/+$/g, '').replace(/\//g, '-')
-                          if (!v) return
-                          const next = dir ? `${dir}/${v}` : v
-                          setExtraDirs((prev) => (prev.includes(next) ? prev : [...prev, next]))
-                          setDir(next)
-                          setDraftNew('')
-                          setAdding(null)
-                        }}
-                        onBlur={() => {
-                          setDraftNew('')
-                          setAdding(null)
-                        }}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="fm-chip is-add"
-                        onClick={() => {
-                          setAdding('dir')
-                          setDraftNew('')
-                        }}
-                      >
-                        ＋ 新建文件夹
-                      </button>
-                    )}
-                  </div>
-                  {/* 说清文件真落到哪 —— 挑目录时不看这一行，选完还是不知道存到哪儿了 */}
-                  <p className="fm-dir-path">{dirFullPath}/</p>
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
-
-        {/* 动作栏：删除态只有「取消 / 删除」；编辑态在左边多一颗「删除」（进阶到第三态）。
-            删除那颗只在指向它时变红（`.doc-del-btn`），常驻红字会把视线拽走。 */}
-        <div className="modal-actions">
-          {editing ? (
-            <button type="button" className="btn btn-ghost doc-del-btn" onClick={onDelete}>
-              删除
+    <>
+      <div
+        className="modal-mask open"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) onClose()
+        }}
+      >
+        <div className="modal wide" role="dialog" aria-modal="true" aria-label={heading}>
+          <div className="modal-head">
+            <div className="modal-titles">
+              <div className="modal-title">{heading}</div>
+              <div className="modal-subtitle">{projectName}</div>
+            </div>
+            <button type="button" className="modal-close" onClick={onClose} aria-label="关闭">
+              ✕
             </button>
-          ) : null}
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
-            取消
-          </button>
-          <button
-            type="button"
-            className={cn('btn', del ? 'doc-del-btn btn-ghost' : 'btn-primary')}
-            /* 名字是必填 —— 原型那颗 `#docModalCreate` 也是 `disabled` 起手 */
-            disabled={!del && !name.trim()}
-            onClick={() => {
-              if (del) {
-                if (onConfirmDelete) onConfirmDelete()
-                else notice('删除文档：还没有写接口')
-                return
-              }
-              if (onSubmit) onSubmit({ name: name.trim(), module, func, kind, source, dir: needsDir ? dir : undefined })
-              else notice('保存文档：还没有写接口')
-            }}
-          >
-            {mainLabel}
-          </button>
+          </div>
+
+          <div className="modal-body">
+            {/* 删除态整块表单不渲染（原型是给那块加 hidden，这里按本仓口径用条件渲染：
+                `hidden` 属性一律别用）—— 破坏性动作的确认页只该说清"删的是哪一篇、会连带什么"。 */}
+            {del && doc ? (
+              <p className="doc-confirm">
+                删除后《{doc.name}》会从书墙上消失，它连出去的 {doc.links.length} 条关联、
+                以及引用它的 {doc.back.length} 篇的记录会一起失效。
+              </p>
+            ) : (
+              <>
+                <div className="fm-field">
+                  <label className="fm-label" htmlFor="doc-name">
+                    文档名
+                  </label>
+                  <input
+                    id="doc-name"
+                    className="fm-input"
+                    value={name}
+                    autoFocus={!del}
+                    placeholder="例如：登录鉴权技术方案"
+                    autoComplete="off"
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </div>
+
+                {picks('module', '模块', modules, module, (v) => {
+                  setModule(v)
+                  /* 模块换了 ⇒ 功能列表跟着换（功能只可能属于选中的那个模块），旧的选中项不再有效 */
+                  setFunc((options.funcsOf[v] ?? [])[0] ?? '')
+                }, true)}
+
+                {picks('func', '功能', funcsOf[module] ?? [], func, setFunc, true)}
+
+                {picks('kind', '类型', DOC_KINDS as unknown as string[], kind, (v) => setKind(v as DocKind))}
+
+                {picks('source', '来源', options.sources, source, setSource)}
+
+                {/* 存放位置：正文是本地文件时才有得选。默认宿主目录；点「更改」进选择器，
+                    既能挑一个文件夹新建，也能绑定本机已有的 .md。建完就固定（改名 / 换模块都不挪）。 */}
+                {needsDir ? (
+                  <div className="fm-field">
+                    <span className="fm-label">存放位置</span>
+                    <div className="fm-path">
+                      <span className={cn('fm-path-value', !pick && 'is-empty')} title={pick?.path}>
+                        <Icon name={pickFilePath ? 'i-file' : 'i-link'} />
+                        <span className="fm-path-text">
+                          {pick ? shortPath(pick.path, dirRootPath) : '还没有选'}
+                        </span>
+                      </span>
+                      <button type="button" className="fm-path-btn" onClick={() => setPicking(true)}>
+                        更改…
+                      </button>
+                    </div>
+                    <p className="fm-path-hint">
+                      {pickFilePath
+                        ? `绑定本机文件 —— 保存后改的就是这个文件本身`
+                        : `新建 ${name.trim() || '未命名'}.md${pickDirPath ? `，落在 ${shortPath(pickDirPath, dirRootPath)}/` : ''}`}
+                    </p>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+
+          {/* 动作栏：删除态只有「取消 / 删除」；编辑态在左边多一颗「删除」（进阶到第三态）。
+              删除那颗只在指向它时变红（`.doc-del-btn`），常驻红字会把视线拽走。 */}
+          <div className="modal-actions">
+            {editing ? (
+              <button type="button" className="btn btn-ghost doc-del-btn" onClick={onDelete}>
+                删除
+              </button>
+            ) : null}
+            <button type="button" className="btn btn-ghost" onClick={onClose}>
+              取消
+            </button>
+            <button
+              type="button"
+              className={cn('btn', del ? 'doc-del-btn btn-ghost' : 'btn-primary')}
+              /* 名字是必填 —— 原型那颗 `#docModalCreate` 也是 `disabled` 起手 */
+              disabled={!del && !name.trim()}
+              onClick={() => {
+                if (del) {
+                  if (onConfirmDelete) onConfirmDelete()
+                  else notice('删除文档：还没有写接口')
+                  return
+                }
+                if (onSubmit)
+                  onSubmit({
+                    name: name.trim(),
+                    module,
+                    func,
+                    kind,
+                    source,
+                    dir: needsDir && pickDirPath ? pickDirPath : undefined,
+                    file: needsDir && pickFilePath ? pickFilePath : undefined,
+                  })
+                else notice('保存文档：还没有写接口')
+              }}
+            >
+              {mainLabel}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {picking ? (
+        <DocPathPicker
+          /* 已绑定文件时从它所在的那层起 —— 拿文件路径当目录打开只会报"不是文件夹" */
+          startPath={
+            pick
+              ? pick.kind === 'file'
+                ? pick.path.replace(/[/\\][^/\\]+$/, '')
+                : pick.path
+              : dirRootPath
+          }
+          docName={name.trim()}
+          root={dirRootPath}
+          onClose={() => setPicking(false)}
+          onPick={(picked) => {
+            setPick(picked)
+            setPicking(false)
+            /* 绑定已有文件 ⇒ 文档名跟着文件走，否则书墙上会出现"名字叫 A、打开是 B" */
+            if (picked.kind === 'file') {
+              const base = picked.path.split(/[/\\]/).pop() ?? ''
+              setName(base.replace(/\.(md|markdown)$/i, ''))
+            }
+          }}
+        />
+      ) : null}
+    </>
   )
 }
 
@@ -1498,6 +1509,7 @@ export function DocLibrary({
     kind: string
     source: string
     dir?: string
+    file?: string
   }) => {
     if (!owner) return
     const editing = docModal?.id ? docs.find((d) => d.id === docModal.id) : undefined
@@ -1512,8 +1524,10 @@ export function DocLibrary({
       kind: patch.kind,
       /* 编辑时不换来源：换了要挪正文文件，属于另建一份（后端也会拦） */
       source: editing ? sourceCodeOf(editing.source) : sourceCodeOf(patch.source),
-      /* 落点只在新建时定：建完就是文件的家，改名 / 换模块都不挪它 */
+      /* 落点只在新建时定：建完就是文件的家，改名 / 换模块都不挪它。
+         `file` 与 `dir` 互斥 —— 有 file 就是绑定本机已有文件，不另建。 */
       ...(docModal?.mode === 'create' && patch.dir ? { dir: patch.dir } : {}),
+      ...(docModal?.mode === 'create' && patch.file ? { file: patch.file } : {}),
     }
     if (docModal?.mode === 'create') {
       docMutations.create.mutate(input, {
@@ -1553,6 +1567,7 @@ export function DocLibrary({
     kind: string
     source: string
     dir?: string
+    file?: string
   }) => {
     submitDoc(patch)
     setDocModal(null)
@@ -2068,7 +2083,6 @@ export function DocLibrary({
           defaultModule={moduleKey}
           defaultFunc={funcKey}
           dirRoot={docDirRoot}
-          dirs={dirList.data?.dirs}
           dirRootPath={dirList.data?.root}
           onClose={() => setDocModal(null)}
           onDelete={() => setDocModal({ mode: 'delete', id: docModal.id })}

@@ -12,6 +12,7 @@ use rusqlite::Connection;
 
 use crate::server::db;
 use crate::server::error::{Error, Result};
+use crate::server::vault;
 
 /// 领域层对外的唯一入口。壳层拿到的是它，业务函数收 `&Store`，
 /// 不知道 SQLite 与文件系统长什么样。
@@ -26,6 +27,9 @@ pub struct Store {
 impl Store {
     pub fn open(db_path: impl AsRef<Path>, documents_root: impl AsRef<Path>) -> Result<Self> {
         let conn = db::open(db_path.as_ref())?;
+        /* 凭据密钥就在这里定下来：建不出来要当场失败，
+           别等到用户保存密码时才报错（那时事务已经想写了）。 */
+        vault::init(db_path.as_ref())?;
         Ok(Self {
             conn: Mutex::new(conn),
             db_path: db_path.as_ref().to_path_buf(),

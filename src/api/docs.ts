@@ -151,8 +151,10 @@ export interface DocInput {
   func?: string
   kind: string
   source: string
-  /** 新建时的存放目录（相对文档根，如 `project/pj-xxx/技术方案`）。只在 create 时生效。 */
+  /** 新建时的存放目录（相对文档根，或选择器里挑的绝对路径）。只在 create 时生效。 */
   dir?: string
+  /** 绑定本机已有的 Markdown（绝对路径）。给了就不另建文件，正文直接读它。 */
+  file?: string
   version?: string
   summary?: string
   content?: string | null
@@ -173,6 +175,36 @@ export interface DocDirList {
  */
 export function fetchDocDirs(): Promise<DocDirList> {
   return call(() => invoke<DocDirList>('doc_dirs'))
+}
+
+/** 选择器里的一行：文件夹，或可绑定的 `.md`。 */
+export interface DocBrowseEntry {
+  name: string
+  /** 绝对路径 */
+  path: string
+  isDir: boolean
+  size: number
+  /** 毫秒时间戳；0 = 读不到 */
+  modified: number
+  /** 文件夹里的项数 */
+  items: number
+}
+
+/** 一次浏览的结果。`home` / `root` 是选择器上那两个常用入口。 */
+export interface DocBrowseResult {
+  path: string
+  parent: string | null
+  home: string
+  root: string
+  entries: DocBrowseEntry[]
+}
+
+/**
+ * 浏览本机目录。`path` 为空 ⇒ 从文档根开始；既是"挑文件夹"，也是"挑一个已有 .md 绑定"。
+ * 只在桌面壳里有这个命令 —— 浏览器预览里会明确报错。
+ */
+export function fetchDocBrowse(path?: string | null): Promise<DocBrowseResult> {
+  return call(() => invoke<DocBrowseResult>('doc_browse', { path: path ?? null }))
 }
 
 /** 新建文档索引。`source='local_md'` 时后端会先落一份（可为空的）正文文件再登记。 */

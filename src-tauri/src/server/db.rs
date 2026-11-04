@@ -93,6 +93,20 @@ const MIGRATIONS: &[(i64, &str)] = &[
             "/../design/sql-design/work-design/0012_learning.sql"
         )),
     ),
+    (
+        13,
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../design/sql-design/srv-design/0013_srv_secret.sql"
+        )),
+    ),
+    (
+        14,
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../design/sql-design/srv-design/0014_srv_term.sql"
+        )),
+    ),
 ];
 
 /// 打开（或新建）一个数据库文件，把外键打开、跑到最新版本。
@@ -124,6 +138,9 @@ const REQUIRED: &[(&str, &str)] = &[
     ("doc", "owner_kind"),
     ("doc", "file_path"),
     ("srv_server", "cred_ref"),
+    ("srv_server", "secret"),
+    ("srv_term_session", "status"),
+    ("srv_term_command", "exit_code"),
 ];
 
 fn check_shape(conn: &Connection) -> Result<()> {

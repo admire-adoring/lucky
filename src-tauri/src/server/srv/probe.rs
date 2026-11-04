@@ -4,7 +4,7 @@
 //! 1. **用系统 `ssh`，不用 ssh2/openssh crate** —— macOS 与 Linux 都自带客户端，
 //!    零额外编译依赖；进程调用也天然隔离（连接挂起不会拖死应用）。
 //! 2. **非交互**：密钥档 `BatchMode=yes`，不对就立刻失败，不会挂起等人输密码；
-//!    密码档走 `SSH_ASKPASS`（见 `draft.rs`）—— 密码从钥匙串里取，不进 argv。
+//!    密码档走 `SSH_ASKPASS`（见 `draft.rs`）—— 密码从 `srv_server.secret` 解密取，不进 argv。
 //!    两条入口共用 `draft::login`，不存在"表单能连、台账连不上"。
 //! 3. `StrictHostKeyChecking=accept-new`：首次连接自动接受新指纹。
 //!    known_hosts 里**已有**的机器如果指纹变了仍然拒绝（中间人检测保留）。
@@ -16,6 +16,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use crate::server::error::{Error, Result};
 
 use super::draft::{self, LoginProbeInput, StepState};
+use super::repo;
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,9 +64,23 @@ pub(super) fn split_facts(stdout: &str) -> Facts {
 }
 
 /// SSH 的 stderr → 一句能照着动手的话。`target` 是主机（不带端口）。
-pub(super) fn ssh_failure(stderr: &str, target: &str, port: u16) -> String {
+///
+/// `kind` 是这次用的认证方式（`key` / `pwd`）：`Permission denied` 在密码档下
+/// 说的是"密码不对或机器不让密码登录"，跟公钥没关系 —— 同一句话会把用户
+/// 引到 `authorized_keys` 上白找一遍。
+pub(super) fn ssh_failure(stderr: &str, target: &str, port: u16, kind: &str) -> String {
     if stderr.contains("Permission denied") {
-        "密钥被拒绝 —— 确认本机公钥已在目标机器的 authorized_keys 里".to_string()
+        if kind == "pwd" {
+            if stderr.contains("password") {
+                "密码被拒绝 —— 密码不对，或这台机器不允许该账户用密码登录（sshd 的 PasswordAuthentication / PermitRootLogin）"
+                    .to_string()
+            } else {
+                "密码没被接受 —— 目标机只接受密钥登录（sshd 的 PasswordAuthentication no）"
+                    .to_string()
+            }
+        } else {
+            "密钥被拒绝 —— 确认本机公钥已在目标机器的 authorized_keys 里".to_string()
+        }
     } else if stderr.contains("Connection timed out") || stderr.contains("Connection refused") {
         format!("连不上 {target}:{port} —— 机器关着、端口没开，或者 IP 不对")
     } else if stderr.contains("Could not resolve hostname") {
@@ -100,13 +115,13 @@ pub(super) fn validate_part(what: &str, value: &str) -> Result<()> {
 
 /// 按 host 读库里的连接参数 → 跑 SSH → 解析 → 把规格写回表。
 ///
-/// 凭据（密码 / 私钥路径）不在库里，按 `cred_ref` 去钥匙串取 —— 走的是与表单
-/// 「检查连接」同一条 `draft::login`，两台入口不会出现"一处能连一处连不上"。
-/// 提权那一步这里不做：台账的「测试连接」只回答"通不通"。
+/// 凭据（密码 / 私钥路径）与本域其他字段一起在 `srv_server.secret`，加密存 ——
+/// 走的是与表单「检查连接」同一条 `draft::login`，两处入口不会出现
+/// "一处能连一处连不上"。提权那一步这里不做：台账的「测试连接」只回答"通不通"。
 pub fn probe(conn: &Connection, host: &str) -> Result<ProbeOutcome> {
     let row = conn
         .query_row(
-            "SELECT ip, ssh_port, login_user, auth_code, cred_ref FROM srv_server WHERE host = ?1",
+            "SELECT ip, ssh_port, login_user, auth_code FROM srv_server WHERE host = ?1",
             [host],
             |row| {
                 Ok((
@@ -114,25 +129,34 @@ pub fn probe(conn: &Connection, host: &str) -> Result<ProbeOutcome> {
                     row.get::<_, i64>(1)?,
                     row.get::<_, String>(2)?,
                     row.get::<_, String>(3)?,
-                    row.get::<_, Option<String>>(4)?,
                 ))
             },
         )
         .optional()?
         .ok_or_else(|| Error::NotFound(format!("机器 {host}")))?;
-    let (ip, port, user, auth_code, cred_ref) = row;
+    let (ip, port, user, auth_code) = row;
 
-    let input = LoginProbeInput {
+    let mut input = LoginProbeInput {
         host: ip.clone(),
         port: port as u16,
         login_user: user.clone(),
         auth_code,
         key_path: None,
         password: None,
-        cred_ref,
+        saved_host: Some(host.to_string()),
         esc_mode: "none".to_string(),
         esc_user: None,
     };
+
+    /* 凭据按 auth_code 填进对应那一格：密钥档是私钥路径，密码档是密码 */
+    if let Some(saved) = repo::secret(conn, host)? {
+        if input.auth_code == "pwd" {
+            input.password = Some(saved);
+        } else {
+            input.key_path = Some(saved);
+        }
+    }
+
     let outcome = draft::login(&input)?;
 
     if outcome.auth.state != StepState::Ok {

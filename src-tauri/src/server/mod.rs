@@ -14,12 +14,14 @@ pub mod error;
 pub mod knowledge;
 pub mod learning;
 pub mod life;
+pub mod localfs;
 pub mod project;
 pub mod setting;
 pub mod srv;
 pub mod store;
 pub mod task;
 pub mod user;
+pub mod vault;
 pub mod work;
 
 mod id;

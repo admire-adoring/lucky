@@ -105,6 +105,30 @@ pub fn get(conn: &Connection, id: &str) -> Result<Document> {
 
 /// 新建。`local_md` 的先落文件、再登记索引 —— 文件成功才进库；
 /// 库插失败最多留一个孤儿文件（能收回来），比"索引指向不存在的文件"轻。
+fn bound_file(conn: &Connection, input: &DocumentInput) -> Result<Option<String>> {
+    let Some(raw) = input.file.as_deref().map(str::trim).filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    let path = std::path::Path::new(raw);
+    if !path.is_absolute() {
+        return Err(Error::Invalid("绑定本机文件要给绝对路径".into()));
+    }
+    let lower = raw.to_lowercase();
+    if !(lower.ends_with(".md") || lower.ends_with(".markdown")) {
+        return Err(Error::Invalid("只能绑定 Markdown 文件".into()));
+    }
+    if !path.is_file() {
+        return Err(Error::NotFound(format!("文件 {raw}")));
+    }
+    let taken: Option<String> = conn
+        .query_row("SELECT id FROM doc WHERE file_path = ?1", [raw], |row| row.get(0))
+        .optional()?;
+    if taken.is_some() {
+        return Err(Error::Invalid(format!("这个文件已经挂在别的文档下：{raw}")));
+    }
+    Ok(Some(raw.to_string()))
+}
+
 pub fn create(store: &Store, input: &DocumentInput) -> Result<Document> {
     validate(input)?;
     let root = store.documents_root();
@@ -113,22 +137,30 @@ pub fn create(store: &Store, input: &DocumentInput) -> Result<Document> {
     }
 
     let id = new_id("dc");
+    let conn = store.conn()?;
     let mut file_path: Option<String> = None;
     let mut hash: Option<String> = None;
     if input.source == "local_md" {
-        let content = input.content.clone().unwrap_or_default();
-        /* 落点：给了 `dir` 就落在那个目录里（同宿主下再分子目录），没给就按宿主分目录 */
-        let dir = match input.dir.as_deref() {
-            Some(raw) if !raw.trim().is_empty() => file::normalize_dir(raw)?,
-            _ => format!("{}/{}", input.owner_kind, input.owner_id),
-        };
-        let rel = file::unique_path_in(root, &dir, &input.name);
-        file::write(root, &rel, &content)?;
-        hash = Some(file::content_hash(&content));
-        file_path = Some(rel);
+        if let Some(abs) = bound_file(&conn, input)? {
+            /* 绑定本机已有的文件：正文就是它，不另建、不覆盖 */
+            let content = file::read(root, &abs)?;
+            hash = Some(file::content_hash(&content));
+            file_path = Some(abs);
+        } else {
+            let content = input.content.clone().unwrap_or_default();
+            /* 落点：给了 `dir` 就落在那个目录里（可以相对文档根，也可以是选择器里挑的绝对路径），
+               没给就按宿主分目录 */
+            let dir = match input.dir.as_deref() {
+                Some(raw) if !raw.trim().is_empty() => raw.to_string(),
+                _ => format!("{}/{}", input.owner_kind, input.owner_id),
+            };
+            let dest = file::dest_for(root, &dir, &input.name)?;
+            file::write(root, &dest, &content)?;
+            hash = Some(file::content_hash(&content));
+            file_path = Some(dest);
+        }
     }
 
-    let conn = store.conn()?;
     let tx = conn.unchecked_transaction()?;
     tx.execute(
         &format!(
@@ -444,6 +476,7 @@ mod tests {
             kind: "plan".into(),
             source: "local_md".into(),
             dir: dir.map(str::to_string),
+            file: None,
             version: String::new(),
             summary: String::new(),
             links: Vec::new(),
@@ -471,10 +504,127 @@ mod tests {
     }
 
     #[test]
-    fn create_rejects_dir_outside_root() {
+    fn create_rejects_escaping_dir() {
         let (store, base) = temp_store("escape");
         assert!(create(&store, &input(Some("../外面"))).is_err());
-        assert!(create(&store, &input(Some("/tmp/外面"))).is_err());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn create_can_land_outside_root() {
+        let (store, base) = temp_store("outside");
+        let out = base.join("仓库文档");
+        fs::create_dir_all(&out).unwrap();
+        let doc = create(&store, &input(Some(out.to_str().unwrap()))).unwrap();
+        let expected = out.join("登录-鉴权.md");
+        assert_eq!(doc.file_path.as_deref(), Some(expected.to_str().unwrap()));
+        assert!(expected.exists());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn create_binds_existing_file_without_copying() {
+        let (store, base) = temp_store("bind");
+        let src = base.join("readme.md");
+        fs::write(&src, "# 原来的正文").unwrap();
+
+        let mut bound = input(None);
+        bound.file = Some(src.to_str().unwrap().to_string());
+        let doc = create(&store, &bound).unwrap();
+        assert_eq!(doc.file_path.as_deref(), Some(src.to_str().unwrap()));
+        /* 不搬、不复制：文档根里不该多出同一份 */
+        assert!(!base.join("documents/project/pj-1/登录-鉴权.md").exists());
+
+        /* 同一份文件不能挂两篇 */
+        let again = create(&store, &bound);
+        assert!(again.is_err());
+
+        /* 绑定 = 改的就是原文件 */
+        write(&store, &doc.id, "# 改过", None).unwrap();
+        assert_eq!(fs::read_to_string(&src).unwrap(), "# 改过");
+
+        /* 删文档只解绑，原文件留着 */
+        delete(&store, &doc.id).unwrap();
+        assert!(src.exists(), "绑定的文件不属于应用，删文档不能把它带走");
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn bind_rejects_missing_or_non_markdown() {
+        let (store, base) = temp_store("bind-bad");
+        let jar = base.join("pay.jar");
+        fs::write(&jar, "x").unwrap();
+        let mut bad = input(None);
+        bad.file = Some(jar.to_str().unwrap().to_string());
+        assert!(create(&store, &bad).is_err(), "非 Markdown 不收");
+
+        let mut missing = input(None);
+        missing.file = Some(base.join("没有这个.md").to_str().unwrap().to_string());
+        assert!(create(&store, &missing).is_err());
+
+        let mut relative = input(None);
+        relative.file = Some("readme.md".into());
+        assert!(create(&store, &relative).is_err(), "绑定必须是绝对路径");
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn deploy_doc_lands_under_the_machine_and_lists_by_project() {
+        let (store, base) = temp_store("deploy");
+
+        /* doc.project_id 有外键 —— 先立一个项目，模拟"库里真有这个项目" */
+        {
+            let conn = store.conn().unwrap();
+            conn.execute(
+                "INSERT INTO project (id, owner_id, scope, name, status, priority, start_date,
+                                      due_date, visibility, created_at, updated_at)
+                 VALUES ('pj-1', 'me', 'work', '智慧供应链', 'active', 'high',
+                         '2026-01-01', '2026-12-31', 'work_internal', '2026-01-01', '2026-01-01')",
+                [],
+            )
+            .unwrap();
+        }
+
+        /* 「新建部署文档」那一档的入参：宿主是机器、宿主类型 server、kind 三选一 */
+        let mut deploy = input(None);
+        deploy.owner_kind = "server".into();
+        deploy.owner_id = "CSCM内网".into();
+        deploy.project_id = Some("pj-1".into());
+        deploy.kind = "manual".into();
+        deploy.name = "发版流程".into();
+        deploy.content = Some("# 发版流程\n\n## 步骤\n\n1. \n".into());
+
+        let doc = create(&store, &deploy).unwrap();
+        assert_eq!(doc.file_path.as_deref(), Some("server/CSCM内网/发版流程.md"));
+        assert!(base.join("documents/server/CSCM内网/发版流程.md").exists());
+
+        /* 书架按项目查：`doc_list(ownerKind='server', projectId)` 要能看见它 */
+        let conn = store.conn().unwrap();
+        let rows = list(&conn, Some("server"), None, Some("pj-1"), None).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, doc.id);
+        drop(conn);
+
+        /* 建完直接进编辑面 —— 正文读得回来，改得动 */
+        let content = read(&store, &doc.id).unwrap();
+        assert!(content.content.contains("## 步骤"));
+        write(&store, &doc.id, "# 发版流程\n\n## 步骤\n\n1. 停流量\n", None).unwrap();
+        assert_eq!(
+            fs::read_to_string(base.join("documents/server/CSCM内网/发版流程.md")).unwrap(),
+            "# 发版流程\n\n## 步骤\n\n1. 停流量\n"
+        );
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn deploy_doc_rejects_a_project_kind() {
+        let (store, base) = temp_store("deploy-kind");
+        let mut bad = input(None);
+        bad.owner_kind = "server".into();
+        bad.owner_id = "web-01".into();
+        bad.kind = "plan".into();
+        assert!(create(&store, &bad).is_err(), "机器上只收手册 / 流程 / 脚本");
         let _ = fs::remove_dir_all(&base);
     }
 }

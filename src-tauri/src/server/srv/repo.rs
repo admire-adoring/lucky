@@ -10,9 +10,11 @@ use crate::server::srv::model::{
 };
 
 use super::cred;
+use crate::server::vault;
 
 const COLS: &str = "id, host, ip, ssh_port, os, cores, mem_gb, disk_gb, role_code, env_code, \
-                    login_user, auth_code, esc_mode, esc_user, cred_ref, note, sort_order, \
+                    login_user, auth_code, esc_mode, esc_user, cred_ref, \
+                    (secret IS NOT NULL) AS has_secret, note, sort_order, \
                     removed_at, created_at, updated_at";
 
 fn row_to_server(row: &Row<'_>) -> rusqlite::Result<Server> {
@@ -32,11 +34,12 @@ fn row_to_server(row: &Row<'_>) -> rusqlite::Result<Server> {
         esc_mode: row.get(12)?,
         esc_user: row.get(13)?,
         cred_ref: row.get(14)?,
-        note: row.get(15)?,
-        sort_order: row.get(16)?,
-        removed_at: row.get(17)?,
-        created_at: row.get(18)?,
-        updated_at: row.get(19)?,
+        has_secret: row.get(15)?,
+        note: row.get(16)?,
+        sort_order: row.get(17)?,
+        removed_at: row.get(18)?,
+        created_at: row.get(19)?,
+        updated_at: row.get(20)?,
         projects: Vec::new(),
         ports: Vec::new(),
         tags: Vec::new(),
@@ -69,6 +72,69 @@ pub fn get(conn: &Connection, host: &str) -> Result<Server> {
     Ok(server)
 }
 
+/// 终端连接要的参数。凭据正文不在这里 —— 它由 `secret` 单独解密，
+/// 只有真正要发起连接的那一次才取。
+pub struct ConnParams {
+    pub id: String,
+    pub host: String,
+    pub ip: String,
+    pub port: u16,
+    pub user: String,
+    pub auth_code: String,
+    pub esc_mode: String,
+    pub esc_user: String,
+}
+
+/// 按业务键取连接参数。台账的其余字段（角色 / 端口列表 / 文件位置）终端用不上。
+pub fn conn_params(conn: &Connection, host: &str) -> Result<ConnParams> {
+    conn.query_row(
+        "SELECT id, host, ip, ssh_port, login_user, auth_code, esc_mode, esc_user
+         FROM srv_server WHERE host = ?1",
+        [host],
+        |row| {
+            Ok(ConnParams {
+                id: row.get(0)?,
+                host: row.get(1)?,
+                ip: row.get(2)?,
+                port: row.get::<_, i64>(3)? as u16,
+                user: row.get(4)?,
+                auth_code: row.get(5)?,
+                esc_mode: row.get(6)?,
+                esc_user: row.get(7)?,
+            })
+        },
+    )
+    .optional()?
+    .ok_or_else(|| Error::NotFound(format!("机器 {host}")))
+}
+
+/// 只改凭据正文。终端页认不通时就地重填用 —— 不必绕回台账的编辑页。
+/// 与 `create` / `update` 同一条加密路径：落库的是密文，空串 = 清掉。
+pub fn set_secret(conn: &Connection, host: &str, secret: &str) -> Result<()> {
+    let sealed = if secret.is_empty() { None } else { Some(vault::seal(secret)?) };
+    let changed = conn.execute(
+        "UPDATE srv_server SET secret = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ','now')
+         WHERE host = ?1",
+        params![host, sealed],
+    )?;
+    if changed == 0 {
+        return Err(Error::NotFound(format!("机器 {host}")));
+    }
+    Ok(())
+}
+
+/// 解密后的凭据正文（私钥路径 / 密码）。编辑页回填与探测共用这一处。
+pub fn secret(conn: &Connection, host: &str) -> Result<Option<String>> {
+    let stored: Option<String> = conn
+        .query_row("SELECT secret FROM srv_server WHERE host = ?1", [host], |row| row.get(0))
+        .optional()?
+        .flatten();
+    match stored {
+        Some(value) if !value.is_empty() => vault::open(&value).map(Some),
+        _ => Ok(None),
+    }
+}
+
 /// 新增。项目 / 端口 / 标签 / 文件位置一次写齐。
 ///
 /// 同名行分两种：在册的挡路（Conflict）；已移除的复活它 —— `removed_at` 那次移除
@@ -76,23 +142,27 @@ pub fn get(conn: &Connection, host: &str) -> Result<Server> {
 /// 承诺（移除确认框里写的）就断了。
 pub fn create(conn: &mut Connection, input: &ServerInput) -> Result<Server> {
     validate(input)?;
-    let existing: Option<(String, Option<String>)> = conn
+    let existing: Option<(String, Option<String>, Option<String>, String)> = conn
         .query_row(
-            "SELECT id, removed_at FROM srv_server WHERE host = ?1",
+            "SELECT id, removed_at, secret, auth_code FROM srv_server WHERE host = ?1",
             [&input.host],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
         .optional()?;
-    let (id, reviving) = match existing {
+    let (id, reviving, saved) = match existing {
         // 在册的同名行挡路；已移除的把 id 拿回来复活
-        Some((_, None)) => return Err(Error::Conflict(format!("机器名已存在：{}", input.host))),
-        Some((id, Some(_))) => (id, true),
-        None => (new_id("srv"), false),
+        Some((_, None, _, _)) => {
+            return Err(Error::Conflict(format!("机器名已存在：{}", input.host)))
+        }
+        Some((id, Some(_), secret, auth)) => (id, true, Some((secret, auth))),
+        None => (new_id("srv"), false, None),
     };
 
-    /* 凭据先于库写：钥匙串失败时不要留下一行"看起来有密码"的记录。
-       id 因此必须在事务之前定下来（复活时用回原来那个）。 */
-    let cred_ref = cred::apply(&id, &input.auth_code, input.secret.as_deref(), input.cred_ref.as_deref())?;
+    /* 复活的行若换了认证方式，旧凭据对不上新的连接方式，丢掉 */
+    let current = saved
+        .and_then(|(secret, auth)| (auth == input.auth_code).then_some(secret))
+        .flatten();
+    let secret = next_secret(input, current)?;
 
     let tx = conn.transaction()?;
     if reviving {
@@ -100,7 +170,7 @@ pub fn create(conn: &mut Connection, input: &ServerInput) -> Result<Server> {
             "UPDATE srv_server SET
                host = ?2, ip = ?3, ssh_port = ?4, os = ?5, cores = ?6, mem_gb = ?7, disk_gb = ?8,
                role_code = ?9, env_code = ?10, login_user = ?11, auth_code = ?12, esc_mode = ?13,
-               esc_user = ?14, cred_ref = ?15, note = ?16,
+               esc_user = ?14, secret = ?15, note = ?16,
                removed_at = NULL,
                updated_at = strftime('%Y-%m-%dT%H:%M:%SZ','now')
              WHERE id = ?1",
@@ -119,7 +189,7 @@ pub fn create(conn: &mut Connection, input: &ServerInput) -> Result<Server> {
                 input.auth_code,
                 input.esc_mode,
                 input.esc_user,
-                cred_ref,
+                secret,
                 input.note,
             ],
         )?;
@@ -127,9 +197,9 @@ pub fn create(conn: &mut Connection, input: &ServerInput) -> Result<Server> {
         tx.execute(
             "INSERT INTO srv_server
                (id, host, ip, ssh_port, os, cores, mem_gb, disk_gb, role_code, env_code,
-                login_user, auth_code, esc_mode, esc_user, cred_ref, note, sort_order,
+                login_user, auth_code, esc_mode, esc_user, cred_ref, secret, note, sort_order,
                 removed_at, created_at, updated_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,NULL,?15,?16,?17,
                      NULL, strftime('%Y-%m-%dT%H:%M:%SZ','now'), strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
             params![
                 id,
@@ -146,7 +216,7 @@ pub fn create(conn: &mut Connection, input: &ServerInput) -> Result<Server> {
                 input.auth_code,
                 input.esc_mode,
                 input.esc_user,
-                cred_ref,
+                secret,
                 input.note,
                 0i64,
             ],
@@ -161,8 +231,12 @@ pub fn create(conn: &mut Connection, input: &ServerInput) -> Result<Server> {
 /// `input.host` 可以是新名字。
 pub fn update(conn: &mut Connection, host: &str, input: &ServerInput) -> Result<Server> {
     validate(input)?;
-    let id: String = conn
-        .query_row("SELECT id FROM srv_server WHERE host = ?1", [host], |row| row.get(0))
+    let (id, saved_secret, saved_auth): (String, Option<String>, String) = conn
+        .query_row(
+            "SELECT id, secret, auth_code FROM srv_server WHERE host = ?1",
+            [host],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
         .optional()?
         .ok_or_else(|| Error::NotFound(format!("机器 {host}")))?;
 
@@ -175,15 +249,16 @@ pub fn update(conn: &mut Connection, host: &str, input: &ServerInput) -> Result<
         return Err(Error::Conflict(format!("机器名已存在：{}", input.host)));
     }
 
-    /* 与 create 同序：凭据先于库写 */
-    let cred_ref = cred::apply(&id, &input.auth_code, input.secret.as_deref(), input.cred_ref.as_deref())?;
+    /* 改了认证方式、又没填新凭据：旧那份是另一种认证用的，留着只会误导 */
+    let current = (saved_auth == input.auth_code).then_some(saved_secret).flatten();
+    let secret = next_secret(input, current)?;
 
     let tx = conn.transaction()?;
     tx.execute(
         "UPDATE srv_server SET
            host = ?2, ip = ?3, ssh_port = ?4, os = ?5, cores = ?6, mem_gb = ?7, disk_gb = ?8,
            role_code = ?9, env_code = ?10, login_user = ?11, auth_code = ?12, esc_mode = ?13,
-           esc_user = ?14, cred_ref = ?15, note = ?16,
+           esc_user = ?14, secret = ?15, note = ?16,
            updated_at = strftime('%Y-%m-%dT%H:%M:%SZ','now')
          WHERE id = ?1",
         params![
@@ -201,13 +276,30 @@ pub fn update(conn: &mut Connection, host: &str, input: &ServerInput) -> Result<
             input.auth_code,
             input.esc_mode,
             input.esc_user,
-            cred_ref,
+            secret,
             input.note,
         ],
     )?;
     write_children(&tx, &id, input)?;
     tx.commit()?;
     get(conn, &input.host)
+}
+
+/// 凭据列的三种写法。
+///
+/// - `None`（前端没给）：沿用库里那份，编辑时"不改密码"就是这一档
+/// - 空串：清掉（列写 NULL）
+/// - 有值：加密后写进去
+///
+/// 加密在这里做而不是在门面：`repo` 是唯一写这张表的地方，
+/// 漏一处就等于留一列明文。
+fn next_secret(input: &ServerInput, current: Option<String>) -> Result<Option<String>> {
+    match input.secret.as_deref() {
+        None => Ok(current),
+        Some("") => Ok(None),
+        Some(value) if value.trim().is_empty() => Ok(None),
+        Some(value) => vault::seal(value.trim()).map(Some),
+    }
 }
 
 /// 从台账收走（软删）。机器本身、上面的应用与数据都不受影响。
@@ -226,7 +318,8 @@ pub fn remove(conn: &Connection, host: &str) -> Result<()> {
 }
 
 /// 彻底删除（连带子表按外键级联）。给"这台机器填错了"用，日常的移除是 `remove`。
-/// 钥匙串里的凭据跟着走 —— 行没了，那份密码再没有入口。
+/// 凭据在同一行（`secret` 列），行没了它就没了；`cred::clear` 清的是早期版本
+/// 留在钥匙串里的那份，升级后第一次删机器时顺手带走。
 pub fn delete(conn: &Connection, host: &str) -> Result<()> {
     let id: Option<String> = conn
         .query_row("SELECT id FROM srv_server WHERE host = ?1", [host], |row| row.get(0))
@@ -555,4 +648,94 @@ fn validate(input: &ServerInput) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::store::Store;
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn temp_store(tag: &str) -> (Store, PathBuf) {
+        let base = std::env::temp_dir().join(format!("lucky-srv-repo-{tag}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let store = Store::open(base.join("test.db"), base.join("documents")).unwrap();
+        (store, base)
+    }
+
+    fn input(secret: Option<&str>) -> ServerInput {
+        ServerInput {
+            host: "prod-web-01".into(),
+            ip: "10.0.0.11".into(),
+            ssh_port: 22,
+            os: String::new(),
+            cores: None,
+            mem_gb: None,
+            disk_gb: None,
+            role_code: "web".into(),
+            env_code: "prod".into(),
+            login_user: "root".into(),
+            auth_code: "pwd".into(),
+            esc_mode: "none".into(),
+            esc_user: String::new(),
+            cred_ref: None,
+            secret: secret.map(str::to_string),
+            note: String::new(),
+            project_ids: Vec::new(),
+            ports: Vec::new(),
+            tags: Vec::new(),
+            path_groups: Vec::new(),
+            paths: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn secret_is_encrypted_at_rest_and_reads_back() {
+        let (store, base) = temp_store("secret");
+        let mut conn = store.conn().unwrap();
+
+        let saved = create(&mut conn, &input(Some("p@ss word"))).unwrap();
+        assert!(saved.has_secret, "写进去了就该报 true");
+        assert_eq!(secret(&conn, "prod-web-01").unwrap().as_deref(), Some("p@ss word"));
+
+        /* 库里那一列不能是明文 —— 这是"存库"和"存明文"的区别 */
+        let raw: String = conn
+            .query_row("SELECT secret FROM srv_server WHERE host = ?1", ["prod-web-01"], |row| row.get(0))
+            .unwrap();
+        assert!(raw.starts_with("v1:"), "落库的该是密文，实际：{raw}");
+        assert!(!raw.contains("p@ss"));
+
+        /* 只改备注、不给 secret：原来那份要留着 */
+        let mut keep = input(None);
+        keep.note = "换了个说明".into();
+        update(&mut conn, "prod-web-01", &keep).unwrap();
+        assert_eq!(secret(&conn, "prod-web-01").unwrap().as_deref(), Some("p@ss word"));
+
+        /* 切成密钥认证：旧的密码对不上新的连接方式，该清掉 */
+        let mut switched = input(None);
+        switched.auth_code = "key".into();
+        let after = update(&mut conn, "prod-web-01", &switched).unwrap();
+        assert!(!after.has_secret);
+        assert_eq!(secret(&conn, "prod-web-01").unwrap(), None);
+
+        drop(conn);
+        let _ = fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn empty_secret_clears_the_column() {
+        let (store, base) = temp_store("clear");
+        let mut conn = store.conn().unwrap();
+
+        create(&mut conn, &input(Some("~/.ssh/id_ed25519"))).unwrap();
+        assert_eq!(secret(&conn, "prod-web-01").unwrap().as_deref(), Some("~/.ssh/id_ed25519"));
+
+        update(&mut conn, "prod-web-01", &input(Some(""))).unwrap();
+        assert_eq!(secret(&conn, "prod-web-01").unwrap(), None);
+
+        drop(conn);
+        let _ = fs::remove_dir_all(base);
+    }
 }

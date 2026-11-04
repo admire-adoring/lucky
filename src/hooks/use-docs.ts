@@ -4,6 +4,7 @@ import {
   deleteDoc,
   docKeys,
   fetchDeployDocs,
+  fetchDocBrowse,
   fetchDocContent,
   fetchDocDirs,
   fetchDocs,
@@ -79,6 +80,20 @@ export function useDocDirs(enabled: boolean) {
     queryFn: () => fetchDocDirs(),
     enabled,
     staleTime: 30 * 1000,
+    retry: false,
+  })
+}
+
+/**
+ * 浏览本机目录（新建文档时挑存放位置 / 绑定已有文件）。
+ * `path` 为空从文档根开始；`enabled` 关掉时连请求都不发。
+ */
+export function useDocBrowse(path: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: [...docKeys.all, 'browse', path ?? ''],
+    queryFn: () => fetchDocBrowse(path),
+    enabled,
+    staleTime: 10 * 1000,
     retry: false,
   })
 }

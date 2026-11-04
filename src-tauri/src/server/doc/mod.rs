@@ -14,7 +14,9 @@ mod repo;
 
 // 全量导出是这一层的公共面（`Document.links` 的元素类型也在其中）；命令层只消费一部分。
 #[allow(unused_imports)]
-pub use model::{DocContent, DocDirs, DocLinkInput, Document, DocumentInput, DocumentLink};
+pub use model::{
+    BrowseEntry, DirListing, DocContent, DocDirs, DocLinkInput, Document, DocumentInput, DocumentLink,
+};
 
 use crate::server::error::Result;
 use crate::server::store::Store;
@@ -50,6 +52,31 @@ pub fn dirs(store: &Store) -> DocDirs {
         root: root.display().to_string(),
         dirs: file::list_dirs(root),
     }
+}
+
+/// 浏览本机目录：新建文档时挑文件夹，或直接绑定本机已有的 `.md`。
+/// `path` 为空 ⇒ 从文档根开始。
+pub fn browse(store: &Store, path: Option<&str>) -> Result<DirListing> {
+    let root = store.documents_root();
+    let listing = file::browse(root, path)?;
+    Ok(DirListing {
+        path: listing.path,
+        parent: listing.parent,
+        home: listing.home,
+        root: listing.root,
+        entries: listing
+            .entries
+            .into_iter()
+            .map(|e| BrowseEntry {
+                name: e.name,
+                path: e.path,
+                is_dir: e.is_dir,
+                size: e.size,
+                modified: e.modified,
+                items: e.items,
+            })
+            .collect(),
+    })
 }
 
 /// 编辑索引；带 `content` 时连正文一起写（一次提交改两半）。不能换宿主。

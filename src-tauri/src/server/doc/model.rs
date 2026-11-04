@@ -78,6 +78,9 @@ pub struct DocumentInput {
     pub source: String,
     #[serde(default)]
     pub dir: Option<String>,
+    /// 绑定本机已有的 Markdown（绝对路径）。给了就不另建文件，正文直接读那个文件。
+    #[serde(default)]
+    pub file: Option<String>,
     #[serde(default)]
     pub version: String,
     #[serde(default)]
@@ -98,6 +101,31 @@ pub struct DocDirs {
     pub root: String,
     /// 根下的目录（相对根，最多三层）
     pub dirs: Vec<String>,
+}
+
+/// 选择器里的一行：文件夹或可绑定的 `.md`。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowseEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub size: u64,
+    /// 毫秒时间戳；0 = 读不到
+    pub modified: i64,
+    /// 文件夹里的项数
+    pub items: usize,
+}
+
+/// 目录浏览结果。`home` / `root` 是选择器上那两个常用入口。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirListing {
+    pub path: String,
+    pub parent: Option<String>,
+    pub home: String,
+    pub root: String,
+    pub entries: Vec<BrowseEntry>,
 }
 
 /// 正文读回。`changed = true`：文件与索引不同步，刚刚已把索引更新。

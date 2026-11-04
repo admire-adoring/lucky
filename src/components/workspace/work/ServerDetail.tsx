@@ -16,7 +16,7 @@ import type { PathSeed } from '../../../data/content-pool'
 import { useServer, useServerActions, useServers } from '../../../hooks/use-servers'
 import { useServerDocs } from '../../../hooks/use-docs'
 import { isConnected, markConnected } from '../../../lib/server-conn'
-import { toDeployDocItem, toLedgerServer } from '../../../lib/server-view'
+import { toDeployDocItem, toLedgerServer, toServerFormInitial } from '../../../lib/server-view'
 import { toast } from '../../../stores/toast-store'
 import { AddServerForm, type ServerFormDraft } from '../project-detail/AddServerForm'
 import { DeployDocBook } from '../project-detail/DeployDocBook'
@@ -65,8 +65,8 @@ import { PanelModal } from '../project-detail/panel-shell'
    ============================================================================
    机器读本机数据库：一台机器服务哪些项目是它自己在 `srv_server_project` 里的行，
    文件位置也是它自己的 ⇒ 每张项目卡的读数可以不同（不再"几个项目共用一批路径"）。
-   登录身份（用户 / 认证方式 / 提权）来自 `srv_server` 那几列；凭据正文不入库
-   （存本机钥匙串），所以「编辑」时凭据留空即保持不变。
+   登录身份（用户 / 认证方式 / 提权）来自 `srv_server` 那几列；凭据正文加密存在
+   同一张表的 `secret` 列（`vault.key` 在本机），「编辑」时取回来填进框里。
    ============================================================================ */
 
 /** 文件抽屉里那枚类型徽标的文案（与台账页同一份表） */
@@ -391,8 +391,7 @@ export function ServerDetail({ host }: { host: string }) {
           authCode: draft.authCode,
           escMode: draft.escMode,
           escUser: draft.escUser,
-          credRef: raw.credRef,
-          /* 留空 = 不动钥匙串里那份；填了才覆盖 */
+          /* 留空 = 清掉这台机器的凭据；有值就加密写库 */
           secret: draft.secret,
           note: draft.note,
           projectIds: raw.projects.map((project) => project.id),
@@ -423,24 +422,7 @@ export function ServerDetail({ host }: { host: string }) {
         <AddServerForm
           mode="edit"
           projectName={server.projects[0]?.name ?? ''}
-          server={{
-            name: raw?.host ?? server.host,
-            ip: raw?.ip ?? server.ip,
-            sshPort: raw?.sshPort,
-            loginUser: raw?.loginUser,
-            envCode: raw?.envCode,
-            roleCode: raw?.roleCode,
-            authCode: raw?.authCode === 'pwd' ? 'pwd' : 'key',
-            escMode: raw?.escMode === 'su' || raw?.escMode === 'sudo' ? raw.escMode : 'none',
-            escUser: raw?.escUser,
-            /* 有引用 = 这台机器在钥匙串里存过凭据，密码框留空就是"不改" */
-            credRef: raw?.credRef ?? null,
-            note: raw?.note,
-            tags: raw?.tags,
-            cores: raw?.cores ?? server.cores,
-            memGb: raw?.memGb ?? server.memGb,
-            os: raw?.os ?? server.os,
-          }}
+          server={raw ? toServerFormInitial(raw) : null}
           siblings={siblings}
           onSubmit={submitServer}
           onCancel={() => setForm(null)}

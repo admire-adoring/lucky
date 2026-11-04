@@ -9,7 +9,7 @@ import { useLastRelease, useReleaseCounts, useServerActions, useServers } from '
 import { useQueryClient } from '@tanstack/react-query'
 import { releasedText } from '../../../lib/server-view'
 import { isConnected, markConnected } from '../../../lib/server-conn'
-import { toLedgerServer } from '../../../lib/server-view'
+import { toLedgerServer, toServerFormInitial } from '../../../lib/server-view'
 import { errorText } from '../../../api/error'
 import { toast } from '../../../stores/toast-store'
 import { AddServerForm, type ServerFormDraft } from '../project-detail/AddServerForm'
@@ -725,8 +725,7 @@ export function ServersLedger() {
             authCode: draft.authCode,
             escMode: draft.escMode,
             escUser: draft.escUser,
-            credRef: target.credRef,
-            /* 留空 = 不动钥匙串里那份；填了才覆盖 */
+            /* 留空 = 清掉这台机器的凭据；有值就加密写库 */
             secret: draft.secret,
             note: draft.note,
             projectIds: target.projects.map((project) => project.id),
@@ -800,28 +799,7 @@ export function ServersLedger() {
         <AddServerForm
           mode={form.mode}
           projectName={target ? (target.projects[0]?.name ?? '') : '所有项目'}
-          server={
-            real
-              ? {
-                  name: real.host,
-                  ip: real.ip,
-                  sshPort: real.sshPort,
-                  loginUser: real.loginUser,
-                  envCode: real.envCode,
-                  roleCode: real.roleCode,
-                  authCode: real.authCode === 'pwd' ? 'pwd' : 'key',
-                  escMode: real.escMode === 'su' || real.escMode === 'sudo' ? real.escMode : 'none',
-                  escUser: real.escUser,
-                  /* 有引用 = 这台机器在钥匙串里存过凭据，密码框留空就是"不改" */
-                  credRef: real.credRef,
-                  note: real.note,
-                  tags: real.tags,
-                  cores: real.cores,
-                  memGb: real.memGb,
-                  os: real.os,
-                }
-              : null
-          }
+          server={real ? toServerFormInitial(real) : null}
           siblings={ledger
             .filter((server) => server.host !== target?.host)
             .map((server) => ({ name: server.host, ip: server.ip }))}

@@ -15,7 +15,6 @@ use std::time::Duration;
 
 use crate::server::error::{Error, Result};
 
-use super::cred;
 use super::probe::{split_facts, ssh_failure, validate_part, Facts, REMOTE_SCRIPT};
 
 /// 一行检查的结论。三档而不是布尔 —— 前一步没过的时候，这一步是"没做"，
@@ -72,9 +71,9 @@ pub struct LoginProbeInput {
     pub key_path: Option<String>,
     /// 密码模式的登录密码；只在本次进程内存与子进程环境里过一手
     pub password: Option<String>,
-    /// 编辑态已存凭据的引用（`server/{id}`）。上面两格都留空时用它 ——
-    /// 点「检查连接」不必把密码重新敲一遍，也不必让明文回到前端
-    pub cred_ref: Option<String>,
+    /// 编辑态：两格留空时，由门面按这个机器名从库里取上次那份填进上面两个字段
+    /// （见 `srv::probe_login`）。本模块不碰数据库。
+    pub saved_host: Option<String>,
     /// `none` / `su` / `sudo`
     pub esc_mode: String,
     pub esc_user: Option<String>,
@@ -149,39 +148,28 @@ pub fn login(input: &LoginProbeInput) -> Result<LoginOutcome> {
 
     let user = input.login_user.trim();
     let target = format!("{user}@{name}");
+    let kind_code = if input.auth_code == "pwd" { "pwd" } else { "key" };
 
+    /* 走不到"没填"这一步：门面会先用库里存的那份填上。真到这儿说明这台机器
+       从来没存过凭据 —— 说清楚，别让人以为是密码敲错了。 */
     let credential = if input.auth_code == "pwd" {
-        let typed = input.password.as_deref().unwrap_or("");
-        let password = if typed.is_empty() {
-            match saved(input)? {
-                Some(value) => value,
-                None => {
-                    return Ok(stop_at_auth(ProbeStep::fail(
-                        format!("{user} · 密码"),
-                        "没填密码，这台机器也没有存过 —— 填一次再查",
-                    )))
-                }
-            }
-        } else {
-            typed.to_string()
-        };
-        Credential::Password(password)
+        let password = input.password.as_deref().unwrap_or("");
+        if password.is_empty() {
+            return Ok(stop_at_auth(ProbeStep::fail(
+                format!("{user} · 密码"),
+                "没有可用的密码 —— 这台机器没存过，先在表单里填一次",
+            )));
+        }
+        Credential::Password(password.to_string())
     } else {
-        let raw_key = input.key_path.as_deref().unwrap_or("").trim().to_string();
-        let raw_key = if raw_key.is_empty() {
-            match saved(input)? {
-                Some(value) => value,
-                None => {
-                    return Ok(stop_at_auth(ProbeStep::fail(
-                        format!("{user} · 密钥"),
-                        "没填私钥路径，这台机器也没有存过 —— 填一次再查",
-                    )))
-                }
-            }
-        } else {
-            raw_key
-        };
-        let key = expand_home(&raw_key);
+        let raw_key = input.key_path.as_deref().unwrap_or("").trim();
+        if raw_key.is_empty() {
+            return Ok(stop_at_auth(ProbeStep::fail(
+                format!("{user} · 密钥"),
+                "没有可用的私钥路径 —— 这台机器没存过，先在表单里填一次",
+            )));
+        }
+        let key = expand_home(raw_key);
         if !key.is_file() {
             return Ok(stop_at_auth(ProbeStep::fail(
                 format!("{user} · 密钥"),
@@ -200,7 +188,7 @@ pub fn login(input: &LoginProbeInput) -> Result<LoginOutcome> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Ok(stop_at_auth(ProbeStep::fail(
             format!("{user} · {kind}"),
-            ssh_failure(&stderr, name, port),
+            ssh_failure(&stderr, name, port, kind_code),
         )));
     }
 
@@ -231,19 +219,6 @@ fn stop_at_auth(auth: ProbeStep) -> LoginOutcome {
         os: ProbeStep::skip("—", "认证没通过，没读到"),
         facts: None,
     }
-}
-
-/// 编辑态：表单那两格留空就去钥匙串取上次存的那份。
-/// 明文只在这一层过一手，既不回前端也不进日志。
-fn saved(input: &LoginProbeInput) -> Result<Option<String>> {
-    let Some(cred_ref) = input.cred_ref.as_deref().filter(|value| !value.is_empty()) else {
-        return Ok(None);
-    };
-    let id = cred_ref
-        .strip_prefix("server/")
-        .ok_or_else(|| Error::Invalid(format!("凭据引用格式不对：{cred_ref}")))?;
-    let kind = if input.auth_code == "pwd" { "pwd" } else { "key" };
-    cred::read(id, kind)
 }
 
 /// `sudo` / `su` 各跑一次判提权。
@@ -313,24 +288,55 @@ fn check_esc(
 }
 
 /// 认证用的凭据。
-enum Credential {
+#[derive(Debug, Clone)]
+pub(super) enum Credential {
     Key(PathBuf),
     Password(String),
 }
+
+/// 把认证参数挂到一条 `ssh` 命令上。返回值是 askpass 临时目录：它必须活到子进程结束，
+/// 由调用方持有。密码档之外一律为 `None`。
+pub(super) fn apply_auth(command: &mut Command, credential: &Credential) -> Result<Option<Askpass>> {
+    match credential {
+        Credential::Key(path) => {
+            command
+                .arg("-i")
+                .arg(path)
+                .args(["-o", "IdentitiesOnly=yes"])
+                .args(["-o", "BatchMode=yes"]);
+            Ok(None)
+        }
+        Credential::Password(password) => {
+            let created = Askpass::create()?;
+            command
+                .env("SSH_ASKPASS", created.script())
+                .env("SSH_ASKPASS_REQUIRE", "force")
+                .env("DISPLAY", ":0")
+                .env(ASKPASS_VAR, password)
+                /* BatchMode 必须关：开着等于禁止密码交互，askpass 根本不会被调用 */
+                .args(["-o", "BatchMode=no"])
+                .args(["-o", "PubkeyAuthentication=no"])
+                .args(["-o", "PreferredAuthentications=password,keyboard-interactive"])
+                .args(["-o", "NumberOfPasswordPrompts=1"]);
+            Ok(Some(created))
+        }
+    }
+}
+
 
 /// 密码登录靠 `SSH_ASKPASS`：`ssh` 在无终端环境下会去执行这个程序取密码
 /// （OpenSSH ≥ 8.4 的 `SSH_ASKPASS_REQUIRE=force` 保证它一定走这条路）。
 ///
 /// 密码只走环境变量：不进 argv（`ps` 看得见），不写进脚本（那是个脚本文件，
 /// 只读 `$LUCKY_SSH_PASSWORD`）。脚本与本目录 0700，跑完就删。
-struct Askpass {
+pub(super) struct Askpass {
     dir: PathBuf,
 }
 
 const ASKPASS_VAR: &str = "LUCKY_SSH_PASSWORD";
 
 impl Askpass {
-    fn create() -> Result<Self> {
+    pub(super) fn create() -> Result<Self> {
         use std::os::unix::fs::PermissionsExt;
 
         let stamp = std::time::SystemTime::now()
@@ -348,10 +354,9 @@ impl Askpass {
         Ok(Self { dir })
     }
 
-    fn script(&self) -> PathBuf {
+    pub(super) fn script(&self) -> PathBuf {
         self.dir.join("askpass.sh")
-    }
-}
+    }}
 
 impl Drop for Askpass {
     fn drop(&mut self) {
@@ -375,30 +380,7 @@ fn run_ssh(
         .arg(port.to_string());
 
     /* askpass 目录要活到子进程跑完 —— 拿在手里，等 output 回来再随作用域销毁 */
-    let mut askpass = None;
-    match credential {
-        Credential::Key(path) => {
-            command
-                .arg("-i")
-                .arg(path)
-                .args(["-o", "IdentitiesOnly=yes"])
-                .args(["-o", "BatchMode=yes"]);
-        }
-        Credential::Password(password) => {
-            let created = Askpass::create()?;
-            command
-                .env("SSH_ASKPASS", created.script())
-                .env("SSH_ASKPASS_REQUIRE", "force")
-                .env("DISPLAY", ":0")
-                .env(ASKPASS_VAR, password)
-                /* BatchMode 必须关：开着等于禁止密码交互，askpass 根本不会被调用 */
-                .args(["-o", "BatchMode=no"])
-                .args(["-o", "PubkeyAuthentication=no"])
-                .args(["-o", "PreferredAuthentications=password,keyboard-interactive"])
-                .args(["-o", "NumberOfPasswordPrompts=1"]);
-            askpass = Some(created);
-        }
-    }
+    let askpass = apply_auth(&mut command, credential)?;
 
     command.arg(target).arg(script);
 
@@ -461,7 +443,7 @@ fn split_host_port(host: &str) -> (&str, Option<u16>) {
 }
 
 /// `~/.ssh/id_ed25519` 这种写法在表单里很常见，而 `ssh -i` 不做家目录展开。
-fn expand_home(path: &str) -> PathBuf {
+pub(super) fn expand_home(path: &str) -> PathBuf {
     if let Some(rest) = path.strip_prefix("~/") {
         if let Ok(home) = std::env::var("HOME") {
             return Path::new(&home).join(rest);

@@ -6281,6 +6281,11 @@ html[data-theme='dark'] .mw-root[data-module] .proj-detail .ops-page {
 .mw-root[data-module] .proj-detail .ops-page .fld-err {
   display: block; margin-top: 5px; font-size: 11px; color: var(--mw-warn);
 }
+/* 字段下方那行说明（新建部署文档：骨架 / 落点这类）。与 `.fld-err` 同档位，
+   只是颜色不是告警色 —— 它说的是"会怎么做"，不是"你做错了" */
+.mw-root[data-module] .proj-detail .ops-page .fld-note {
+  margin-top: 7px; font-size: 11px; color: var(--mw-text-muted); line-height: 1.6;
+}
 .mw-root[data-module] .proj-detail .ops-page .fd-mask {
   position: fixed; inset: 0; z-index: 210; background: var(--pd-scrim); display: none;
 }
@@ -10262,10 +10267,61 @@ animation: none !important;
 
 .tm-root .tm-led { width: 7px; height: 7px; border-radius: 50%; background: var(--green-bright); box-shadow: 0 0 8px var(--green-bright); animation: tm-pulse 2.4s ease-in-out infinite; }
 
+/* ---------- 真数据接进来之后补的几条（2026-11-04） ----------
+   原型那套类是给"假输出"配的：正文靠 innerHTML 里塞 `.tm-ok` / `.tm-err`。
+   真输出是纯文本，逐行给一个 kind 类，颜色仍然用同一批令牌。 */
+.tm-root .tm-term-output .tm-line-cmd { color: var(--fg); font-weight: 600; }
+.tm-root .tm-term-output .tm-line-out { color: var(--fg); opacity: .88; }
+.tm-root .tm-term-output .tm-line-err { color: var(--red); }
+.tm-root .tm-term-output .tm-line-note { color: var(--fg-dim); }
+.tm-root .tm-term-output.tm-tail { font-size: 11.5px; line-height: 1.55; }
+
+/* 主终端的输入行要贴在窗底（真终端就是这样）：输出自己滚，输入与修复条固定在下沿 */
+.tm-root .tm-pane-body.tm-term-body { display: flex; flex-direction: column; overflow: hidden; }
+.tm-root .tm-term-body .tm-term-output { flex: 1; min-height: 0; overflow: auto; }
+.tm-root .tm-term-body .tm-term-input-line,
+.tm-root .tm-term-body .tm-fix { flex-shrink: 0; }
+
+.tm-root .tm-htop .tm-cmd-cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-root .tm-htop-empty { color: var(--fg-mute); font-size: 11.5px; padding: 6px 2px; }
+
+/* 连接失败：状态胶囊要能一眼和"内置回显"区分开（那个是黄，这个是红） */
+.tm-root .tm-connection-status.tm-dead { color: var(--red); border-color: var(--red); }
+.tm-root .tm-connection-status.tm-dead .tm-dot-c { background: var(--red); }
+.tm-root .tm-led.tm-led-off { background: var(--fg-mute); box-shadow: none; animation: none; }
+
+/* 没连上时窗格头上的绿点要灭掉 —— 亮着绿点配"未连接"是自相矛盾 */
+.tm-root .tm-pane-header .tm-title .tm-dot-sm.tm-off { background: var(--fg-mute); box-shadow: none; }
+/* tmux 状态栏：没有会话就不列窗口 */
+.tm-root .tm-tmux-status .tm-tag.tm-tag-off { background: var(--bg-3); color: var(--fg-mute); }
+.tm-root .tm-tmux-status .tm-off-text { color: var(--fg-mute); font-style: italic; }
+
+/* 认不通时的就地修复条：改凭据不必绕回台账编辑页 */
+.tm-root .tm-fix { margin: 10px 0 6px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--red) 45%, var(--line)); border-radius: 6px; background: color-mix(in srgb, var(--red) 8%, transparent); display: flex; flex-direction: column; gap: 8px; }
+.tm-root .tm-fix-head { display: flex; gap: 8px; font-size: 11.5px; line-height: 1.6; color: var(--fg-dim); }
+.tm-root .tm-fix-label { color: var(--red); font-weight: 700; flex-shrink: 0; }
+.tm-root .tm-fix-actions { display: flex; align-items: center; gap: 10px; }
+.tm-root .tm-fix-form { display: flex; align-items: center; gap: 8px; }
+.tm-root .tm-fix-input { flex: 1; min-width: 0; height: 26px; padding: 0 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg-0); color: var(--fg); font-family: inherit; font-size: 11.5px; outline: none; }
+.tm-root .tm-fix-input:focus { border-color: var(--red); }
+.tm-root .tm-fix-btn { height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg-3); color: var(--fg); font-family: inherit; font-size: 11px; cursor: pointer; transition: color .15s ease, border-color .15s ease; }
+.tm-root .tm-fix-btn:hover:not(:disabled) { border-color: var(--green); color: var(--green-bright); }
+.tm-root .tm-fix-btn:disabled { opacity: .5; cursor: default; }
+.tm-root .tm-fix-link { color: var(--cyan); font-size: 11px; text-decoration: none; }
+.tm-root .tm-fix-link:hover { text-decoration: underline; }
+
+/* monitor 标签：收起主终端，把负载与日志铺满。窄屏（≤860）不让它生效，
+   否则两栏都会消失 —— 那一档本来就把侧栏藏了。 */
+.tm-root .tm-panes[data-view='monitor'] .tm-pane.tm-master { display: none; }
+.tm-root .tm-panes[data-view='monitor'] .tm-pane.tm-side { flex: 1; flex-direction: row; }
+.tm-root .tm-panes[data-view='monitor'] .tm-pane.tm-side .tm-pane { flex: 1; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 860px) {
 .tm-root .tm-pane.tm-side { display: none; }
 .tm-root .tm-pane.tm-master { flex: 1; }
+/* monitor 在这一档没有落脚点（侧栏本来就藏了），退回和 dev 一样的单栏 */
+.tm-root .tm-panes[data-view='monitor'] .tm-pane.tm-master { display: flex; }
 .tm-root { padding: 0; }
 .tm-root .tm-terminal { height: 100%; }
 .tm-root .tm-title .tm-path { display: none; }
@@ -10558,13 +10614,6 @@ html[data-theme='dark'] .mw-root[data-module] .kg-page {
 .mw-root[data-module] .fm-chip.is-add { border-style: dashed; color: var(--mw-text-muted); }
 .mw-root[data-module] .fm-chip.is-add:hover { border-color: var(--doc-m-ink); color: var(--doc-m-ink); }
 .mw-root[data-module] .fm-inline { width: 100%; }
-/* 「存放目录」下面那行实际落点：绝对路径很长，允许在任意字符处折行，
-   否则一格撑不开、弹窗横向滚。它只是读数，不参与点选。 */
-.mw-root[data-module] .fm-dir-path {
-  margin: 0; font-size: 11.5px; line-height: 1.6;
-  color: var(--mw-text-muted); word-break: break-all;
-}
-
 /* ---------- work · 服务器台账（`design/work/工作-服务器-index.html`，2026-09-29）----------
    这一段的 `.sv-page` 是服务器这一族的公共根：台账页（`ServersLedger`）与
       详情页（`ServerDetail`，另外还挂一个 `.svd-page`）都用它。放在这里的是两页逐字一致

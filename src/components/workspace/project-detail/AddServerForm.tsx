@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { cn } from '../../../lib/cn'
-import { probeLogin, probeReach, type ProbeStep } from '../../../api/servers'
+import { probeLogin, probeReach, serverSecret, type ProbeStep } from '../../../api/servers'
 import { errorText } from '../../../api/error'
 import { OpsIcon, type OpsIconName } from './ops-icon'
 
@@ -153,8 +153,8 @@ type AuthMode = 'key' | 'pwd'
 type EscMethod = 'su' | 'sudo'
 
 /**
- * 编辑模式的预填来源。**不含凭据正文** —— 密码与私钥路径存本机钥匙串，
- * 这里只有引用（`credRef`），判断"要不要重填"用它。
+ * 编辑模式的预填来源。凭据正文不在这里：`hasSecret` 只回答"存过没有"，
+ * 明文由表单自己调 `serverSecret(name)` 取一次再填进输入框。
  */
 export interface ServerFormInitial {
   name: string
@@ -166,8 +166,8 @@ export interface ServerFormInitial {
   authCode?: 'key' | 'pwd'
   escMode?: 'none' | 'su' | 'sudo'
   escUser?: string
-  /** 钥匙串条目引用；null / undefined = 这台机器没存过凭据 */
-  credRef?: string | null
+  /** 这台机器存过凭据没有 */
+  hasSecret?: boolean
   note?: string
   tags?: string[]
   cores?: number | null
@@ -189,8 +189,8 @@ export interface ServerFormDraft {
   escMode: 'none' | 'su' | 'sudo'
   escUser: string
   /**
-   * 凭据正文（密码 / 私钥路径）。**只有用户这次真填了才有值** ——
-   * 编辑时留空 = 不动，提交方不要把它写成空串（那会清掉钥匙串里那份）。
+   * 凭据正文（密码 / 私钥路径）。编辑时是回填出来的那份；清空提交等于删掉凭据。
+   * 后端加密后写进 `srv_server.secret`。
    */
   secret?: string
 }
@@ -350,20 +350,33 @@ export function AddServerForm({
   /** 「新建标签」两态共用一个位置 ⇒ 提交/取消都要能被重复触发，守卫见 `commitTagAdd` */
   const addingTagRef = useRef(false)
 
-  /* 凭据正文不进库（存本机钥匙串）⇒ 编辑时这两个框留空即表示"保持不变" */
+  /* 凭据加密存库（`srv_server.secret`）。编辑时先把已存那份取回来填进框，
+     用户改不改都在眼前 —— 不然"留空 = 不改"的规则得靠一句提示才说得清 */
   const [authMode, setAuthMode] = useState<AuthMode>(server?.authCode ?? 'key')
   const [keyPath, setKeyPath] = useState('')
   const [pwd, setPwd] = useState('')
   const [showPwd, setShowPwd] = useState(false)
 
-  /**
-   * 这台机器在钥匙串里有没有存过凭据。
-   *
-   * 有 ⇒ 两个框留空是"不改"，检查连接时后端自己去钥匙串取（`credRef`），
-   * **不把明文读回来填进框** —— 表单里出现明文就等于它会出现在截图、录屏、
-   * DevTools 和设备转手里，而用户想要的只是"别再敲一遍"。
-   */
-  const hasSavedCred = editing && Boolean(server?.credRef)
+  /** 这台机器存过凭据没有（后端只给布尔，明文在下面那次单独的调用里取） */
+  const hasSavedCred = editing && Boolean(server?.hasSecret)
+
+  /* 编辑态回填：只取一次，按认证方式落进对应那一格。
+     取不到（没存过 / 解密失败）就留空，不挡用户填新的。 */
+  const savedLoaded = useRef(false)
+  useEffect(() => {
+    if (!editing || !server?.name || savedLoaded.current) return
+    savedLoaded.current = true
+    void serverSecret(server.name)
+      .then((value) => {
+        if (!value) return
+        if (authMode === 'pwd') setPwd(value)
+        else setKeyPath(value)
+      })
+      .catch(() => {
+        /* 读不到就当没存过：框留空，用户填一次即可 */
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, server?.name])
 
   const [escTarget, setEscTarget] = useState<EscTarget>(() => escTargetOf(server))
   const [escCustomUser, setEscCustomUser] = useState(
@@ -507,8 +520,8 @@ export function AddServerForm({
    * 系统识别要等 SSH 往返。合成一趟，前两行会陪着 SSH 干等三五秒。
    *
    * 每一步都按后端回的三档落：`ok` 打勾、`fail` 打叉、`skip` 留空（前一步没过，
-   * 这一步没做）。凭据两格留空时后端去钥匙串取，取不到就照实标红 —— 不把做不到的
-   * 事显示成通过。
+   * 这一步没做）。凭据两格留空时后端按机器名去库里取已存那份解密，取不到就照实标红
+   * —— 不把做不到的事显示成通过。
    */
   const runCheck = async () => {
     if (checking) return
@@ -545,8 +558,8 @@ export function AddServerForm({
         return
       }
 
-      /* 两格都留空、且这台机器也没存过，就没法验 —— 不打叉，说明白为什么不往下查。
-         存过的话不必再填一次：后端按 `credRef` 去钥匙串取，明文不进前端。 */
+      /* 框里空、这台机器也没存过，就没法验 —— 不打叉，说明白为什么不往下查。
+         存过的话不必再填一次：后端按 `savedHost` 去库里解密取。 */
       const typed = authMode === 'key' ? keyPath.trim() : pwd.trim()
       if (!typed && !hasSavedCred) {
         const hint =
@@ -571,7 +584,7 @@ export function AddServerForm({
         authCode: authMode,
         keyPath: authMode === 'key' ? keyPath.trim() || undefined : undefined,
         password: authMode === 'pwd' ? pwd || undefined : undefined,
-        credRef: !typed && hasSavedCred ? (server?.credRef ?? undefined) : undefined,
+        savedHost: editing ? server?.name : undefined,
         escMode: escTarget === 'none' ? 'none' : escMethod,
         escUser: escUser || undefined,
       })
@@ -654,7 +667,7 @@ export function AddServerForm({
     else if (!/^[A-Za-z0-9][A-Za-z0-9.-]*(:\d+)?$/.test(host.trim()) || /^\.|\.$/.test(host.trim()))
       next.host = '地址格式不正确'
     if (!user.trim()) next.user = '请填写登录用户'
-    /* 凭据只在本机钥匙串里、不进库 ⇒ 编辑时留空表示"保持不变"，不当必填 */
+    /* 凭据加密存库：编辑时框里回填的是已存那份，留空提交就是"清掉这台的凭据" */
     if (!editing) {
       if (authMode === 'key') {
         if (!keyPath.trim()) next.cred = '请填写私钥路径'
@@ -683,8 +696,8 @@ export function AddServerForm({
       authCode: authMode,
       escMode: escTarget === 'none' ? 'none' : escMethod,
       escUser,
-      /* 只有这次真填了才带上：留空 = 不动钥匙串里那份，别把它写成空串 */
-      secret: (authMode === 'key' ? keyPath.trim() : pwd) || undefined,
+      /* 总是带上：编辑时框里就是库里那份，留空 = 清掉这台机器的凭据 */
+      secret: authMode === 'key' ? keyPath.trim() : pwd,
     }
 
     if (onSubmit) {
@@ -883,7 +896,7 @@ export function AddServerForm({
                   </span>
                   <span className="field-req">必填</span>
                   <FieldHelp
-                    text="凭据只保存在本机钥匙串 / 目录，不写进项目配置、不同步到其它设备。部署与日志页会用这里的身份去连。"
+                    text="凭据跟着台账存本机数据库，写进去前用本机的密钥文件加密，不同步到其它设备。部署与日志页会用这里的身份去连。"
                     onShow={(rect, text) => setTip({ rect, text })}
                     onHide={() => setTip(null)}
                   />
@@ -954,8 +967,7 @@ export function AddServerForm({
                         className="inp mono"
                         type="text"
                         value={keyPath}
-                        placeholder={hasSavedCred ? '已保存 · 留空则不改' : '~/.ssh/id_ed25519'}
-                        autoComplete="off"
+                        placeholder={hasSavedCred ? '已保存 · 留空则不改' : '~/.ssh/id_ed25519'}                        autoComplete="off"
                         aria-invalid={errors.cred ? 'true' : undefined}
                         onChange={(event) => {
                           setKeyPath(event.target.value)
@@ -974,8 +986,8 @@ export function AddServerForm({
                     </div>
                     <div className="field-note">
                       {hasSavedCred
-                        ? '路径已存在本机钥匙串 · 留空表示沿用，填新的则覆盖'
-                        : '凭据只存本机钥匙串，不进数据库、不同步到其它设备'}
+                        ? '路径存在库里 · 改了就覆盖，清空则删掉这份凭据'
+                        : '路径加密存在本机数据库，不同步到其它设备'}
                     </div>
                     {errors.cred ? (
                       <div className="field-err">
@@ -1010,8 +1022,8 @@ export function AddServerForm({
                     </div>
                     <div className="field-note">
                       {hasSavedCred
-                        ? '密码已存在本机钥匙串 · 留空表示沿用，填新的则覆盖'
-                        : '密码存在本机钥匙串，不进数据库、不同步到其它设备'}
+                        ? '密码存在库里 · 改了就覆盖，清空则删掉这份凭据'
+                        : '密码加密存在本机数据库（vault.key 在本机），不同步到其它设备'}
                     </div>
                     {errors.cred ? (
                       <div className="field-err">

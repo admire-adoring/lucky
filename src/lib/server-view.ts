@@ -1,4 +1,5 @@
 import type { Server, DeployRelease } from '../api/servers'
+import type { ServerFormInitial } from '../components/workspace/project-detail/AddServerForm'
 import { LOG_SOURCES } from '../data/content-pool'
 import {
   docUpdatedText,
@@ -37,6 +38,12 @@ const DEPLOY_DOC_KIND_LABEL: Record<string, string> = {
   process: '流程',
   script: '脚本',
 }
+
+/** 新建部署文档时那三个类型选项（码与中文同源，见上） */
+export const DEPLOY_DOC_KINDS = Object.entries(DEPLOY_DOC_KIND_LABEL).map(([code, label]) => ({
+  code,
+  label,
+}))
 
 /** 视图两档：卡片只分"生产 / 非生产"（生产那一支才染运维绿），四档环境的中文名走 envLabel */
 function envOf(server: Server): 'prod' | 'test' {
@@ -112,6 +119,36 @@ export function toOpsServer(server: Server): ServerItem {
   }
 }
 
+/**
+ * 库里那台机器 → 编辑表单的预填值。
+ *
+ * 不能直接把手上的视图形态（`ServerItem` / `LedgerServer`）传给表单：它们的字段名是
+ * 视图的叫法（`user` / `auth` / `esc` / `role` / `env`），而表单要的是库里那套
+ * （`loginUser` / `authCode` / `escMode` / `roleCode` / `envCode`）。`ServerFormInitial`
+ * 除 `name` / `ip` 外都是可选字段，所以少给几个不会报错 —— 只会静默变成空值，
+ * 保存一次就把库里的值覆盖掉。三个编辑入口（台账 / 机器详情 / 运维分区）共用这一处映射。
+ */
+export function toServerFormInitial(server: Server): ServerFormInitial {
+  return {
+    name: server.host,
+    ip: server.ip,
+    sshPort: server.sshPort,
+    loginUser: server.loginUser,
+    envCode: server.envCode,
+    roleCode: server.roleCode,
+    authCode: server.authCode === 'pwd' ? 'pwd' : 'key',
+    escMode: server.escMode === 'su' || server.escMode === 'sudo' ? server.escMode : 'none',
+    escUser: server.escUser,
+    /* 存过凭据 ⇒ 表单会去取回来回填 */
+    hasSecret: server.hasSecret,
+    note: server.note,
+    tags: server.tags,
+    cores: server.cores,
+    memGb: server.memGb,
+    os: server.os,
+  }
+}
+
 /** 部署文档的行（`doc` 表里宿主是机器的那些）。只要这几列，不绑具体类型 ——
  *  `api/docs.ts` 的 `DocRow` 天然兼容。 */
 export interface DeployDocRow {
@@ -120,6 +157,8 @@ export interface DeployDocRow {
   kind: string
   version: string
   updatedAt: string
+  /** 本地正文的落点；null = 没有（老的登记行、或正文在别处） */
+  filePath: string | null
 }
 
 /** 真实 DeployDoc → 书架那一排。kind 的中文在这里换，不落库（D3）。 */
@@ -134,6 +173,7 @@ export function toDeployDocItem(doc: DeployDocRow): DeployDocItem {
     version: doc.version || '—',
     updatedAt: docUpdatedText(updatedHours),
     updatedHours,
+    filePath: doc.filePath,
   }
 }
 

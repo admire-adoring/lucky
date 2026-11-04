@@ -21,7 +21,7 @@ use server::{
     LearningGoal, LearningGoalInput, LearningOutput, LearningOutputInput, LearningOverview,
     LearningResource, LearningResourceInput, LearningReview, LearningReviewInput, LearningSkill,
     LearningSkillInput, LearningStudyLog, LearningStudyLogInput,
-    app, calendar, doc, knowledge, learning, life, project, setting, srv, task, user, work,
+    app, calendar, doc, knowledge, learning, life, localfs, project, setting, srv, task, user, work,
 };
 use project::{ActivityRow, MilestoneInput, ProjectMilestone, RecentActivityRow};
 use serde::Serialize;
@@ -120,6 +120,76 @@ fn srv_release_update(store: State<'_, Store>, id: String, input: DeployReleaseI
 #[tauri::command]
 fn srv_release_delete(store: State<'_, Store>, id: String) -> Result<(), ApiError> {
     srv::release_delete(&store, &id).map_err(ApiError::from)
+}
+
+/* —— 终端（真 SSH，会话在进程内存里，审计行落库） —— */
+
+/// 连上这台机器。凭据取 `srv_server.secret`（解密后只在后端内存里过一手）。
+#[tauri::command]
+fn term_open(store: State<'_, Store>, hub: State<'_, srv::Hub>, host: String) -> Result<srv::TermOpen, ApiError> {
+    srv::term_open(&store, &hub, &host).map_err(ApiError::from)
+}
+
+#[tauri::command]
+fn term_exec(
+    store: State<'_, Store>,
+    hub: State<'_, srv::Hub>,
+    session_id: String,
+    command: String,
+) -> Result<srv::TermRun, ApiError> {
+    srv::term_exec(&store, &hub, &session_id, &command).map_err(ApiError::from)
+}
+
+#[tauri::command]
+fn term_stats(hub: State<'_, srv::Hub>, session_id: String) -> Result<srv::TermStats, ApiError> {
+    srv::term_stats(&hub, &session_id).map_err(ApiError::from)
+}
+
+#[tauri::command]
+fn term_tail(
+    hub: State<'_, srv::Hub>,
+    session_id: String,
+    path: Option<String>,
+    lines: Option<i64>,
+) -> Result<srv::TermTail, ApiError> {
+    srv::term_tail(&hub, &session_id, path.as_deref(), lines.unwrap_or(40)).map_err(ApiError::from)
+}
+
+#[tauri::command]
+fn term_close(store: State<'_, Store>, hub: State<'_, srv::Hub>, session_id: String) -> Result<(), ApiError> {
+    srv::term_close(&store, &hub, &session_id).map_err(ApiError::from)
+}
+
+#[tauri::command]
+fn term_history(store: State<'_, Store>, host: String, limit: Option<i64>) -> Result<Vec<srv::TermCommandRow>, ApiError> {
+    srv::term_history(&store, &host, limit.unwrap_or(200)).map_err(ApiError::from)
+}
+
+#[tauri::command]
+fn term_sessions(store: State<'_, Store>, host: String, limit: Option<i64>) -> Result<Vec<srv::TermSessionRow>, ApiError> {
+    srv::term_sessions(&store, &host, limit.unwrap_or(20)).map_err(ApiError::from)
+}
+
+/* —— 本机文件系统（部署页「绑定本地文件」/「选择本机文件」现读磁盘） —— */
+
+#[tauri::command]
+fn fs_home() -> String {
+    localfs::home()
+}
+
+#[tauri::command]
+fn fs_stat(path: String) -> Result<Option<localfs::LocalMeta>, ApiError> {
+    localfs::stat(&path).map_err(ApiError::from)
+}
+
+#[tauri::command]
+fn fs_list(path: String) -> Result<localfs::LocalDir, ApiError> {
+    localfs::list(&path).map_err(ApiError::from)
+}
+
+#[tauri::command]
+fn fs_dir_for(path: String) -> Result<String, ApiError> {
+    localfs::dir_for(&path).map_err(ApiError::from)
 }
 
 /* —— 部署文档 —— */
@@ -301,6 +371,12 @@ fn doc_write(
 #[tauri::command]
 fn doc_dirs(store: State<'_, Store>) -> doc::DocDirs {
     doc::dirs(&store)
+}
+
+/// 浏览本机目录：新建文档时挑文件夹，或直接绑定本机已有的 `.md`。
+#[tauri::command]
+fn doc_browse(store: State<'_, Store>, path: Option<String>) -> Result<doc::DirListing, ApiError> {
+    doc::browse(&store, path.as_deref()).map_err(ApiError::from)
 }
 
 
@@ -640,11 +716,30 @@ async fn srv_probe_reach(host: String, port: u16) -> Result<server::srv::ReachOu
 }
 
 /// 第二段：认证 / 提权 / 系统识别。
+///
+/// 同步命令：要按机器名去库里取凭据，`State` 拿不进 `spawn_blocking`
+/// （Tauri 的同步命令本身就在独立线程上跑，不会卡住 UI 线程）。
 #[tauri::command]
-async fn srv_probe_login(
+fn srv_probe_login(
+    store: State<'_, Store>,
     input: server::srv::LoginProbeInput,
 ) -> Result<server::srv::LoginOutcome, ApiError> {
-    run_blocking(move || server::srv::probe_login(&input)).await
+    server::srv::probe_login(&store, &input).map_err(ApiError::from)
+}
+
+/// 编辑页回填：这台机器存过的凭据明文。没存过 → null。
+///
+/// 单独一条命令而不是塞进 `Server`：列表 / 详情页不需要明文，
+/// 只有编辑页那两格要。
+#[tauri::command]
+fn srv_secret(store: State<'_, Store>, host: String) -> Result<Option<String>, ApiError> {
+    server::srv::secret(&store, &host).map_err(ApiError::from)
+}
+
+/// 只换凭据正文（终端页认不通时就地重填）。空串 = 清掉。
+#[tauri::command]
+fn srv_secret_set(store: State<'_, Store>, host: String, secret: String) -> Result<(), ApiError> {
+    server::srv::secret_set(&store, &host, &secret).map_err(ApiError::from)
 }
 
 
@@ -1035,6 +1130,8 @@ pub fn run() {
             }
             tracing::info!("启动：数据库 {}", db_path.display());
             app.manage(Store::open(&db_path, config.documents_root())?);
+            /* 终端会话只活在进程内存里：应用一退，剩下的都是一次性连接 */
+            app.manage(srv::Hub::new());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1048,6 +1145,7 @@ pub fn run() {
             project_milestone_list, project_milestone_create, project_milestone_update,
             project_milestone_set_state, project_milestone_delete,
             doc_list, doc_get, doc_create, doc_update, doc_delete, doc_read, doc_write, doc_dirs,
+            doc_browse,
             user_list, user_save, user_delete, app_info,
             project_html_list, project_html_open,
             account_list, account_create, account_update, account_delete, account_secret,
@@ -1056,7 +1154,9 @@ pub fn run() {
             meeting_list, meeting_create, meeting_update, meeting_delete,
             contact_list, contact_create, contact_update, contact_delete,
             srv_probe,
-            srv_probe_reach, srv_probe_login,
+            srv_probe_reach, srv_probe_login, srv_secret, srv_secret_set,
+            term_open, term_exec, term_stats, term_tail, term_close, term_history, term_sessions,
+            fs_home, fs_stat, fs_list, fs_dir_for,
             task_list, task_create, task_update, task_set_state, task_delete,
             event_list_range, event_list_all, event_create, event_update, event_delete,
             setting_list, setting_list_by_category, setting_get_value,

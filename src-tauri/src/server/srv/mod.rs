@@ -5,6 +5,8 @@ mod draft;
 mod model;
 mod probe;
 mod repo;
+mod term;
+mod term_repo;
 
 pub use draft::{LoginOutcome, LoginProbeInput, ReachOutcome};
 pub use probe::ProbeOutcome;
@@ -12,6 +14,8 @@ pub use model::{
     DeployRelease, DeployReleaseInput, Server, ServerInput, ServerPath,
     ServerPathInput, ServerPort, ServerProjectRef, ServerReleaseCount,
 };
+pub use term::{Hub, TermOpen, TermRun, TermStats, TermTail};
+pub use term_repo::{TermCommandRow, TermSessionRow};
 
 use crate::server::error::Result;
 use crate::server::store::Store;
@@ -113,7 +117,81 @@ pub fn probe_reach(host: &str, port: u16) -> Result<draft::ReachOutcome> {
     draft::reach(host, port)
 }
 
-/// 认证 / 提权 / 系统识别。密钥认证才验得了；密码档明确回报做不到。
-pub fn probe_login(input: &draft::LoginProbeInput) -> Result<draft::LoginOutcome> {
-    draft::login(input)
+/// 认证 / 提权 / 系统识别。
+///
+/// 表单那两格留空、又带着 `savedHost` 时，先用库里存的那份填上 ——
+/// 「检查连接」于是不必让用户把密码重新敲一遍。
+pub fn probe_login(store: &Store, input: &draft::LoginProbeInput) -> Result<draft::LoginOutcome> {
+    let mut filled = input.clone();
+    let blank = match filled.auth_code.as_str() {
+        "pwd" => filled.password.as_deref().unwrap_or("").is_empty(),
+        _ => filled.key_path.as_deref().unwrap_or("").is_empty(),
+    };
+    if blank {
+        if let Some(host) = filled.saved_host.as_deref().filter(|value| !value.is_empty()) {
+            let conn = store.conn()?;
+            if let Some(saved) = repo::secret(&conn, host)? {
+                if filled.auth_code == "pwd" {
+                    filled.password = Some(saved);
+                } else {
+                    filled.key_path = Some(saved);
+                }
+            }
+        }
+    }
+    draft::login(&filled)
+}
+
+/// 编辑页回填用：返回这台机器存过的凭据明文。没存过 → `None`。
+pub fn secret(store: &Store, host: &str) -> Result<Option<String>> {
+    let conn = store.conn()?;
+    repo::secret(&conn, host)
+}
+
+/// 只换凭据（终端页认不通时就地重填）。空串 = 清掉。
+pub fn secret_set(store: &Store, host: &str, secret: &str) -> Result<()> {
+    let conn = store.conn()?;
+    repo::set_secret(&conn, host, secret)
+}
+
+/* ============================================================
+   终端（真 SSH）
+   ------------------------------------------------------------
+   会话活着的时候在 `Hub`（进程内存）里；落库的是审计行 ——
+   会话表记时间与结束方式，命令表记命令、退出码、耗时。
+   ============================================================ */
+
+/// 连上这台机器，开一条会话。
+pub fn term_open(store: &Store, hub: &Hub, host: &str) -> Result<TermOpen> {
+    term::open(store, hub, host)
+}
+
+/// 在会话里跑一条命令。`cd` 的目录变化会留下来。
+pub fn term_exec(store: &Store, hub: &Hub, session_id: &str, command: &str) -> Result<TermRun> {
+    term::exec(store, hub, session_id, command)
+}
+
+/// 真读一次负载（CPU / 内存 / load / 进程表）。
+pub fn term_stats(hub: &Hub, session_id: &str) -> Result<TermStats> {
+    term::stats(hub, session_id)
+}
+
+/// 跟日志：`path` 为空时按常见位置挑一个。
+pub fn term_tail(hub: &Hub, session_id: &str, path: Option<&str>, lines: i64) -> Result<TermTail> {
+    term::tail(hub, session_id, path, lines)
+}
+
+/// 关会话（收主连接 + 落库 `closed`）。
+pub fn term_close(store: &Store, hub: &Hub, session_id: &str) -> Result<()> {
+    term::close(store, hub, session_id)
+}
+
+/// 这台机器上敲过的命令，新的在前（方向键跨会话取它）。
+pub fn term_history(store: &Store, host: &str, limit: i64) -> Result<Vec<TermCommandRow>> {
+    term::history(store, host, limit)
+}
+
+/// 这台机器上的终端会话记录。
+pub fn term_sessions(store: &Store, host: &str, limit: i64) -> Result<Vec<TermSessionRow>> {
+    term::sessions(store, host, limit)
 }

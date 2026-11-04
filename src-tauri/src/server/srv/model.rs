@@ -44,8 +44,8 @@ pub struct ServerPathInput {
 
 /// 台账里的一台机器 —— 主表一行，加上它的项目 / 端口 / 标签 / 文件位置。
 ///
-/// 凭据不在其中：密码与私钥正文存本机钥匙串，这里只有 `cred_ref`（引用）与
-/// `auth_code` / `esc_mode` / `esc_user`（怎么连，不是用什么连）。
+/// 凭据正文（`secret` 列）不在这个结构里：它加密存库，只有 `has_secret`
+/// 这一个布尔出门 —— 列表页不需要明文，要明文的只有编辑页那一格和探测那一次。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Server {
@@ -63,7 +63,10 @@ pub struct Server {
     pub auth_code: String,
     pub esc_mode: String,
     pub esc_user: String,
+    /// 历史遗留：钥匙串条目引用。现在凭据在 `secret` 列，这一列不再写，只读不认。
     pub cred_ref: Option<String>,
+    /// 这台机器存过凭据没有（有 = 编辑页可以留空，探测会自己去取）
+    pub has_secret: bool,
     pub note: String,
     pub sort_order: i64,
     pub removed_at: Option<String>,
@@ -102,13 +105,12 @@ pub struct ServerInput {
     pub esc_mode: String,
     #[serde(default)]
     pub esc_user: String,
-    /// 库里那份引用。**前端不用给** —— 由 `cred::apply` 按 `secret` 现算，
-    /// 直接传进来的值只在 `secret` 缺省（编辑时没改凭据）时沿用。
+    /// 历史遗留：钥匙串条目引用。现在凭据在 `secret` 列，前端不必给。
     #[serde(default)]
     pub cred_ref: Option<String>,
     /// 凭据正文：密钥档是私钥路径，密码档是密码。三态 ——
-    /// `None` = 不动（编辑时留空的常态），`Some("")` = 清掉，`Some(值)` = 写入。
-    /// **不进库**，由 `repo` 转交本机钥匙串。
+    /// `None` = 不动（编辑时没改凭据的常态），`Some("")` = 清掉，`Some(值)` = 写入。
+    /// 进库前由 `repo` 加密（`vault::seal`），落的是密文。
     #[serde(default)]
     pub secret: Option<String>,
     #[serde(default)]
