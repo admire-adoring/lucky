@@ -244,6 +244,182 @@ html[data-theme='dark'] .mw-root[data-module='projects'] {
   --mw-m-main: var(--mw-s-settings);
 }
 
+/* ---------- 设置模块的卡片刻度（2026-10-18 补） ----------
+   十个 tab（账户 / 模块 / 外观 / 通知 / 数据 / 集成 / AI / 隐私 / 快捷键 / 关于）用的都是
+   同一套：`.card` 容器 + `.card-title` 标题 + `.setting-row` 一行一条。
+   这些类此前**一条样式都没写** —— 页面渲染出来是一摞无间距无边框的文字（看着像没做完）。
+   刻度取全站同源：卡片圆角 16 / 内边距 18 / 行分隔用 `--mw-border-subtle`；
+   右侧那个槽（`.setting-value` 或一颗 `.btn`）统一右对齐，行与行之间不画第一条线。 */
+.mw-root .card {
+  background: var(--mw-bg-card);
+  border: 1px solid var(--mw-border-card);
+  border-radius: 16px;
+  padding: 4px 18px 8px;
+  margin-bottom: 14px;
+  box-shadow: var(--mw-shadow-card);
+}
+
+.mw-root .card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mw-text-primary);
+  padding: 14px 0 8px;
+}
+
+/* 一条设置项：左（说明）— 右（值 / 动作） */
+.mw-root .setting-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--mw-border-subtle);
+}
+
+/* 标题下的第一条不画线 */
+.mw-root .card-title + .setting-row {
+  border-top: 0;
+}
+
+.mw-root .setting-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mw-root .setting-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mw-text-primary);
+}
+
+.mw-root .setting-desc {
+  font-size: 12px;
+  color: var(--mw-text-muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mw-root .setting-value {
+  font-size: 13px;
+  color: var(--mw-text-secondary);
+  text-align: right;
+  max-width: 58%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 头像：两字母缩写（与任务 / 项目里的负责人码同一套，不是汉字首字） */
+.mw-root .avatar-lg {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mw-m1);
+  color: var(--mw-bg-card);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex: none;
+}
+
+/* 模块 / 集成那两种列表行与 `setting-row` 同构，只差图标槽 */
+.mw-root .module-item,
+.mw-root .integration-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--mw-border-subtle);
+}
+
+.mw-root .card-title + .module-item,
+.mw-root .card-title + .integration-item {
+  border-top: 0;
+}
+
+.mw-root .module-info,
+.mw-root .integration-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mw-root .module-name,
+.mw-root .integration-name {
+  font-size: 13px;
+  color: var(--mw-text-primary);
+}
+
+.mw-root .module-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.mw-root .integration-meta {
+  font-size: 12px;
+  color: var(--mw-text-muted);
+}
+
+.mw-root .integration-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mw-bg-page);
+  flex: none;
+}
+
+/* 快捷键表里那个键帽 */
+.mw-root .kbd {
+  font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--mw-text-secondary);
+  background: var(--mw-bg-page);
+  border: 1px solid var(--mw-border-subtle);
+  border-radius: 6px;
+  padding: 4px 7px;
+}
+
+/* 成员行右侧那组动作：默认淡，悬停才实 —— 与列表里的行内动作同一条口径 */
+.mw-root .setting-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+}
+
+.mw-root .setting-actions .btn {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* 行内编辑用的窄输入框（改名 / 加成员），宽度跟着内容走 */
+.mw-root .setting-input {
+  width: 100%;
+  max-width: 220px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--mw-border-subtle);
+  background: var(--mw-bg-card);
+  color: var(--mw-text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.mw-root .setting-input:focus {
+  outline: none;
+  border-color: var(--mw-m-main);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mw-m-main) 14%, transparent);
+}
+
 /* ---------- §5 侧栏九色点 ----------
    原型里只有工作台那一份给 9 个菜单项配了色（.menu-item.life .menu-dot），
    另外 8 份的圆点全是"当前模块色"。既然新外壳是全站唯一的侧栏，
@@ -13148,3 +13324,539 @@ html[data-theme='dark'] .mw-root[data-module] .wt-page {
 .mw-root[data-module] .wt-page .wb-day { font-size: 10px; color: var(--mw-text-muted); }
 .mw-root[data-module] .wt-page .wb.today .wb-day { color: var(--wt-ink); font-weight: 600; }
 .mw-root[data-module] .wt-page .week-note { font-size: 11.5px; color: var(--mw-text-secondary); margin-top: 10px; line-height: 1.6; }
+
+/* ============================================================================
+   工作台主页 · 紧凑版式（2026-10-18 改版）
+   ----------------------------------------------------------------------------
+   上一版主区是四张 KPI 卡（数字字号走 `.stat` 那一档）+ 今日焦点，一屏只装得下
+   四个数，看着空。这一版把"看总量"压成三张窄卡，腾出的高度给两张真要读的表：
+   项目明细（八行进度）与关键节点（风险 / 里程碑时间轴）。
+   数据口径没变（`computeStats` / `WORKBENCH_AGG` / `useProjects`），变的只是密度。
+
+   只挂模块级作用域（`.mw-root[data-module='dashboard']`）—— 这套类的名字太通用，
+   不限定就会串到别的模块的 `.card` 上。
+   ============================================================================ */
+
+.mw-root[data-module='dashboard'] .dash-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.mw-root[data-module='dashboard'] .dash-metric {
+  background: var(--mw-bg-card);
+  border: 1px solid var(--mw-border-card);
+  border-radius: 14px;
+  padding: 12px 14px 10px;
+  box-shadow: var(--mw-shadow-card);
+  min-width: 0;
+}
+
+.mw-root[data-module='dashboard'] .dash-metric-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mw-text-primary);
+}
+
+.mw-root[data-module='dashboard'] .dash-metric-sub {
+  font-size: 11.5px;
+  color: var(--mw-text-muted);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mw-root[data-module='dashboard'] .dash-metric-value {
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1.15;
+  margin-top: 6px;
+  color: var(--mw-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.mw-root[data-module='dashboard'] .dash-metric-value small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mw-text-muted);
+  margin-left: 6px;
+  letter-spacing: 0;
+}
+
+/* 卡底的小柱：域完成度三根、到期按月四根 */
+.mw-root[data-module='dashboard'] .dash-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.mw-root[data-module='dashboard'] .dash-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mw-root[data-module='dashboard'] .dash-bar-track {
+  width: 100%;
+  height: 26px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.mw-root[data-module='dashboard'] .dash-bar-fill {
+  width: 100%;
+  border-radius: 4px;
+  background: var(--mw-m1);
+  min-height: 2px;
+}
+
+.mw-root[data-module='dashboard'] .dash-bar-fill.is-risk {
+  background: var(--mw-danger);
+}
+
+.mw-root[data-module='dashboard'] .dash-bar-label {
+  font-size: 10.5px;
+  color: var(--mw-text-muted);
+  white-space: nowrap;
+}
+
+/* 任务总量：一根分段条 */
+.mw-root[data-module='dashboard'] .dash-split-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 12px;
+  background: var(--mw-border-subtle);
+}
+
+.mw-root[data-module='dashboard'] .dash-split-bar > i {
+  display: block;
+  height: 100%;
+}
+
+/* 两栏：项目明细（宽）+ 关键节点（窄） */
+.mw-root[data-module='dashboard'] .dash-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+/* 项目一行：色条 · 名字+状态+日期 · 任务 · 进度 · 百分比 */
+.mw-root[data-module='dashboard'] .proj-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--mw-border-subtle);
+}
+
+.mw-root[data-module='dashboard'] .card-title + .proj-row {
+  border-top: 0;
+}
+
+.mw-root[data-module='dashboard'] .proj-tick {
+  width: 3px;
+  height: 24px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.mw-root[data-module='dashboard'] .proj-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.mw-root[data-module='dashboard'] .proj-name {
+  font-size: 12.5px;
+  color: var(--mw-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mw-root[data-module='dashboard'] .proj-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--mw-text-muted);
+  margin-top: 2px;
+}
+
+.mw-root[data-module='dashboard'] .proj-pill {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--mw-bg-page);
+  color: var(--mw-text-secondary);
+}
+
+.mw-root[data-module='dashboard'] .proj-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.mw-root[data-module='dashboard'] .proj-track {
+  width: 76px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--mw-border-subtle);
+  overflow: hidden;
+}
+
+.mw-root[data-module='dashboard'] .proj-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--mw-ok);
+}
+
+.mw-root[data-module='dashboard'] .proj-fill.is-warn {
+  background: var(--mw-warn);
+}
+
+.mw-root[data-module='dashboard'] .proj-fill.is-risk {
+  background: var(--mw-danger);
+}
+
+.mw-root[data-module='dashboard'] .proj-pct {
+  font-size: 11px;
+  color: var(--mw-text-secondary);
+  width: 34px;
+  text-align: right;
+}
+
+/* 关键节点 */
+.mw-root[data-module='dashboard'] .node-row {
+  display: flex;
+  gap: 9px;
+  padding: 7px 0;
+  border-top: 1px solid var(--mw-border-subtle);
+}
+
+.mw-root[data-module='dashboard'] .card-title + .node-row {
+  border-top: 0;
+}
+
+.mw-root[data-module='dashboard'] .node-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex: none;
+  background: var(--mw-ok);
+}
+
+.mw-root[data-module='dashboard'] .node-dot.is-risk {
+  background: var(--mw-danger);
+}
+
+.mw-root[data-module='dashboard'] .node-main {
+  min-width: 0;
+}
+
+.mw-root[data-module='dashboard'] .node-title {
+  font-size: 12px;
+  color: var(--mw-text-primary);
+}
+
+.mw-root[data-module='dashboard'] .node-sub {
+  font-size: 11px;
+  color: var(--mw-text-muted);
+  margin-top: 1px;
+}
+
+@media (max-width: 1180px) {
+  .mw-root[data-module='dashboard'] .dash-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mw-root[data-module='dashboard'] .dash-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- 工作台项目卡：右上「⋯」与它的菜单（2026-10-18） ----------
+   卡片本身点了进详情；编辑 / 删除收进这颗「⋯」—— 三个动作不挤在同一处。
+   菜单绝对定位在卡片里，所以 `.tile` 补 `position: relative`（原来没有定位上下文）。 */
+.mw-root[data-module='work'] .wi-page .tile {
+  position: relative;
+}
+
+.mw-root[data-module='work'] .wi-page .tile-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.mw-root[data-module='work'] .wi-page .tile-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 0;
+  background: none;
+  color: var(--mw-text-muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+/* 悬停或菜单已开时可见 —— 常驻两颗图标会把 96px 的卡头挤散 */
+.mw-root[data-module='work'] .wi-page .tile:hover .tile-more,
+.mw-root[data-module='work'] .wi-page .tile-more[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.mw-root[data-module='work'] .wi-page .tile-more:hover {
+  background: var(--mw-bg-page);
+  color: var(--mw-text-primary);
+}
+
+.mw-root[data-module='work'] .wi-page .tile-menu {
+  position: absolute;
+  top: 34px;
+  right: 8px;
+  z-index: 6;
+  min-width: 104px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--mw-bg-card);
+  border: 1px solid var(--mw-border-card);
+  border-radius: 10px;
+  box-shadow: var(--mw-shadow-card-hover);
+}
+
+.mw-root[data-module='work'] .wi-page .tile-menu button {
+  text-align: left;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 0;
+  background: none;
+  color: var(--mw-text-primary);
+  cursor: pointer;
+}
+
+.mw-root[data-module='work'] .wi-page .tile-menu button:hover {
+  background: var(--mw-bg-page);
+}
+
+.mw-root[data-module='work'] .wi-page .tile-menu button.is-danger {
+  color: var(--mw-danger);
+}
+
+/* ---------- 图形文件列表（项目详情 → 更多 → 图形文件） ----------
+   弹窗里一行一个 html：名字在左、路径 / 大小 / 时间在右。行本身就是按钮（点了开独立窗口）。 */
+.mw-root .figure-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.mw-root .figure-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 8px;
+  border: 0;
+  border-top: 1px solid var(--mw-border-subtle);
+  border-radius: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mw-root .figure-row:first-child {
+  border-top: 0;
+}
+
+.mw-root .figure-row:hover {
+  background: var(--mw-bg-page);
+  border-radius: 9px;
+}
+
+.mw-root .figure-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mw-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mw-root .figure-meta {
+  font-size: 11.5px;
+  color: var(--mw-text-muted);
+  white-space: nowrap;
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 任务详情的检查项（`task_item` 子表） ----------
+   一格 k/v 里放一个纵向列表：勾选框 + 文字 + 删除；最后一行是"加一条"。
+   勾选框复用列表里那颗 `.task-check`，视觉与任务行一致。 */
+.mw-root .detail-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mw-root .check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.mw-root .check-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--mw-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mw-root .check-title.is-done {
+  color: var(--mw-text-muted);
+  text-decoration: line-through;
+}
+
+.mw-root .check-del {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--mw-text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mw-root .check-item:hover .check-del {
+  opacity: 1;
+}
+
+.mw-root .check-del:hover {
+  color: var(--mw-danger);
+  background: var(--mw-danger-bg);
+}
+
+.mw-root .check-add {
+  width: 100%;
+  margin-top: 4px;
+  padding: 5px 8px;
+  border: 1px dashed var(--mw-border-subtle);
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--mw-text-primary);
+}
+
+.mw-root .check-add::placeholder {
+  color: var(--mw-text-muted);
+}
+
+.mw-root .check-add:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--mw-m-main);
+}
+
+/* ---------- 抽屉卡的「⋯」：在项目里维护（2026-10-19） ----------
+   点卡片 = 进详情，点「⋯」= 编辑 / 删除。工作区与学习区的项目页共用这一份。
+   按钮挂 `.drawer` 而不是 `.drawer-face` —— 后者 `overflow: hidden`，菜单会被裁。
+   静止隐藏、悬停或菜单开着才出现：152px 的抽屉面上常驻一颗按钮会压住缩略图。 */
+.mw-root[data-module] .drawer-actions {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 4;
+}
+
+.mw-root[data-module] .drawer-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--g-card) 85%, transparent);
+  color: var(--mw-text-muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.mw-root[data-module] .drawer:hover .drawer-more,
+.mw-root[data-module] .drawer-more[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.mw-root[data-module] .drawer-more:hover {
+  background: var(--g-card);
+  color: var(--mw-text-primary);
+}
+
+.mw-root[data-module] .drawer-menu {
+  position: absolute;
+  top: 26px;
+  right: 0;
+  min-width: 108px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--mw-bg-card);
+  border: 1px solid var(--mw-border-card);
+  border-radius: 10px;
+  box-shadow: var(--mw-shadow-card-hover);
+}
+
+.mw-root[data-module] .drawer-menu button {
+  text-align: left;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--mw-text-primary);
+  cursor: pointer;
+}
+
+.mw-root[data-module] .drawer-menu button:hover {
+  background: var(--mw-bg-page);
+}
+
+.mw-root[data-module] .drawer-menu button.is-danger {
+  color: var(--mw-danger);
+}

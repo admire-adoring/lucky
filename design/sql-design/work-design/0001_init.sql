@@ -126,44 +126,6 @@ CREATE TABLE project_milestone (
 -- 一个项目至多一条"当前阶段"
 CREATE UNIQUE INDEX ux_milestone_now ON project_milestone(project_id) WHERE state = 'now';
 
--- 项目内的文档索引。正文分两类存法（见 ../全局架构.md §三）：
---   · source='local_md'：正文是本地 .md 文件（`documents/<projectId>/<文件名>`），
---     库只存索引 + 文件坐标（file_path / content_hash / synced_at），文件是正文的源；
---   · 其余三类（腾讯文档 / 语雀 / Git）：正文留在原工具，这里只有索引与链接。
--- module / func 是筛选栏「模块 → 功能」两层的分组键（自由文本，不是枚举）。
-CREATE TABLE project_document (
-  id           TEXT    PRIMARY KEY,
-  project_id   TEXT    NOT NULL REFERENCES project(id) ON DELETE CASCADE,
-  name         TEXT    NOT NULL,
-  module       TEXT    NOT NULL DEFAULT '',
-  func         TEXT    NOT NULL DEFAULT '',
-  kind         TEXT    NOT NULL CHECK (kind IN ('plan','design','api','test','spec','research','ref')),
-  source       TEXT    NOT NULL CHECK (source IN ('local_md','tencent_doc','yuque','git')),
-  file_path    TEXT,                 -- 相对 documents/ 根；NULL = 无本地正文
-  content_hash TEXT,                 -- 正文 sha256 前 16 位；与文件比对判"外部改过"
-  synced_at    TEXT,                 -- 上次与文件同步的时刻
-  summary      TEXT    NOT NULL DEFAULT '',
-  author_id    TEXT    REFERENCES app_user(id),
-  updated_at   TEXT    NOT NULL,
-  sort_order   INTEGER NOT NULL DEFAULT 0,
-
-  -- local_md 必须有文件坐标；外部登记的那三类则没有
-  CHECK (source <> 'local_md' OR file_path IS NOT NULL)
-);
-
--- 文档关联（有向边）。反链由查询反向扫出，不落第二份（同 work_doc_link 的口径）。
--- kind 与 to_kind 一一对应（out→task、risk→bug、meet→meeting、bind/ref→doc），
---   一致性由写入路径保证；两列都留是为了两个方向都好查。
--- to_kind 四族一次写全：目标表还没落的（bug）由写入路径拦住，将来落表不必改 CHECK。
--- to_id 不挂外键：它可能指向 task / work_meeting 这些别的表（SQLite 不能按行外键）。
-CREATE TABLE project_document_link (
-  from_doc_id TEXT NOT NULL REFERENCES project_document(id) ON DELETE CASCADE,
-  kind        TEXT NOT NULL CHECK (kind IN ('out','risk','meet','bind','ref')),
-  to_kind     TEXT NOT NULL CHECK (to_kind IN ('task','doc','bug','meeting')),
-  to_id       TEXT NOT NULL,
-  PRIMARY KEY (from_doc_id, to_kind, to_id)
-);
-
 -- 类型里是单值，建成 1:N：单值是"当前最该看的那条"这个视图，不是表结构。
 CREATE TABLE project_risk (
   id          TEXT PRIMARY KEY,
@@ -183,7 +145,58 @@ CREATE TABLE project_activity (
 );
 
 -- ============================================================
--- 五 · 索引（每条对应一条真实查询）
+-- 五 · 文档（统一表 + 多态宿主）
+-- ============================================================
+-- 文档可以挂在不同的主实体上：项目（/projects、/work/projects、/learning/projects）、
+-- 服务器（那台机器上的部署手册）、将来的知识库笔记。
+-- 多态宿主没有外键可挂（SQLite 不能按行切换外键目标）：`owner_id` 的一致性由写入路径保证，
+-- 删除宿主时的清理也由写入路径做（见 ../项目表结构设计.md §4.5）。
+-- `source='local_md'` 的正文是本地 .md 文件（`documents/<owner_kind>/<owner_id>/`），
+-- 其余来源正文留在原工具，这里只有索引与链接。
+CREATE TABLE doc (
+  id           TEXT    PRIMARY KEY,
+  -- 宿主：project（项目）/ server（机器）/ work（工作模块的文档索引）/ note（学习笔记）
+  owner_kind   TEXT    NOT NULL CHECK (owner_kind IN ('project','server','work','note')),
+  owner_id     TEXT    NOT NULL,                 -- project.id / srv_server.host / note.id
+  -- 可选的项目关联：部署文档挂在机器上，但"属于哪个项目"仍要说清（书架按项目分排）
+  project_id   TEXT    REFERENCES project(id) ON DELETE SET NULL,
+  name         TEXT    NOT NULL,
+  -- 筛选栏「模块 → 功能」两层的分组键（项目文档用；部署文档两列都空）
+  module       TEXT    NOT NULL DEFAULT '',
+  func         TEXT    NOT NULL DEFAULT '',
+  -- 它是什么。**不写 CHECK**：词表随宿主不同（项目 7 值 / 部署 3 值），
+  --   由写入路径按 owner_kind 校验（同 source 的并集是稳定的，那边仍写 CHECK）。
+  kind         TEXT    NOT NULL,
+  source       TEXT    NOT NULL CHECK (source IN
+                 ('local_md','tencent_doc','yuque','git','company_wiki','deploy','external','meeting')),
+  version      TEXT    NOT NULL DEFAULT '',       -- 部署文档的版本号；其余留空
+  file_path    TEXT,                              -- 相对 documents/ 根；NULL = 无本地正文
+  content_hash TEXT,                              -- 正文 sha256 前 16 位；与文件比对判"外部改过"
+  synced_at    TEXT,                              -- 上次与文件同步的时刻
+  summary      TEXT    NOT NULL DEFAULT '',
+  author_id    TEXT    REFERENCES app_user(id),
+  updated_at   TEXT    NOT NULL,
+  sort_order   INTEGER NOT NULL DEFAULT 0,
+
+  -- local_md 必须有文件坐标；外部登记的那些没有
+  CHECK (source <> 'local_md' OR file_path IS NOT NULL)
+);
+
+-- 文档关联（有向边）。反链由查询反向扫出，不落第二份（同 work_doc_link 的口径）。
+-- kind 与 to_kind 一一对应（out→task、risk→bug、meet→meeting、bind/ref→doc），
+--   一致性由写入路径保证；两列都留是为了两个方向都好查。
+-- to_kind 四族一次写全：目标表还没落的（bug）由写入路径拦住，将来落表不必改 CHECK。
+-- to_id 不挂外键：它可能指向 task / work_meeting 这些别的表（SQLite 不能按行外键）。
+CREATE TABLE doc_link (
+  from_doc_id TEXT NOT NULL REFERENCES doc(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL CHECK (kind IN ('out','risk','meet','bind','ref')),
+  to_kind     TEXT NOT NULL CHECK (to_kind IN ('task','doc','bug','meeting')),
+  to_id       TEXT NOT NULL,
+  PRIMARY KEY (from_doc_id, to_kind, to_id)
+);
+
+-- ============================================================
+-- 六 · 索引（每条对应一条真实查询）
 -- ============================================================
 
 CREATE INDEX ix_project_scope_status   ON project(scope, status);
@@ -196,13 +209,14 @@ CREATE INDEX ix_task_scope_due     ON task(scope, due_at);
 CREATE INDEX ix_task_scope_state   ON task(scope, state);
 
 CREATE INDEX ix_milestone_project  ON project_milestone(project_id, sort_order);
-CREATE INDEX ix_document_project   ON project_document(project_id, kind);
-CREATE INDEX ix_document_link_to   ON project_document_link(to_kind, to_id);  -- 反链：谁指向它
+CREATE INDEX ix_doc_owner          ON doc(owner_kind, owner_id, sort_order);  -- 某宿主下的文档
+CREATE INDEX ix_doc_project        ON doc(project_id, kind);                  -- 书架按项目分排
+CREATE INDEX ix_doc_link_to        ON doc_link(to_kind, to_id);               -- 反链：谁指向它
 CREATE INDEX ix_activity_project   ON project_activity(project_id, at DESC);
 CREATE INDEX ix_risk_project       ON project_risk(project_id, closed_at, opened_at);
 
 -- ============================================================
--- 六 · 视图
+-- 七 · 视图
 -- ============================================================
 
 -- 列表页读数：任务计数不落冗余列，用视图现算（D1）。

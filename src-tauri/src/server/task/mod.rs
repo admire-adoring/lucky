@@ -1,9 +1,11 @@
 //! 全局层「任务清单」域（`/tasks`）。门面：取锁 + 调 repo + 组装错误。
 //!
 //! 项目详情页的「任务」分区也读这里，只是带上 `project_id` 过滤 —— 任务不挂死在项目上。
+mod item;
 mod model;
 mod repo;
 
+pub use item::TaskItem;
 pub use model::{Task, TaskInput};
 
 use crate::server::error::Result;
@@ -32,4 +34,25 @@ pub fn set_state(store: &Store, id: &str, state: &str) -> Result<Task> {
 pub fn delete(store: &Store, id: &str) -> Result<()> {
     let conn = store.conn()?;
     repo::delete(&conn, id)
+}
+
+/// 任务的检查项（子表）。前端只有详情弹窗用它。
+pub fn item_list(store: &Store, task_id: &str) -> Result<Vec<TaskItem>> {
+    let conn = store.conn()?;
+    item::list(&conn, task_id)
+}
+
+pub fn item_create(store: &Store, task_id: &str, title: &str) -> Result<TaskItem> {
+    let conn = store.conn()?;
+    item::create(&conn, task_id, title)
+}
+
+pub fn item_toggle(store: &Store, id: &str, done: bool) -> Result<TaskItem> {
+    let conn = store.conn()?;
+    item::toggle(&conn, id, done)
+}
+
+pub fn item_delete(store: &Store, id: &str) -> Result<()> {
+    let conn = store.conn()?;
+    item::delete(&conn, id)
 }

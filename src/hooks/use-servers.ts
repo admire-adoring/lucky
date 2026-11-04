@@ -1,26 +1,22 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  createDeployDoc,
   createRelease,
   createServer,
-  deleteDeployDoc,
   deleteRelease,
   deleteServer,
-  deployDocKeys,
   getServer,
   lastRelease,
-  listDeployDocs,
   listReleaseCounts,
   listReleases,
   listServers,
+  probeServer,
   releaseKeys,
   removeServer,
   serverKeys,
-  updateDeployDoc,
   updateRelease,
   updateServer,
-  type DeployDocInput,
   type DeployReleaseInput,
+  type ProbeOutcome,
   type ServerInput,
 } from '../api/servers'
 import { toOpsServer } from '../lib/server-view'
@@ -68,20 +64,6 @@ export function useProjectServers(projectId: string | undefined): ServerItem[] {
 }
 
 /**
- * 多个项目的部署文档（服务器详情页书架按项目分排，项目数运行时才知道）。
- * `useQueries` 支持动态数组，每个项目一条查询、各自的 query key。
- */
-export function useDeployDocsMany(projectIds: string[]) {
-  return useQueries({
-    queries: projectIds.map((projectId) => ({
-      queryKey: deployDocKeys.byProject(projectId),
-      queryFn: () => listDeployDocs(projectId),
-      staleTime: 5 * 60 * 1000,
-    })),
-  })
-}
-
-/**
  * 增 / 改 / 移除 / 删除 —— 四个动作收在一处失效上。
  *
  * 只失效列表是不够的：详情页读的是 `['servers','one',host]`，改完机器名之后
@@ -105,8 +87,8 @@ export function useServerActions() {
 /* ============================================================================
    发布记录 / 部署文档的数据钩子
    ----------------------------------------------------------------------------
-   两条失效线：发布动 `['releases']`（counts / last 都挂在它下面），
-   文档动 `['deployDocs']`。互不失效 —— 两张表各写各的。
+   发布记录一条失效线：`['releases']`（counts / last 都挂在它下面）。
+   部署文档已经归到 `api/docs.ts`（宿主是机器的那一类），不在这个文件里。
    ============================================================================ */
 
 /** 一个项目的发布记录，新的在前。 */
@@ -152,27 +134,20 @@ export function useReleaseActions() {
   }
 }
 
-/** 一个项目的部署文档（书架那一排），按登记顺序。 */
-export function useDeployDocs(projectId: string | undefined) {
-  return useQuery({
-    queryKey: deployDocKeys.byProject(projectId ?? ''),
-    queryFn: () => listDeployDocs(projectId as string),
-    enabled: Boolean(projectId),
-    staleTime: 5 * 60 * 1000,
-  })
-}
+/* ============================================================================
+   连接探测
+   ----------------------------------------------------------------------------
+   探测是动作（mutation），不是查询：真跑一次 SSH，成功后后端把机器自报的
+   os/cores/mem/disk 写回 srv_server。所以 onSuccess 要失效台账缓存，
+   列表与详情页才会读到新规格。
+   ============================================================================ */
 
-/** 增 / 改 / 删部署文档 —— 收在 `['deployDocs']` 一处失效上。 */
-export function useDeployDocActions() {
+export function useServerProbe() {
   const queryClient = useQueryClient()
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: deployDocKeys.all })
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: serverKeys.all })
 
-  return {
-    create: useMutation({ mutationFn: createDeployDoc, onSuccess: invalidate }),
-    save: useMutation({
-      mutationFn: ({ id, input }: { id: string; input: DeployDocInput }) => updateDeployDoc(id, input),
-      onSuccess: invalidate,
-    }),
-    destroy: useMutation({ mutationFn: deleteDeployDoc, onSuccess: invalidate }),
-  }
+  return useMutation<ProbeOutcome, Error, string>({
+    mutationFn: (host: string) => probeServer(host),
+    onSuccess: invalidate,
+  })
 }

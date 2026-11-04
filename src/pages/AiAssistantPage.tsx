@@ -12,7 +12,8 @@ import { AiThoughtPanel, AiVoiceOverlay } from '../components/ai/AiOverlays'
 import { useExportSession } from '../components/ai/use-export-session'
 import { Icon } from '../components/icons/Icon'
 import { greetingMessage } from '../data/ai/conversations'
-import { AI_SCOPE_LINE } from '../data/ai/facts'
+import { aiScopeLine, updateAiFacts } from '../data/ai/facts'
+import { useProjects } from '../hooks/use-projects'
 import { useDocumentTitle } from '../hooks/use-document-title'
 import { useAuthStore } from '../stores/auth-store'
 import { useRecentsStore } from '../stores/recents-store'
@@ -60,6 +61,13 @@ export function AiAssistantPage() {
   const closeSidebar = useUiStore((state) => state.closeSidebar)
   const record = useRecentsStore((state) => state.record)
   const location = useLocation()
+
+  /* 真实项目数据到达时更新事实层 —— reply.ts 据此生成回复 */
+  const { data: projects = [] } = useProjects()
+  useEffect(() => {
+    updateAiFacts(projects)
+  }, [projects])
+  const scopeLine = aiScopeLine()
 
   const [commandOpen, setCommandOpen] = useState(false)
   const [voiceOpen, setVoiceOpen] = useState(false)
@@ -148,7 +156,7 @@ export function AiAssistantPage() {
             <div className="chat-head-info">
               <div className="chat-head-title">{session?.title ?? '没有会话'}</div>
               <div className="chat-head-sub">
-                {AI_SCOPE_LINE}
+                {scopeLine}
                 {queue.length ? ` · 队列 ${queue.length} 条` : ''}
               </div>
             </div>

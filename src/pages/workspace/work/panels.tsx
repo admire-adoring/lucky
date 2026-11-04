@@ -40,8 +40,7 @@
  */
 
 import { DocLibrary } from '../../../components/workspace/project-detail/DocLibrary'
-import { WORK_DOC_INDEX } from '../../../data/workspace/work-docs'
-import { toast } from '../../../stores/toast-store'
+import { useOwnerDocs } from '../../../hooks/use-docs'
 import { WorkTasksPage } from '../../../components/workspace/work/WorkTasksPage'
 import { WorkbenchPanel } from '../../../components/workspace/work/WorkbenchPanel'
 import { ServersLedger } from '../../../components/workspace/work/ServersLedger'
@@ -152,13 +151,18 @@ export function ServersPanel({ handlers: _handlers }: { handlers: Handlers }) {
    清单在 `data/workspace/work-docs.ts`（跨项目，不进 `POOL`），理由写在那个文件头。
    这一页没有写接口 ⇒ 新建文档那一颗按钮走 `toast` 的诚实回执（组件内已有口径）。
    ---------------------------------------------------------------------------- */
-export function DocsPanel({ handlers: _handlers }: { handlers: Handlers }) {
+export function DocsPanel({ handlers }: { handlers: Handlers }) {
+  /* 与学习「笔记」页完全同构：宿主是 `work` + `work`（工作模块自己的容器），
+     真实库还是演示清单由 `api/docs.ts` 按宿主分派（浏览器里回落 `WORK_DOC_INDEX`）。
+     工作文档也存本地 md —— 不再区分"公司工具"那套，正文一律落 `documents/work/work/`。 */
+  const docs = useOwnerDocs('work', 'work')
   return (
     <DocLibrary
-      docs={WORK_DOC_INDEX}
+      docs={docs}
+      owner={{ kind: 'work', id: 'work' }}
       projectName="工作模块"
       groupLabel="项目与分类"
-      notice={(text) => toast(text)}
+      notice={(text) => handlers.notice(text)}
     />
   )
 }

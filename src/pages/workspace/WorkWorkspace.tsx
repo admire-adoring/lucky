@@ -2,7 +2,8 @@ import type { ComponentType } from 'react'
 import { PendingDetail } from '../../components/workspace/PendingDetail'
 import { useModuleModals } from '../../components/workspace/use-module-modals'
 import { ClientsContacts } from '../../components/workspace/work/ClientsContacts'
-import { ProjectDrawers, ProjectTopbarActions } from '../../components/workspace/work/ProjectDrawers'
+import { ProjectDrawers } from '../../components/workspace/work/ProjectDrawers'
+import { ProjectTopbarActions } from '../../components/workspace/project-detail/ProjectTopbarActions'
 import { WorkspaceLayout } from '../../components/workspace/WorkspaceLayout'
 import { WorkspaceModal } from '../../components/workspace/WorkspaceModal'
 import { useModuleTab } from '../../hooks/use-module-tab'
@@ -64,7 +65,11 @@ export function WorkWorkspace() {
    *    分叉留在这一处，好过让每个面板自己去挂顶栏。
    */
   const topbarActions =
-    active === 'projects' ? <ProjectTopbarActions handlers={handlers} /> : <TopbarActions handlers={handlers} />
+    active === 'projects' ? (
+      <ProjectTopbarActions scope="work" notice={handlers.notice} />
+    ) : (
+      <TopbarActions handlers={handlers} />
+    )
 
   return (
     <WorkspaceLayout

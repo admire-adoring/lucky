@@ -18,11 +18,8 @@ import {
   type ReclaimSeed,
 } from './content-pool'
 import type {
-  ActivityItem,
   DocLink,
   DocumentItem,
-  Milestone,
-  MilestoneState,
   Project,
   Task,
   TaskStatus,
@@ -151,23 +148,6 @@ export function taskQuad(task: Pick<Task, 'priority' | 'late' | 'status'>): 1 | 
   return 4
 }
 
-/** 里程碑：按整体进度决定已完成个数，下一个为进行中 */
-export function buildMilestones(project: Project): Milestone[] {
-  const names = POOL[project.scope].milestones
-  const doneCount = Math.min(names.length, Math.max(0, Math.round((project.progress / 100) * names.length)))
-
-  return names.map((name, i) => {
-    const state: MilestoneState = i < doneCount ? 'done' : i === doneCount ? 'now' : 'todo'
-    return {
-      id: `${project.id}-m${i + 1}`,
-      name,
-      state,
-      date: state === 'done' ? '已完成' : state === 'now' ? '进行中' : '待启动',
-      detail: state === 'done' ? '已于计划内完成' : state === 'now' ? '当前所处阶段' : '等待前序阶段',
-    }
-  })
-}
-
 /**
  * 「多久没更新」→ 文案。
  *
@@ -268,16 +248,6 @@ export function buildDocuments(project: Project): DocumentItem[] {
   return list
 }
 
-/** 项目动态 */
-export function buildActivity(project: Project): ActivityItem[] {
-  return POOL[project.scope].activity.map((action, i) => ({
-    id: `${project.id}-a${i + 1}`,
-    who: project.owners[i % project.owners.length] as string,
-    action,
-    time: ACTIVITY_TIMES[i % ACTIVITY_TIMES.length] as string,
-  }))
-}
-
 /* ============================================================
    列表页派生统计
    ============================================================ */
@@ -351,8 +321,7 @@ export function priorityRank(project: Project): number {
       所以这五组与 `buildDocuments` 同一类：由项目确定性派生，不是真实读数。
       放在这里的理由与那四组一样 —— 一处事实源，8 个项目打开是 8 份不同内容。
    条数：能挂到真字段的就挂（`buildTasks` 用 `project.tasksTotal`），
-      挂不上的用固定档并在注释里写明（`buildMilestones` 固定 5 条、
-      `buildDocuments` 固定 4 份是同样的取舍）—— 不编造一个假的"条数"字段。
+      挂不上的用固定档并在注释里写明（`buildDocuments` 固定 4 份是同样的取舍）—— 不编造一个假的"条数"字段。
    ============================================================ */
 
 export interface BugItem {

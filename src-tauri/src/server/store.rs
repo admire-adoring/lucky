@@ -17,13 +17,20 @@ use crate::server::error::{Error, Result};
 /// 不知道 SQLite 与文件系统长什么样。
 pub struct Store {
     conn: Mutex<Connection>,
+    /// 实际打开的那个库文件 —— 账户页的「本机数据」要显示它，
+    /// 取这里而不是重新读 config，避免"显示的"与"用着的"两处漂。
+    db_path: PathBuf,
     documents_root: PathBuf,
 }
 
 impl Store {
     pub fn open(db_path: impl AsRef<Path>, documents_root: impl AsRef<Path>) -> Result<Self> {
         let conn = db::open(db_path.as_ref())?;
-        Ok(Self { conn: Mutex::new(conn), documents_root: documents_root.as_ref().to_path_buf() })
+        Ok(Self {
+            conn: Mutex::new(conn),
+            db_path: db_path.as_ref().to_path_buf(),
+            documents_root: documents_root.as_ref().to_path_buf(),
+        })
     }
 
     /// `pub(crate)`：连接只在域门面里出现，repo 收的也只是 `&Connection`。
@@ -33,7 +40,12 @@ impl Store {
             .map_err(|_| Error::Invalid("数据库连接已中毒，需要重启应用".into()))
     }
 
-    /// 文档正文的根目录（`<root>/<projectId>/<文件名>.md`）。
+    /// 库文件的绝对路径（账户页展示用）。
+    pub(crate) fn db_path(&self) -> &Path {
+        &self.db_path
+    }
+
+    /// 文档正文的根目录（`<root>/<owner_kind>/<owner_id>/<文件名>.md`）。
     pub(crate) fn documents_root(&self) -> &Path {
         &self.documents_root
     }

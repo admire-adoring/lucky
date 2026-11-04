@@ -1,9 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { DEMO_ACCOUNT } from '../api/projects'
 import type { AuthUser } from '../types'
 
 const SESSION_USER: AuthUser = { name: '刘 阳', email: 'me@lucky-y.app', initials: 'LY' }
+
+/** 登录页预填的默认凭据（单机应用无后端鉴权，这只是 UI 初值） */
+export const DEFAULT_EMAIL = 'me@lucky-y.app'
+export const DEFAULT_PASSWORD = 'lucky-y-2026'
 
 interface SignInPayload {
   email: string
@@ -34,7 +37,7 @@ export const useAuthStore = create<AuthState>()(
       async signIn(payload) {
         set({ pending: true })
         await wait(760)
-        set({ pending: false, user: { ...SESSION_USER, email: payload.email || DEMO_ACCOUNT.email } })
+        set({ pending: false, user: { ...SESSION_USER, email: payload.email || DEFAULT_EMAIL } })
       },
       async signInWithGithub() {
         set({ pending: true })

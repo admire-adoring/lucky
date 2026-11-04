@@ -17,6 +17,7 @@ import {
 import { toast } from '../../../stores/toast-store'
 import { WorkspaceModal } from '../../../components/workspace/WorkspaceModal'
 import { useTaskApi } from './task-state'
+import { useTaskItemMutations, useTaskItems } from '../../../hooks/use-task-items'
 
 /**
  * 「任务」的四个弹窗。
@@ -292,6 +293,12 @@ export function TaskDetailModal({ row, section }: { row: TaskRow; section: TaskS
         <span className="k">预估</span>
         <span className="v">{est ? durationText(est) : '—'}</span>
       </div>
+      <div className="detail-row detail-items">
+        <span className="k">检查项</span>
+        <div className="v">
+          <TaskItemList taskId={row.id} />
+        </div>
+      </div>
       <div className="detail-row">
         <span className="k">排期</span>
         {/* 有没有排期，是"待排池"与"时间轴"的唯一区别 —— 这个字段必须看得见 */}
@@ -340,5 +347,57 @@ export function TaskDetailModal({ row, section }: { row: TaskRow; section: TaskS
         </button>
       </div>
     </WorkspaceModal>
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * 检查项（`task_item` 子表）—— 一个任务的多条可勾记录
+ * ------------------------------------------------------------------ */
+
+function TaskItemList({ taskId }: { taskId: string }) {
+  const items = useTaskItems(taskId)
+  const actions = useTaskItemMutations(taskId)
+  const [draft, setDraft] = useState('')
+
+  const submit = () => {
+    const title = draft.trim()
+    if (!title) return
+    actions.create.mutate(title, { onSuccess: () => setDraft('') })
+  }
+
+  return (
+    <div className="detail-checklist">
+      {items.map((item) => (
+        <div className="check-item" key={item.id}>
+          <button
+            type="button"
+            className={item.done ? 'task-check done' : 'task-check'}
+            aria-pressed={item.done}
+            aria-label={item.done ? `把「${item.title}」标为未完成` : `把「${item.title}」标为已完成`}
+            onClick={() => actions.toggle.mutate({ id: item.id, done: !item.done })}
+          >
+            {item.done ? '✓' : ''}
+          </button>
+          <span className={item.done ? 'check-title is-done' : 'check-title'}>{item.title}</span>
+          <button
+            type="button"
+            className="check-del"
+            aria-label={`删除检查项「${item.title}」`}
+            onClick={() => actions.remove.mutate(item.id)}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <input
+        className="check-add"
+        placeholder="加一条检查项，回车添加"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') submit()
+        }}
+      />
+    </div>
   )
 }

@@ -48,6 +48,8 @@ export interface WorkTaskBoardProps {
   quickAdd?: boolean
   /** 数据未到：正文换成一行字，不渲染"0 项"的空壳（空与还没读到是两回事） */
   loading?: boolean
+  /** 快捷添加的落库入口。不给时仍走"还没有写接口"的诚实回执 */
+  onAdd?: (title: string) => void
 }
 
 export function WorkTaskBoard({
@@ -57,6 +59,7 @@ export function WorkTaskBoard({
   rail = true,
   quickAdd = true,
   loading = false,
+  onAdd,
 }: WorkTaskBoardProps) {
   const [view, setView] = useState<WorkTaskViewKey>('list')
   const hint = WORK_TASK_VIEWS.find((item) => item.key === view)?.hint ?? ''
@@ -94,7 +97,7 @@ export function WorkTaskBoard({
         {loading ? (
           <div className="task-empty">正在读取任务…</div>
         ) : view === 'list' ? (
-          <ListView rows={rows} rail={rail} quickAdd={quickAdd} notice={notice} onToggle={onToggle} />
+          <ListView rows={rows} rail={rail} quickAdd={quickAdd} notice={notice} onToggle={onToggle} onAdd={onAdd} />
         ) : (
           /* 列表档自己出四张卡（主列两张 + 侧轨两张）⇒ 不套卡；另外三档是"一格内容" ⇒ 各带一张卡 */
           <section className="card">
@@ -118,12 +121,14 @@ function ListView({
   quickAdd,
   notice,
   onToggle,
+  onAdd,
 }: {
   rows: WorkTaskRow[]
   rail: boolean
   quickAdd: boolean
   notice: (text: string) => void
   onToggle: (row: WorkTaskRow) => void
+  onAdd?: (title: string) => void
 }) {
   const open = openRows(rows)
   const done = doneRows(rows)
@@ -132,7 +137,7 @@ function ListView({
   return (
     <div className="main-body">
       <div className="main-col">
-        {quickAdd ? <QuickAdd notice={notice} /> : null}
+        {quickAdd ? <QuickAdd notice={notice} onAdd={onAdd} /> : null}
 
         <section className="card">
           <CardHead title="任务列表" num={`${open.length} 项`} />
@@ -225,11 +230,17 @@ function WhenCell({ row }: { row: WorkTaskRow }) {
   )
 }
 
-function QuickAdd({ notice }: { notice: (text: string) => void }) {
+function QuickAdd({ notice, onAdd }: { notice: (text: string) => void; onAdd?: (title: string) => void }) {
   const [draft, setDraft] = useState('')
   const submit = () => {
     const text = draft.trim()
-    notice(text ? `新建任务「${text}」：还没有写接口` : '新建任务：还没有写接口')
+    /* 有 `onAdd` 就走真接口（项目详情传了它）；没有的调用方（如纯演示态）仍给诚实回执 */
+    if (onAdd) {
+      onAdd(text)
+      setDraft('')
+      return
+    }
+    notice('新建任务：还没有写接口')
     setDraft('')
   }
   return (

@@ -100,20 +100,39 @@ export function TaskText({ children }: { children: ReactNode }) {
  * 设置页的开关。原型的初始态写在标记里（`class="switch on"`），
  * 所以这里用 `defaultOn` 而不是 `on` —— 迁移时不需要再判断一次，
  * 初始态仍然只有一个事实源（原型的标记）。
+ *
+ * 当 `on` 传入时进入受控模式：父组件拥有状态（典型场景是设置项面板，
+ * 真值在后端，切换时调 mutate，refetch 后 Switch 跟着回正或回弹）。
+ * `onChange` 在两种模式下都会触发，便于父组件做副作用。
  */
-export function Switch({ defaultOn = false }: { defaultOn?: boolean }) {
-  const [on, setOn] = useState(defaultOn)
+export function Switch({
+  defaultOn = false,
+  on,
+  onChange,
+}: {
+  defaultOn?: boolean
+  on?: boolean
+  onChange?: (next: boolean) => void
+}) {
+  const [internal, setInternal] = useState(defaultOn)
+  const isControlled = on !== undefined
+  const value = isControlled ? (on as boolean) : internal
+  const toggle = () => {
+    const next = !value
+    if (!isControlled) setInternal(next)
+    onChange?.(next)
+  }
   return (
     <div
-      className={cn('switch', on && 'on')}
+      className={cn('switch', value && 'on')}
       role="switch"
-      aria-checked={on}
+      aria-checked={value}
       tabIndex={0}
-      onClick={() => setOn((v) => !v)}
+      onClick={toggle}
       onKeyDown={(event) => {
         if (event.key === ' ' || event.key === 'Enter') {
           event.preventDefault()
-          setOn((v) => !v)
+          toggle()
         }
       }}
     />

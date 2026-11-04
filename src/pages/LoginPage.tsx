@@ -1,13 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DEMO_ACCOUNT } from '../api/projects'
+import { DEFAULT_EMAIL, DEFAULT_PASSWORD, useAuthStore } from '../stores/auth-store'
 import { BrandMark } from '../components/ui/BrandMark'
 import { Icon } from '../components/icons/Icon'
 import { WindowControls } from '../components/layout/WindowControls'
 import { useDocumentTitle } from '../hooks/use-document-title'
 import { DRAG_REGION, PLATFORM } from '../lib/desktop-window'
 import { cn } from '../lib/cn'
-import { useAuthStore } from '../stores/auth-store'
 import { toast } from '../stores/toast-store'
 
 /** 品牌面板底部的三条卖点（「本地优先存储」用的是三层叠层图标，与导航里的 i-layers 不同形） */
@@ -38,8 +37,8 @@ export function LoginPage() {
   const signInWithGithub = useAuthStore((state) => state.signInWithGithub)
   const pending = useAuthStore((state) => state.pending)
 
-  const [email, setEmail] = useState(DEMO_ACCOUNT.email)
-  const [password, setPassword] = useState(DEMO_ACCOUNT.password)
+  const [email, setEmail] = useState(DEFAULT_EMAIL)
+  const [password, setPassword] = useState(DEFAULT_PASSWORD)
   const [remember, setRemember] = useState(true)
   const [passwordVisible, setPasswordVisible] = useState(false)
 

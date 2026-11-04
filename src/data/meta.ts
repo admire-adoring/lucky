@@ -104,7 +104,6 @@ export const DOC_SOURCE_META: Record<string, string> = {
   yuque: '语雀',
   git: 'Git 仓库',
 }
-
 /** 项目列表工具栏的排序项 */
 export const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'default', label: '默认排序' },

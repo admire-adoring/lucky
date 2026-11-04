@@ -107,6 +107,14 @@ export interface AiMessage {
   versions?: AiReplyVersion[]
   /** 当前展示第几版 */
   versionIdx?: number
+  /**
+   * 等外部 LLM 回复中（规则引擎命中不了且 LLM 启用）。
+   *
+   * 规则引擎命中的回复不会进入这一态。命中不了时先把兜底文案落上去（generating=false），
+   * 同时把 llmPending=true，UI 可以据此显示一个"正在问外部模型…"的状态。
+   * LLM 返回（成功或失败）后清掉。
+   */
+  llmPending?: boolean
 }
 
 /**

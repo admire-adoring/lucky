@@ -5,6 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
 use crate::server::error::{Error, Result};
 use crate::server::id::new_id;
 use crate::server::project::model::{Project, ProjectInput, ProjectRisk};
+use crate::server::store::Store;
 
 const STATUSES: &[&str] = &["planning", "active", "risk", "done", "archived"];
 const PRIORITIES: &[&str] = &["high", "mid", "low"];
@@ -189,9 +190,14 @@ pub fn set_status(conn: &mut Connection, id: &str, status: &str) -> Result<Proje
     get(conn, id)
 }
 
-/// 彻底删除。六张卫星表 `ON DELETE CASCADE` 跟着走；
-/// 该项目的任务**不删**（`task.project_id` 是 `ON DELETE SET NULL`）——它们回到收件箱。
-pub fn delete(conn: &Connection, id: &str) -> Result<()> {
+/// 彻底删除。**先清正文文件，再删索引** —— 文件先走，失败时能看见（`read` 会说"正文不存在"）；
+/// 反过来先删库，留下的是看不见的孤儿文件。
+///
+/// 六张卫星表 `ON DELETE CASCADE` 跟着走；该项目的任务**不删**
+/// （`task.project_id` 是 `ON DELETE SET NULL`）——它们回到收件箱。
+pub fn delete(store: &Store, id: &str) -> Result<()> {
+    crate::server::doc::cleanup_by_owner(store, "project", id)?;
+    let conn = store.conn()?;
     let n = conn.execute("DELETE FROM project WHERE id = ?1", [id])?;
     if n == 0 {
         return Err(Error::NotFound(format!("项目 {id}")));
@@ -216,6 +222,81 @@ pub fn log_activity(conn: &Connection, id: &str, action: &str) -> Result<()> {
         params![new_id("ac"), id, action],
     )?;
     Ok(())
+}
+
+/// 项目的动态流（按时间倒序）。`limit` 不给就全取。
+/// `who` 从 app_user.display_name hydrate —— 前端 ActivityItem.who 就是它。
+pub fn list_activity(
+    conn: &Connection,
+    project_id: &str,
+    limit: Option<i64>,
+) -> Result<Vec<crate::server::project::ActivityRow>> {
+    use crate::server::project::ActivityRow;
+    let sql = if limit.is_some() {
+        "SELECT a.id, a.project_id, a.actor_id,
+                COALESCE(u.display_name, '') AS who,
+                a.action, a.at
+         FROM project_activity a
+         LEFT JOIN app_user u ON u.id = a.actor_id
+         WHERE a.project_id = ?1
+         ORDER BY a.at DESC
+         LIMIT ?2"
+    } else {
+        "SELECT a.id, a.project_id, a.actor_id,
+                COALESCE(u.display_name, '') AS who,
+                a.action, a.at
+         FROM project_activity a
+         LEFT JOIN app_user u ON u.id = a.actor_id
+         WHERE a.project_id = ?1
+         ORDER BY a.at DESC"
+    };
+    let mut stmt = conn.prepare(sql)?;
+    let mapper = |row: &Row<'_>| {
+        rusqlite::Result::Ok(ActivityRow {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            actor_id: row.get(2)?,
+            who: row.get(3)?,
+            action: row.get(4)?,
+            at: row.get(5)?,
+        })
+    };
+    let rows = if let Some(n) = limit {
+        stmt.query_map(params![project_id, n], mapper)?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+    } else {
+        stmt.query_map([project_id], mapper)?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    Ok(rows)
+}
+
+/// 跨项目的最近动态（工作台首页用）。按时间倒序，带项目名。
+pub fn recent_activity(conn: &Connection, limit: i64) -> Result<Vec<super::RecentActivityRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT a.id, a.project_id, p.name AS project_name,
+                a.actor_id, COALESCE(u.display_name, '') AS who,
+                a.action, a.at
+         FROM project_activity a
+         JOIN project p ON p.id = a.project_id
+         LEFT JOIN app_user u ON u.id = a.actor_id
+         ORDER BY a.at DESC
+         LIMIT ?1",
+    )?;
+    let rows = stmt
+        .query_map([limit], |row| {
+            Ok(super::RecentActivityRow {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                project_name: row.get(2)?,
+                actor_id: row.get(3)?,
+                who: row.get(4)?,
+                action: row.get(5)?,
+                at: row.get(6)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
 }
 
 /* ============================================================

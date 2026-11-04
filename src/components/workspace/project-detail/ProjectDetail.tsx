@@ -58,20 +58,33 @@
  *
  * 数据口径：任务与文档 = 真实派生（`fetchProjectDetail`）；
  * Bug / 服务器 / 发布记录 / 会议 / 账户 = 池子 + 确定性派生（`data/derive.ts`），
- * 与 `buildDocuments` / `buildMilestones` 同一类，应用没有这五张表。
+ * 与 `buildDocuments` 同一类，应用没有这五张表。
  */
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../icons/Icon'
+import { MilestoneTimeline } from '../../detail/MilestoneTimeline'
+import { ActivityFeed } from '../../detail/ActivityFeed'
 import { DocLibrary } from './DocLibrary'
 import { useSourceOverlay } from './doc-source/use-source-overlay'
 import { DocBook } from './DocBook'
 import { AccountPanel } from './AccountPanel'
 import { OpsPanel } from './OpsPanel'
+import { MilestoneFormModal } from './MilestoneFormModal'
 import { OpsIcon, type OpsIconName } from './ops-icon'
 import { useModuleTab } from '../../../hooks/use-module-tab'
-import { useProjectDetail } from '../../../hooks/use-projects'
+import { useMilestoneActions, useProjectActions, useProjectDetail } from '../../../hooks/use-projects'
+import { patchOf } from '../../projects/project-form'
+import { ProjectDeleteModal, ProjectFormModal } from '../../projects/ProjectModal'
+import { useProjectHtml } from '../../../hooks/use-project-html'
+import { useProjectAccounts } from '../../../hooks/use-project-accounts'
+import { useProjectBugs } from '../../../hooks/use-project-bugs'
+import { useProjectMeetings } from '../../../hooks/use-meetings'
+import { useProjectTasks, useTaskMutations } from '../../../hooks/use-tasks'
+import { openProjectHtml } from '../../../api/project-html'
+import { errorText } from '../../../api/error'
+import { WorkspaceModal } from '../WorkspaceModal'
 import { cn } from '../../../lib/cn'
 import { toast } from '../../../stores/toast-store'
 import {
@@ -89,8 +102,8 @@ import {
   type ServerItem,
 } from '../../../data/derive'
 import { toDeployDocItem, toDeployItem } from '../../../lib/server-view'
-import { useDeployDocs, useProjectServers, useReleases } from '../../../hooks/use-servers'
-import { useDocs } from '../../../hooks/use-docs'
+import { useProjectServers, useReleases } from '../../../hooks/use-servers'
+import { useDeployDocs, useDocs } from '../../../hooks/use-docs'
 import { adaptDocs, adaptTasks, type WsDoc, type WsTask } from '../../../data/workspace/project'
 import {
   applyOverride,
@@ -101,7 +114,7 @@ import {
 } from '../../../data/workspace/work-tasks'
 import { WorkTaskBoard } from '../work/WorkTaskBoard'
 import type { ModuleTab } from '../../../data/workspace/types'
-import type { Project, ProjectStatus, Toast } from '../../../types'
+import type { ActivityItem, Milestone, MilestoneState, Project, ProjectStatus, Toast } from '../../../types'
 
 /* ------------------------------------------------------------------ *
  * 分区
@@ -184,9 +197,17 @@ interface HeroProps {
   open: boolean
   onToggle: () => void
   notice: (text: string) => void
+  /** 打开「图形文件」列表 —— 项目目录里的 html（流程图 / 架构图） */
+  onFigures: () => void
+  /** 编辑项目（`ProjectFormModal`，与列表页同一套表单） */
+  onEdit: () => void
+  /** 归档（`status='archived'`）—— 不删数据，从「进行中」里拿掉 */
+  onArchive: () => void
+  /** 删除（`ProjectDeleteModal` 二次确认，连带正文文件与卫星表） */
+  onDelete: () => void
 }
 
-function Hero({ project, open, onToggle, notice }: HeroProps) {
+function Hero({ project, open, onToggle, notice, onFigures, onEdit, onArchive, onDelete }: HeroProps) {
   const [moreOpen, setMoreOpen] = useState(false)
 
   const copyLink = () => {
@@ -244,7 +265,7 @@ function Hero({ project, open, onToggle, notice }: HeroProps) {
             </span>
           </div>
 
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => notice('编辑项目：还没有写接口')}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit}>
             编辑
           </button>
 
@@ -266,15 +287,40 @@ function Hero({ project, open, onToggle, notice }: HeroProps) {
               <div className="more-item" role="menuitem" tabIndex={0} onClick={copyLink}>
                 <OpsIcon name="copy" size={14} /> 复制链接
               </div>
-              <div className="more-item" role="menuitem" tabIndex={0} onClick={() => { setMoreOpen(false); notice('归档项目：还没有写接口') }}>
-                <OpsIcon name="archive" size={14} /> 归档项目
+              {/* 流程图 / 架构图在项目目录里，用独立窗口打开（`file://`，见 lib.rs 的 `project_html_open`） */}
+              <div
+                className="more-item"
+                role="menuitem"
+                tabIndex={0}
+                onClick={() => {
+                  setMoreOpen(false)
+                  onFigures()
+                }}
+              >
+                <OpsIcon name="expand" size={14} /> 图形文件
               </div>
-              <div className="more-item" role="menuitem" tabIndex={0} onClick={() => { setMoreOpen(false); notice('暂停项目：还没有写接口') }}>
-                <OpsIcon name="pause" size={14} /> 暂停项目
+              <div
+                className="more-item"
+                role="menuitem"
+                tabIndex={0}
+                onClick={() => {
+                  setMoreOpen(false)
+                  onArchive()
+                }}
+              >
+                <OpsIcon name="archive" size={14} /> 归档项目
               </div>
               {/* 分隔线把"对项目做什么"与"离开 / 收走这个项目"分开（原型在「全部项目」之前有一条） */}
               <div className="more-sep" role="separator" />
-              <div className="more-item danger" role="menuitem" tabIndex={0} onClick={() => { setMoreOpen(false); notice('删除项目：还没有写接口') }}>
+              <div
+                className="more-item danger"
+                role="menuitem"
+                tabIndex={0}
+                onClick={() => {
+                  setMoreOpen(false)
+                  onDelete()
+                }}
+              >
                 <OpsIcon name="trash" size={14} /> 删除项目
               </div>
             </div>
@@ -423,11 +469,16 @@ function OverviewPanel({
   deploys,
   meetings,
   accounts,
+  milestones,
+  activity,
   gotoTab,
   openTab,
   onToggleTask,
   onOpenDoc,
   onEditDoc,
+  onAddMilestone,
+  onEditMilestone,
+  onSetMilestoneState,
 }: {
   tasks: WsTask[]
   bugs: ReturnType<typeof buildBugs>
@@ -436,6 +487,8 @@ function OverviewPanel({
   deploys: DeployItem[]
   meetings: ReturnType<typeof buildMeetings>
   accounts: ReturnType<typeof buildAccounts>
+  milestones: Milestone[]
+  activity: ActivityItem[]
   gotoTab: (key: TabKey) => void
   openTab: TabKey[]
   onToggleTask: (id: string) => void
@@ -443,6 +496,9 @@ function OverviewPanel({
   onOpenDoc: (doc: WsDoc) => void
   /* 动作条上那颗「编辑」：同一篇，直接落在编辑镜头 */
   onEditDoc: (doc: WsDoc) => void
+  onAddMilestone: () => void
+  onEditMilestone: (m: Milestone) => void
+  onSetMilestoneState: (m: Milestone, state: MilestoneState) => void
 }) {
   const done = tasks.filter((t) => t.status === 'done').length
   const has = (key: TabKey) => openTab.includes(key)
@@ -504,7 +560,7 @@ function OverviewPanel({
           <div className="deploy-timeline">
             {deploys.slice(0, 2).map((item) => (
               <div key={item.id} className="deploy-row">
-                <div className="deploy-dot" style={{ ['--dc' as string]: item.result === 'success' ? '#10B981' : '#F59E0B' }} />
+                <div className="deploy-dot" style={{ ['--dc' as string]: item.result === 'success' ? 'var(--c-success)' : 'var(--c-warning)' }} />
                 <div className="deploy-info">
                   <div className="deploy-ver">
                     {item.version}{' '}
@@ -581,6 +637,40 @@ function OverviewPanel({
           </div>
         </div>
       ) : null}
+
+      <div className="card rc-milestone">
+        <CardHead
+          icon="🎯"
+          title="里程碑"
+          count={milestones.length ? `${milestones.length}` : undefined}
+          action={
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={onAddMilestone}
+              title="添加里程碑"
+            >
+              <OpsIcon name="plus" size={14} /> 添加
+            </button>
+          }
+        />
+        {milestones.length ? (
+          <MilestoneTimeline
+            milestones={milestones}
+            onEdit={onEditMilestone}
+            onSetState={onSetMilestoneState}
+          />
+        ) : (
+          <div className="q-empty">还没有里程碑 —— 点「添加」记一条计划节点</div>
+        )}
+      </div>
+
+      {activity.length > 0 ? (
+        <div className="card rc-activity">
+          <CardHead icon="📋" title="动态" count={`${activity.length}`} />
+          <ActivityFeed activity={activity} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -615,7 +705,10 @@ export function useProjectDetailView(id: string | undefined, basePath: string) {
   const [accountsRev, setAccountsRev] = useState(0)
   const bumpAccounts = useCallback(() => setAccountsRev((n) => n + 1), [])
 
-  const baseTasks = useMemo(() => (data ? adaptTasks(data.tasks) : []), [data])
+  /* 任务走真实库（`task` 表）；`data.tasks` 是演示派生，只留给还没换源的地方 */
+  const realTasks = useProjectTasks(id)
+  const taskActions = useTaskMutations()
+  const baseTasks = useMemo(() => adaptTasks(realTasks), [realTasks])
   const tasks: WsTask[] = useMemo(
     () =>
       baseTasks.map((task) => {
@@ -630,35 +723,32 @@ export function useProjectDetailView(id: string | undefined, basePath: string) {
   /* 「任务」分区那一格的四档视图（`WorkTaskBoard`）读的是行，不是 `WsTask` ——
      四象限、日历、分布那几档要的是"第几天"与格位，那些只有 `Task` 上才有。 */
   const taskRows = useMemo(
-    () => (data ? applyOverride(workTaskRows(data.project, data.tasks, projectTone(0)), override) : []),
-    [data, override],
+    () => (data ? applyOverride(workTaskRows(data.project, realTasks, projectTone(0)), override) : []),
+    [data, realTasks, override],
   )
 
   /* 文档索引走自己的查询（库里的索引 + 本地正文那一半都归它）——
      与 `useProjectServers` 同形：真实库还是演示池由 api 层按宿主分派。 */
   const docItems = useDocs(data?.project.id)
   const docs = useMemo(() => adaptDocs(docItems), [docItems])
-  const bugs = useMemo(() => (data ? buildBugs(data.project) : []), [data])
+  /* 问题清单走真实库（`project_bug`）—— 原先 `buildBugs` 的条数是按"有没有风险"编的 */
+  const bugs = useProjectBugs(data?.project.id)
   /* 运维三样走真实库：机器按"服务本项目"过滤，发布记录与部署文档按项目查 */
   const servers = useProjectServers(data?.project.id)
   const { data: releases } = useReleases(data?.project.id)
   const { data: rawDeployDocs } = useDeployDocs(data?.project.id)
   const deploys = useMemo(() => (releases ?? []).map(toDeployItem), [releases])
   const deployDocs = useMemo(() => (rawDeployDocs ?? []).map(toDeployDocItem), [rawDeployDocs])
-  const meetings = useMemo(() => (data ? buildMeetings(data.project) : []), [data])
-  const accounts = useMemo(() => (data ? buildAccounts(data.project) : []), [data])
+  /* 会议走真实库（`work_meeting`，0007 给它加了可空的 `project_id`） */
+  const meetings = useProjectMeetings(data?.project.id)
+  /* 凭据清单：真数据。演示池那份按 scope 共享，改一个项目会连带别的项目 —— 已经不用了 */
+  const accounts = useProjectAccounts(data?.project.id)
 
-  /* 可见分区：见文件头 ①。数据没到之前按全集渲染，免得环上先少几格再补回来。
-     运维的判据只看 `servers`：库里没给这个项目登记机器，就没有这一格 ——
-     发布记录与部署文档挂在机器名下，机器为空时它们也无处可放。 */
-  const sections = useMemo<ModuleTab[]>(() => {
-    if (!data) return SECTION_TABS
-    return SECTION_TABS.filter((tab) => {
-      if (tab.key === 'ops') return servers.length > 0
-      if (tab.key === 'accounts') return accounts.length > 0
-      return true
-    })
-  }, [data, servers.length, accounts.length, accountsRev])
+  /* 分区**全部常显**（见文件头 ①）。
+     以前运维按"有机器"、账户按"有凭据"隐藏，结果两格都成了"从 0 到 1"的死锁：
+     用户看不到入口、也建不出第一条，只会问"我的运维呢"。
+     现在空态各自说清去哪加（运维指向「服务器」页、账户就在本格添加）。 */
+  const sections = SECTION_TABS
 
   const { active, select } = useModuleTab(basePath, sections)
   const openTab = sections.map((t) => t.key as TabKey)
@@ -675,12 +765,30 @@ export function useProjectDetailView(id: string | undefined, basePath: string) {
    *    覆盖表存的是 `{ state, prev }`，所以这个函数不再自己推 next。
    * 回执写在事件里，不写进 `setOverride` 的更新函数：StrictMode 下更新函数会跑两遍。
    */
+  /** 快捷添加：只给标题就够了 —— 项目、归属域由这一页定，优先级默认中，状态待办 */
+  const createTask = (title: string) => {
+    if (!data) return
+    taskActions.create.mutate(
+      { scope: data.project.scope, projectId: data.project.id, title, state: 'todo', priority: 'mid' },
+      {
+        onSuccess: () => toast(`已创建「${title}」`),
+        onError: (error) => toast(`创建失败：${errorText(error)}`),
+      },
+    )
+  }
+
   const toggleTask = (taskId: string) => {
     const task = baseTasks.find((item) => item.id === taskId)
     if (!task) return
     const done = (override[taskId]?.state ?? task.status) === 'done'
     setOverride((prev) => toggleOverride({ id: task.id, state: task.status }, prev))
-    toast(done ? `已重置「${task.title}」` : `已完成「${task.title}」`)
+    taskActions.setState.mutate(
+      { id: task.id, state: done ? 'todo' : 'done' },
+      {
+        onSuccess: () => toast(done ? `已重置「${task.title}」` : `已完成「${task.title}」`),
+        onError: (error) => toast(`改状态失败：${errorText(error)}`),
+      },
+    )
   }
 
   /* 数字键 1..7 切分区（原型有这一条）。两个前提：没有修饰键、焦点不在输入控件里 ——
@@ -738,9 +846,12 @@ export function useProjectDetailView(id: string | undefined, basePath: string) {
     deployDocs,
     meetings,
     accounts,
+    milestones: data?.milestones ?? [],
+    activity: data?.activity ?? [],
     /** 分区 → 那一格右上角的计数（原型写死在标记里） */
     counts,
     toggleTask,
+    createTask,
     notice,
     heroOpen,
     setHeroOpen,
@@ -769,6 +880,19 @@ interface BackLink {
  * 需要一条看得见的回头路；而项目模块的详情本身就是那个模块的根页面，没有上一层。
  */
 export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backTo?: BackLink }) {
+  /* 「图形文件」弹窗：只在打开时才扫项目目录（没填目录的项目会直接在弹窗里说清） */
+  const [figuresOpen, setFiguresOpen] = useState(false)
+  const [editingOpen, setEditingOpen] = useState(false)
+  const [deletingOpen, setDeletingOpen] = useState(false)
+  /* 里程碑编辑/新增弹窗。null = 关；{ mode: 'add' } = 新增；{ mode: 'edit', target } = 编辑 */
+  const [milestoneModal, setMilestoneModal] = useState<
+    | { mode: 'add' }
+    | { mode: 'edit'; target: Milestone }
+    | null
+  >(null)
+  const projectActions = useProjectActions()
+  const milestoneActions = useMilestoneActions()
+  const navigate = useNavigate()
   const {
     project,
     tasks,
@@ -779,22 +903,35 @@ export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backT
     deploys,
     deployDocs,
     meetings,
-    accounts,
+    milestones,
+    activity,
     sections,
     active,
     select,
     counts,
     openTab,
     toggleTask,
+    createTask,
     notice,
     heroOpen,
     setHeroOpen,
     bumpAccounts,
   } = view
 
+
   /* 原文页：概览格那几本书点开就是它（详情那一屏是文档索引页的本事，概览格没有）。
      挂在这里而不是 `OverviewPanel` 里：那一格只是这一页的一块，覆盖层归页面管。 */
   const { openSource, sourceNode } = useSourceOverlay(project?.name ?? '', notice)
+
+  /* 图形文件（项目目录里的 html）。放在条件 return 之前 —— hook 不能写在它后面；
+     `project?.id` 未定时 `enabled` 为 false，不会打命令。 */
+  const figures = useProjectHtml(project?.id, figuresOpen)
+
+  /* 凭据清单：真数据（`project_account`）。形态仍是 `AccountItem`，`AccountPanel` 的渲染不变。
+     演示池那份（`view.accounts`）不再用 —— 它按 scope 共享，改一个项目会连带别的项目。 */
+  const accounts = useProjectAccounts(project?.id)
+  /* Tab 上的「账户 N」跟着真数据走（`view.counts` 是按演示池算的） */
+  const liveCounts = { ...counts, accounts: accounts.length }
 
   /* 数据没到 → 不渲染正文。加载/失败两态由调用方连同外壳一起给：
      那时连页面根都不存在，而这两态必须出现在壳里面（否则整页是白的）。 */
@@ -809,7 +946,24 @@ export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backT
         </Link>
       ) : null}
 
-      <Hero project={project} open={heroOpen} onToggle={() => setHeroOpen((v) => !v)} notice={notice} />
+      <Hero
+        project={project}
+        open={heroOpen}
+        onToggle={() => setHeroOpen((v) => !v)}
+        notice={notice}
+        onFigures={() => setFiguresOpen(true)}
+        onEdit={() => setEditingOpen(true)}
+        onArchive={() =>
+          projectActions.setStatus.mutate(
+            { id: project.id, status: 'archived' },
+            {
+              onSuccess: () => notice(`已归档「${project.name}」`),
+              onError: (error) => notice(`归档失败：${errorText(error)}`),
+            },
+          )
+        }
+        onDelete={() => setDeletingOpen(true)}
+      />
 
       <div className="tabs-wrap">
         <div className="tabs" role="tablist" aria-label="项目分区">
@@ -827,7 +981,7 @@ export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backT
               >
                 <OpsIcon name={TAB_ICON[key]} size={15} />
                 {tab.label}
-                {counts[key] ? <span className="tab-count">{counts[key]}</span> : null}
+                {liveCounts[key] ? <span className="tab-count">{liveCounts[key]}</span> : null}
               </button>
             )
           })}
@@ -844,11 +998,24 @@ export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backT
             deploys={deploys}
             meetings={meetings}
             accounts={accounts}
+            milestones={milestones}
+            activity={activity}
             gotoTab={(key) => select(key)}
             openTab={openTab}
             onToggleTask={toggleTask}
             onOpenDoc={openSource}
             onEditDoc={(doc) => openSource(doc, 'edit')}
+            onAddMilestone={() => setMilestoneModal({ mode: 'add' })}
+            onEditMilestone={(m) => setMilestoneModal({ mode: 'edit', target: m })}
+            onSetMilestoneState={(m, state) =>
+              milestoneActions.setState.mutate(
+                { id: m.id, state },
+                {
+                  onSuccess: () => notice(`已切到「${state === 'done' ? '已完成' : state === 'now' ? '进行中' : '待启动'}」`),
+                  onError: (error) => notice(`改状态失败：${errorText(error)}`),
+                },
+              )
+            }
           />
         ) : null}
 
@@ -857,7 +1024,12 @@ export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backT
              上一版是"两段分组列表"（进行中 / 已完成）—— 与工作模块「任务」那一页
              是两套实现。现在两处共用同一个组件与同一套四档视图，
              数据这一层换成 `workTaskRows`（四象限与日历要的是 `Task` 上的日偏移）。 */
-          <WorkTaskBoard rows={taskRows} notice={notice} onToggle={(row) => toggleTask(row.id)} />
+          <WorkTaskBoard
+            rows={taskRows}
+            notice={notice}
+            onToggle={(row) => toggleTask(row.id)}
+            onAdd={createTask}
+          />
         ) : null}
 
         {active === 'bugs' ? (
@@ -885,14 +1057,19 @@ export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backT
              这里不再包一层 `.card rc-doc`：那一版的"一张卡片 + 标题 + 新建按钮"
                 与下面这一版的结构不兼容（这一版自带子类栏、工具栏与结果条，
                 标题行与"共 N 篇"是重复的两处计数）。理由写在 `DocLibrary` 文件头。 */
-          <DocLibrary docs={docs} projectName={project.name} notice={notice} />
+          <DocLibrary
+            docs={docs}
+            owner={{ kind: 'project', id: project.id }}
+            projectName={project.name}
+            notice={notice}
+          />
         ) : null}
 
         {active === 'ops' ? (
           /* 运维（原型 `工作-项目-项目详情-运维-index.html`）。
-             这一整块由 `OpsPanel` 负责，它自带一层 `.ops-page` 作用域 ——
-                概览卡片与这里共用 `.server-row` / `.deploy-row` 这批类名，而两边版式不同，
-                靠这一层把原型的规则关在分区内（见 `OpsPanel` 文件头 ①）。 */
+             零机器也**渲染完整框架**：三条 KPI（当前版本 / 最近发布 / 已连接）+ 服务器卡
+             的「＋ 添加」+ 部署文档 / 发布记录的空卡 —— 原型的默认布局本来如此，
+             "没有数据就只剩一句话"会把原地新增的入口也一并弄丢（2026-10-24 教训）。 */
           <OpsPanel
             projectId={project.id}
             projectName={project.name}
@@ -940,6 +1117,114 @@ export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backT
       </div>
 
       {sourceNode}
+
+      {/* 图形文件：项目目录里的 .html（流程图 / 架构图）。
+          点一行 → 壳层开一个独立窗口加载 `file://`（不走前端路由：那些文件自带内联脚本与相对资源）。 */}
+      {figuresOpen ? (
+        <WorkspaceModal title="图形文件" onClose={() => setFiguresOpen(false)}>
+          {figures.isLoading ? (
+            <p className="stat-desc">正在扫项目目录…</p>
+          ) : figures.error ? (
+            <p className="stat-desc">{errorText(figures.error)}</p>
+          ) : !figures.data?.length ? (
+            <p className="stat-desc">
+              项目目录里还没有 .html —— 把流程图 / 架构图放进去（比如 mermaid 导出的）就会出现。
+            </p>
+          ) : (
+            <div className="figure-list">
+              {figures.data.map((file) => (
+                <button
+                  key={file.rel}
+                  type="button"
+                  className="figure-row"
+                  onClick={() =>
+                    openProjectHtml(project.id, file.rel).catch((error) =>
+                      notice(`打不开：${errorText(error)}`),
+                    )
+                  }
+                >
+                  <span className="figure-name">{file.name}</span>
+                  <span className="figure-meta">
+                    {file.rel} · {sizeText(file.size)} · {timeText(file.mtime)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </WorkspaceModal>
+      ) : null}
+
+      {/* 编辑 / 删除：与项目列表页、工作台项目卡同一套弹窗 —— 三处都走 `ProjectFormModal`，
+          不各写一份表单（那样迟早有一处漏字段，而漏字段在界面上看不出来）。 */}
+      {editingOpen ? (
+        <ProjectFormModal
+          mode="edit"
+          initial={patchOf(project)}
+          onClose={() => setEditingOpen(false)}
+          onSubmit={(patch) => {
+            projectActions.save.mutate(
+              { id: project.id, patch },
+              {
+                onSuccess: () => {
+                  notice(`已保存「${patch.name}」`)
+                  setEditingOpen(false)
+                },
+                onError: (error) => notice(`保存失败：${errorText(error)}`),
+              },
+            )
+          }}
+        />
+      ) : null}
+
+      {deletingOpen ? (
+        <ProjectDeleteModal
+          project={project}
+          onClose={() => setDeletingOpen(false)}
+          onConfirm={() => {
+            const name = project.name
+            const back = backTo?.path ?? '/projects'
+            projectActions.remove.mutate(project.id, {
+              onSuccess: () => {
+                notice(`已删除「${name}」`)
+                setDeletingOpen(false)
+                /* 删完这一页就不存在了 —— 停在原地会是一张空壳 */
+                navigate(back)
+              },
+              onError: (error) => notice(`删除失败：${errorText(error)}`),
+            })
+          }}
+        />
+      ) : null}
+
+      {/* 里程碑编辑/新增 —— 表与接口都在，UI 此前缺这一格。
+          新增拿 project.id；编辑拿 target.id。删除在弹窗内部二次确认。 */}
+      {milestoneModal ? (
+        <MilestoneFormModal
+          mode={milestoneModal.mode}
+          projectId={project.id}
+          target={milestoneModal.mode === 'edit' ? milestoneModal.target : undefined}
+          onClose={() => setMilestoneModal(null)}
+        />
+      ) : null}
     </div>
   )
+}
+
+/** 文件大小给人看的那一档（KB / MB）。 */
+function sizeText(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${bytes} B`
+}
+
+/** 修改时刻：后端给的是 Unix 秒，`new Date` 才是本地时区（后端自己算会差 8 小时）。 */
+function timeText(secs: number): string {
+  if (!secs) return '—'
+  return new Date(secs * 1000).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }

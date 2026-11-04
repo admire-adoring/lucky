@@ -10,6 +10,9 @@ pub struct Task {
     pub scope: String,
     /// 没挂项目 = 收件箱里的任务（`NULL` 是事实，不是缺数据）。
     pub project_id: Option<String>,
+    /// 项目名（hydrate 时按 `project_id` 查）。任务行要显示它，前端不该为了一个名字再查项目表。
+    #[serde(default)]
+    pub project_name: String,
     /// 负责人码（`'LY'`），与 `Project.owners` 同一套码。
     pub owner_code: Option<String>,
     pub title: String,
@@ -27,6 +30,10 @@ pub struct Task {
     pub sort_order: i64,
     pub created_at: String,
     pub updated_at: String,
+    /// 检查项（子表）。**列表不带**（`None` 之外的空数组 = 还没查）；
+    /// 只有 `task_get` 会填 —— 列表逐条查子表是 N+1。
+    #[serde(default)]
+    pub items: Vec<crate::server::task::item::TaskItem>,
 }
 
 /// 写形态。`scope` 在挂项目时可以不传（取项目的），不挂项目时必须传。

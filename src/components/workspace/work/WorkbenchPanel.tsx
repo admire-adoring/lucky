@@ -1,9 +1,14 @@
 import { useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DOC_KIND_LABEL } from '../../../data/content-pool'
-import { buildTasks, docUpdatedText, ownerDisplayName, taskQuad } from '../../../data/derive'
-import { WORK_DOC_INDEX } from '../../../data/workspace/work-docs'
-import { useProjects } from '../../../hooks/use-projects'
+import { docUpdatedText, ownerDisplayName, taskQuad } from '../../../data/derive'
+import { useProjectActions, useProjects } from '../../../hooks/use-projects'
+import { useRawTasks, useTaskMutations } from '../../../hooks/use-tasks'
+import { toTask } from '../../../api/tasks'
+import { useOwnerDocs } from '../../../hooks/use-docs'
+import { errorText } from '../../../api/error'
+import { ProjectDeleteModal, ProjectFormModal } from '../../projects/ProjectModal'
+import { patchOf } from '../../projects/project-form'
 import { cn } from '../../../lib/cn'
 import { toast } from '../../../stores/toast-store'
 import { useRecentsStore } from '../../../stores/recents-store'
@@ -34,7 +39,7 @@ import type { DocumentItem, Project, ProjectStatus, Task } from '../../../types'
    | 块 | 来源 | 与原型样本的关系 |
    | --- | --- | --- |
    | 项目 | `useProjects()` 过滤 `scope === 'work'`（2 个） | 原型那 3 个样本不是数据源（`ProjectDrawers` 文件头写着同一条） |
-   | 文档 | `WORK_DOC_INDEX` 按 `updatedHours` 取最近三本 | 恰好就是原型那三本（同一批 id 的移植），只是顺序按真实时间 |
+   | 文档 | `useOwnerDocs('work','work')` —— `doc` 表里宿主是工作模块的那批，按 `updatedHours` 取最近三本 | 2026-10-18 换源：原 `WORK_DOC_INDEX` 演示池已退到浏览器预览的回落里 |
    | 任务 | 上面那几个项目的 `buildTasks()` 拉平 | 名称 / 到期 / 优先级都是派生出来的真字段 |
 
    ============================================================================
@@ -93,12 +98,13 @@ interface DashTask {
   important: boolean
 }
 
-function toDashTask(project: Project, task: Task): DashTask {
+function toDashTask(task: Task): DashTask {
   const quadrant = taskQuad(task)
   return {
     key: task.id,
     name: task.name,
-    meta: `${project.name} · ${ownerDisplayName(task.owner)}`,
+    /* `task.owner` 已经是显示名（`toTask` 里映射过），这里不能再 `ownerDisplayName` 一次 */
+    meta: `${task.projectName ?? '未归类'} · ${task.owner || '未指派'}`,
     when: task.due,
     overdue: task.late,
     done: task.status === 'done',
@@ -120,6 +126,11 @@ export function WorkbenchPanel() {
   const [taskView, setTaskView] = useState<TaskView>('list')
   const [doneOpen, setDoneOpen] = useState(false)
   const [zoom, setZoom] = useState<DuoKey | null>(null)
+  /* 项目卡右上那颗「…」：菜单里只有编辑 / 删除 —— 卡片本身点了是进详情，别把两个动作塞进同一处 */
+  const [menuOf, setMenuOf] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Project | null>(null)
+  const [deleting, setDeleting] = useState<Project | null>(null)
+  const projectActions = useProjectActions()
   /** 勾选记在覆盖表里（与项目详情页的任务同一口径）：不重建派生数据的一份副本 */
   const [doneOverride, setDoneOverride] = useState<Record<string, boolean>>({})
   /**
@@ -159,15 +170,24 @@ export function WorkbenchPanel() {
       })
   }, [allProjects, recents])
 
-  const lateCountOf = (project: Project) => buildTasks(project).filter((task) => task.late && task.status !== 'done').length
+  /* 逾期数按真实任务算（同一份 `realWork` 在下面声明，这里用 props 传进来的过滤） */
+  /* 真实任务（工作域）：今日任务卡、逾期计数都读它。派生 `buildTasks` 只剩别处兜底 */
+  const realWork = useRawTasks('work').map(toTask)
+  const taskMutations = useTaskMutations()
+
+  const lateCountOf = (project: Project) =>
+    realWork.filter((task) => task.projectId === project.id && task.late && task.status !== 'done').length
 
   const shownProjects = projectView === 'star' ? projects.filter((p) => STARRED.has(starKey('p', p.id))) : projects
 
   /* ---------------- 文档 ---------------- */
 
+  /* 真实来源：`doc` 表里宿主是工作模块（`owner_kind='work'`）的那批。
+     浏览器预览里 `api/docs.ts` 回落 `WORK_DOC_INDEX`，形状一致。 */
+  const docItems = useOwnerDocs('work', 'work')
   const docs = useMemo(
-    () => WORK_DOC_INDEX.slice().sort((a, b) => a.updatedHours - b.updatedHours),
-    [],
+    () => docItems.slice().sort((a, b) => a.updatedHours - b.updatedHours),
+    [docItems],
   )
   /* 卡里只摆最近三本（原型那一格就是一行三本 96px 的书）；要看全部走卡头的「放大」 */
   const shownDocs = (docView === 'star' ? docs.filter((doc) => STARRED.has(starKey('d', doc.id))) : docs).slice(0, 3)
@@ -186,10 +206,7 @@ export function WorkbenchPanel() {
 
   /* ---------------- 今日任务 ---------------- */
 
-  const tasks = useMemo<DashTask[]>(
-    () => projects.flatMap((project) => buildTasks(project).map((task) => toDashTask(project, task))),
-    [projects],
-  )
+  const tasks = useMemo<DashTask[]>(() => realWork.map((task) => toDashTask(task)), [realWork])
   const isDone = (task: DashTask) => doneOverride[task.key] ?? task.done
   const open = tasks.filter((task) => !isDone(task))
   const finished = tasks.filter((task) => isDone(task))
@@ -197,7 +214,13 @@ export function WorkbenchPanel() {
   const toggleTask = (task: DashTask) => {
     const next = !isDone(task)
     setDoneOverride((prev) => ({ ...prev, [task.key]: next }))
-    toast(next ? `已完成「${task.name}」` : `已重置「${task.name}」`)
+    taskMutations.setState.mutate(
+      { id: task.key, state: next ? 'done' : 'todo' },
+      {
+        onSuccess: () => toast(next ? `已完成「${task.name}」` : `已重置「${task.name}」`),
+        onError: (error) => toast(`改状态失败：${errorText(error)}`),
+      },
+    )
   }
 
   const toggleStar = (kind: 'p' | 'd', id: string) => {
@@ -446,20 +469,58 @@ export function WorkbenchPanel() {
                     <span className="tile-top is-drawer" aria-hidden="true" />
                     <span className="tile-head">
                       <span className="tile-name">{project.name}</span>
-                      <button
-                        type="button"
-                        className={cn('dash-star', starOf('p', project.id) && 'on')}
-                        aria-pressed={starOf('p', project.id)}
-                        title={starOf('p', project.id) ? '取消收藏' : '收藏'}
-                        aria-label={`${starOf('p', project.id) ? '取消收藏' : '收藏'}「${project.name}」`}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          toggleStar('p', project.id)
-                        }}
-                      >
-                        <OpsIcon name="star" size={15} />
-                      </button>
+                      <span className="tile-tools">
+                        <button
+                          type="button"
+                          className={cn('dash-star', starOf('p', project.id) && 'on')}
+                          aria-pressed={starOf('p', project.id)}
+                          title={starOf('p', project.id) ? '取消收藏' : '收藏'}
+                          aria-label={`${starOf('p', project.id) ? '取消收藏' : '收藏'}「${project.name}」`}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            toggleStar('p', project.id)
+                          }}
+                        >
+                          <OpsIcon name="star" size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="tile-more"
+                          title="更多"
+                          aria-label={`「${project.name}」的更多操作`}
+                          aria-expanded={menuOf === project.id}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setMenuOf(menuOf === project.id ? null : project.id)
+                          }}
+                        >
+                          ⋯
+                        </button>
+                      </span>
                     </span>
+                    {menuOf === project.id ? (
+                      <span className="tile-menu" onClick={(event) => event.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditing(project)
+                            setMenuOf(null)
+                          }}
+                        >
+                          编辑项目
+                        </button>
+                        <button
+                          type="button"
+                          className="is-danger"
+                          onClick={() => {
+                            setDeleting(project)
+                            setMenuOf(null)
+                          }}
+                        >
+                          删除项目
+                        </button>
+                      </span>
+                    ) : null}
                     <span className="tile-meta">
                       {project.progress}% · {project.dueShort}
                       {lateCountOf(project) > 0 ? <span className="dash-alert">{lateCountOf(project)} 项逾期</span> : null}
@@ -635,6 +696,45 @@ export function WorkbenchPanel() {
       ) : null}
 
       {sourceNode}
+
+      {/* 项目卡「…」的两个动作 —— 与项目列表页同一套弹窗，不另写一份表单 */}
+      {editing ? (
+        <ProjectFormModal
+          key={editing.id}
+          mode="edit"
+          initial={patchOf(editing)}
+          onClose={() => setEditing(null)}
+          onSubmit={(patch) => {
+            projectActions.save.mutate(
+              { id: editing.id, patch },
+              {
+                onSuccess: () => {
+                  toast(`已保存「${patch.name}」`)
+                  setEditing(null)
+                },
+                onError: (error) => toast(`保存失败：${errorText(error)}`),
+              },
+            )
+          }}
+        />
+      ) : null}
+
+      {deleting ? (
+        <ProjectDeleteModal
+          project={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => {
+            const name = deleting.name
+            projectActions.remove.mutate(deleting.id, {
+              onSuccess: () => {
+                toast(`已删除「${name}」`)
+                setDeleting(null)
+              },
+              onError: (error) => toast(`删除失败：${errorText(error)}`),
+            })
+          }}
+        />
+      ) : null}
     </div>
   )
 }

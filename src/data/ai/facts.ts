@@ -1,101 +1,133 @@
-import { buildTasks, computeStats, isClosed } from '../derive'
-import { PROJECTS } from '../projects'
-import { WORKBENCH_AGG, projectById } from '../workbench'
-import type { Project, Task } from '../../types'
+import type { Project } from '../../types'
 
 /**
- * AI 助手的事实层 —— 这一页所有数字的唯一出处。
+ * AI 助手的事实层。
  *
- * ============================================================================
- * 为什么必须有这一层
- * ============================================================================
- * 原型是一个演示稿，它那条示例对话里写着一串数字（「3 个日程」「5 个任务」「2 个逾期」
- * 「29 / 54 完成」「低于全域 17 个百分点」）。照搬会踩两条红线：
+ * 这是一个规则引擎（不是 LLM）：从真实项目数据算统计值，reply.ts 据此生成回复。
+ * 没有 AI 模型后端 —— 所有数字来自 useProjects() 的真实 SQLite 数据。
  *
- *   ① 项目的铁律是不允许编数字：`projects.ts` 的 8 个项目是唯一事实源，
- *      派生值（进度、完成率、域均值）都从它算出来，项目增删数字就要跟着动。
- *   ② 同一句话在两处各写一遍，迟早会漂 —— 工作台的内容层已经用一次指纹守卫
- *      证明过这一点（`data/workbench.ts` 开头那段）。
- *
- * 但也不能因此把这页做成空的。实测发现原型那几个数字本来就是真算出来的：
- *    · 「工作域平均进度 42%、低于全域 17 个百分点」→ `DOM.work.avg = 42`、`GLOBAL_AVG = 59`
- *    · 「29 / 54 完成（53.7%）」→ `DOM.work.done / DOM.work.total`、`DOM.work.rate`
- *    也就是说原型作者当时也读的是这一份聚合。所以口径是：能对上的直接用，对不上的明说。
- *
- * ============================================================================
- * 每一项的口径都写在字段注释里；没有来源的不写
- * ============================================================================
- * 用 `WORKBENCH_AGG` 而不是自己再 `reduce` 一遍：它是生成物
- * （`design/gen-modules.mjs` 产出、`data/workbench.ts` 用指纹守着），
- * 工作台与项目页读的也是它 —— 同一句话在三个页面里必须是同几个数。
+ * `AI_FACTS` 是可变对象：组件在数据到达时调 `updateAiFacts(projects)` 更新它，
+ * reply.ts 在 buildReply() 调用时读到最新值。
  */
 
-const stats = computeStats(PROJECTS)
-
-/**
- * 逾期任务。
- *
- * 判据直接用 `Task.late`（`derive.ts` 里由 `due.includes('逾期')` 得出，
- * 且只有 `status === 'risk'` 的项目才会产生逾期项）—— 不在这里另算一套"是否逾期"。
- * 另算一套的代价是：改派生规则时两处不同步，而页面上没人会发现哪个才对。
- */
-const lateTasks: Array<{ project: Project; task: Task }> = PROJECTS.flatMap((project) =>
-  buildTasks(project)
-    .filter((task) => task.late)
-    .map((task) => ({ project, task })),
-)
-
-/**
- * 剩余天数最紧的两个未完成项目。
- *
- * 顺序取自 `WORKBENCH_AGG.BY_DAYS` —— 那一列在生成器里已经按 `daysLeft` 升序排好了，
- * 这里只做 id → Project 的解析，不再排一次（再排一次就等于把"谁更紧"这个口径抄了两份）。
- */
-const dueFirst = WORKBENCH_AGG.BY_DAYS.map((id) => projectById(id)).filter(
-  (project): project is Project => project !== undefined,
-)
-
-/**
- * 某个域里进度最低的未完成项目 —— 回答"拖累项是哪个"时的口径。
- *
- * 这是推导，不是数据字段：原型那句「主要拖累是「团队 OKR 落地推进」（12%）」
- *    在应用里没有对应的"拖累项"字段。判据取"该域里 progress 最小的未完成项目"，
- *    与工作台把 `DOM.<域>.avg` 说成"域均值"是同一个立场 —— 都从 `projects.ts` 现算。
- *    注释写明是推论，是为了让下一个人能判断什么时候该换口径。
- */
-function laggardOf(scope: Project['scope']): Project | undefined {
-  return PROJECTS.filter((project) => project.scope === scope && !isClosed(project)).sort(
-    (a, b) => a.progress - b.progress,
-  )[0]
+interface AiTasks {
+  total: number
+  done: number
+  todo: number
+  rate: number
+}
+interface AiDomEntry {
+  avg: number
+  count: number
+  done: number
+  total: number
+  todo: number
+  rate: number
 }
 
-export const AI_FACTS = {
-  /** 已接入的项目数 —— 与顶栏徽标、工作台摘要同一口径 */
-  projectCount: PROJECTS.length,
-  /** 任务总量 / 已完成 / 待办 / 完成率 */
-  tasks: WORKBENCH_AGG.TASKS,
-  /** 全域平均进度 */
-  globalAvg: WORKBENCH_AGG.GLOBAL_AVG,
-  /** 三个域（life / work / learn）的聚合 */
-  dom: WORKBENCH_AGG.DOM,
-  /** 项目统计（进行中 / 风险 / 已完成 / 平均进度） */
-  stats,
-  /** 逾期任务（含所属项目） */
-  lateTasks,
-  lateCount: lateTasks.length,
-  /** 按剩余天数升序的未完成项目 */
-  dueFirst,
-  /** 剩余天数最紧的两个（这一页多处引用，取一次免得各处 slice） */
-  dueTop2: dueFirst.slice(0, 2),
-  /** 预算总额（元） */
-  budgetTotal: WORKBENCH_AGG.BUDGET_TOTAL,
-  /** 每个域里进度最低的未完成项目（推导，见 laggardOf） */
+export interface AiFacts {
+  projectCount: number
+  tasks: AiTasks
+  globalAvg: number
+  dom: {
+    life: AiDomEntry
+    work: AiDomEntry
+    learn: AiDomEntry
+  }
+  stats: { active: number; risk: number; done: number; averageProgress: number }
+  lateCount: number
+  dueFirst: Project[]
+  dueTop2: Project[]
+  budgetTotal: number
   laggard: {
+    life: Project | undefined
+    work: Project | undefined
+    learn: Project | undefined
+  }
+}
+
+const EMPTY_DOM: AiDomEntry = { avg: 0, count: 0, done: 0, total: 0, todo: 0, rate: 0 }
+
+export const AI_FACTS: AiFacts = {
+  projectCount: 0,
+  tasks: { total: 0, done: 0, todo: 0, rate: 0 },
+  globalAvg: 0,
+  dom: {
+    life: { ...EMPTY_DOM },
+    work: { ...EMPTY_DOM },
+    learn: { ...EMPTY_DOM },
+  },
+  stats: { active: 0, risk: 0, done: 0, averageProgress: 0 },
+  lateCount: 0,
+  dueFirst: [],
+  dueTop2: [],
+  budgetTotal: 0,
+  laggard: { life: undefined, work: undefined, learn: undefined },
+}
+
+function domEntry(projects: Project[]): AiDomEntry {
+  const total = projects.reduce((s, p) => s + p.tasksTotal, 0)
+  const done = projects.reduce((s, p) => s + p.tasksDone, 0)
+  const todo = total - done
+  const avg = projects.length ? Math.round(projects.reduce((s, p) => s + p.progress, 0) / projects.length) : 0
+  const rate = total ? Math.round((done / total) * 100) : 0
+  return { avg, count: projects.length, done, total, todo, rate }
+}
+
+/** 从真实项目数据计算事实层，写回 AI_FACTS。由 React 组件在数据到达时调用。 */
+export function updateAiFacts(projects: Project[]): void {
+  const byScope = (scope: 'life' | 'work' | 'learn') => projects.filter((p) => p.scope === scope)
+
+  const dom = {
+    life: domEntry(byScope('life')),
+    work: domEntry(byScope('work')),
+    learn: domEntry(byScope('learn')),
+  }
+  const total = projects.reduce((s, p) => s + p.tasksTotal, 0)
+  const done = projects.reduce((s, p) => s + p.tasksDone, 0)
+  const todo = total - done
+  const averageProgress = projects.length
+    ? Math.round(projects.reduce((s, p) => s + p.progress, 0) / projects.length)
+    : 0
+
+  const active = projects.filter((p) => p.status === 'active').length
+  const risk = projects.filter((p) => p.status === 'risk').length
+  const doneProjects = projects.filter((p) => p.status === 'done').length
+
+  // 到期排序：天数少（含负数=逾期）的在前
+  const dueFirst = [...projects]
+    .filter((p) => p.status !== 'archived' && p.status !== 'done')
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+  const dueTop2 = dueFirst.slice(0, 2)
+
+  // 各域进度最低的未完成项目
+  const laggardOf = (scope: 'life' | 'work' | 'learn') =>
+    byScope(scope)
+      .filter((p) => p.status !== 'archived' && p.status !== 'done')
+      .sort((a, b) => a.progress - b.progress)[0]
+
+  // 逾期项目（daysLeft < 0 的未完成项目）
+  const overdueProjects = projects.filter((p) => p.daysLeft < 0 && p.status !== 'archived' && p.status !== 'done')
+
+  AI_FACTS.projectCount = projects.length
+  AI_FACTS.tasks = { total, done, todo, rate: total ? Math.round((done / total) * 100) : 0 }
+  AI_FACTS.globalAvg = averageProgress
+  AI_FACTS.dom = dom
+  AI_FACTS.stats = { active, risk, done: doneProjects, averageProgress }
+  AI_FACTS.lateCount = overdueProjects.length
+  AI_FACTS.dueFirst = dueFirst
+  AI_FACTS.dueTop2 = dueTop2
+  AI_FACTS.budgetTotal = 0
+  AI_FACTS.laggard = {
     life: laggardOf('life'),
     work: laggardOf('work'),
     learn: laggardOf('learn'),
-  },
-} as const
+  }
+}
 
-/** 「8 个项目 · 164 条任务」这种摘要行 —— 顶栏会话头与助手栏共用同一句 */
-export const AI_SCOPE_LINE = `已接入 ${AI_FACTS.projectCount} 个项目 · ${AI_FACTS.tasks.total} 条任务 · 全域平均 ${AI_FACTS.globalAvg}%`
+/** 摘要行 —— 助手栏状态 */
+export function aiScopeLine(): string {
+  const f = AI_FACTS
+  if (!f.projectCount) return '还没有项目数据'
+  return `${f.projectCount} 个项目 · 平均进度 ${f.stats.averageProgress}% · 任务完成率 ${f.tasks.rate}%`
+}

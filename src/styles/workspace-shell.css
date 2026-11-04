@@ -688,6 +688,59 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+/* ---------- 表单刻度的**通用兜底**（2026-10-17） ----------
+   内核原先把 `.form-*` 只写成 tasks / calendar / life 三份按模块限定的规则，projects 后来补了
+   第四份 —— 于是 **work 与 learning 从一开始就没有**：那两个域的「新建项目」以前只弹一句
+   toast，弹窗今天才第一次被打开，症状是 label 与输入框挤成一行、输入框没有边框（看着像"崩了"）。
+
+   这里按 projects 那份**逐字**兜底。老模块（tasks / calendar / life / projects）的特例仍留在
+   自己那一段里（`[data-module=…]` 特异性更高、覆盖在上面 ⇒ 观感不变）；新模块直接吃这一份，
+   **不要再逐域复制** —— "同一套刻度写四遍"正是这个 bug 的来源。 */
+.mw-root .form-field {
+  margin-bottom: 14px;
+}
+
+.mw-root .form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mw-text-secondary);
+  margin-bottom: 6px;
+}
+
+.mw-root .form-input,
+.mw-root .form-select,
+.mw-root .form-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--mw-border-subtle);
+  background: var(--mw-bg-card);
+  color: var(--mw-text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.mw-root .form-input:focus,
+.mw-root .form-select:focus,
+.mw-root .form-textarea:focus {
+  outline: none;
+  border-color: var(--mw-m-main);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mw-m-main) 14%, transparent);
+}
+
+.mw-root .form-textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+/* 两列一行（类型 / 优先级、状态 / 截止日期）；窄屏落成一列见文件末尾的媒体查询 */
+.mw-root .form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
 /* ---------- 项目弹窗（编辑 / 删除确认）用到的刻度 ----------
    弹窗外壳与字段刻度都是应用已有的那一套（`WorkspaceModal` → `.modal-mask > .modal`，
    字段 → `.form-field` / `.form-label` / `.form-input`…），这里只补 projects 这一域缺的几条：
@@ -1308,5 +1361,90 @@
       'topbar'
       'main'
       'aside';
+  }
+}
+
+/* 已选的胶囊/头像尾巴上那个 ×（负责人 / 标签共用）——
+   之前只有"再点一下就取消"这一层暗示，看着像只读展示（用户直接问"负责人怎么删不掉"）。
+   整颗按钮仍然可点（切换），× 只是把它说清楚。 */
+.mw-root .tag-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  margin-left: 1px;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--mw-text-muted);
+  background: color-mix(in srgb, var(--mw-text-primary) 9%, transparent);
+}
+
+.mw-root .tag-chip.is-on:hover .tag-chip-x {
+  color: var(--mw-danger);
+  background: color-mix(in srgb, var(--mw-danger) 14%, transparent);
+}
+
+/* ---------- 表单里的下拉 / 日期：拉齐到输入框的刻度（2026-10-18） ----------
+   项目表单那四格（类型 / 优先级 / 状态 / 截止日期）并排看，一眼能看出不是一套控件：
+   · `select` 的 `appearance` 没关 ⇒ macOS 画的是系统那种上下双向小箭头，边框也细一圈；
+   · 日期框（`input[type=date]`）在 WebKit 里自带内边距，比同类输入框高 6–8px；
+   · 两者的高度都跟着内容走，所以一行两格永远对不齐。
+   这里统一：关掉原生外观、自己画一个向下的小箭头、三者同高（38px）。
+   箭头用 data-uri 的中灰 —— 亮暗两套主题下都看得见（不能写死黑色）。 */
+.mw-root .form-input,
+.mw-root .form-select {
+  height: 38px;
+  line-height: 1.2;
+}
+
+.mw-root .form-textarea {
+  height: auto;
+}
+
+.mw-root .form-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' stroke='%238b93a1' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 12px;
+}
+
+/* 日期框：WebKit 会按内容撑高，压回与输入框一致；日历图标调淡一点，别抢正文 */
+.mw-root .form-input[type='date'] {
+  padding: 0 12px;
+}
+
+.mw-root .form-input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.mw-root .form-input[type='date']::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.9;
+}
+
+/* 2×2 的字段网格（项目表单的类型 / 优先级 / 状态 / 截止日期）。
+   原来是两个 `.form-row`（各两列）—— 行距 30px、列距 12px，视觉上像"两拨"，不是一组。
+   合成一张网格后行距与列距一致（12px），四格读作一块"元信息"。
+   `.form-field` 自带的下边距在网格里会叠加，归零后由 `row-gap` 统一给。 */
+.mw-root .form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 12px;
+}
+
+.mw-root .form-grid .form-field {
+  margin-bottom: 0;
+}
+
+@media (max-width: 560px) {
+  .mw-root .form-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -20,7 +20,7 @@ tauri-build = { version = "2", features = [] }
 # "The `tauri` dependency features ... does not match the allowlist defined under tauri.conf.json"。
 # 不写成 target.'cfg(target_os="macos")'.dependencies 是因为配置项是无条件的，
 # 构建期校验按"当前目标"比对，分平台写会让非 macOS 目标的 config 与 feature 对不上。
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2.12", features = ["macos-private-api"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -31,6 +31,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 # 领域层存储。bundled 把 SQLite 一起编进来，机器上不必预装 sqlite3。
 rusqlite = { version = "0.32", features = ["bundled"] }
+keyring = "3.6.3"
 
 [profile.release]
 codegen-units = 1

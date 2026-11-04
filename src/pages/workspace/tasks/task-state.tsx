@@ -1,9 +1,6 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
 import {
-  DEMO_NOW,
-  DEMO_TODAY,
   findSlot,
-  initialTasks,
   poolGroups,
   rowToClock,
   TASK_VIEWS,
@@ -14,6 +11,9 @@ import {
   type TaskState,
   type TaskViewKey,
 } from '../../../data/workspace/tasks'
+import { toTaskRow } from '../../../api/tasks'
+import { useRawTasks, useTaskMutations } from '../../../hooks/use-tasks'
+import { errorText } from '../../../api/error'
 import { toast } from '../../../stores/toast-store'
 
 /**
@@ -100,15 +100,21 @@ export function useTaskApi(): TaskApi {
   return api
 }
 
-/** 下一个可用的 id：演示数据不落库，序号够用（真实现当然由数据库给） */
-function nextId(tasks: TaskRow[]): string {
-  let index = tasks.length + 1
-  while (tasks.some((row) => row.id === `n-${index}`)) index += 1
-  return `n-${index}`
+/** 今天（`YYYY-MM-DD`）：新建任务与"点某天"的默认落点。 */
+function todayYmd(): string {
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
 
 export function TaskProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<TaskRow[]>(() => initialTasks())
+  /* ── 数据：库里那份（`task` 表），映射成这一页用的 `TaskRow` ──
+     `useRawTasks(null)` = 全部归属域。派生字段（inToday / quad / dueLabel…）在
+     `toTaskRow` 里由 `dueAt` + `state` + 今天算出，不进库。 */
+  const raw = useRawTasks(null)
+  const tasks = useMemo(() => raw.map(toTaskRow), [raw])
+  const mutations = useTaskMutations()
+
   const [view, setView] = useState<TaskViewKey>(TASK_VIEWS[0].key)
   const [filter, setFilterState] = useState<TaskApi['filter']>({})
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -118,42 +124,38 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   const [adopted, setAdopted] = useState<string[]>([])
 
   const api = useMemo<TaskApi>(() => {
-    /** 改一条任务。`patch` 拿到的是当前那条，返回新的字段。 */
-    const patch = (id: string, update: Partial<TaskRow> | ((row: TaskRow) => Partial<TaskRow>)) =>
-      setTasks((current) =>
-        current.map((row) =>
-          row.id === id ? { ...row, ...(typeof update === 'function' ? update(row) : update) } : row,
-        ),
-      )
+    /** 找到当前那条（动作要拿它的标题 / 原状态拼提示与入参）。 */
+    const find = (id: string) => tasks.find((row) => row.id === id)
+
+    const fail = (error: unknown) => toast(`操作失败：${errorText(error)}`)
 
     const toggleDone = (id: string) => {
-      patch(id, (row) => {
-        if (row.state === 'done') {
-          /* 取消完成要回到原状态（原型把它记在 `data-prev-state` 上）——
-             一条"进行中"的任务被勾掉再取消，不该变成"待办"。 */
-          return { state: row.prevState ?? 'todo', completedAt: undefined, prevState: undefined }
-        }
-        return { prevState: row.state, state: 'done', completedAt: DEMO_NOW }
-      })
+      const row = find(id)
+      if (!row) return
+      const done = row.state === 'done'
+      mutations.setState.mutate(
+        { id, state: done ? 'todo' : 'done' },
+        {
+          onSuccess: () => toast(done ? `已重置「${row.title}」` : `已完成「${row.title}」`),
+          onError: fail,
+        },
+      )
     }
 
     const advance = (id: string) => {
+      const row = find(id)
+      if (!row) return
       const chain: TaskState[] = ['todo', 'doing', 'done']
-      patch(id, (row) => {
-        const next = chain[Math.min(chain.indexOf(row.state) + 1, chain.length - 1)]
-        return {
-          state: next,
-          completedAt: next === 'done' ? DEMO_NOW : undefined,
-          prevState: next === 'done' ? row.state : undefined,
-        }
-      })
+      const next = chain[Math.min(chain.indexOf(row.state) + 1, chain.length - 1)]
+      mutations.setState.mutate({ id, state: next }, { onError: fail })
     }
 
-    const reopen = (id: string) => patch(id, { state: 'todo', completedAt: undefined, prevState: undefined })
+    const reopen = (id: string) => mutations.setState.mutate({ id, state: 'todo' }, { onError: fail })
 
     const schedule = (id: string, minutes: number) => {
-      /* 先算空档、再改数据、最后弹提示 —— 副作用不能写进 `setTasks` 的 updater
-         （React 在 StrictMode 下会把 updater 调两次，就会看到两条一样的 toast）。 */
+      const row = find(id)
+      if (!row) return
+      /* 空档先算、再写库 —— 放不下就直说，不插到半个格子上 */
       const slot = findSlot(tasks, minutes)
       if (!slot) {
         toast('今天的空档放不下了')
@@ -161,37 +163,48 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         return
       }
       const at = rowToClock(slot.startRow)
-      setTasks((current) =>
-        current.map((item) =>
-          item.id === id ? { ...item, estMin: minutes, scheduledStart: at } : item,
-        ),
+      mutations.update.mutate(
+        {
+          id,
+          input: {
+            scope: row.scope,
+            projectId: null,
+            title: row.title,
+            state: row.state,
+            priority: row.prio,
+            dueAt: row.dueAt,
+            scheduledStart: at,
+            estimateMin: minutes,
+          },
+        },
+        {
+          onSuccess: () => {
+            toast(`已排进 ${at}`)
+            setScheduleId(null)
+          },
+          onError: fail,
+        },
       )
-      setScheduleId(null)
-      toast(`已排进 ${at}`)
     }
 
     const addTask = (input: NewTaskInput) => {
-      setTasks((current) => [
-        ...current,
+      mutations.create.mutate(
         {
-          id: nextId(current),
-          title: input.title,
           scope: input.scope,
-          prio: input.prio,
+          projectId: null,
+          title: input.title,
           state: 'todo',
-          /* 新建的项按截止日进"今天"：due 是今天就算今天的事 */
-          inToday: input.due === DEMO_TODAY,
-          overdueDays: 0,
-          estMin: undefined,
+          priority: input.prio,
           dueAt: `${input.due}T18:00`,
-          project: input.project,
-          createdAt: DEMO_TODAY,
-          updatedAt: DEMO_TODAY,
-          dueLabel: input.due === DEMO_TODAY ? '今天' : input.due.slice(5).replace('-', '/'),
         },
-      ])
-      toast('已创建')
-      setNewTaskDate(null)
+        {
+          onSuccess: () => {
+            toast('已创建')
+            setNewTaskDate(null)
+          },
+          onError: fail,
+        },
+      )
     }
 
     return {
@@ -207,7 +220,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       openSchedule: setScheduleId,
       closeSchedule: () => setScheduleId(null),
       newTaskDate,
-      openNewTask: (date = DEMO_TODAY) => setNewTaskDate(date),
+      openNewTask: (date = todayYmd()) => setNewTaskDate(date),
       closeNewTask: () => setNewTaskDate(null),
       aiOpen,
       openAi: () => setAiOpen(true),
@@ -219,27 +232,14 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       addTask,
       adopted,
       adopt: (id) => setAdopted((current) => (current.includes(id) ? current : [...current, id])),
-      capture: (title) =>
-        setTasks((current) => [
-          ...current,
-          {
-            id: nextId(current),
-            title,
-            scope: 'learn',
-            prio: 'low',
-            state: 'todo',
-            kind: 'idea',
-            inToday: false,
-            overdueDays: 0,
-            dueAt: '2026-09-27T18:00',
-            inboxAt: DEMO_NOW,
-            createdAt: DEMO_TODAY,
-            updatedAt: DEMO_TODAY,
-            dueLabel: '今天',
-          },
-        ]),
+      /* 收件箱就地收集：落成一条"想法"（`source_kind='idea'`），没有截止日期 */
+      capture: (title: string) =>
+        mutations.create.mutate(
+          { scope: 'learn', projectId: null, title, state: 'todo', priority: 'low', sourceKind: 'idea' },
+          { onError: fail },
+        ),
     }
-  }, [tasks, view, filter, detailId, scheduleId, newTaskDate, aiOpen, adopted])
+  }, [tasks, view, filter, detailId, scheduleId, newTaskDate, aiOpen, adopted, mutations])
 
   return <TaskContext.Provider value={api}>{children}</TaskContext.Provider>
 }

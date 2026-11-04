@@ -198,33 +198,9 @@ pub struct ServerReleaseCount {
 }
 
 /* ============================================================
-   部署文档（`srv_deploy_doc`）
+   部署文档（已归到 doc 表，宿主 server）
    ------------------------------------------------------------
    归属是项目，不是机器 —— 服务器详情页那排书架按项目分排。
    与 work_doc 不是重复登记：这边是"运维现场要用的清单"。
    ============================================================ */
 
-/// 一份部署文档（读出形态）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeployDoc {
-    pub id: String,
-    pub project_id: String,
-    pub name: String,
-    /// manual / process / script；"手册 / 流程 / 脚本"是前端的事
-    pub kind_code: String,
-    pub version: String,
-    pub updated_at: String,
-    pub sort_order: i64,
-}
-
-/// 新增 / 编辑一份部署文档的入参。`updated_at` 不收：它就是"这次更新"的时刻。
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeployDocInput {
-    pub project_id: String,
-    pub name: String,
-    pub kind_code: String,
-    #[serde(default)]
-    pub version: String,
-}

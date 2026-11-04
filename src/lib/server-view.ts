@@ -1,4 +1,4 @@
-import type { Server, DeployDoc, DeployRelease } from '../api/servers'
+import type { Server, DeployRelease } from '../api/servers'
 import { LOG_SOURCES } from '../data/content-pool'
 import {
   docUpdatedText,
@@ -111,15 +111,25 @@ export function toOpsServer(server: Server): ServerItem {
   }
 }
 
+/** 部署文档的行（`doc` 表里宿主是机器的那些）。只要这几列，不绑具体类型 ——
+ *  `api/docs.ts` 的 `DocRow` 天然兼容。 */
+export interface DeployDocRow {
+  id: string
+  name: string
+  kind: string
+  version: string
+  updatedAt: string
+}
+
 /** 真实 DeployDoc → 书架那一排。kind 的中文在这里换，不落库（D3）。 */
-export function toDeployDocItem(doc: DeployDoc): DeployDocItem {
+export function toDeployDocItem(doc: DeployDocRow): DeployDocItem {
   const updatedHours = doc.updatedAt
     ? Math.max(0, Math.round((Date.now() - Date.parse(doc.updatedAt)) / 3_600_000))
     : Number.MAX_SAFE_INTEGER
   return {
     id: doc.id,
     name: doc.name,
-    kind: DEPLOY_DOC_KIND_LABEL[doc.kindCode] ?? doc.kindCode,
+    kind: DEPLOY_DOC_KIND_LABEL[doc.kind] ?? doc.kind,
     version: doc.version || '—',
     updatedAt: docUpdatedText(updatedHours),
     updatedHours,

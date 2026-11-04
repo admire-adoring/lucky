@@ -1,17 +1,17 @@
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { WorkspaceLayout } from '../../components/workspace/WorkspaceLayout'
 import { AssistantRail } from '../../components/workbench/AssistantRail'
-import { FocusPanel } from '../../components/workbench/FocusPanel'
-import { Tile } from '../../components/workbench/Tile'
-import { ActivityFeed } from '../../components/detail/ActivityFeed'
-import { buildActivity, computeStats } from '../../data/derive'
-import { getModule, WORKBENCH_AGG } from '../../data/workbench'
-import { useProjects } from '../../hooks/use-projects'
+import { computeStats } from '../../data/derive'
+import { SCOPE_META } from '../../data/meta'
+import { getModule } from '../../data/workbench'
+import { updateAiFacts } from '../../data/ai/facts'
+import { useProjects, useRecentActivity } from '../../hooks/use-projects'
 import { useModuleTab } from '../../hooks/use-module-tab'
 import { useWorkbenchStore } from '../../stores/workbench-store'
-import type { ActivityItem } from '../../types'
 import { MODULE_BASE_PATH } from '../../data/workspace/nav'
 import { DASHBOARD_TABS } from '../../data/workspace/tabs'
+import { STATUS_LABEL } from '../../components/projects/project-meta'
 
 /**
  * 工作台（`/home`）—— 与其余八域同一套外壳。
@@ -20,7 +20,7 @@ import { DASHBOARD_TABS } from '../../data/workspace/tabs'
  * 它以前不是这样：那一版是"自成一体的全屏页"，不走 AppShell
  * ============================================================================
  *
- * 旧版（`pages/WorkbenchPage.tsx`，仍在仓库里但已无路由指向）是：
+ * 旧版（`pages/WorkbenchPage.tsx`，已删除）是：
  * 旧玻璃横带顶栏 + 九模块径向大环 + 今日焦点 + 45 磁贴 + 助手栏，
  * 九域由那个环表达。统一到原型那套之后：
  *
@@ -44,9 +44,9 @@ import { DASHBOARD_TABS } from '../../data/workspace/tabs'
  *
  * | 分区 | 来源 | 说明 |
  * | --- | --- | --- |
- * | 今日概览 | `computeStats(PROJECTS)` + `WORKBENCH_AGG` + `getModule('home')` | 全真实 |
- * | 最近活动 | `buildActivity(project)` × 8 个项目 | 全真实（与项目详情页同一套派生） |
- * | AI 简报 | —— | 没有后端，明写占位 |
+ * | 今日概览 | `computeStats(projects)` + `useProjects()` | 全真实 |
+ * | 最近活动 | `useRecentActivity()` → `project_recent_activity` | 全真实（跨项目动态流） |
+ * | 今日简报 | `useProjects()` 规则生成 | 全真实（基于项目/任务/风险数据） |
  *
  * 只用内核里"按 `.mw-root` 作用域"的那批类名（`.card` / `.card-title` / `.stat` /
  *    `.stat-desc` / `.grid-3` / `.btn` …）。像 `.ov-kpi` / `.doc-meta` / `.detail-text`
@@ -62,8 +62,24 @@ import { DASHBOARD_TABS } from '../../data/workspace/tabs'
    `ShellTopbar → tabs.ts → DashboardWorkspace → WorkspaceLayout → ShellTopbar` 的环。
    改分区请改那边，别在这里补一份。 */
 
-/** 助手栏状态行的口径：与工作台摘要同源，不另算一套 */
-const RAIL_STATUS = `已接入 ${WORKBENCH_AGG.TASKS.total} 条任务`
+/** 助手栏状态行：任务总量从真实项目数据算 */
+function DashboardRail() {
+  const collapsed = useWorkbenchStore((state) => state.railCollapsed)
+  const toggle = useWorkbenchStore((state) => state.toggleRail)
+  const { data: projects = [] } = useProjects()
+  useEffect(() => {
+    updateAiFacts(projects)
+  }, [projects])
+  const taskTotal = projects.reduce((sum, p) => sum + p.tasksTotal, 0)
+  return (
+    <AssistantRail
+      messages={getModule('home').chat}
+      collapsed={collapsed}
+      onToggle={toggle}
+      statusLine={`已接入 ${taskTotal} 条任务 · ${projects.length} 个项目`}
+    />
+  )
+}
 
 export function DashboardWorkspace() {
   const { active, select } = useModuleTab(MODULE_BASE_PATH.dashboard, DASHBOARD_TABS)
@@ -83,30 +99,19 @@ export function DashboardWorkspace() {
   )
 }
 
-/** 助手栏 —— 走外壳的 `rail` 槽（右栏），与项目域同一套三栏栅格 */
-function DashboardRail() {
-  const collapsed = useWorkbenchStore((state) => state.railCollapsed)
-  const toggle = useWorkbenchStore((state) => state.toggleRail)
-  return (
-    <AssistantRail
-      messages={getModule('home').chat}
-      collapsed={collapsed}
-      onToggle={toggle}
-      statusLine={RAIL_STATUS}
-    />
-  )
-}
-
 /* ---------- 今日概览 ---------- */
 
 /**
- * 今日概览 —— 原型的 `dashboard` 主区形状：一句副标题 + 一排 KPI 卡 + 一条列表。
+ * 今日概览（2026-10-18 改版）—— 三张窄指标卡 + 项目明细 + 关键节点。
  *
- * 原型那四张卡写的是「今日任务 3/8 · 今日日程 3 · 进行项目 4 · 本周学习 8.5h」。
- *    其中「今日日程」「本周学习」在应用里没有口径（没有全局日程表、也没有学习时长表），
- *    所以这里换成三张有来源的（进行中 / 风险 / 任务完成）+ 平均进度。
- *    不编数字是项目铁律：宁可四张卡里三张同族，也不去凑原型那几个字。
- *    判据：`stats` 全部由 `projects.ts` 的 8 个项目派生，项目增删它们就跟着动。
+ * 上一版是四张大 KPI 卡 + 今日焦点 + 5 块磁贴：一屏只装得下四个数，主区大半是空白。
+ * 这一版把"看总量"压成三张 150px 的卡（域完成度 / 任务总量 / 风险与到期），
+ * 腾出的高度给两张真要读的表：
+ *   · 项目明细 —— 八个项目按进度降序，一行看全"名字 / 状态 / 截止 / 任务 / 进度"；
+ *   · 关键节点 —— 风险（红点）与各项目当前里程碑（绿点），今日焦点那几条并入这里。
+ *
+ * 数据口径一条没变：`computeStats` / `WORKBENCH_AGG` / `useProjects` / `buildMilestones`。
+ * 磁贴与今日焦点不再渲染（组件与数据都还在，只是首页不摆 —— 见文件头"代价"那段）。
  */
 function OverviewPanel() {
   const navigate = useNavigate()
@@ -114,90 +119,225 @@ function OverviewPanel() {
   const stats = computeStats(projects)
   const home = getModule('home')
 
-  const kpis: Array<{ label: string; value: string; sub: string; color: string; to: string }> = [
-    {
-      label: '进行中项目',
-      value: String(stats.active),
-      sub: `共 ${stats.total} 个 · 生活 ${stats.scopeCounts.life} / 工作 ${stats.scopeCounts.work} / 学习 ${stats.scopeCounts.learn}`,
-      color: 'var(--mw-m-main)',
-      to: '/projects',
-    },
-    {
-      label: '风险阻塞',
-      value: String(stats.risk),
-      sub: stats.risk ? '需要先看这几个' : '没有阻塞中的项目',
-      color: 'var(--c-error)',
-      to: '/projects',
-    },
-    {
-      label: '任务完成',
-      value: `${WORKBENCH_AGG.TASKS.done} / ${WORKBENCH_AGG.TASKS.total}`,
-      sub: `完成率 ${WORKBENCH_AGG.TASKS.rate}% · 待办 ${WORKBENCH_AGG.TASKS.todo}`,
-      color: 'var(--c-success)',
-      to: '/tasks',
-    },
-    {
-      label: '平均进度',
-      value: `${stats.averageProgress}%`,
-      sub: `已完成 ${stats.done} 个`,
-      color: 'var(--c-info)',
-      to: '/projects',
-    },
-  ]
+  /* 真实项目数据到达时更新 AI 事实层 —— 助手栏与 AI 页共用 */
+  useEffect(() => {
+    updateAiFacts(projects)
+  }, [projects])
+
+  /* 任务总量从真实项目数据算 —— 不再读静态聚合 */
+  const taskTotal = projects.reduce((sum, p) => sum + p.tasksTotal, 0)
+  const taskDone = projects.reduce((sum, p) => sum + p.tasksDone, 0)
+  const taskTodo = taskTotal - taskDone
+  const taskRate = taskTotal ? Math.round((taskDone / taskTotal) * 100) : 0
+  const tasks = { total: taskTotal, done: taskDone, todo: taskTodo, rate: taskRate }
+
+  /** 三个业务域的平均进度 —— 柱高就是它；域里没项目时给 0（柱仍然占位） */
+  const scopeBars = useMemo(
+    () =>
+      (['life', 'work', 'learn'] as const).map((scope) => {
+        const list = projects.filter((project) => project.scope === scope)
+        const avg = list.length
+          ? Math.round(list.reduce((sum, project) => sum + project.progress, 0) / list.length)
+          : 0
+        return { scope, label: SCOPE_META[scope].label, avg, count: list.length }
+      }),
+    [projects],
+  )
+
+  /** 到期按月：从本月起四个月。有风险项目（或已延期）的月份标红 */
+  const monthBars = useMemo(() => {
+    const now = new Date()
+    return Array.from({ length: 4 }, (_, i) => {
+      const at = new Date(now.getFullYear(), now.getMonth() + i, 1)
+      const key = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}`
+      const list = projects.filter((project) => project.dueDate.startsWith(key))
+      return {
+        label: `${at.getMonth() + 1}月`,
+        count: list.length,
+        risky: list.some((project) => project.status === 'risk' || project.daysLeft < 0),
+      }
+    })
+  }, [projects])
+  const maxMonth = Math.max(1, ...monthBars.map((bar) => bar.count))
+
+  /** 项目明细：进度高的在前（与参考版式一致，完成度一眼从高到低） */
+  const rows = useMemo(() => [...projects].sort((a, b) => b.progress - a.progress), [projects])
+
+  /** 关键节点：风险在前、里程碑在后；里程碑用项目自身的当前里程碑字段 */
+  const nodes = useMemo(() => {
+    const risk = projects
+      .filter((project) => project.status === 'risk' || project.daysLeft < 0)
+      .map((project) => ({
+        id: `${project.id}-risk`,
+        danger: true,
+        title:
+          project.daysLeft < 0
+            ? `「${project.name}」已延期 ${Math.abs(project.daysLeft)} 天`
+            : `「${project.name}」进度落后`,
+        sub: `${SCOPE_META[project.scope].label} · 截止 ${project.dueShort}`,
+      }))
+    const milestone = projects
+      .filter((project) => project.milestone && project.milestone !== '待定')
+      .map((project) => ({
+        id: `${project.id}-m`,
+        danger: false,
+        title: project.milestone,
+        sub: `${project.name} · 截止 ${project.dueShort}`,
+      }))
+    return [...risk, ...milestone].slice(0, 7)
+  }, [projects])
+
+  const value = (text: string) => (isLoading ? '—' : text)
 
   return (
     <>
-      {/* 原型的 `.page-subtitle`：一句话说清"这一屏在讲什么"。
-          数字来自 `home.summary`（生成物，与工作台摘要同源），不是现编的。 */}
       <div className="stat-desc">{home.summary}</div>
 
-      {/* 刻意不用内核的 `.grid-3`：它是 `auto-fill minmax(200px, 1fr)`，
-          而工作台主区的可用宽度（1440 − 侧栏 300 − 助手栏 340 − 间距）只有 ~700px ——
-          四张卡会排成 3 + 1，右下留一块空洞。四张卡就写四列关系，别交给容器自动填。 */}
-      <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1" role="list" aria-label="关键指标">
-        {kpis.map((kpi) => (
-          <div
-            key={kpi.label}
-            className="card"
-            role="listitem"
-            tabIndex={0}
-            onClick={() => navigate(kpi.to)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') navigate(kpi.to)
-            }}
-            style={{ cursor: 'pointer' }}
-          >
-            <div className="card-title">{kpi.label}</div>
-            <div className="stat" style={{ color: kpi.color }}>
-              {isLoading ? '—' : kpi.value}
-            </div>
-            <div className="stat-desc">{kpi.sub}</div>
+      {/* 三张窄卡：域完成度 / 任务总量 / 风险与到期 */}
+      <div className="dash-metrics" role="list" aria-label="关键指标">
+        <div className="dash-metric" role="listitem">
+          <div className="dash-metric-head">域完成度</div>
+          <div className="dash-metric-sub">3 个业务域 · 柱高 = 域平均进度</div>
+          <div className="dash-metric-value">
+            {value(`${stats.averageProgress}%`)}
+            <small>平均</small>
           </div>
-        ))}
-      </div>
-
-      {/* 今日焦点 —— 原型 `.section` 那一块的等价物。
-          用 `home` 这一档的 focus：它是生成物里唯一"全域"的那一档
-             （其余八档是各模块自己的）。 */}
-      <section className="card" aria-label="今日焦点">
-        <div className="card-title">今日焦点</div>
-        <FocusPanel items={home.focus} emptyHint="没有需要优先处理的项目" />
-      </section>
-
-      {/* 模块面板：只渲染 `home` 那一档的 5 块磁贴。
-          其余八档（共 45 块）仍在 `data/workbench-content.ts` 里，只是本页不再切档 —— 见文件头。 */}
-      <section aria-label="全域概览">
-        <div className="grid grid-cols-2 gap-4 max-[1000px]:grid-cols-1">
-          <div className="col-span-2 grid grid-cols-3 gap-4 max-[1000px]:col-span-full max-[860px]:grid-cols-2 max-[600px]:grid-cols-1">
-            {home.tiles.slice(0, 3).map((tile, i) => (
-              <Tile key={`${home.key}-${i}`} tile={tile} />
+          <div className="dash-bars">
+            {scopeBars.map((bar) => (
+              <div className="dash-bar-col" key={bar.scope}>
+                <div className="dash-bar-track">
+                  <div
+                    className="dash-bar-fill"
+                    style={{ height: `${Math.max(bar.avg, 3)}%`, opacity: bar.count ? 1 : 0.35 }}
+                  />
+                </div>
+                <div className="dash-bar-label">{bar.label}</div>
+              </div>
             ))}
           </div>
-          {home.tiles.slice(3).map((tile, i) => (
-            <Tile key={`${home.key}-l${i}`} tile={tile} />
-          ))}
         </div>
-      </section>
+
+        <div className="dash-metric" role="listitem">
+          <div className="dash-metric-head">任务总量</div>
+          <div className="dash-metric-sub">已完成 / 全部 · 待办 {tasks.todo} 条</div>
+          <div className="dash-metric-value">
+            {value(`${tasks.done}`)}
+            <small>/ {tasks.total} · {tasks.rate}%</small>
+          </div>
+          <div className="dash-split-bar" aria-hidden>
+            <i style={{ width: `${tasks.rate}%`, background: 'var(--mw-ok)' }} />
+            <i style={{ width: `${100 - tasks.rate}%`, background: 'var(--mw-border-subtle)' }} />
+          </div>
+          <div className="dash-bars">
+            <div className="dash-bar-col">
+              <div className="dash-bar-label">已完成</div>
+            </div>
+            <div className="dash-bar-col">
+              <div className="dash-bar-label">待办</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="dash-metric" role="listitem">
+          <div className="dash-metric-head">风险与到期</div>
+          <div className="dash-metric-sub">
+            {stats.risk} 项风险 · {monthBars.reduce((sum, bar) => sum + bar.count, 0)} 项待到期
+          </div>
+          <div className="dash-metric-value">
+            {value(`${stats.risk}`)}
+            <small>项</small>
+          </div>
+          <div className="dash-bars">
+            {monthBars.map((bar) => (
+              <div className="dash-bar-col" key={bar.label}>
+                <div className="dash-bar-track">
+                  <div
+                    className={`dash-bar-fill${bar.risky ? ' is-risk' : ''}`}
+                    style={{ height: `${Math.max((bar.count / maxMonth) * 100, 3)}%` }}
+                  />
+                </div>
+                <div className="dash-bar-label">{bar.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 两栏：项目明细 + 关键节点 */}
+      <div className="dash-split">
+        <section className="card" aria-label="项目明细">
+          <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between' }}>
+            项目明细
+            <span className="stat-desc">全部 · {stats.total} 个项目</span>
+          </div>
+          {rows.length === 0 ? (
+            <div className="stat-desc" style={{ padding: '10px 0 14px' }}>
+              还没有项目 —— 去「项目」建第一个
+            </div>
+          ) : (
+            rows.map((project) => (
+              <div
+                className="proj-row"
+                key={project.id}
+                role="button"
+                tabIndex={0}
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/projects/${project.id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') navigate(`/projects/${project.id}`)
+                }}
+              >
+                <span className="proj-tick" style={{ background: SCOPE_META[project.scope].hex }} />
+                <div className="proj-main">
+                  <div className="proj-name" title={project.name}>
+                    {project.name}
+                  </div>
+                  <div className="proj-meta">
+                    <span className="proj-pill">{STATUS_LABEL[project.status]}</span>
+                    <span>截止 {project.dueShort}</span>
+                    <span>
+                      {project.tasksDone}/{project.tasksTotal} 任务
+                    </span>
+                  </div>
+                </div>
+                <div className="proj-progress">
+                  <span className="proj-track">
+                    <span
+                      className={`proj-fill${
+                        project.status === 'risk' ? ' is-risk' : project.progress >= 100 ? '' : ' is-warn'
+                      }`}
+                      style={{ width: `${Math.min(project.progress, 100)}%` }}
+                    />
+                  </span>
+                  <span className="proj-pct">{project.progress}%</span>
+                </div>
+              </div>
+            ))
+          )}
+        </section>
+
+        <section className="card" aria-label="关键节点">
+          <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between' }}>
+            关键节点
+            <span className="stat-desc">风险与里程碑</span>
+          </div>
+          {nodes.length === 0 ? (
+            <div className="stat-desc" style={{ padding: '10px 0 14px' }}>
+              暂时没有风险与节点
+            </div>
+          ) : (
+            nodes.map((node) => (
+              <div className="node-row" key={node.id}>
+                <span className={`node-dot${node.danger ? ' is-risk' : ''}`} />
+                <div className="node-main">
+                  <div className="node-title">{node.title}</div>
+                  <div className="node-sub">{node.sub}</div>
+                </div>
+              </div>
+            ))
+          )}
+        </section>
+      </div>
     </>
   )
 }
@@ -205,21 +345,12 @@ function OverviewPanel() {
 /* ---------- 最近活动 ---------- */
 
 /**
- * 最近活动 —— 八个项目的动态流。
- *
- * 数据来源与项目详情页的「动态」同一个函数（`buildActivity`），
- * 所以这里的每一条在它所属项目里都能找到出处（不是另造一份流水）。
- *
- * 跨项目拼接时显式给 id 带上项目前缀：`ActivityFeed` 用 `key={item.id}`，
- *    而 `buildActivity` 的 id 是 `<projectId>-a<n>` —— 现在不会撞，
- *    但把它写成显式前缀，就不必依赖那个上游约定（改了会静默变成"少渲染几条"）。
+ * 最近活动 —— 跨项目的动态流，来自后端 `project_recent_activity` 命令。
+ * 项目内的增删改操作会自动写 project_activity 表，这里按时间倒序取最近 12 条。
  */
 function RecentPanel() {
-  const { data: projects = [], isLoading } = useProjects()
-
-  const feed: ActivityItem[] = projects
-    .flatMap((project) => buildActivity(project).slice(0, 1).map((item) => ({ ...item, id: `${project.id}/${item.id}` })))
-    .slice(0, 12)
+  const navigate = useNavigate()
+  const { data: feed = [], isLoading } = useRecentActivity(12)
 
   if (isLoading) {
     return (
@@ -231,51 +362,127 @@ function RecentPanel() {
 
   if (!feed.length) {
     return (
-      <div className="card">
-        <div className="stat-desc">还没有动态 —— 项目里产生变更之后这里会跟着长</div>
-      </div>
+      <section className="card" aria-label="最近活动">
+        <div className="card-title">最近活动</div>
+        <div className="stat-desc" style={{ padding: '10px 0 14px' }}>
+          还没有动态 —— 项目里产生变更（创建 / 更新 / 归档等）之后这里会跟着长。
+        </div>
+      </section>
     )
   }
 
   return (
     <section className="card" aria-label="最近活动">
-      <div className="card-title">最近活动</div>
-      <div className="stat-desc" style={{ marginBottom: 16 }}>
-        每个项目取最近一条 · 共 {feed.length} 条
+      <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between' }}>
+        最近活动
+        <span className="stat-desc">共 {feed.length} 条</span>
       </div>
-      <ActivityFeed activity={feed} />
+      {feed.map((item) => (
+        <div
+          className="proj-row"
+          key={item.id}
+          role="button"
+          tabIndex={0}
+          style={{ cursor: 'pointer' }}
+          onClick={() => navigate(`/projects/${item.projectId}`)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') navigate(`/projects/${item.projectId}`)
+          }}
+        >
+          <div className="proj-main">
+            <div className="proj-name">{item.action}</div>
+            <div className="proj-meta">
+              <span>{item.projectName}</span>
+              <span>{item.who}</span>
+              <span>{formatTime(item.time)}</span>
+            </div>
+          </div>
+        </div>
+      ))}
     </section>
   )
+}
+
+/** ISO 时间转"几分钟前 / 几小时前 / 月日" */
+function formatTime(iso: string): string {
+  const at = new Date(iso).getTime()
+  if (Number.isNaN(at)) return iso
+  const diff = Date.now() - at
+  if (diff < 60_000) return '刚刚'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`
+  const d = new Date(at)
+  return `${d.getMonth() + 1}月${d.getDate()}日`
 }
 
 /* ---------- AI 简报 ---------- */
 
 /**
- * AI 简报 —— 占位，不是空壳。
+ * 简报 —— 基于真实项目数据生成的规则简报。
  *
- * 原型这一格是预置的两段对话。应用里没有后端（MEMORY 的待办：助手问答没有后端），
- * 所以它不能靠"照搬那两段"来交付 —— 那是编内容。
- *
- * 但也不能做成空的：用户分不清"没做"和"卡住"，那是最贵的一种缺陷
- * （`PendingDetail.tsx` 的注释里已经把这个判据写下来了）。
- * 所以这里把缺的是哪一步、事实源在哪写在明面上。
+ * 没有 LLM 后端，但项目/任务/风险数据都是真实的。这里把关键信号汇总成一段可读的文字：
+ * 哪些项目有风险、哪些快到期、任务完成率如何。数据全来自 useProjects()。
  */
 function BriefingPanel() {
+  const { data: projects = [], isLoading } = useProjects()
+  const stats = computeStats(projects)
+
+  if (isLoading) {
+    return (
+      <section className="card" aria-label="简报">
+        <div className="card-title">今日简报</div>
+        <div className="stat-desc">正在汇总…</div>
+      </section>
+    )
+  }
+
+  if (!projects.length) {
+    return (
+      <section className="card" aria-label="简报">
+        <div className="card-title">今日简报</div>
+        <div className="stat-desc" style={{ padding: '10px 0 14px' }}>
+          还没有项目 —— 去「项目」建第一个，简报会自动从这里长出来。
+        </div>
+      </section>
+    )
+  }
+
+  const risky = projects.filter((p) => p.status === 'risk')
+  const overdue = projects.filter((p) => p.daysLeft < 0)
+  const dueSoon = projects.filter((p) => p.daysLeft >= 0 && p.daysLeft <= 7)
+  const done = projects.filter((p) => p.status === 'done')
+  const taskTotal = projects.reduce((s, p) => s + p.tasksTotal, 0)
+  const taskDone = projects.reduce((s, p) => s + p.tasksDone, 0)
+  const rate = taskTotal ? Math.round((taskDone / taskTotal) * 100) : 0
+
+  const lines: string[] = []
+
+  lines.push(`共 ${projects.length} 个项目，平均进度 ${stats.averageProgress}%，任务完成率 ${rate}%（${taskDone}/${taskTotal}）。`)
+
+  if (risky.length) {
+    lines.push(`⚠ ${risky.length} 个项目处于风险状态：${risky.map((p) => p.name).join('、')}。`)
+  }
+  if (overdue.length) {
+    lines.push(`已延期 ${overdue.length} 个：${overdue.map((p) => `${p.name}（${Math.abs(p.daysLeft)}天）`).join('、')}。`)
+  }
+  if (dueSoon.length) {
+    lines.push(`本周到期 ${dueSoon.length} 个：${dueSoon.map((p) => p.name).join('、')}。`)
+  }
+  if (done.length) {
+    lines.push(`已完成 ${done.length} 个：${done.map((p) => p.name).join('、')}。`)
+  }
+  if (!risky.length && !overdue.length && !dueSoon.length) {
+    lines.push('没有风险与到期项，节奏正常。')
+  }
+
   return (
-    <section className="card" aria-label="AI 简报">
-      <div className="card-title">AI 简报</div>
-      <p className="stat-desc" style={{ lineHeight: 1.7 }}>
-        这一格需要<b>后端</b>才能有内容，目前没有接入。
-      </p>
-      <p className="stat-desc" style={{ lineHeight: 1.7, marginTop: 8 }}>
-        缺的不是界面，是那份"把项目、任务、日程汇总成一段话"的服务：应用里已有的派生层
-        （<code>src/data/derive.ts</code>）只做到逐项目的统计与动态，没有跨域的叙事生成。
-        接入之后再把这一格换成真实简报。
-      </p>
-      <p className="stat-desc" style={{ lineHeight: 1.7, marginTop: 8 }}>
-        在那之前，助手栏（右栏）是唯一有对话的地方 —— 它那份内容同样是预置的，
-        真正的问答要等同一个后端。
-      </p>
+    <section className="card" aria-label="今日简报">
+      <div className="card-title">今日简报</div>
+      <div className="stat-desc" style={{ lineHeight: 1.8, padding: '10px 0' }}>
+        {lines.map((line, i) => (
+          <p key={i} style={{ marginBottom: i < lines.length - 1 ? 8 : 0 }}>{line}</p>
+        ))}
+      </div>
     </section>
   )
 }

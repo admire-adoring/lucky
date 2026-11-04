@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { WorkspaceModal } from '../workspace/WorkspaceModal'
 import { Icon } from '../icons/Icon'
 import { useProjects } from '../../hooks/use-projects'
-import { ownerPool, tagPool } from '../../lib/filter-projects'
+import { tagPool } from '../../lib/filter-projects'
 import { FORM_PRIORITIES, FORM_SCOPES, FORM_STATUSES, STATUS_LABEL } from './project-meta'
 import { toast } from '../../stores/toast-store'
 import type { ProjectPatch } from '../../api/projects'
@@ -140,10 +140,16 @@ function ChipField({
             type="button"
             className={on ? 'tag-chip is-on' : 'tag-chip'}
             aria-pressed={on}
-            title={value}
+            /* 已选的给"移除 X"的说法 —— 光靠"再点一下"暗示不够，用户会以为它只是展示（负责人正是这么被问的） */
+            title={on ? `移除${noun}「${value}」` : value}
             onClick={() => onChange(on ? selected.filter((item) => item !== value) : [...selected, value])}
           >
             {value}
+            {on ? (
+              <span className="tag-chip-x" aria-hidden="true">
+                ×
+              </span>
+            ) : null}
           </button>
         )
       })}
@@ -187,17 +193,26 @@ function ChipField({
 export function ProjectFormModal({
   mode,
   initial,
+  fixedScope,
   onClose,
   onSubmit,
 }: {
   mode: 'create' | 'edit'
   /** 表单初值。新建时是 `blankProjectPatch()`，编辑时由那条项目映射而来 */
   initial: ProjectFormValue
+  /**
+   * 锁定的归属域。**域内新建时传它**（`/work/projects`、`/learning/projects`）：
+   * "在这个模块新建"本来就只有一个归属，给一个能改的下拉只会让人建出列表里看不见的项目。
+   * 项目模块自己的 `/projects` 不传 —— 那里是跨域总览，新建时要能选。
+   */
+  fixedScope?: Scope
   onClose: () => void
   onSubmit: (value: ProjectFormValue) => void
 }) {
   const isCreate = mode === 'create'
-  const [draft, setDraft] = useState<ProjectFormValue>(initial)
+  const [draft, setDraft] = useState<ProjectFormValue>(() =>
+    fixedScope ? { ...initial, scope: fixedScope } : initial,
+  )
   const [picking, setPicking] = useState(false)
   const [filter, setFilter] = useState('')
   const nameRef = useRef<HTMLInputElement>(null)
@@ -223,7 +238,6 @@ export function ProjectFormModal({
   const [cwd, setCwd] = useState(() => initialCwd(tree, initial.path))
 
   const tags = useMemo(() => tagPool(projects), [projects])
-  const owners = useMemo(() => ownerPool(projects), [projects])
 
   const set = <K extends keyof ProjectFormValue>(key: K, value: ProjectFormValue[K]) =>
     setDraft((current) => ({ ...current, [key]: value }))
@@ -407,9 +421,7 @@ export function ProjectFormModal({
               value={draft.description}
               onChange={(event) => set('description', event.target.value)}
             />
-          </div>
 
-          <div className="form-row">
             <div className="form-field">
               <label className="form-label" htmlFor="projScope">
                 类型
@@ -418,13 +430,18 @@ export function ProjectFormModal({
                 id="projScope"
                 className="form-select"
                 value={draft.scope}
+                disabled={Boolean(fixedScope)}
+                title={fixedScope ? '在当前模块新建，归属固定' : undefined}
                 onChange={(event) => set('scope', event.target.value as Scope)}
               >
-                {FORM_SCOPES.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                {/* 锁定态只留当前这一项：下拉仍然显示"归属"，但不能改 */}
+                {(fixedScope ? FORM_SCOPES.filter((option) => option.value === fixedScope) : FORM_SCOPES).map(
+                  (option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
 
@@ -447,7 +464,7 @@ export function ProjectFormModal({
             </div>
           </div>
 
-          <div className="form-row">
+          <div className="form-grid">
             <div className="form-field">
               <label className="form-label" htmlFor="projStatus">
                 状态
@@ -488,20 +505,6 @@ export function ProjectFormModal({
             </span>
             <div role="group" aria-labelledby="projTagsLabel">
               <ChipField noun="标签" pool={tags} selected={draft.tags} onChange={(next) => set('tags', next)} />
-            </div>
-          </div>
-
-          <div className="form-field">
-            <span className="form-label" id="projOwnersLabel">
-              负责人
-            </span>
-            <div role="group" aria-labelledby="projOwnersLabel">
-              <ChipField
-                noun="负责人"
-                pool={owners}
-                selected={draft.owners}
-                onChange={(next) => set('owners', next)}
-              />
             </div>
           </div>
 

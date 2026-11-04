@@ -9,7 +9,9 @@ import {
   seedSessions,
 } from '../data/ai/conversations'
 import { DEFAULT_CONTEXTS } from '../data/ai/contexts'
-import { buildReply, buildVersion, AI_VARIANTS } from '../data/ai/reply'
+import { buildReplyWithMeta, buildVersion, AI_VARIANTS } from '../data/ai/reply'
+import { callLlm, llmTextToRuns, type LlmMessage } from '../api/llm'
+import { currentLlmConfig } from './llm-store'
 import type { AiAttachment, AiMessage, AiQueueItem, AiReplyVersion, AiSession, ReplyVariant } from '../data/ai/types'
 import type { TextRun } from '../types/workbench'
 
@@ -372,14 +374,21 @@ export const useAiStore = create<AiState>()((set, get) => ({
 
     /* 拿这一轮的提问：往上找最近的一条用户消息 */
     let userText = ''
+    let userAttachments: AiAttachment[] = []
     for (let i = index - 1; i >= 0; i -= 1) {
       const previous = session.messages[i]
       if (previous && previous.role === 'user') {
         userText = messageText(previous)
+        userAttachments = previous.attachments ?? []
         break
       }
     }
-    const reply = buildReply({ text: userText || '（空提问）', attachments: [], id: message.id, time })
+    const { reply, matched } = buildReplyWithMeta({
+      text: userText || '（空提问）',
+      attachments: userAttachments,
+      id: message.id,
+      time,
+    })
 
     set({
       sessions: patchMessages(state.sessions, session.id, (messages) =>
@@ -399,6 +408,75 @@ export const useAiStore = create<AiState>()((set, get) => ({
         ),
       ),
     })
+
+    /* 规则引擎命中不了的提问 → 转发给外部 LLM（若启用）。
+       未启用时保留兜底文案（reply.text 已经是"答不了"那段）。
+       异步：先把兜底文案落上去（用户立刻看到回复），LLM 返回后再覆盖。
+       调用失败时在兜底文案后追加一句"调用失败"说明，不静默吞错。 */
+    if (!matched) {
+      const config = currentLlmConfig()
+      if (config.enabled && config.endpoint) {
+        /* 先把消息标记为"LLM 生成中"，UI 可以据此显示一个 loading 状态 */
+        set({
+          sessions: patchMessages(get().sessions, session.id, (messages) =>
+            messages.map((item) => (item.id === messageId ? { ...item, llmPending: true } : item)),
+          ),
+        })
+        const llmMessages: LlmMessage[] = [
+          {
+            role: 'system',
+            content:
+              '你是 Lucky-Y 项目管理工具的助手。用户的问题可能与项目、任务、进度、周报有关。' +
+              '回答请用中文，简洁直接，不要编造数据。如果不知道，明说不知道。',
+          },
+          { role: 'user', content: userText },
+        ]
+        callLlm(llmMessages, config)
+          .then((content) => {
+            const runs = llmTextToRuns(content)
+            set({
+              sessions: patchMessages(get().sessions, session.id, (messages) =>
+                messages.map((item) =>
+                  item.id === messageId
+                    ? {
+                        ...item,
+                        llmPending: false,
+                        text: runs,
+                        quote: undefined,
+                        /* LLM 回复不附思考链（它给的是一段话，没有可回溯的步骤）；
+                           保留原来那条会让"思考链面板"显示规则引擎的兜底步骤，与正文不符 */
+                        thought: undefined,
+                        suggestions: ['全域现在什么情况', '有哪些逾期任务'],
+                      }
+                    : item,
+                ),
+              ),
+            })
+          })
+          .catch((error: Error) => {
+            set({
+              sessions: patchMessages(get().sessions, session.id, (messages) =>
+                messages.map((item) =>
+                  item.id === messageId
+                    ? {
+                        ...item,
+                        llmPending: false,
+                        /* 保留兜底文案，末尾追加一句调用失败说明 ——
+                           用户至少看到"答不了 + 为什么" */
+                        text: [
+                          ...item.text,
+                          { text: '\n\n（已尝试转发到外部模型，调用失败：' },
+                          { text: error.message || String(error), em: true },
+                          { text: '）' },
+                        ],
+                      }
+                    : item,
+                ),
+              ),
+            })
+          })
+      }
+    }
 
     /* 消费队列：立刻开下一轮（原型的 200ms 延迟是为了等输入框回填，这里不需要） */
     const after = get()

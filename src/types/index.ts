@@ -140,6 +140,10 @@ export interface ProjectRisk {
 export interface Task {
   id: string
   name: string
+  /** 所属项目 id；收件箱里的任务没有它（`undefined` 是事实，不是缺数据） */
+  projectId?: string
+  /** 项目名（后端 hydrate）—— 任务行要显示它 */
+  projectName?: string
   status: TaskStatus
   priority: Priority
   owner: string

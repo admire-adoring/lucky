@@ -76,8 +76,8 @@ export function CalendarWorkspace() {
       ) : null}
 
       {modals.key === 'openEvent' ? (
-        <WorkspaceModal title={modals.arg} onClose={modals.close}>
-          <OpenEventModal handlers={handlers} title={modals.arg} />
+        <WorkspaceModal title="日程详情" onClose={modals.close}>
+          <OpenEventModal handlers={handlers} eventId={modals.arg} />
         </WorkspaceModal>
       ) : null}
     </WorkspaceLayout>

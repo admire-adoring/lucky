@@ -46,3 +46,14 @@ export async function call<T>(run: () => Promise<T>): Promise<T> {
     throw toApiError(err)
   }
 }
+
+/**
+ * 从任何错误值里取展示文案 —— 页面/组件统一用这一条，不再各自判断 shape。
+ *
+ * invoke 拒的是 `{ code, message }` 那种普通对象（ApiError 的序列化形态），
+ * 不是 Error 实例；走 `toApiError` 换成 ApiError 后 `toString()` 直接给 message。
+ * 字符串与其他意外值兜底走 `String()`。
+ */
+export function errorText(error: unknown): string {
+  return toApiError(error).toString()
+}

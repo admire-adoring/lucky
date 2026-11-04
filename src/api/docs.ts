@@ -1,14 +1,12 @@
 import { invoke } from '@tauri-apps/api/core'
-import { buildDocuments, docUpdatedText } from '../data/derive'
+import { call } from './error'
+import { docUpdatedText } from '../data/derive'
 import { DOC_KIND_LABEL } from '../data/content-pool'
 import { DOC_SOURCE_META, TASK_STATUS_META } from '../data/meta'
-import { PROJECTS } from '../data/projects'
-import { isTauri } from '../lib/env'
 import type { DocKind, DocLink, DocLinkFamily, DocLinkKind, DocumentItem } from '../types'
 
 /**
- * 文档（项目族的索引 + 本地正文）。列表两条路：Tauri 里走 `project_doc_list`（真实库），
- * 浏览器里回落 `derive.buildDocuments`（演示池）——与 `api/projects.ts` 同一条降级思路。
+ * 文档（项目族的索引 + 本地正文）。
  *
  * 形态换算集中在这里：库里的 `source` 是 code、关联目标是 `toKind` 码与原始读数，
  * 而 `DocumentItem.source` / `DocLink` 要的是人话 —— 组件拿到的仍是原样的形状。
@@ -16,10 +14,16 @@ import type { DocKind, DocLink, DocLinkFamily, DocLinkKind, DocumentItem } from 
 export const docKeys = {
   all: ['docs'] as const,
   list: (projectId: string) => [...docKeys.all, 'list', projectId] as const,
+  /** 某项目的部署文档（宿主是机器，按 projectId 查出来的那一批） */
+  deploy: (projectId: string) => [...docKeys.all, 'deploy', projectId] as const,
+  /** 某台机器名下的文档（机器详情书架） */
+  host: (host: string) => [...docKeys.all, 'host', host] as const,
+  /** 任意宿主（模块级容器，如学习笔记的 `note/learn`） */
+  owner: (kind: string, id: string) => [...docKeys.all, 'owner', kind, id] as const,
   content: (id: string) => [...docKeys.all, 'content', id] as const,
 }
 
-interface RawLink {
+export interface RawLink {
   kind: string
   toKind: string
   toId: string
@@ -28,14 +32,18 @@ interface RawLink {
   meta: string
 }
 
-interface RawDocument {
+/** 后端 `Document` 的出参（一张表挂多种主实体）。 */
+export interface DocRow {
   id: string
-  projectId: string
+  ownerKind: string
+  ownerId: string
+  projectId: string | null
   name: string
   module: string
   func: string
   kind: string
   source: string
+  version: string
   filePath: string | null
   contentHash: string | null
   syncedAt: string | null
@@ -77,7 +85,7 @@ function toDocLink(raw: RawLink): DocLink {
   }
 }
 
-function toDocumentItem(raw: RawDocument): DocumentItem {
+function toDocumentItem(raw: DocRow): DocumentItem {
   const updatedHours = raw.updatedAt
     ? Math.max(0, Math.round((Date.now() - Date.parse(raw.updatedAt)) / HOUR_MS))
     : 0
@@ -98,27 +106,76 @@ function toDocumentItem(raw: RawDocument): DocumentItem {
   }
 }
 
-async function realFetchDocs(projectId: string): Promise<DocumentItem[]> {
-  const rows = await invoke<RawDocument[]>('project_doc_list', { projectId })
-  return rows.map(toDocumentItem)
-}
-
-function demoFetchDocs(projectId: string): Promise<DocumentItem[]> {
-  const project = PROJECTS.find((item) => item.id === projectId)
-  return Promise.resolve(project ? buildDocuments(project) : [])
-}
-
-/** 一个项目的文档索引。没有项目 id（数据还没到）时给空集，不打命令。 */
+/** 一个项目的文档索引（宿主 = 项目）。没有项目 id 时给空集，不打命令。 */
 export function fetchDocs(projectId: string | undefined): Promise<DocumentItem[]> {
   if (!projectId) return Promise.resolve([])
-  return isTauri() ? realFetchDocs(projectId) : demoFetchDocs(projectId)
+  return call(() =>
+    invoke<DocRow[]>('doc_list', { ownerKind: 'project', ownerId: projectId }).then((rows) =>
+      rows.map(toDocumentItem),
+    ),
+  )
+}
+
+/**
+ * 一个项目的**部署文档**（宿主 = 机器，但 `projectId` 指向它）。
+ * 项目详情运维分区、机器详情书架都读它；形状是 `DeployDocItem`（用 `toDeployDocItem` 转）。
+ */
+export function fetchDeployDocs(projectId: string | undefined): Promise<DocRow[]> {
+  if (!projectId) return Promise.resolve([])
+  return call(() => invoke<DocRow[]>('doc_list', { ownerKind: 'server', projectId }))
+}
+
+/** 一台机器名下的全部文档（机器详情的书架按项目分排时用）。 */
+export function fetchServerDocs(host: string | undefined): Promise<DocRow[]> {
+  if (!host) return Promise.resolve([])
+  return call(() => invoke<DocRow[]>('doc_list', { ownerKind: 'server', ownerId: host }))
+}
+
+/**
+ * 任意宿主下的文档（模块级容器用它）。
+ * 学习模块的「笔记」页：宿主 `note` + `owner_id='learn'`；工作模块的文档索引同理。
+ */
+export function fetchOwnerDocs(ownerKind: string, ownerId: string): Promise<DocumentItem[]> {
+  return call(() =>
+    invoke<DocRow[]>('doc_list', { ownerKind, ownerId }).then((rows) => rows.map(toDocumentItem)),
+  )
+}
+
+/** 后端 `DocumentInput`（写形态）。`file_path` 不在其中：落点由后端按宿主 + 标题算。 */
+export interface DocInput {
+  ownerKind: string
+  ownerId: string
+  projectId?: string | null
+  name: string
+  module?: string
+  func?: string
+  kind: string
+  source: string
+  version?: string
+  summary?: string
+  content?: string | null
+  links?: { kind: string; toKind: string; toId: string }[]
+}
+
+/** 新建文档索引。`source='local_md'` 时后端会先落一份（可为空的）正文文件再登记。 */
+export function createDoc(input: DocInput): Promise<DocRow> {
+  return call(() => invoke<DocRow>('doc_create', { input }))
+}
+
+/** 编辑索引（带 `content` 时连正文一起写）。**不能换宿主、不能换来源**（后端会拦）。 */
+export function updateDoc(id: string, input: DocInput): Promise<DocRow> {
+  return call(() => invoke<DocRow>('doc_update', { id, input }))
+}
+
+/** 删除：索引与正文文件一起走（不可恢复）。 */
+export function deleteDoc(id: string): Promise<void> {
+  return call(() => invoke<void>('doc_delete', { id }))
 }
 
 /* ============================================================
    本地正文的读与写
    ------------------------------------------------------------
    只有 `source = 'local_md'` 的那些有本地正文（其余在腾讯文档 / 语雀 / Git 里）。
-   浏览器预览里没有"本地正文"这一说 ⇒ 读直接拒绝，调用方回落演示稿。
    ============================================================ */
 
 export interface DocContent {
@@ -130,11 +187,10 @@ export interface DocContent {
 }
 
 export function fetchDocContent(id: string): Promise<DocContent> {
-  if (!isTauri()) return Promise.reject(new Error('浏览器预览里没有本地正文'))
-  return invoke<DocContent>('project_doc_read', { id })
+  return call(() => invoke<DocContent>('doc_read', { id }))
 }
 
 /** 写回 `.md` 文件；`name` 是编辑器里可能改过的标题（不给就不动索引里的名字）。 */
 export function saveDocContent(id: string, content: string, name?: string): Promise<void> {
-  return invoke('project_doc_write', { id, content, name: name ?? null })
+  return call(() => invoke<void>('doc_write', { id, content, name: name ?? null }))
 }

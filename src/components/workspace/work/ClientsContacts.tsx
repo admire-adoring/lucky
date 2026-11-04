@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { cn } from '../../../lib/cn'
+import { useContacts } from '../../../hooks/use-contacts'
 import type { Handlers } from '../../../pages/workspace/work/panels'
 
 /* ============================================================================
@@ -79,14 +80,6 @@ const CLIENTS: { name: string; avatar: string; meta: string; tags: string[]; cou
   },
 ]
 
-/** 联系人。四个人都是团队角色 —— 这是原型里的事实，没有为了"让筛选有东西可藏"而编人。 */
-const CONTACTS: { name: string; avatar: string; meta: string; role: Role }[] = [
-  { name: '张工', avatar: '张', meta: '技术负责人', role: 'team' },
-  { name: '李工', avatar: '李', meta: '前端同事', role: 'team' },
-  { name: '王产品', avatar: '王', meta: '产品经理', role: 'team' },
-  { name: '赵测试', avatar: '赵', meta: '测试同事', role: 'team' },
-]
-
 /** 最近资料。挂在客户那一块下（它是客户资料库的"新增"，不是联系人的）。 */
 const RECENT_FILES: { icon: string; name: string; meta: string }[] = [
   { icon: '📊', name: '需求清单 v3.xlsx', meta: '星辰科技 · 2 小时前 · 1.2 MB' },
@@ -97,6 +90,9 @@ const RECENT_FILES: { icon: string; name: string; meta: string }[] = [
 
 export function ClientsContacts({ handlers }: { handlers: Handlers }) {
   const [filter, setFilter] = useState<Filter>('all')
+  /* 联系人走真实库（`work_contact`）；客户资料库那四张卡仍是原型样本 ——
+     它要的是"公司 + 文件数 + 标签"，库里没有"公司"实体，也没有按公司分组的文档。 */
+  const contacts = useContacts()
 
   const showClients = filter === 'all' || filter === 'client'
   const showTeam = filter === 'all' || filter === 'team'
@@ -206,8 +202,8 @@ export function ClientsContacts({ handlers }: { handlers: Handlers }) {
       {showTeam ? (
         <section className="card">
           <div className="card-title">联系人</div>
-          {CONTACTS.filter((contact) => filter === 'all' || contact.role === filter).map((contact) => (
-            <div key={contact.name} className="contact-item">
+          {contacts.filter((contact) => filter === 'all' || contact.side === filter).map((contact) => (
+            <div key={contact.id} className="contact-item">
               <div className="avatar">{contact.avatar}</div>
               <div className="contact-info">
                 <div className="contact-name">{contact.name}</div>
@@ -215,6 +211,7 @@ export function ClientsContacts({ handlers }: { handlers: Handlers }) {
               </div>
             </div>
           ))}
+          {contacts.length === 0 ? <div className="contact-meta">还没有联系人 —— 从项目成员里挑几个，或者新建</div> : null}
         </section>
       ) : null}
     </>

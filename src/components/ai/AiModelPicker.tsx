@@ -3,7 +3,9 @@ import { cn } from '../../lib/cn'
 import { toast } from '../../stores/toast-store'
 import { AI_MODELS } from '../../data/ai/conversations'
 import { useAiStore } from '../../stores/ai-store'
+import { useLlmStore } from '../../stores/llm-store'
 import { pressable } from './pressable'
+import { LlmConfigModal } from './LlmConfigModal'
 
 /**
  * 模型选择（原型 `.model-chip` + `.model-dropdown`）—— 落在外壳顶栏的动作槽里。
@@ -23,7 +25,9 @@ import { pressable } from './pressable'
 export function AiModelPicker() {
   const model = useAiStore((state) => state.model)
   const setModel = useAiStore((state) => state.setModel)
+  const llmEnabled = useLlmStore((state) => state.enabled)
   const [open, setOpen] = useState(false)
+  const [llmConfigOpen, setLlmConfigOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -99,7 +103,25 @@ export function AiModelPicker() {
             </svg>
           </div>
         ))}
+
+        {/* 外部 LLM 配置入口 —— 独立通道，启用后规则引擎答不了的问题转发给它 */}
+        <div className="model-divider" role="separator" />
+        <div
+          className={cn('model-option model-llm', llmEnabled && 'active')}
+          {...pressable(() => {
+            setOpen(false)
+            setLlmConfigOpen(true)
+          })}
+        >
+          <span className="mo-icon mo-icon-llm">LLM</span>
+          <span className="mo-info">
+            外部 LLM
+            <span className="mo-sub">{llmEnabled ? '已启用 —— 答不了的转发' : '未配置 —— 规则引擎兜底'}</span>
+          </span>
+        </div>
       </div>
+
+      {llmConfigOpen ? <LlmConfigModal onClose={() => setLlmConfigOpen(false)} /> : null}
     </div>
   )
 }

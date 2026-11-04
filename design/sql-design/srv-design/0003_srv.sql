@@ -111,20 +111,6 @@ CREATE TABLE srv_deploy_release (
 );
 
 -- ============================================================
--- 五 · 部署文档（归属是项目，机器只是路过）
--- ============================================================
-
-CREATE TABLE srv_deploy_doc (
-  id         TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
-  name       TEXT NOT NULL,
-  kind_code  TEXT NOT NULL CHECK (kind_code IN ('manual','process','script')),
-  version    TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL,
-  sort_order INTEGER NOT NULL DEFAULT 0
-);
-
--- ============================================================
 -- 六 · 索引
 -- ============================================================
 
@@ -134,6 +120,5 @@ CREATE INDEX ix_srv_server_tag      ON srv_server_tag(tag_id);                  
 CREATE INDEX ix_srv_path_server     ON srv_server_path(server_id, sort_order);   -- 文件位置清单
 CREATE INDEX ix_srv_release_project ON srv_deploy_release(project_id, released_at DESC);  -- 项目发布记录
 CREATE INDEX ix_srv_release_server  ON srv_deploy_release(server_id, released_at DESC);   -- 这台机器几条
-CREATE INDEX ix_srv_doc_project     ON srv_deploy_doc(project_id, sort_order);   -- 项目部署文档
 
 PRAGMA user_version = 3;

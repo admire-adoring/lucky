@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../icons/Icon'
 import { SCOPE_META, STATUS_META } from '../../data/meta'
 import { isClosed } from '../../data/derive'
-import { projectById } from '../../data/workbench'
+import { useProjects } from '../../hooks/use-projects'
 import { toast } from '../../stores/toast-store'
 import { cn } from '../../lib/cn'
 import { ROW_ARROW, ROW_BASE } from './tile-classes'
@@ -48,17 +48,12 @@ const rowArrow = (
 /**
  * 项目行。唯一有真实跳转的行 —— 点进项目详情。
  *
- * 项目数据按 id 现取（`projectById`）而不是从内容层带过来：
- *    内容层只存 id，于是"项目改了、行没改"在结构上不可能发生。
- *    取不到（id 被删/改名）时不渲染这一行并在开发期报错 ——
- *    留一行空壳比少一行更难查。
+ * 项目数据从 `useProjects()` 真实数据里按 id 取。取不到（id 被删）时不渲染。
  */
 export function ProjectRow({ row }: { row: ProjectRowSpec }) {
-  const project = projectById(row.id)
-  if (!project) {
-    if (import.meta.env.DEV) console.error(`工作台列表里的项目 id 不存在：${row.id}`)
-    return null
-  }
+  const { data: projects = [] } = useProjects()
+  const project = projects.find((p) => p.id === row.id)
+  if (!project) return null
   const scope = SCOPE_META[project.scope]
   const status = STATUS_META[project.status]
   const dueWarn = !isClosed(project) && project.daysLeft <= 14

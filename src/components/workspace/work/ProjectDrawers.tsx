@@ -1,9 +1,5 @@
-import { Icon } from '../../icons/Icon'
-import { SORT_OPTIONS } from '../../../data/meta'
 import { ProjectShelf } from '../project-detail/ProjectShelf'
-import { useUiStore } from '../../../stores/ui-store'
 import type { Handlers } from '../../../pages/workspace/work/panels'
-import type { SortMode } from '../../../types'
 
 /* ============================================================================
    工作模块的「项目」分区（`/work/projects`）
@@ -46,54 +42,14 @@ import type { SortMode } from '../../../types'
    本文件现在只剩三样属于工作模块的东西：
      · `scope="work"` 与基路径 `/work/projects`（这一页的口径）；
      · 页头措辞「我的项目」（+ `.accent`，颜色自动取工作模块的强调色）；
-     · 顶栏那一排动作（排序 + 新建，见 `ProjectTopbarActions`）。
+     · 顶栏那一排动作（排序 + 新建）—— 2026-10-17 搬到共用层
+       `../project-detail/ProjectTopbarActions.tsx`（学习域要用同一排）。
    与抽屉一起搬走的还有原型的整改说明（配色表 / 缩略序号 / meta 三段那三条），
       它们现在写在 `ProjectShelf.tsx` 的文件头 —— 要改版式去那边，别在这里补。
    连带改的：抽屉那一族样式（`.drawer*` / `.page-head` / `.sort-select`）原本锁在
       `.mw-root[data-module='work']` 下，第四轮放宽成 `[data-module]`（属性不带值，
       特异性不变）—— 否则学习模块那一份会一条规则都不命中、页面全裸且零报错。
    ============================================================================ */
-
-/**
- * 原型的「排序」是一个没有定义交互的 `.btn-ghost`（原型里点了没反应）。
- *    这里落成原生 `<select>` —— 不是自选，是沿用本仓已有的那条口径：
- *    `/projects` 的排序（`components/projects/ProjectToolbar.tsx`）就是一个原生 select，
- *    选项来自 `data/meta` 的 `SORT_OPTIONS`，偏好存在 `ui-store.sort`。
- *    于是两页的排序控件外形一致、偏好同一个字段、比较逻辑同一份（`lib/filter-projects`）。
- */
-export function ProjectTopbarActions({ handlers }: { handlers: Handlers }) {
-  const sort = useUiStore((state) => state.sort)
-  const setSort = useUiStore((state) => state.setSort)
-
-  return (
-    <>
-      {/* 原生 `<select>` 而不是 `.btn`：`.btn` 是 `display: inline-flex`，
-          套在 select 这种替换元素上会让它自己的箭头与内边距都失准。
-          于是外壳样式写在 `.sort-select` 里（项目抽屉段），外形与旁边的 `.btn-ghost` 对齐。 */}
-      <div className="sort-select">
-        <select
-          value={sort}
-          onChange={(event) => setSort(event.target.value as SortMode)}
-          aria-label="排序方式"
-        >
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <Icon name="i-chevron" className="sort-caret" />
-      </div>
-      <button
-        type="button"
-        className="btn btn-primary"
-        onClick={() => handlers.notice('新建项目：创建流程还没接')}
-      >
-        + 新建项目
-      </button>
-    </>
-  )
-}
 
 /**
  * `handlers` 这一页用不上（它是外壳统一传的，见 `WorkWorkspace` 的 `PANELS`）：

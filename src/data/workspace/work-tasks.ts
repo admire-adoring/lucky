@@ -1,4 +1,4 @@
-import { buildTasks, ownerDisplayName, relativeDate, taskQuad } from '../derive'
+import { ownerDisplayName, relativeDate, taskQuad } from '../derive'
 import type { Project, Task } from '../../types'
 
 /* ============================================================================
@@ -76,9 +76,17 @@ export function workTaskRows(project: Project, tasks: Task[], tone: string): Wor
   }))
 }
 
-/** 跨项目：按 `projects` 的次序取身份色，任务由 `buildTasks` 派生 */
-export function buildWorkTaskRows(projects: Project[]): WorkTaskRow[] {
-  return projects.flatMap((project, index) => workTaskRows(project, buildTasks(project), projectTone(index)))
+/**
+ * 多项目的任务行。`tasks` 必传 —— 按 `projectId` 分给各项目。
+ * 历史上有个不传 `tasks` 时退回 `buildTasks` 派生的兜底分支，
+ * 但 WorkTasksPage 与 ProjectDetail 两个调用方都传了真实任务，兜底从未触发，
+ * 留着等于在死代码上挂着一条派生路径。
+ */
+export function buildWorkTaskRows(projects: Project[], tasks: Task[]): WorkTaskRow[] {
+  return projects.flatMap((project, index) => {
+    const rows = tasks.filter((task) => task.projectId === project.id)
+    return workTaskRows(project, rows, projectTone(index))
+  })
 }
 
 /* ---------------------------------------------------------------------------

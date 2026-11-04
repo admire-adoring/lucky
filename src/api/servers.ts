@@ -245,48 +245,29 @@ export function deleteRelease(id: string): Promise<void> {
 }
 
 /* ============================================================================
-   部署文档（srv_deploy_doc）
+   部署文档（已归到 `doc` 表，宿主 server —— 见 api/docs.ts）
    ============================================================================ */
 
 /** 一份部署文档（读出形态）。归属是项目，不是机器 —— 书架按项目分排。 */
-export interface DeployDoc {
-  id: string
-  projectId: string
-  name: string
-  /** manual / process / script；「手册 / 流程 / 脚本」是前端的事 */
-  kindCode: string
-  version: string
-  /** 「多久没更新」的文案由视图层从这一列派生 */
-  updatedAt: string
-  sortOrder: number
+
+/* ---------- 连接探测 ---------- */
+
+export interface ProbeOutcome {
+  ok: boolean
+  message: string
+  /** `uname -sr` */
+  os: string
+  cores: number | null
+  memGb: number | null
+  diskGb: number | null
 }
 
-/** 新增 / 编辑的入参。`updatedAt` 不收：它就是"这次更新"的时刻。 */
-export interface DeployDocInput {
-  projectId: string
-  name: string
-  kindCode: string
-  version?: string
-}
-
-export const deployDocKeys = {
-  all: ['deployDocs'] as const,
-  byProject: (projectId: string) => [...deployDocKeys.all, 'project', projectId] as const,
-}
-
-/** 一个项目的部署文档，按登记顺序。 */
-export function listDeployDocs(projectId: string): Promise<DeployDoc[]> {
-  return call(() => invoke<DeployDoc[]>('srv_doc_list', { projectId }))
-}
-
-export function createDeployDoc(input: DeployDocInput): Promise<DeployDoc> {
-  return call(() => invoke<DeployDoc>('srv_doc_create', { input }))
-}
-
-export function updateDeployDoc(id: string, input: DeployDocInput): Promise<DeployDoc> {
-  return call(() => invoke<DeployDoc>('srv_doc_update', { id, input }))
-}
-
-export function deleteDeployDoc(id: string): Promise<void> {
-  return call(() => invoke<void>('srv_doc_delete', { id }))
+/**
+ * 真跑一次 SSH（`srv_probe`）。成功时后端会把机器自报的规格写回 `srv_server`，
+ * 调用方要失效台账缓存才能看到新的 os/cores。
+ *
+ * 走 `call()` 统一错误封装 —— 与其余 srv_* 命令同一出口，调用方拿到的永远是 ApiError。
+ */
+export function probeServer(host: string): Promise<ProbeOutcome> {
+  return call(() => invoke<ProbeOutcome>('srv_probe', { host }))
 }

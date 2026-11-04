@@ -13,9 +13,15 @@ import {
 } from '../../../data/derive'
 import type { PathSeed } from '../../../data/content-pool'
 import { cn } from '../../../lib/cn'
+import { useServerActions, useServerProbe, useServers } from '../../../hooks/use-servers'
+import { probeServer } from '../../../api/servers'
+import { useQueryClient } from '@tanstack/react-query'
+import { errorText } from '../../../api/error'
+import { toast } from '../../../stores/toast-store'
+import type { Server } from '../../../api/servers'
 /* 连接状态全站一份（运维分区与服务器台账共用），见那个模块的文件头 */
 import { isConnected, markConnected } from '../../../lib/server-conn'
-import { AddServerForm } from './AddServerForm'
+import { AddServerForm, type ServerFormDraft } from './AddServerForm'
 import { OpsIcon, type OpsIconName } from './ops-icon'
 import { PanelCard as OpsCard, PanelModal as OpsModal } from './panel-shell'
 import { DeployDocBook } from './DeployDocBook'
@@ -205,6 +211,93 @@ export function OpsPanel({
   const [openServer, setOpenServer] = useState<string | null>(null)
   const [serverTab, setServerTab] = useState<ServerTab>('info')
   const [openDeploy, setOpenDeploy] = useState<string | null>(null)
+  /* 落库：与台账页（`ServersLedger.submitServer`）同一套 —— 编辑原样带回没显示在表单上的列，
+     新增取默认值。此前这张表单没接 onSubmit，提交只会得到"填好了"的回执（不写库）。 */
+  const queryClient = useQueryClient()
+  const { data: serverData } = useServers()
+  const serverActions = useServerActions()
+  /* 测试连接：跑一次 srv_probe 但不切连接状态，只回报结果。
+     与 toggleConn（切连接状态）共用后端命令，但语义不同 ——
+     测试连接是诊断动作（验证这台机器能不能连），toggleConn 是把状态拨过去。 */
+  const probe = useServerProbe()
+  const [probingHost, setProbingHost] = useState<string | null>(null)
+
+  const submitServerForm = (target: Server | null, draft: ServerFormDraft, again: boolean) => {
+    if (target) {
+      serverActions.save.mutate(
+        {
+          host: target.host,
+          input: {
+            host: draft.name,
+            ip: draft.ip,
+            sshPort: draft.sshPort,
+            os: target.os,
+            cores: target.cores,
+            memGb: target.memGb,
+            diskGb: target.diskGb,
+            roleCode: draft.roleCode,
+            envCode: draft.envCode,
+            loginUser: draft.loginUser,
+            authCode: draft.authCode,
+            escMode: draft.escMode,
+            escUser: draft.escUser,
+            credRef: target.credRef,
+            note: draft.note,
+            projectIds: target.projects.map((project) => project.id),
+            ports: target.ports,
+            tags: draft.tags,
+            pathGroups: target.pathGroups,
+            paths: target.paths.map((path) => ({
+              group: path.group,
+              use: path.use,
+              path: path.path,
+              note: path.note,
+            })),
+          },
+        },
+        {
+          onSuccess: () => {
+            toast(`已保存 ${draft.name}`)
+            setServerForm(null)
+          },
+          onError: (error: Error) => toast(`保存失败：${errorText(error)}`),
+        },
+      )
+      return
+    }
+
+    serverActions.create.mutate(
+      {
+        host: draft.name,
+        ip: draft.ip,
+        sshPort: draft.sshPort,
+        roleCode: draft.roleCode,
+        envCode: draft.envCode,
+        loginUser: draft.loginUser,
+        authCode: draft.authCode,
+        escMode: draft.escMode,
+        escUser: draft.escUser,
+        note: draft.note,
+        tags: draft.tags,
+        os: '',
+        cores: null,
+        memGb: null,
+        diskGb: null,
+        projectIds: projectId ? [projectId] : [],
+        ports: [],
+        pathGroups: [],
+        paths: [],
+      },
+      {
+        onSuccess: () => {
+          toast(`已添加 ${draft.name}，并已服务本项目`)
+          if (!again) setServerForm(null)
+        },
+        onError: (error: Error) => toast(`添加失败：${errorText(error)}`),
+      },
+    )
+  }
+
   /** 「添加 / 编辑服务器」= 分区内的一个整页表单（见 `AddServerForm` 文件头）。null = 不看它 */
   const [serverForm, setServerForm] = useState<{ mode: 'add' } | { mode: 'edit'; server: ServerItem } | null>(null)
 
@@ -299,8 +392,25 @@ export function OpsPanel({
   }
   const toggleConn = (name: string) => {
     const on = !isConnected(name)
-    setConnected(name, on)
-    notice(on ? `已连接 ${name}` : `已断开 ${name}`)
+    if (!on) {
+      /* 断开是本会话的事：SSH 是一次性命令，没有长连接可断 */
+      setConnected(name, false)
+      notice(`已断开 ${name}`)
+      return
+    }
+    /* 连上 = 真跑一次 SSH：成功才标记（顺带把机器自报的规格写回库），失败说清原因 */
+    probeServer(name)
+      .then((result) => {
+        if (!result.ok) {
+          notice(result.message)
+          return
+        }
+        markConnected(name, true)
+        forceRender()
+        notice(result.message)
+        queryClient.invalidateQueries({ queryKey: ['servers'] })
+      })
+      .catch((error) => notice(`连接失败：${errorText(error)}`))
   }
   const offHosts = servers.filter((server) => !isConnected(server.name)).map((server) => server.name)
   const connSub = !servers.length
@@ -310,6 +420,29 @@ export function OpsPanel({
       : offHosts.length === servers.length
         ? '发版前先连上目标机器'
         : `${offHosts.join('、')} 未连接`
+
+  /* 测试连接：与 toggleConn 共用 srv_probe，但只回报结果、不切连接状态。
+     toggleConn 在成功时调 markConnected；测试连接不做这一步。
+     保留 hook 的 onSuccess（失效台账缓存，因为成功后端会写回 os/cores）——
+     失效不会改连接状态，只会让列表读到新的规格读数。 */
+  const testConnection = (name: string) => {
+    if (probingHost) return
+    setProbingHost(name)
+    probe.mutate(name, {
+      onSuccess: (result) => {
+        if (result.ok) {
+          notice(`${name}：${result.message}${result.os ? ` · ${result.os}` : ''}${result.cores ? ` · ${result.cores}C` : ''}${result.memGb ? ` · ${result.memGb}G` : ''}`)
+        } else {
+          notice(`${name}：${result.message}`)
+        }
+        setProbingHost(null)
+      },
+      onError: (error: Error) => {
+        notice(`测试失败：${errorText(error)}`)
+        setProbingHost(null)
+      },
+    })
+  }
 
   /* ---------------- 文件位置清单（增 / 改 / 删） ---------------- */
 
@@ -476,6 +609,14 @@ export function OpsPanel({
           mode={serverForm.mode}
           projectName={projectName}
           server={target}
+          onSubmit={(draft, again) => {
+            /* 编辑要用库里那份 raw（视图形态没有 credRef / ports / pathGroups） */
+            const real =
+              serverForm.mode === 'edit'
+                ? (serverData ?? []).find((item) => item.host === target?.name) ?? null
+                : null
+            submitServerForm(real, draft, again)
+          }}
           siblings={servers
             .filter((item) => item.name !== target?.name)
             .map((item) => ({ name: item.name, ip: item.ip }))}
@@ -745,6 +886,23 @@ export function OpsPanel({
                           }}
                         >
                           <OpsIcon name="copy" size={13} /> 复制 IP
+                        </button>
+                        <button
+                          type="button"
+                          className={cn('btn btn-ghost btn-sm', probingHost === server.name && 'is-loading')}
+                          disabled={probingHost === server.name}
+                          title={`跑一次 SSH 探测 ${server.name}（不切连接状态）`}
+                          onClick={() => testConnection(server.name)}
+                        >
+                          {probingHost === server.name ? (
+                            <>
+                              <OpsIcon name="refresh" size={13} /> 测试中…
+                            </>
+                          ) : (
+                            <>
+                              <OpsIcon name="plug" size={13} /> 测试连接
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>

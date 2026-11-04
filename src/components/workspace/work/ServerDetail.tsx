@@ -13,7 +13,8 @@ import {
   type RailNode,
 } from '../../../data/derive'
 import type { PathSeed } from '../../../data/content-pool'
-import { useDeployDocsMany, useServer, useServerActions, useServers } from '../../../hooks/use-servers'
+import { useServer, useServerActions, useServers } from '../../../hooks/use-servers'
+import { useServerDocs } from '../../../hooks/use-docs'
 import { isConnected, markConnected } from '../../../lib/server-conn'
 import { toDeployDocItem, toLedgerServer } from '../../../lib/server-view'
 import { toast } from '../../../stores/toast-store'
@@ -214,20 +215,21 @@ export function ServerDetail({ host }: { host: string }) {
   /** 视图那一份 —— Hero / 概览 / 文件位置都读它 */
   const viewServer = useMemo(() => (raw ? toLedgerServer(raw) : null), [raw])
   /**
-   * 「文档」那一段：文档的归属是项目，机器只是"路过" —— 按这台机器服务的项目逐个查，
-   * 不另存一份"本机文档"清单（那必然在某台机器改了服务项目之后说错话）。
-   * 项目数运行时才知道，`useDeployDocsMany` 一排项目一条查询。
+   * 「文档」那一段：文档的归属是项目，机器只是"路过" —— 但部署文档的**宿主是这台机器**，
+   * 一次查完（`owner_kind='server' AND owner_id=host`）、再按 `projectId` 分组，
+   * 不再按项目逐条查。空组不显示：`shelves` 里没有文档的项目由下面那段过滤掉。
    */
-  const projectIds = useMemo(() => (viewServer ? viewServer.projects.map((ref) => ref.id) : []), [viewServer])
-  const docQueries = useDeployDocsMany(projectIds)
+  const { data: serverDocs } = useServerDocs(host)
   const shelves = useMemo(() => {
     if (!viewServer) return []
-    return viewServer.projects.map((ref, i) => ({
-      projectId: ref.id,
-      projectName: ref.name,
-      docs: (docQueries[i]?.data ?? []).map(toDeployDocItem),
-    }))
-  }, [viewServer, docQueries])
+    return viewServer.projects
+      .map((ref) => ({
+        projectId: ref.id,
+        projectName: ref.name,
+        docs: (serverDocs ?? []).filter((doc) => doc.projectId === ref.id).map(toDeployDocItem),
+      }))
+      .filter((shelf) => shelf.docs.length > 0)
+  }, [viewServer, serverDocs])
 
   /* 连接状态与文件清单是"就地读"的（模块级集合 / 池子那份数组），要一个计数器叫重渲 */
   const [, forceRender] = useReducer((n: number) => n + 1, 0)

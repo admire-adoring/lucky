@@ -1,5 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { docKeys, fetchDocContent, fetchDocs, saveDocContent } from '../api/docs'
+import {
+  createDoc,
+  deleteDoc,
+  docKeys,
+  fetchDeployDocs,
+  fetchDocContent,
+  fetchDocs,
+  fetchOwnerDocs,
+  fetchServerDocs,
+  saveDocContent,
+  updateDoc,
+  type DocInput,
+} from '../api/docs'
 import type { DocumentItem } from '../types'
 
 /**
@@ -14,6 +26,66 @@ export function useDocs(projectId: string | undefined): DocumentItem[] {
     staleTime: 5 * 60 * 1000,
   })
   return data ?? []
+}
+
+/**
+ * 任意宿主下的文档（模块级容器用）。学习「笔记」页传 `('note', 'learn')`。
+ * 浏览器预览里回落 `LEARN_NOTES`，与真实路径同一形状。
+ */
+export function useOwnerDocs(ownerKind: string, ownerId: string): DocumentItem[] {
+  const { data } = useQuery({
+    queryKey: docKeys.owner(ownerKind, ownerId),
+    queryFn: () => fetchOwnerDocs(ownerKind, ownerId),
+    staleTime: 5 * 60 * 1000,
+  })
+  return data ?? []
+}
+
+/**
+ * 一个项目的**部署文档**（宿主是机器，`projectId` 指向这个项目）。
+ * 返回原始行，调用方用 `lib/server-view` 的 `toDeployDocItem` 转成书架的形状。
+ */
+export function useDeployDocs(projectId: string | undefined) {
+  return useQuery({
+    queryKey: docKeys.deploy(projectId ?? ''),
+    queryFn: () => fetchDeployDocs(projectId),
+    enabled: Boolean(projectId),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * 一台机器名下的全部文档（机器详情的书架按项目分排时用 —— 一次查完、前端分组，
+ * 不再按项目逐条查）。
+ */
+export function useServerDocs(host: string | undefined) {
+  return useQuery({
+    queryKey: docKeys.host(host ?? ''),
+    queryFn: () => fetchServerDocs(host),
+    enabled: Boolean(host),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * 文档的写操作：新建 / 编辑索引 / 删除。收在 `docKeys.all` 一处失效上
+ * （列表、"多久没更新"、正文缓存一起刷）。正文写回走 `useDocActions().save`。
+ *
+ * 三个动作都只在 Tauri 里有效 —— 浏览器预览里 `api/docs.ts` 会明确报错，
+ * 不给"保存成功"的假回执。
+ */
+export function useDocMutations() {
+  const queryClient = useQueryClient()
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: docKeys.all })
+
+  return {
+    create: useMutation({ mutationFn: (input: DocInput) => createDoc(input), onSuccess: invalidate }),
+    update: useMutation({
+      mutationFn: ({ id, input }: { id: string; input: DocInput }) => updateDoc(id, input),
+      onSuccess: invalidate,
+    }),
+    remove: useMutation({ mutationFn: (id: string) => deleteDoc(id), onSuccess: invalidate }),
+  }
 }
 
 /**

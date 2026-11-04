@@ -74,8 +74,7 @@ export function greetingMessage(name: string, time: string): AiMessage {
 /* ---------- 种子会话（原型 s1 的形状，数字换成真实派生） ---------- */
 
 function seedMessages(): AiMessage[] {
-  const { tasks, lateCount, lateTasks, dueTop2, dom, globalAvg, laggard } = AI_FACTS
-  const firstLate = lateTasks[0]
+  const { tasks, lateCount, dueTop2, dom, globalAvg, laggard } = AI_FACTS
   const workGap = globalAvg - dom.work.avg
 
   return [
@@ -124,8 +123,8 @@ function seedMessages(): AiMessage[] {
           [
             {
               text: lateCount
-                ? `逾期 ${lateCount} 条${firstLate ? `，例如「${firstLate.task.name}」（${firstLate.project.name}）` : ''}`
-                : '没有逾期任务',
+                ? `逾期项目 ${lateCount} 个`
+                : '没有逾期项目',
             },
           ],
           ...dueTop2.map((project) => [

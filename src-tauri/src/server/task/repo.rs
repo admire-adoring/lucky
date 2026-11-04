@@ -23,6 +23,7 @@ fn row_to_task(row: &Row<'_>) -> rusqlite::Result<Task> {
         id: row.get(0)?,
         scope: row.get(1)?,
         project_id: row.get(2)?,
+        project_name: String::new(),
         owner_code: row.get(3)?,
         title: row.get(4)?,
         state: row.get(5)?,
@@ -36,6 +37,7 @@ fn row_to_task(row: &Row<'_>) -> rusqlite::Result<Task> {
         sort_order: row.get(13)?,
         created_at: row.get(14)?,
         updated_at: row.get(15)?,
+        items: Vec::new(),
     })
 }
 
@@ -48,16 +50,41 @@ pub fn list(conn: &Connection, project_id: Option<&str>, scope: Option<&str>) ->
          ORDER BY sort_order, due_at, created_at"
     );
     let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt
+    let mut rows = stmt
         .query_map(params![project_id, scope], row_to_task)?
         .collect::<rusqlite::Result<Vec<Task>>>()?;
+    drop(stmt);
+    hydrate_project_names(conn, &mut rows)?;
     Ok(rows)
 }
 
 pub fn get(conn: &Connection, id: &str) -> Result<Task> {
-    conn.query_row(&format!("SELECT {COLS} FROM task WHERE id = ?1"), [id], row_to_task)
+    let mut task = conn
+        .query_row(&format!("SELECT {COLS} FROM task WHERE id = ?1"), [id], row_to_task)
         .optional()?
-        .ok_or_else(|| Error::NotFound(format!("任务 {id}")))
+        .ok_or_else(|| Error::NotFound(format!("任务 {id}")))?;
+    /* 子表只在这里读：列表不读（N+1），详情才要 */
+    task.items = crate::server::task::item::list(conn, &task.id)?;
+    task.project_name = project_name_of(conn, task.project_id.as_deref())?;
+    Ok(task)
+}
+
+/// 任务行要显示项目名 —— 列表一次补齐（一条一条查是 N+1，但项目表很小，一次 join 的复杂度不值）。
+fn hydrate_project_names(conn: &Connection, tasks: &mut [Task]) -> Result<()> {
+    for task in tasks {
+        task.project_name = project_name_of(conn, task.project_id.as_deref())?;
+    }
+    Ok(())
+}
+
+fn project_name_of(conn: &Connection, project_id: Option<&str>) -> Result<String> {
+    let Some(id) = project_id else {
+        return Ok(String::new());
+    };
+    Ok(conn
+        .query_row("SELECT name FROM project WHERE id = ?1", [id], |row| row.get(0))
+        .optional()?
+        .unwrap_or_default())
 }
 
 /// 新建。挂项目时 `scope` 取项目的（一致性由写入路径保证），不挂时按传入值，

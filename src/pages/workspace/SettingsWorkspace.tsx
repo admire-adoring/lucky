@@ -1,10 +1,10 @@
 import type { ComponentType } from 'react'
 import { WorkspaceLayout } from '../../components/workspace/WorkspaceLayout'
+import { AccountSettings } from './settings/AccountSettings'
 import { useModuleTab } from '../../hooks/use-module-tab'
 import { toast } from '../../stores/toast-store'
 import {
   AboutPanel,
-  AccountPanel,
   AiPanel,
   AppearancePanel,
   DataPanel,
@@ -21,7 +21,8 @@ import {
 const BASE = '/settings'
 
 const PANELS: Record<string, ComponentType<{ handlers: Handlers }>> = {
-  account: AccountPanel,
+  /* 手写面板：原型那份是静态标记（密码 / 两步验证在单机应用里不存在） */
+  account: AccountSettings,
   modules: ModulesPanel,
   appearance: AppearancePanel,
   notifications: NotificationsPanel,
@@ -47,7 +48,7 @@ export function SettingsWorkspace() {
     notice: (text) => toast(text),
   }
 
-  const Panel = PANELS[active] ?? AccountPanel
+  const Panel = PANELS[active] ?? AccountSettings
 
   return (
     <WorkspaceLayout

@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import { PracticeProjects } from '../../components/workspace/learning/PracticeProjects'
+import { ProjectTopbarActions } from '../../components/workspace/project-detail/ProjectTopbarActions'
 import { useModuleModals } from '../../components/workspace/use-module-modals'
 import { WorkspaceLayout } from '../../components/workspace/WorkspaceLayout'
 import { WorkspaceModal } from '../../components/workspace/WorkspaceModal'
@@ -77,31 +78,39 @@ export function LearningWorkspace() {
       tabs={TABS}
       active={active}
       onSelectTab={select}
-      topbarActions={<TopbarActions handlers={handlers} />}
+      topbarActions={
+        /* 「实践项目」那一页的顶栏与工作模块同构：排序 + 新建（scope 锁 learn）。
+           其余分区沿用「+ 快速记录」——分叉只留这一处，见 WorkWorkspace 的同一条注释。 */
+        active === 'projects' ? (
+          <ProjectTopbarActions scope="learn" notice={handlers.notice} />
+        ) : (
+          <TopbarActions handlers={handlers} />
+        )
+      }
     >
       <Panel handlers={handlers} />
 
       {modals.key === 'openResource' ? (
-        <WorkspaceModal title={modals.arg} onClose={modals.close}>
-          <OpenResourceModal handlers={handlers} title={modals.arg} />
+        <WorkspaceModal title="资源详情" onClose={modals.close}>
+          <OpenResourceModal handlers={handlers} resourceId={modals.arg} />
         </WorkspaceModal>
       ) : null}
 
       {modals.key === 'openNote' ? (
-        <WorkspaceModal title={modals.arg} onClose={modals.close}>
-          <OpenNoteModal handlers={handlers} title={modals.arg} />
+        <WorkspaceModal title="笔记" onClose={modals.close}>
+          <OpenNoteModal handlers={handlers} />
         </WorkspaceModal>
       ) : null}
 
       {modals.key === 'openReview' && spec ? (
         <WorkspaceModal title={spec.title ?? ''} onClose={modals.close}>
-          <OpenReviewModal handlers={handlers} question={modals.arg} />
+          <OpenReviewModal handlers={handlers} reviewId={modals.arg} />
         </WorkspaceModal>
       ) : null}
 
       {modals.key === 'openOutput' ? (
-        <WorkspaceModal title={modals.arg} onClose={modals.close}>
-          <OpenOutputModal handlers={handlers} title={modals.arg} />
+        <WorkspaceModal title="输出详情" onClose={modals.close}>
+          <OpenOutputModal handlers={handlers} outputId={modals.arg} />
         </WorkspaceModal>
       ) : null}
     </WorkspaceLayout>

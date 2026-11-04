@@ -10,11 +10,14 @@ import {
   type ReactNode,
 } from 'react'
 import { DOC_KINDS, DOC_KIND_LABEL } from '../../../data/content-pool'
+import { DOC_SOURCE_META } from '../../../data/meta'
+import { errorText } from '../../../api/error'
 import { cn } from '../../../lib/cn'
 import { Icon } from '../../icons/Icon'
 import { DocBook } from './DocBook'
 import { useSourceOverlay } from './doc-source/use-source-overlay'
 import { copyAgoText, copyOf, useDocCopies } from '../../../data/workspace/doc-copies'
+import { useDocMutations } from '../../../hooks/use-docs'
 import type { DocKind, DocLink, DocumentItem } from '../../../types'
 
 /* ============================================================================
@@ -1102,6 +1105,8 @@ function DocModal({
   defaultFunc,
   onClose,
   onDelete,
+  onConfirmDelete,
+  onSubmit,
   notice,
 }: {
   mode: 'create' | 'edit' | 'delete'
@@ -1116,6 +1121,10 @@ function DocModal({
   onClose: () => void
   /** 编辑态那颗「删除」进阶到第三态（原型 `openDocModal(id, 'delete')` 走的就是它） */
   onDelete?: () => void
+  /** 删除态的主按钮：真的删（索引与正文文件一起走） */
+  onConfirmDelete?: () => void
+  /** 新建 / 编辑态的主按钮：交给宿主落库 */
+  onSubmit?: (patch: { name: string; module: string; func: string; kind: string; source: string }) => void
   notice: (text: string) => void
 }) {
   /* 候选池：模块去重保序 + 每个模块自己的功能（功能只可能属于某一个模块）。
@@ -1317,7 +1326,15 @@ function DocModal({
             className={cn('btn', del ? 'doc-del-btn btn-ghost' : 'btn-primary')}
             /* 名字是必填 —— 原型那颗 `#docModalCreate` 也是 `disabled` 起手 */
             disabled={!del && !name.trim()}
-            onClick={() => notice(del ? '删除文档：还没有写接口' : '保存文档：还没有写接口')}
+            onClick={() => {
+              if (del) {
+                if (onConfirmDelete) onConfirmDelete()
+                else notice('删除文档：还没有写接口')
+                return
+              }
+              if (onSubmit) onSubmit({ name: name.trim(), module, func, kind, source })
+              else notice('保存文档：还没有写接口')
+            }}
           >
             {mainLabel}
           </button>
@@ -1333,11 +1350,20 @@ function DocModal({
 
 export function DocLibrary({
   docs,
+  owner,
   projectName,
   notice,
   groupLabel = '模块与功能',
 }: {
   docs: DocumentItem[]
+  /**
+   * 文档的宿主。**有值 = 这批文档落在 `doc` 表里**，新建 / 编辑 / 删除走真实命令：
+   *   · 项目详情：`{ kind: 'project', id: project.id }`
+   *   · 学习模块「笔记」页：`{ kind: 'note', id: 'learn' }`（模块级容器，不属某个项目）
+   * 没有 = 一批还没接库的清单（工作「文档索引」那一页，属 `work_doc`，还没换源）——
+   * 此时三个动作仍只给"还没有写接口"的提示。
+   */
+  owner?: { kind: string; id: string }
   /** 新建弹窗的副标题用它（原型那里写的就是项目名） */
   projectName: string
   notice: (text: string) => void
@@ -1359,6 +1385,69 @@ export function DocLibrary({
   const [graphSel, setGraphSel] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [docModal, setDocModal] = useState<{ mode: 'create' | 'edit' | 'delete'; id?: string } | null>(null)
+
+  /* 文档的写操作：落到 `doc` 表（宿主 project）。三个动作都只在 Tauri 里有效 ——
+     浏览器预览里 `api/docs.ts` 会明确报错，不给"保存成功"的假回执。 */
+  const docMutations = useDocMutations()
+  /** 表单里来源是中文（给人看），落库要 code */
+  const sourceCodeOf = (label: string) =>
+    Object.entries(DOC_SOURCE_META).find(([, text]) => text === label)?.[0] ?? 'local_md'
+
+  const submitDoc = (patch: { name: string; module: string; func: string; kind: string; source: string }) => {
+    if (!owner) return
+    const editing = docModal?.id ? docs.find((d) => d.id === docModal.id) : undefined
+    const input = {
+      ownerKind: owner.kind,
+      ownerId: owner.id,
+      /* 只有项目宿主的文档才带"属于哪个项目"；模块级容器（学习笔记）没有 */
+      projectId: owner.kind === 'project' ? owner.id : null,
+      name: patch.name,
+      module: patch.module,
+      func: patch.func,
+      kind: patch.kind,
+      /* 编辑时不换来源：换了要挪正文文件，属于另建一份（后端也会拦） */
+      source: editing ? sourceCodeOf(editing.source) : sourceCodeOf(patch.source),
+    }
+    if (docModal?.mode === 'create') {
+      docMutations.create.mutate(input, {
+        onSuccess: () => notice(`已新建「${patch.name}」`),
+        onError: (error) => notice(`新建失败：${errorText(error)}`),
+      })
+    } else if (docModal?.id) {
+      docMutations.update.mutate(
+        { id: docModal.id, input },
+        {
+          onSuccess: () => notice(`已保存「${patch.name}」`),
+          onError: (error) => notice(`保存失败：${errorText(error)}`),
+        },
+      )
+    }
+  }
+
+  /** 删除：索引与正文文件一起走（不可恢复）。 */
+  const confirmDeleteDoc = () => {
+    const id = docModal?.id
+    if (!id) return
+    const name = docs.find((d) => d.id === id)?.name ?? ''
+    docMutations.remove.mutate(id, {
+      onSuccess: () => notice(`已删除「${name}」`),
+      onError: (error) => notice(`删除失败：${errorText(error)}`),
+    })
+  }
+
+  /**
+   * 弹窗的提交 / 删除统一在这里收口：文档现在只有一个写接口（`doc_*`），
+   * 没有 owner 的那些页（还没接库）仍走"还没有写接口"的提示。
+   */
+  const handleSubmit = (patch: { name: string; module: string; func: string; kind: string; source: string }) => {
+    submitDoc(patch)
+    setDocModal(null)
+  }
+  const handleDelete = () => {
+    if (!docModal?.id) return
+    confirmDeleteDoc()
+    setDocModal(null)
+  }
 
   /* 第三屏 · 原文。它挂在**两个** return 上：详情屏那支是早返回，只挂主页这一支的话，
      从详情屏点「打开原文」不会有任何反应（覆盖层压根没渲染）。 */
@@ -1866,6 +1955,8 @@ export function DocLibrary({
           defaultFunc={funcKey}
           onClose={() => setDocModal(null)}
           onDelete={() => setDocModal({ mode: 'delete', id: docModal.id })}
+          onConfirmDelete={owner ? handleDelete : undefined}
+          onSubmit={owner ? handleSubmit : undefined}
           notice={notice}
         />
       ) : null}

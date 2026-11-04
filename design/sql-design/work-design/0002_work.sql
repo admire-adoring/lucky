@@ -28,31 +28,6 @@ CREATE TABLE work_contact (
 -- 二 · 工作文档索引（跨项目；正文在外部工具）
 -- ============================================================
 
--- 外部资源登记表，不是 Markdown 的索引：正文本就不在本系统，无法由文件重建。
--- kind = 它是什么；source_code = 它存在哪儿。两维不退化成同一个轴。
-CREATE TABLE work_doc (
-  id          TEXT    PRIMARY KEY,
-  owner_id    TEXT    NOT NULL REFERENCES app_user(id),
-  project_id  TEXT    REFERENCES project(id) ON DELETE SET NULL,  -- 可空：跨项目索引
-  name        TEXT    NOT NULL,
-  kind        TEXT    NOT NULL CHECK (kind IN ('plan','design','api','test','spec','research','ref')),
-  source_code TEXT    NOT NULL CHECK (source_code IN ('company_wiki','yuque','git','deploy','external','meeting')),
-  group_name  TEXT    NOT NULL DEFAULT '',     -- 该项目下的哪一类（核心方案 / 部署运维 …）
-  url         TEXT,                             -- NULL = 没有可跳转地址
-  summary     TEXT    NOT NULL DEFAULT '',     -- 脱敏摘要，不存正文
-  author_id   TEXT    REFERENCES app_user(id),
-  updated_at  TEXT    NOT NULL,                -- "是不是新文档""3 天前"都从它算
-  sort_order  INTEGER NOT NULL DEFAULT 0
-);
-
--- 文档间的有向引用；反链由查询反向扫出，不落第二份。
-CREATE TABLE work_doc_link (
-  from_doc_id TEXT NOT NULL REFERENCES work_doc(id) ON DELETE CASCADE,
-  to_doc_id   TEXT NOT NULL REFERENCES work_doc(id) ON DELETE CASCADE,
-  kind        TEXT NOT NULL DEFAULT 'ref',
-  PRIMARY KEY (from_doc_id, to_doc_id)
-);
-
 -- ============================================================
 -- 三 · OKR / KPI
 -- ============================================================
@@ -118,7 +93,7 @@ CREATE TABLE work_weekly_report (
 -- 六 · 会议
 -- ============================================================
 
--- 纪要不存正文，指向 work_doc（同"正文留外部"的红线）。
+-- 纪要不存正文，指向一篇文档（`doc` 里宿主 work 的那批）。
 CREATE TABLE work_meeting (
   id          TEXT PRIMARY KEY,
   owner_id    TEXT NOT NULL REFERENCES app_user(id),
@@ -126,7 +101,7 @@ CREATE TABLE work_meeting (
   starts_at   TEXT NOT NULL,
   ends_at     TEXT,
   location    TEXT NOT NULL DEFAULT '',
-  minutes_doc TEXT REFERENCES work_doc(id) ON DELETE SET NULL,
+  minutes_doc TEXT REFERENCES doc(id) ON DELETE SET NULL,
   status      TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','done','canceled')),
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL
@@ -153,9 +128,6 @@ CREATE VIEW work_task    AS SELECT * FROM task    WHERE scope = 'work';
 -- ============================================================
 
 CREATE INDEX ix_work_contact_role  ON work_contact(role_code, org);
-CREATE INDEX ix_work_doc_project   ON work_doc(project_id, kind);
-CREATE INDEX ix_work_doc_source    ON work_doc(source_code);
-CREATE INDEX ix_work_doc_link_to   ON work_doc_link(to_doc_id);
 CREATE INDEX ix_work_okr_period    ON work_okr(period, status);
 CREATE INDEX ix_work_okr_kr_okr    ON work_okr_kr(okr_id, sort_order);
 CREATE INDEX ix_work_time_project  ON work_time_log(project_id, work_date);

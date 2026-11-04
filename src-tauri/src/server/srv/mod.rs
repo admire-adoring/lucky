@@ -1,10 +1,12 @@
 //! 服务器台账。门面：取锁 + 调 repo + 组装错误 —— 本模块是 srv 域唯一的 `pub` 面，
 //! 函数名不用带前缀（模块名就是命名空间），`Store` 住在 crate 根的 `store.rs`。
 mod model;
+mod probe;
 mod repo;
 
+pub use probe::ProbeOutcome;
 pub use model::{
-    DeployDoc, DeployDocInput, DeployRelease, DeployReleaseInput, Server, ServerInput, ServerPath,
+    DeployRelease, DeployReleaseInput, Server, ServerInput, ServerPath,
     ServerPathInput, ServerPort, ServerProjectRef, ServerReleaseCount,
 };
 
@@ -45,8 +47,10 @@ pub fn remove(store: &Store, host: &str) -> Result<()> {
     repo::remove(&conn, host)
 }
 
-/// 彻底删除。
+/// 彻底删除。**先清这台机器名下的文档**（部署手册等，宿主是 `server`），再删台账行 ——
+/// 文件先走，失败可感知。
 pub fn delete(store: &Store, host: &str) -> Result<()> {
+    crate::server::doc::cleanup_by_owner(store, "server", host)?;
     let conn = store.conn()?;
     repo::delete(&conn, host)
 }
@@ -89,27 +93,8 @@ pub fn release_delete(store: &Store, id: &str) -> Result<()> {
     repo::release_delete(&conn, id)
 }
 
-/* ============================================================
-   部署文档（srv_deploy_doc）
-   ============================================================ */
-
-/// 一个项目的部署文档，按登记顺序。
-pub fn doc_list(store: &Store, project_id: &str) -> Result<Vec<DeployDoc>> {
+/// 连接探测：真跑一次 SSH，成功则把机器自报的规格写回表。
+pub fn probe(store: &Store, host: &str) -> Result<probe::ProbeOutcome> {
     let conn = store.conn()?;
-    repo::doc_list(&conn, project_id)
-}
-
-pub fn doc_create(store: &Store, input: &DeployDocInput) -> Result<DeployDoc> {
-    let mut conn = store.conn()?;
-    repo::doc_create(&mut conn, input)
-}
-
-pub fn doc_update(store: &Store, id: &str, input: &DeployDocInput) -> Result<DeployDoc> {
-    let mut conn = store.conn()?;
-    repo::doc_update(&mut conn, id, input)
-}
-
-pub fn doc_delete(store: &Store, id: &str) -> Result<()> {
-    let conn = store.conn()?;
-    repo::doc_delete(&conn, id)
+    probe::probe(&conn, host)
 }

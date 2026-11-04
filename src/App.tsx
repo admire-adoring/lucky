@@ -201,7 +201,7 @@ export function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           {/* 工作台 = 首页。它现在是九个域之一（`/home`），与其余八域共用同一套外壳；
-              以前它是"自成一体的全屏页"，那一版的 `WorkbenchPage.tsx` 仍在仓库里但已无路由指向。
+              以前它是"自成一体的全屏页"，那一版 `WorkbenchPage.tsx` 已删除。
               `/` 只做重定向：老书签、以及下面 `EntryRedirect` 的落点都还指着它。
                  直接让 `/` 渲染工作台的话，工作台就会有两段可用的地址（`/` 与 `/home`），
                  "第一个分区用裸路径"那条约定会变得含糊。 */}

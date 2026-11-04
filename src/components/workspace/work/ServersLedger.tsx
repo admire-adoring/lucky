@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import type { Server } from '../../../api/servers'
+import { probeServer, type Server } from '../../../api/servers'
 import { cn } from '../../../lib/cn'
 import { buildLedgerGroups, fileKindOf, type LedgerServer } from '../../../data/derive'
 import type { PathSeed } from '../../../data/content-pool'
 import { useProjects } from '../../../hooks/use-projects'
 import { useLastRelease, useReleaseCounts, useServerActions, useServers } from '../../../hooks/use-servers'
+import { useQueryClient } from '@tanstack/react-query'
 import { releasedText } from '../../../lib/server-view'
 import { isConnected, markConnected } from '../../../lib/server-conn'
 import { toLedgerServer } from '../../../lib/server-view'
+import { errorText } from '../../../api/error'
 import { toast } from '../../../stores/toast-store'
 import { AddServerForm, type ServerFormDraft } from '../project-detail/AddServerForm'
 import { OpsIcon } from '../project-detail/ops-icon'
@@ -465,6 +467,7 @@ export function ServersLedger() {
   /* 每台机器名下的发布条数（卡脚徽标），写操作后随 ['releases'] 一族失效 */
   const { data: releaseCounts } = useReleaseCounts()
   const actions = useServerActions()
+  const queryClient = useQueryClient()
   /** 分组的候选项目取自本模块 —— 与机器自身的 `projects` 取并集（见下面 `groups`） */
   const projects = useMemo(() => (data ?? []).filter((project) => project.scope === 'work'), [data])
   /** 库里的机器 → 视图形状。一处转换，卡片 / 浮层 / 详情读同一份；
@@ -639,11 +642,27 @@ export function ServersLedger() {
 
   /* 重渲是必须的：连接状态存在模块级集合里，改完不会自己通知 React。
      与运维分区同一处置（那边也持一个 `forceRender`）。 */
+  /* 连上 = 真跑一次 SSH（与运维分区同一条命令）：成功才标记并失效台账（机器自报的规格写回了） */
   const toggleConn = (host: string) => {
     const on = !isConnected(host)
-    markConnected(host, on)
-    forceRender()
-    toast(on ? `已连接 ${host}` : `已断开 ${host}`)
+    if (!on) {
+      markConnected(host, false)
+      forceRender()
+      toast(`已断开 ${host}`)
+      return
+    }
+    probeServer(host)
+      .then((result) => {
+        if (!result.ok) {
+          toast(result.message)
+          return
+        }
+        markConnected(host, true)
+        forceRender()
+        toast(result.message)
+        queryClient.invalidateQueries({ queryKey: ['servers'] })
+      })
+      .catch((error) => toast(`连接失败：${errorText(error)}`))
   }
 
   const refresh = async () => {

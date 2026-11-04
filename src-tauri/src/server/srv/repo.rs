@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
 use crate::server::error::{Error, Result};
 use crate::server::id::new_id;
 use crate::server::srv::model::{
-    DeployDoc, DeployDocInput, DeployRelease, DeployReleaseInput, Server, ServerInput, ServerPath,
+    DeployRelease, DeployReleaseInput, Server, ServerInput, ServerPath,
     ServerPort, ServerProjectRef, ServerReleaseCount,
 };
 
@@ -408,85 +408,8 @@ fn validate_release(input: &DeployReleaseInput) -> Result<()> {
 }
 
 /* ============================================================
-   部署文档（srv_deploy_doc）
+   部署文档（已归到 doc 表，宿主 server —— 见 server/doc/）
    ============================================================ */
-
-const DOC_COLS: &str = "id, project_id, name, kind_code, version, updated_at, sort_order";
-
-fn row_to_doc(row: &Row<'_>) -> rusqlite::Result<DeployDoc> {
-    Ok(DeployDoc {
-        id: row.get(0)?,
-        project_id: row.get(1)?,
-        name: row.get(2)?,
-        kind_code: row.get(3)?,
-        version: row.get(4)?,
-        updated_at: row.get(5)?,
-        sort_order: row.get(6)?,
-    })
-}
-
-/// 一个项目的部署文档（书架那一排），按登记顺序。
-pub fn doc_list(conn: &Connection, project_id: &str) -> Result<Vec<DeployDoc>> {
-    let mut stmt =
-        conn.prepare(&format!("SELECT {DOC_COLS} FROM srv_deploy_doc WHERE project_id = ?1 ORDER BY sort_order"))?;
-    let rows = stmt
-        .query_map([project_id], row_to_doc)?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(rows)
-}
-
-/// 新增一份部署文档。顺序取该项目现有最大值 + 1 —— 新登记的排在书架末尾。
-pub fn doc_create(conn: &mut Connection, input: &DeployDocInput) -> Result<DeployDoc> {
-    validate_doc(input)?;
-    let id = new_id("srv");
-    conn.execute(
-        "INSERT INTO srv_deploy_doc (id, project_id, name, kind_code, version, updated_at, sort_order)
-         VALUES (?1,?2,?3,?4,?5, strftime('%Y-%m-%dT%H:%M:%SZ','now'),
-                 (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM srv_deploy_doc WHERE project_id = ?2))",
-        params![id, input.project_id, input.name, input.kind_code, input.version],
-    )?;
-    doc_by_id(conn, &id)
-}
-
-/// 编辑。`updated_at` 就是"这次更新"的时刻，不收调用方给的值。
-pub fn doc_update(conn: &mut Connection, id: &str, input: &DeployDocInput) -> Result<DeployDoc> {
-    validate_doc(input)?;
-    let n = conn.execute(
-        "UPDATE srv_deploy_doc SET
-           project_id = ?2, name = ?3, kind_code = ?4, version = ?5,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%SZ','now')
-         WHERE id = ?1",
-        params![id, input.project_id, input.name, input.kind_code, input.version],
-    )?;
-    if n == 0 {
-        return Err(Error::NotFound(format!("部署文档 {id}")));
-    }
-    doc_by_id(conn, id)
-}
-
-pub fn doc_delete(conn: &Connection, id: &str) -> Result<()> {
-    let n = conn.execute("DELETE FROM srv_deploy_doc WHERE id = ?1", [id])?;
-    if n == 0 {
-        return Err(Error::NotFound(format!("部署文档 {id}")));
-    }
-    Ok(())
-}
-
-fn doc_by_id(conn: &Connection, id: &str) -> Result<DeployDoc> {
-    conn.query_row(&format!("SELECT {DOC_COLS} FROM srv_deploy_doc WHERE id = ?1"), [id], row_to_doc)
-        .optional()?
-        .ok_or_else(|| Error::NotFound(format!("部署文档 {id}")))
-}
-
-fn validate_doc(input: &DeployDocInput) -> Result<()> {
-    if input.name.trim().is_empty() {
-        return Err(Error::Invalid("文档名不能为空".into()));
-    }
-    if !matches!(input.kind_code.as_str(), "manual" | "process" | "script") {
-        return Err(Error::Invalid(format!("文档类型不合法：{}", input.kind_code)));
-    }
-    Ok(())
-}
 
 /// 子表整组替换：先删后插，顺序即 `sort_order`。
 ///

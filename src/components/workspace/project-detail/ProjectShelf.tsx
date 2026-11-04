@@ -1,8 +1,12 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '../../../lib/cn'
 import { buildDocuments, isClosed, ownerDisplayName } from '../../../data/derive'
-import { useProjects } from '../../../hooks/use-projects'
+import { useProjectActions, useProjects } from '../../../hooks/use-projects'
+import { patchOf } from '../../projects/project-form'
+import { ProjectDeleteModal, ProjectFormModal } from '../../projects/ProjectModal'
+import { errorText } from '../../../api/error'
+import { toast } from '../../../stores/toast-store'
 import { filterProjects } from '../../../lib/filter-projects'
 import { useUiStore } from '../../../stores/ui-store'
 import type { Project, ProjectStatus, Scope } from '../../../types'
@@ -114,7 +118,18 @@ function ownerText(project: Project): string {
  * 一个抽屉
  * ------------------------------------------------------------------ */
 
-function Drawer({ project, onOpen }: { project: Project; onOpen: (id: string) => void }) {
+function Drawer({
+  project,
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  project: Project
+  onOpen: (id: string) => void
+  onEdit: (project: Project) => void
+  onDelete: (project: Project) => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const archived = isClosed(project)
   /* 缩略用派生的文档（`buildDocuments` 按 id 确定性取值），不发请求：
      每张卡都挂一个 `useProjectDetail` 就是 N 个查询，而这里要的只是"有几份、长什么样"。 */
@@ -168,6 +183,44 @@ function Drawer({ project, onOpen }: { project: Project; onOpen: (id: string) =>
           </div>
         </div>
       </div>
+
+      {/* 「⋯」放在 `.drawer` 上而不是 `.drawer-face` 里：face 有 `overflow: hidden`，
+          菜单放进去会被裁掉。点它 = 维护（编辑 / 删除），点卡片 = 进详情。 */}
+      <div className="drawer-actions" onClick={(event) => event.stopPropagation()}>
+        <button
+          type="button"
+          className="drawer-more"
+          title="更多"
+          aria-label={`「${project.name}」的更多操作`}
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          ⋯
+        </button>
+        {menuOpen ? (
+          <div className="drawer-menu">
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                onEdit(project)
+              }}
+            >
+              编辑项目
+            </button>
+            <button
+              type="button"
+              className="is-danger"
+              onClick={() => {
+                setMenuOpen(false)
+                onDelete(project)
+              }}
+            >
+              删除项目
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -194,6 +247,10 @@ export function ProjectShelf({
   const { data: projects = [], isLoading } = useProjects()
   const sort = useUiStore((state) => state.sort)
   const navigate = useNavigate()
+  /* 维护：与工作台的项目卡、项目列表页同一套弹窗 —— 三处都走 `ProjectFormModal` */
+  const actions = useProjectActions()
+  const [editing, setEditing] = useState<Project | null>(null)
+  const [deleting, setDeleting] = useState<Project | null>(null)
 
   /* 过滤 + 排序都交给 `filterProjects`（与 `/projects` 同一份实现）——
      `scope` 就是本页的口径，不必先筛一遍再排。 */
@@ -219,12 +276,55 @@ export function ProjectShelf({
       ) : shelf.length ? (
         <div className="drawers">
           {shelf.map((project) => (
-            <Drawer key={project.id} project={project} onOpen={(id) => navigate(`${basePath}/${id}`)} />
+            <Drawer
+              key={project.id}
+              project={project}
+              onOpen={(id) => navigate(`${basePath}/${id}`)}
+              onEdit={setEditing}
+              onDelete={setDeleting}
+            />
           ))}
         </div>
       ) : (
         <div className="empty-state">{emptyText}</div>
       )}
+
+      {editing ? (
+        <ProjectFormModal
+          mode="edit"
+          initial={patchOf(editing)}
+          onClose={() => setEditing(null)}
+          onSubmit={(patch) => {
+            actions.save.mutate(
+              { id: editing.id, patch },
+              {
+                onSuccess: () => {
+                  toast(`已保存「${patch.name}」`)
+                  setEditing(null)
+                },
+                onError: (error) => toast(`保存失败：${errorText(error)}`),
+              },
+            )
+          }}
+        />
+      ) : null}
+
+      {deleting ? (
+        <ProjectDeleteModal
+          project={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => {
+            const name = deleting.name
+            actions.remove.mutate(deleting.id, {
+              onSuccess: () => {
+                toast(`已删除「${name}」`)
+                setDeleting(null)
+              },
+              onError: (error) => toast(`删除失败：${errorText(error)}`),
+            })
+          }}
+        />
+      ) : null}
     </>
   )
 }
