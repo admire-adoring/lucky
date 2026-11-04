@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '../../lib/cn'
+import { useMe } from '../../hooks/use-me'
 import { useAuthStore } from '../../stores/auth-store'
 import { toast } from '../../stores/toast-store'
 import type { IconName } from '../../types'
@@ -33,17 +34,16 @@ interface MenuAction {
   run: () => void
 }
 
-/** 侧栏入口：整行可点，展示姓名与邮箱 */
-const TRIGGER_SIDEBAR =
-  'flex w-full items-center gap-2.5 rounded-md p-2 text-left transition-colors duration-150 hover:bg-ink-50'
-
-/** 顶栏入口：胶囊，只有头像与箭头 */
-const TRIGGER_TOPBAR =
-  'glass-soft inline-flex items-center gap-1.5 rounded-full border border-line bg-surface py-[3px] pl-[3px] pr-2 transition-all duration-150 ease-out hover:bg-surface-raised'
+/**
+ * 两个入口的盒模型都在 `sidebar-shell.css` 的「账户菜单」段里（`.acct-trigger` / `.acct-row`）。
+ * 这里只留 `cn` 那点尾巴：类名在别处定义，改这里等于改结构。
+ */
+const TRIGGER_SIDEBAR = 'acct-row'
+const TRIGGER_TOPBAR = 'acct-trigger'
 
 export function AccountMenu({ variant = 'topbar', className }: AccountMenuProps) {
   const navigate = useNavigate()
-  const user = useAuthStore((state) => state.user)
+  const me = useMe()
   const signOut = useAuthStore((state) => state.signOut)
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -104,10 +104,30 @@ export function AccountMenu({ variant = 'topbar', className }: AccountMenuProps)
     navigate('/login', { replace: true })
   }
 
+  /**
+   * 两个入口落到设置模块的真实分区上 —— 不是弹个提示。
+   *
+   * `个人资料` → `/settings/account`：读写 `app_user`（改名、成员名单、本机库路径与计数）。
+   * `偏好设置` → `/settings/appearance`：颜色模式，以及 `app_setting` 里
+   *    `category='appearance'` 的那几个开关。
+   *
+   * 先 close 再 navigate：菜单挂在顶栏里，不关的话它会在新页面上继续悬着，
+   * 而那时候用户已经在看设置了。
+   */
+  const openSettings = (path: string) => {
+    close()
+    navigate(path)
+  }
+
   const actions: MenuAction[] = [
-    { key: 'profile', label: '个人资料', icon: 'i-user', run: () => { close(); toast('原型演示：个人资料页未包含') } },
-    { key: 'settings', label: '偏好设置', icon: 'i-settings', run: () => { close(); toast('原型演示：偏好设置页未包含') } },
+    { key: 'profile', label: '个人资料', icon: 'i-user', run: () => openSettings('/settings/account') },
+    { key: 'settings', label: '偏好设置', icon: 'i-settings', run: () => openSettings('/settings/appearance') },
   ]
+
+  /* 显示用的一份。名字取自库，改完名立刻跟着变；空串给占位。 */
+  const displayName = me.name || '未登录'
+  const initials = me.initials || '—'
+  const note = me.note || '未登录'
 
   return (
     <div
@@ -125,27 +145,18 @@ export function AccountMenu({ variant = 'topbar', className }: AccountMenuProps)
         aria-expanded={open}
         aria-label={isSidebar ? undefined : '账户菜单'}
         onClick={() => (open ? close() : setOpen(true))}
-        className={isSidebar ? TRIGGER_SIDEBAR : TRIGGER_TOPBAR}
+        className={cn(isSidebar ? TRIGGER_SIDEBAR : TRIGGER_TOPBAR, open && 'is-open')}
       >
-        {/* 头像用登录用户的 initials，姓名与邮箱也取自会话 —— 不再写死，
-            否则换个账号登录后菜单里还是上一个身份 */}
-        <Avatar name={user?.initials ?? '—'} size={isSidebar ? 'md' : 'sm'} />
+        {/* 头像与姓名取自库里的 `app_user`（`is_me` 那一行），不是登录页那份占位会话 */}
+        <Avatar name={initials} size={isSidebar ? 'md' : 'sm'} />
         {isSidebar ? (
-          <span className="min-w-0 flex-1">
-            <b className="block text-13 font-semibold leading-[1.35]">{user?.name ?? '未登录'}</b>
-            {/* 邮箱用 ink-500 而非 ink-400：它是这条侧栏里唯一"承载信息"的小字 */}
-            <span className="block truncate text-11-5 leading-[1.35] text-ink-500">{user?.email ?? ''}</span>
+          <span className="acct-id">
+            <b className="acct-name">{displayName}</b>
+            {/* 这行小字比姓名浅一档：它是这一条里唯一"承载信息"的副标题 */}
+            <span className="acct-mail">{note}</span>
           </span>
         ) : null}
-        <Icon
-          name="i-chevron"
-          className={cn(
-            'shrink-0 transition-transform duration-150 ease-out',
-            isSidebar ? 'h-[15px] w-[15px] text-ink-300' : 'h-[13px] w-[13px] text-ink-400',
-            // 两个入口的箭头都朝下，展开时翻转 180° —— "箭头指向弹层出现的方向"
-            open ? 'rotate-180' : 'rotate-0',
-          )}
-        />
+        <Icon name="i-chevron" className="shrink-0" />
       </button>
 
       {open ? (
@@ -154,20 +165,18 @@ export function AccountMenu({ variant = 'topbar', className }: AccountMenuProps)
           role="menu"
           aria-label="账户"
           aria-orientation="vertical"
-          className={cn(
-            // 用 glass-bar（最大模糊档）：它下面会盖住卡片与正文，
-            // 糊不干净就会出现"能辨认出底下文字"的鬼影，反而不像玻璃。
-            'glass-bar absolute z-50 animate-fade-up rounded-lg border border-line bg-surface-raised p-1.5 shadow-xl',
-            // 侧栏贴窗口底部 → 只能向上弹；顶栏贴顶部 → 只能向下弹
-            isSidebar ? 'bottom-full left-0 right-0 mb-2' : 'right-0 top-full mt-2 w-[248px]',
-          )}
+          /* 定位 / 内边距 / 投影全在 `sidebar-shell.css` 的「账户菜单」段里。
+             这里不写 `absolute` 之类的工具类：那条复位规则会把间距清零，
+             而 `glass-*` 会带来一条同属性的 `position: relative`。 */
+          className={cn('acct-menu', isSidebar ? 'up' : 'down')}
         >
-          {/* 抬头：身份信息只读展示 */}
-          <div className="mb-1 flex items-center gap-2.5 border-b border-line px-2 pb-2.5 pt-1.5">
-            <Avatar name={user?.initials ?? '—'} size="sm" />
-            <span className="min-w-0 flex-1">
-              <b className="block truncate text-12-5 font-semibold leading-[1.4]">{user?.name ?? '未登录'}</b>
-              <span className="block truncate text-11-5 leading-[1.4] text-ink-500">{user?.email ?? ''}</span>
+          {/* 抬头：身份信息只读展示。用一块沉槽底把它和下面的操作分开 ——
+              分隔线只能说明"这是两段"，一层浅底才说明"上面这段不是按钮"。 */}
+          <div className="acct-head">
+            <Avatar name={initials} size="md" />
+            <span className="acct-id">
+              <b className="acct-name">{displayName}</b>
+              <span className="acct-mail">{note}</span>
             </span>
           </div>
 
@@ -177,25 +186,18 @@ export function AccountMenu({ variant = 'topbar', className }: AccountMenuProps)
               type="button"
               role="menuitem"
               onClick={action.run}
-              className="flex w-full items-center gap-2.5 rounded-sm px-2 py-[7px] text-left text-13 font-medium text-ink-700 outline-none transition-colors duration-150 hover:bg-ink-50 focus-visible:bg-ink-50"
+              className="acct-item"
             >
-              <Icon name={action.icon} className="h-[15px] w-[15px] shrink-0 text-ink-400" />
+              <Icon name={action.icon} />
               {action.label}
             </button>
           ))}
 
-          <div className="my-1.5 h-px bg-line" />
+          <div className="acct-sep" />
 
-          {/* 唯一会改变会话状态的项：色阶用 -strong 而不是主色阶 ——
-              主色阶压在半透明底上只有 3.8:1 左右，-strong 能到 5:1 以上。
-              （判据与 scope 徽标、侧栏激活态一致：承载文字的色阶必须比色条更深一档。） */}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleSignOut}
-            className="flex w-full items-center gap-2.5 rounded-sm px-2 py-[7px] text-left text-13 font-semibold text-danger-strong outline-none transition-colors duration-150 hover:bg-danger-bg focus-visible:bg-danger-bg"
-          >
-            <Icon name="i-logout" className="h-[15px] w-[15px] shrink-0" />
+          {/* 唯一会改变会话状态的项：整行红字 + 红底悬停。 */}
+          <button type="button" role="menuitem" onClick={handleSignOut} className="acct-item danger">
+            <Icon name="i-logout" />
             退出登录
           </button>
         </div>

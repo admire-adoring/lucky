@@ -31,7 +31,18 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 # 领域层存储。bundled 把 SQLite 一起编进来，机器上不必预装 sqlite3。
 rusqlite = { version = "0.32", features = ["bundled"] }
-keyring = "3.6.3"
+
+# 本机钥匙串。后端必须按平台显式挑：keyring 3.x 不选后端时 `Entry` 照样能构造、
+# `set_password` 也返回 Ok，可什么都没写进系统钥匙串，读回来是 NoEntry。
+# 分三档写是为了不让 Linux 的 dbus 依赖拖进 macOS 构建。
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6.3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3.6.3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6.3", features = ["linux-native-sync-persistent", "crypto-rust"] }
 
 [profile.release]
 codegen-units = 1

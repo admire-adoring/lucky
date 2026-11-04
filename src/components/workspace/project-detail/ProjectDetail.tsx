@@ -65,10 +65,10 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../icons/Icon'
 import { MilestoneTimeline } from '../../detail/MilestoneTimeline'
-import { ActivityFeed } from '../../detail/ActivityFeed'
 import { DocLibrary } from './DocLibrary'
 import { useSourceOverlay } from './doc-source/use-source-overlay'
 import { DocBook } from './DocBook'
+import { ServerBook } from './ServerBook'
 import { AccountPanel } from './AccountPanel'
 import { OpsPanel } from './OpsPanel'
 import { MilestoneFormModal } from './MilestoneFormModal'
@@ -97,11 +97,12 @@ import {
   buildAccounts,
   buildBugs,
   buildMeetings,
+  memberAvatarStyle,
   ownerDisplayName,
   type DeployItem,
   type ServerItem,
 } from '../../../data/derive'
-import { toDeployDocItem, toDeployItem } from '../../../lib/server-view'
+import { releasedText, toDeployDocItem, toDeployItem } from '../../../lib/server-view'
 import { useProjectServers, useReleases } from '../../../hooks/use-servers'
 import { useDeployDocs, useDocs } from '../../../hooks/use-docs'
 import { adaptDocs, adaptTasks, type WsDoc, type WsTask } from '../../../data/workspace/project'
@@ -501,40 +502,58 @@ function OverviewPanel({
   onSetMilestoneState: (m: Milestone, state: MilestoneState) => void
 }) {
   const done = tasks.filter((t) => t.status === 'done').length
+  const pending = tasks.filter((t) => t.status !== 'done')
   const has = (key: TabKey) => openTab.includes(key)
 
   return (
     <div className="overview-grid">
       <div className="card rc-task">
         <CardHead icon="✅" title="任务" count={`${done} / ${tasks.length}`} more={has('tasks') ? { label: '查看全部', onClick: () => gotoTab('tasks') } : undefined} />
-        <div className="task-list">
-          {tasks.filter((t) => t.status !== 'done').slice(0, 3).map((task) => (
-            <TaskRow key={task.id} task={task} onToggle={onToggleTask} />
-          ))}
-          {tasks.filter((t) => t.status !== 'done').length === 0 ? <div className="q-empty">没有未完成任务</div> : null}
+        <div className="ov-body">
+          {pending.length ? (
+            <div className="task-list">
+              {pending.slice(0, 3).map((task) => (
+                <TaskRow key={task.id} task={task} onToggle={onToggleTask} />
+              ))}
+            </div>
+          ) : (
+            <div className="q-empty ov-empty">没有未完成任务</div>
+          )}
         </div>
       </div>
 
       <div className="card rc-bug">
         <CardHead icon="🐛" title="Bug" count={`${bugs.length} 条`} more={has('bugs') ? { label: '查看全部', onClick: () => gotoTab('bugs') } : undefined} />
-        <div className="bug-grid" style={{ gridTemplateColumns: '1fr' }}>
-          {bugs.slice(0, 2).map((bug) => (
-            <BugCard key={bug.id} bug={bug} />
-          ))}
+        <div className="ov-body">
+          {bugs.length ? (
+            <div className="bug-grid" style={{ gridTemplateColumns: '1fr' }}>
+              {bugs.slice(0, 2).map((bug) => (
+                <BugCard key={bug.id} bug={bug} />
+              ))}
+            </div>
+          ) : (
+            <div className="q-empty ov-empty">没有待处理的 Bug</div>
+          )}
         </div>
       </div>
 
       <div className="card rc-doc">
         <CardHead icon="📄" title="文档" count={`${docs.length}`} more={has('docs') ? { label: '查看全部', onClick: () => gotoTab('docs') } : undefined} />
-        <div className="doc-books">
-          {docs.slice(0, 3).map((doc) => (
-            <DocBook
-              key={doc.id}
-              doc={doc}
-              onOpen={() => onOpenDoc(doc)}
-              actions={{ onPreview: () => onOpenDoc(doc), onEdit: () => onEditDoc(doc) }}
-            />
-          ))}
+        <div className="ov-body">
+          {docs.length ? (
+            <div className="doc-books">
+              {docs.slice(0, 3).map((doc) => (
+                <DocBook
+                  key={doc.id}
+                  doc={doc}
+                  onOpen={() => onOpenDoc(doc)}
+                  actions={{ onPreview: () => onOpenDoc(doc), onEdit: () => onEditDoc(doc) }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="q-empty ov-empty">还没有文档</div>
+          )}
         </div>
       </div>
 
@@ -543,61 +562,51 @@ function OverviewPanel({
           <CardHead
             icon="🚀"
             title="运维"
-            count={`${servers.length} 服务器 · 3 文档 · ${deploys.length} 记录`}
+            count={`${servers.length} 服务器 · ${deploys.length} 记录`}
             more={{ label: '查看全部', onClick: () => gotoTab('ops') }}
           />
-          <div className="server-list" style={{ marginBottom: 10 }}>
-            {servers.slice(0, 1).map((server) => (
-              <div key={server.id} className="server-row">
-                <div className={cn('server-rack', server.env)} />
-                <div className="server-info">
-                  <div className="server-name">{server.name}</div>
-                  <div className="server-meta">{server.on ? '运行中' : '已停止'}</div>
-                </div>
+          <div className="ov-body">
+            {servers.length ? (
+              <div className="doc-books">
+                {servers.slice(0, 3).map((server) => (
+                  <ServerBook key={server.id} server={server} onOpen={() => gotoTab('ops')} />
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="deploy-timeline">
-            {deploys.slice(0, 2).map((item) => (
-              <div key={item.id} className="deploy-row">
-                <div className="deploy-dot" style={{ ['--dc' as string]: item.result === 'success' ? 'var(--c-success)' : 'var(--c-warning)' }} />
-                <div className="deploy-info">
-                  <div className="deploy-ver">
-                    {item.version}{' '}
-                    <span className={cn('deploy-badge', item.result === 'success' ? 'success' : 'rollback')}>
-                      {item.result === 'success' ? '成功' : '回滚'}
-                    </span>
-                  </div>
-                  <div className="deploy-meta">{item.when}</div>
-                </div>
-              </div>
-            ))}
+            ) : (
+              <div className="q-empty ov-empty">还没有服务器</div>
+            )}
           </div>
         </div>
       ) : null}
 
       <div className="card rc-meeting">
         <CardHead icon="📅" title="会议" count={`${meetings.length}`} more={has('meetings') ? { label: '查看全部', onClick: () => gotoTab('meetings') } : undefined} />
-        <div className="meeting-grid" style={{ gridTemplateColumns: '1fr' }}>
-          {meetings.slice(0, 1).map((m) => (
-            <div key={m.id} className="meeting-card">
-              <div className="meeting-date">
-                <div className="meeting-month">{m.month}</div>
-                <div className="meeting-day">{m.day}</div>
-                <div className="meeting-time">{m.time}</div>
-              </div>
-              <div className="meeting-info">
-                <div className="meeting-title">{m.title}</div>
-                <div className="meeting-meta">{m.meta}</div>
-                <div className="meeting-attendees">
-                  {m.attendees.map((a) => (
-                    <span key={a} className="avatar">{a.slice(0, 1)}</span>
-                  ))}
-                  {m.more > 0 ? <span className="more">+{m.more}</span> : null}
+        <div className="ov-body">
+          {meetings.length ? (
+            <div className="meeting-grid" style={{ gridTemplateColumns: '1fr' }}>
+              {meetings.slice(0, 1).map((m) => (
+                <div key={m.id} className="meeting-card">
+                  <div className="meeting-date">
+                    <div className="meeting-month">{m.month}</div>
+                    <div className="meeting-day">{m.day}</div>
+                    <div className="meeting-time">{m.time}</div>
+                  </div>
+                  <div className="meeting-info">
+                    <div className="meeting-title">{m.title}</div>
+                    <div className="meeting-meta">{m.meta}</div>
+                    <div className="meeting-attendees">
+                      {m.attendees.map((a) => (
+                        <span key={a} className="avatar">{a.slice(0, 1)}</span>
+                      ))}
+                      {m.more > 0 ? <span className="more">+{m.more}</span> : null}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            <div className="q-empty ov-empty">还没有会议</div>
+          )}
         </div>
       </div>
 
@@ -609,31 +618,37 @@ function OverviewPanel({
             count={`${accounts.length} · ${new Set(accounts.map((a) => a.platform)).size} 平台`}
             more={{ label: '查看全部', onClick: () => gotoTab('accounts') }}
           />
-          <div className="account-grid" style={{ gridTemplateColumns: '1fr' }}>
-            {accounts.slice(0, 1).map((acc) => {
-              /* 有效期与文案都走账户分区同一处判据（`accountBadge` / `ACCOUNT_TYPES`）——
-                 两处各写一份，迟早出现"行上说逾期、概览说正常"或"密钥写着密码已加密"。 */
-              const threshold = accountBadge(acc.dueDays, acc.disabled)
-              return (
-                <div key={acc.id} className="account-card">
-                  <div className="account-key">🔑</div>
-                  <div className="account-info">
-                    <div className="account-platform">
-                      {acc.platform}
-                      <span className={cn('account-env', acc.env)}>{ACCOUNT_ENV_LABEL[acc.env]}</span>
+          <div className="ov-body">
+            {accounts.length ? (
+              <div className="account-grid" style={{ gridTemplateColumns: '1fr' }}>
+                {accounts.slice(0, 1).map((acc) => {
+                  /* 有效期与文案都走账户分区同一处判据（`accountBadge` / `ACCOUNT_TYPES`）——
+                     两处各写一份，迟早出现"行上说逾期、概览说正常"或"密钥写着密码已加密"。 */
+                  const threshold = accountBadge(acc.dueDays, acc.disabled)
+                  return (
+                    <div key={acc.id} className="account-card">
+                      <div className="account-key">🔑</div>
+                      <div className="account-info">
+                        <div className="account-platform">
+                          {acc.platform}
+                          <span className={cn('account-env', acc.env)}>{ACCOUNT_ENV_LABEL[acc.env]}</span>
+                        </div>
+                        <div className="account-user">{acc.user}</div>
+                        <div className="account-pwd">{ACCOUNT_TYPES[acc.type].plain ? '🔒 密码已加密' : '🔑 密钥不回显'}</div>
+                      </div>
+                      {/* 「正常」那一档不占位（这张卡只有一行，胶囊只在要注意时才出现） */}
+                      {threshold.kind === 'plain' ? null : (
+                        <span className={cn('account-expire', (threshold.kind === 'danger' || threshold.kind === 'warn') && 'warn')}>
+                          {threshold.text}
+                        </span>
+                      )}
                     </div>
-                    <div className="account-user">{acc.user}</div>
-                    <div className="account-pwd">{ACCOUNT_TYPES[acc.type].plain ? '🔒 密码已加密' : '🔑 密钥不回显'}</div>
-                  </div>
-                  {/* 「正常」那一档不占位（这张卡只有一行，胶囊只在要注意时才出现） */}
-                  {threshold.kind === 'plain' ? null : (
-                    <span className={cn('account-expire', (threshold.kind === 'danger' || threshold.kind === 'warn') && 'warn')}>
-                      {threshold.text}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="q-empty ov-empty">还没有凭据</div>
+            )}
           </div>
         </div>
       ) : null}
@@ -654,23 +669,54 @@ function OverviewPanel({
             </button>
           }
         />
-        {milestones.length ? (
-          <MilestoneTimeline
-            milestones={milestones}
-            onEdit={onEditMilestone}
-            onSetState={onSetMilestoneState}
-          />
-        ) : (
-          <div className="q-empty">还没有里程碑 —— 点「添加」记一条计划节点</div>
-        )}
+        <div className="ov-body">
+          {milestones.length ? (
+            <MilestoneTimeline
+              milestones={milestones}
+              onEdit={onEditMilestone}
+              onSetState={onSetMilestoneState}
+            />
+          ) : (
+            <div className="q-empty ov-empty">还没有里程碑 —— 点「添加」记一条计划节点</div>
+          )}
+        </div>
       </div>
 
-      {activity.length > 0 ? (
-        <div className="card rc-activity">
-          <CardHead icon="📋" title="动态" count={`${activity.length}`} />
-          <ActivityFeed activity={activity} />
+      <div className="card rc-activity">
+        <CardHead icon="🕘" title="动态" count={activity.length ? `${activity.length}` : undefined} />
+        <div className="ov-body">
+          {activity.length ? (
+            <OverviewActivity activity={activity} />
+          ) : (
+            <div className="q-empty ov-empty">还没有动态</div>
+          )}
         </div>
-      ) : null}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 概览格里的动态：一条一行，头像走正常流。
+ * `ActivityFeed` 那份是"头像吊在左侧留白里"的时间线，进概览卡会让头像越出卡片边界。
+ * 时间戳必须过 `releasedText` —— 库里给的是 ISO，直接印出来是 `2026-10-17T06:07:17Z`。
+ */
+function OverviewActivity({ activity }: { activity: ActivityItem[] }) {
+  return (
+    <div className="ov-activity">
+      {activity.slice(0, 4).map((item) => (
+        <div key={item.id} className="ov-act-row">
+          <span className="ov-act-avatar" style={{ background: memberAvatarStyle(item.who) }}>
+            {ownerDisplayName(item.who).slice(0, 1)}
+          </span>
+          <div className="ov-act-main">
+            <div className="ov-act-text">
+              <b>{ownerDisplayName(item.who)}</b> {item.action}
+            </div>
+            <div className="ov-act-time">{releasedText(item.time)}</div>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -1179,6 +1225,7 @@ export function ProjectDetail({ view, backTo }: { view: ProjectDetailView; backT
       {deletingOpen ? (
         <ProjectDeleteModal
           project={project}
+          pending={projectActions.remove.isPending}
           onClose={() => setDeletingOpen(false)}
           onConfirm={() => {
             const name = project.name

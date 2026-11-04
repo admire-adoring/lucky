@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { errorText } from '../../../api/error'
 import { useAppInfo, useUserMutations, useUsers } from '../../../hooks/use-users'
+import { isDesktopShell } from '../../../lib/desktop-window'
 import type { User } from '../../../api/user'
 import type { Handlers } from './panels'
 
@@ -161,7 +162,13 @@ export function AccountSettings({ handlers }: { handlers: Handlers }) {
         ) : (
           <div className="setting-row">
             <div className="setting-info">
-              <div className="setting-desc">名单还在加载…</div>
+              <div className="setting-desc">
+                {/* 浏览器预览读不到 SQLite，一直显示"还在加载"会像卡死 ——
+                    这里说清楚是宿主没有库，而不是这一页没做 */}
+                {isDesktopShell()
+                  ? '名单还在加载…'
+                  : '名单存在本机数据库里，浏览器预览读不到 —— 请在桌面应用中打开。'}
+              </div>
             </div>
           </div>
         )}

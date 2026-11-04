@@ -10,9 +10,19 @@ import {
 } from '../api/user'
 import type { User } from '../api/user'
 
-/** 成员名单。真实库还是演示名单由 `api/user.ts` 按宿主分派。 */
-export function useUsers(): User[] {
-  const { data } = useQuery({ queryKey: userKeys.list(), queryFn: listUsers, staleTime: 5 * 60 * 1000 })
+/**
+ * 成员名单。真实库还是演示名单由 `api/user.ts` 按宿主分派。
+ *
+ * `enabled` 给「只想顺手读一下自己」的调用方（`useMe`）：浏览器预览里读不到库，
+ * 关掉请求比让它重试三次干净。
+ */
+export function useUsers(options: { enabled?: boolean } = {}): User[] {
+  const { data } = useQuery({
+    queryKey: userKeys.list(),
+    queryFn: listUsers,
+    staleTime: 5 * 60 * 1000,
+    enabled: options.enabled ?? true,
+  })
   return data ?? []
 }
 

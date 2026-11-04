@@ -60,7 +60,8 @@ pub struct DocLinkInput {
 }
 
 /// 写形态。`content` 只在 `source = 'local_md'` 时用（create 时是初始正文）。
-/// `file_path` 不在其中：落点由后端按宿主 + 标题算，创建后就固定（改名不挪文件）。
+/// `dir` 只在 create 时用：新建时指定的存放目录（相对文档根）。
+///    不给就按 `<owner_kind>/<owner_id>` 落；给了就落在那个目录里，文件创建后不再挪。
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DocumentInput {
@@ -76,6 +77,8 @@ pub struct DocumentInput {
     pub kind: String,
     pub source: String,
     #[serde(default)]
+    pub dir: Option<String>,
+    #[serde(default)]
     pub version: String,
     #[serde(default)]
     pub summary: String,
@@ -85,6 +88,16 @@ pub struct DocumentInput {
     pub content: Option<String>,
     #[serde(default)]
     pub sort_order: Option<i64>,
+}
+
+/// 文档根 + 它下面的目录（新建文档时挑存放位置用）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocDirs {
+    /// 文档根的绝对路径 —— 与 Finder 里那个文件夹对得上
+    pub root: String,
+    /// 根下的目录（相对根，最多三层）
+    pub dirs: Vec<String>,
 }
 
 /// 正文读回。`changed = true`：文件与索引不同步，刚刚已把索引更新。

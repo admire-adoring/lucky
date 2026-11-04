@@ -39,22 +39,12 @@ export function MilestoneTimeline({
         const interactive = Boolean(onEdit || onSetState)
 
         return (
-          <div key={milestone.id} className={cn('relative pl-[34px]', !isLast && 'pb-6')}>
-            {!isLast ? <span className="absolute bottom-[-4px] left-2 top-5 w-[1.5px] bg-line" /> : null}
+          <div key={milestone.id} className={cn('ms-row', !isLast && 'has-next')}>
+            {!isLast ? <span className="ms-line" aria-hidden="true" /> : null}
 
-            <span
-              className={cn(
-                'absolute left-0 top-1 flex h-[17px] w-[17px] items-center justify-center rounded-full border-2',
-                // 节点也吃玻璃：未达成态必须有不透明的浅底，否则会在卡片上"漏光"
-                done
-                  ? 'border-success bg-success'
-                  : now
-                    ? 'border-brand-500 bg-surface-raised shadow-[0_0_0_4px_rgba(79,70,229,.14)]'
-                    : 'border-line-strong bg-surface-raised',
-              )}
-            >
+            <span className={cn('ms-node', done ? 'is-done' : now ? 'is-now' : 'is-todo')}>
               {done ? <Icon name="i-check-strong" className="h-[9px] w-[9px] text-white" /> : null}
-              {now ? <span className="h-[7px] w-[7px] rounded-full bg-brand-500" /> : null}
+              {now ? <span className="ms-node-core" /> : null}
             </span>
 
             <div className={cn('flex items-start justify-between gap-2')}>

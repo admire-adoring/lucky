@@ -1,9 +1,12 @@
 //! 服务器台账。门面：取锁 + 调 repo + 组装错误 —— 本模块是 srv 域唯一的 `pub` 面，
 //! 函数名不用带前缀（模块名就是命名空间），`Store` 住在 crate 根的 `store.rs`。
+mod cred;
+mod draft;
 mod model;
 mod probe;
 mod repo;
 
+pub use draft::{LoginOutcome, LoginProbeInput, ReachOutcome};
 pub use probe::ProbeOutcome;
 pub use model::{
     DeployRelease, DeployReleaseInput, Server, ServerInput, ServerPath,
@@ -97,4 +100,20 @@ pub fn release_delete(store: &Store, id: &str) -> Result<()> {
 pub fn probe(store: &Store, host: &str) -> Result<probe::ProbeOutcome> {
     let conn = store.conn()?;
     probe::probe(&conn, host)
+}
+
+/* ============================================================
+   草稿探测（添加服务器表单里的「检查连接」）
+   ------------------------------------------------------------
+   机器还没入库、没有 host 行可查 ⇒ 参数全部来自表单，不读库也不写库。
+   ============================================================ */
+
+/// 地址解析 + 端口连通。本机动作，不碰凭据 —— 地址填完就能跑。
+pub fn probe_reach(host: &str, port: u16) -> Result<draft::ReachOutcome> {
+    draft::reach(host, port)
+}
+
+/// 认证 / 提权 / 系统识别。密钥认证才验得了；密码档明确回报做不到。
+pub fn probe_login(input: &draft::LoginProbeInput) -> Result<draft::LoginOutcome> {
+    draft::login(input)
 }

@@ -4,7 +4,7 @@ import { Icon } from '../icons/Icon'
 import { cn } from '../../lib/cn'
 import { toast } from '../../stores/toast-store'
 import { findGenerating, nowTime, useAiStore } from '../../stores/ai-store'
-import { useAuthStore } from '../../stores/auth-store'
+import { useMe } from '../../hooks/use-me'
 import { useUiStore } from '../../stores/ui-store'
 import { AI_QUICK_PROMPTS, greetingMessage } from '../../data/ai/conversations'
 import { GlyphChevronRight, GlyphOpenInNew, GlyphStop, GlyphTrash } from '../ai/ai-glyphs'
@@ -46,8 +46,10 @@ export function AiDrawer() {
   const open = useUiStore((state) => state.aiDrawerOpen)
   const close = useUiStore((state) => state.closeAiDrawer)
 
-  const userName = useAuthStore((state) => state.user?.name ?? '你')
-  const initials = useAuthStore((state) => state.user?.initials ?? 'LY')
+  /* 称呼与头像跟顶栏同源（库里的 `app_user`）：改名之后两处一起变 */
+  const me = useMe()
+  const userName = me.name || '你'
+  const initials = me.initials || 'LY'
 
   const sessions = useAiStore((state) => state.sessions)
   const activeId = useAiStore((state) => state.activeId)

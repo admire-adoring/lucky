@@ -312,6 +312,7 @@ export function ProjectShelf({
       {deleting ? (
         <ProjectDeleteModal
           project={deleting}
+          pending={actions.remove.isPending}
           onClose={() => setDeleting(null)}
           onConfirm={() => {
             const name = deleting.name

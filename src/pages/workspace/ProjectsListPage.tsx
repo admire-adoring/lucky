@@ -17,6 +17,7 @@ import {
   formValueOf,
 } from '../../components/projects/project-meta'
 import { blankProjectPatch } from '../../api/projects'
+import { errorText } from '../../api/error'
 import { isClosed } from '../../data/derive'
 import { useProjectActions, useProjects } from '../../hooks/use-projects'
 import { cn } from '../../lib/cn'
@@ -234,15 +235,16 @@ export function ProjectsListPage() {
    *    （localStorage），不摘掉会一直留在侧栏里，刷新也不会自己消失。
    */
   const remove = (project: Project) => {
-    setDeleting(null)
     actions.remove.mutate(project.id, {
       onSuccess: () => {
+        setDeleting(null)
         forgetRecent(`/projects/${project.id}`)
         forgetRecent(`/work/projects/${project.id}`)
         /* 没有撤销：`project_delete` 是硬删（卫星表级联、任务回到收件箱），
            界面不该承诺一件做不到的事。 */
         toast(`已删除「${project.name}」`)
       },
+      onError: (error) => toast(`删除失败：${errorText(error)}`),
     })
   }
 
@@ -715,6 +717,7 @@ export function ProjectsListPage() {
       {deleting ? (
         <ProjectDeleteModal
           project={deleting}
+          pending={actions.remove.isPending}
           onClose={() => setDeleting(null)}
           onConfirm={() => remove(deleting)}
         />

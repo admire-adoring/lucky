@@ -297,6 +297,12 @@ fn doc_write(
     doc::write(&store, &id, &content, name.as_deref()).map_err(ApiError::from)
 }
 
+/// 文档根 + 根下的目录：新建文档时给人挑「存到哪个文件夹」。
+#[tauri::command]
+fn doc_dirs(store: State<'_, Store>) -> doc::DocDirs {
+    doc::dirs(&store)
+}
+
 
 /* ============================================================
    成员名单 + 本机数据（账户页）
@@ -602,6 +608,43 @@ fn contact_delete(store: State<'_, Store>, id: String) -> Result<(), ApiError> {
 #[tauri::command]
 fn srv_probe(store: State<'_, Store>, host: String) -> Result<server::srv::ProbeOutcome, ApiError> {
     server::srv::probe(&store, &host).map_err(ApiError::from)
+}
+
+/* ------------------------------------------------------------------
+   表单里的「检查连接」—— 机器还没入库，参数全来自输入框。
+
+   拆两段是因为耗时不一样：解析与端口是本机动作，认证 / 提权 / 系统要等 SSH
+   往返。合成一条，前两行会陪着 SSH 干等。
+
+   两条都走 `spawn_blocking`：里面是 DNS、TCP connect 与 `ssh` 子进程，
+   压在异步工作线程上会把同时进行的其它命令一起拖住。
+   ------------------------------------------------------------------ */
+
+async fn run_blocking<T, F>(work: F) -> Result<T, ApiError>
+where
+    T: Send + 'static,
+    F: FnOnce() -> server::Result<T> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|error| {
+            ApiError::from(server::Error::Invalid(format!("检查线程没起来：{error}")))
+        })?
+        .map_err(ApiError::from)
+}
+
+/// 第一段：地址解析 + 端口连通。不碰凭据，也不写库。
+#[tauri::command]
+async fn srv_probe_reach(host: String, port: u16) -> Result<server::srv::ReachOutcome, ApiError> {
+    run_blocking(move || server::srv::probe_reach(&host, port)).await
+}
+
+/// 第二段：认证 / 提权 / 系统识别。
+#[tauri::command]
+async fn srv_probe_login(
+    input: server::srv::LoginProbeInput,
+) -> Result<server::srv::LoginOutcome, ApiError> {
+    run_blocking(move || server::srv::probe_login(&input)).await
 }
 
 
@@ -1004,7 +1047,7 @@ pub fn run() {
             project_recent_activity,
             project_milestone_list, project_milestone_create, project_milestone_update,
             project_milestone_set_state, project_milestone_delete,
-            doc_list, doc_get, doc_create, doc_update, doc_delete, doc_read, doc_write,
+            doc_list, doc_get, doc_create, doc_update, doc_delete, doc_read, doc_write, doc_dirs,
             user_list, user_save, user_delete, app_info,
             project_html_list, project_html_open,
             account_list, account_create, account_update, account_delete, account_secret,
@@ -1013,6 +1056,7 @@ pub fn run() {
             meeting_list, meeting_create, meeting_update, meeting_delete,
             contact_list, contact_create, contact_update, contact_delete,
             srv_probe,
+            srv_probe_reach, srv_probe_login,
             task_list, task_create, task_update, task_set_state, task_delete,
             event_list_range, event_list_all, event_create, event_update, event_delete,
             setting_list, setting_list_by_category, setting_get_value,

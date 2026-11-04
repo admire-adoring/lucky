@@ -102,8 +102,15 @@ pub struct ServerInput {
     pub esc_mode: String,
     #[serde(default)]
     pub esc_user: String,
+    /// 库里那份引用。**前端不用给** —— 由 `cred::apply` 按 `secret` 现算，
+    /// 直接传进来的值只在 `secret` 缺省（编辑时没改凭据）时沿用。
     #[serde(default)]
     pub cred_ref: Option<String>,
+    /// 凭据正文：密钥档是私钥路径，密码档是密码。三态 ——
+    /// `None` = 不动（编辑时留空的常态），`Some("")` = 清掉，`Some(值)` = 写入。
+    /// **不进库**，由 `repo` 转交本机钥匙串。
+    #[serde(default)]
+    pub secret: Option<String>,
     #[serde(default)]
     pub note: String,
     #[serde(default)]

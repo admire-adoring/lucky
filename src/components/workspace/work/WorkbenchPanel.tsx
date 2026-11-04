@@ -722,6 +722,7 @@ export function WorkbenchPanel() {
       {deleting ? (
         <ProjectDeleteModal
           project={deleting}
+          pending={projectActions.remove.isPending}
           onClose={() => setDeleting(null)}
           onConfirm={() => {
             const name = deleting.name

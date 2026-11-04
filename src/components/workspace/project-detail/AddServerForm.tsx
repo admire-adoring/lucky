@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { cn } from '../../../lib/cn'
+import { probeLogin, probeReach, type ProbeStep } from '../../../api/servers'
+import { errorText } from '../../../api/error'
 import { OpsIcon, type OpsIconName } from './ops-icon'
 
 /* ============================================================================
@@ -35,6 +37,11 @@ import { OpsIcon, type OpsIconName } from './ops-icon'
       这里就是那五处。
    ⑤ 机器自己会报的事实（云厂商 / 规格 / 系统）连上才知道 —— 没连上就留"—"，
       不编一个（原型那两个值"阿里云 / 4C8G"是演示）。
+   ⑥ 「检查连接」是真跑（`srv_probe_reach` + `srv_probe_login`），不是原型那段
+      每 420ms 点亮一行、最后固定报"检查通过 · 用时 0.8s"的动画。分两趟：
+      地址解析 / 端口连通是本机动作，认证 / 提权 / 系统要等 SSH。密钥与密码两档
+      都验得了 —— 密码走 `SSH_ASKPASS`，不需要 sshpass。验不了的那一行照实标红，
+      不显示成通过。
 
    ============================================================================
    三条容易写错、且错了不会报错的判据
@@ -114,14 +121,40 @@ const CHECK_ROWS = [
 type CheckKey = (typeof CHECK_ROWS)[number]['key']
 /** 空串 = 没结论（圆点是空的），与 `busy`/`ok`/`fail` 是三件事 */
 type CheckMark = '' | 'busy' | 'ok' | 'fail'
-type Checks = Record<CheckKey, { mark: CheckMark; value: string }>
+/**
+ * `value` = 行右侧那一格（`'—'` 表示还没查，此时显示"将会检查什么"）；
+ * `message` = 不成的原因，进 title 与提示条 —— 那一格只有 52% 宽，长句放不下。
+ */
+type Checks = Record<CheckKey, { mark: CheckMark; value: string; message: string }>
+type CheckEntry = Checks[CheckKey]
+
+/** 还没检查过的初值。每次用工厂重建，别共享同一个对象 —— React 靠引用判断变了没。 */
+const EMPTY_CHECKS = (): Checks => ({
+  dns: { mark: '', value: '—', message: '' },
+  port: { mark: '', value: '—', message: '' },
+  auth: { mark: '', value: '—', message: '' },
+  esc: { mark: '', value: '—', message: '' },
+  os: { mark: '', value: '—', message: '' },
+})
+
+/** 后端的一行结论 → 检查行的三档。`skip` 不打叉：那一步根本没做。 */
+function toCheck(step: ProbeStep): CheckEntry {
+  return {
+    mark: step.state === 'ok' ? 'ok' : step.state === 'fail' ? 'fail' : '',
+    value: step.value,
+    message: step.message,
+  }
+}
+
+const BUSY_CHECK: CheckEntry = { mark: 'busy', value: '检查中', message: '' }
 
 type EscTarget = 'none' | 'root' | 'custom'
 type AuthMode = 'key' | 'pwd'
 type EscMethod = 'su' | 'sudo'
 
 /**
- * 编辑模式的预填来源。**不含任何凭据** —— 密码与私钥正文存本机钥匙串，不进库。
+ * 编辑模式的预填来源。**不含凭据正文** —— 密码与私钥路径存本机钥匙串，
+ * 这里只有引用（`credRef`），判断"要不要重填"用它。
  */
 export interface ServerFormInitial {
   name: string
@@ -133,6 +166,8 @@ export interface ServerFormInitial {
   authCode?: 'key' | 'pwd'
   escMode?: 'none' | 'su' | 'sudo'
   escUser?: string
+  /** 钥匙串条目引用；null / undefined = 这台机器没存过凭据 */
+  credRef?: string | null
   note?: string
   tags?: string[]
   cores?: number | null
@@ -153,6 +188,11 @@ export interface ServerFormDraft {
   authCode: 'key' | 'pwd'
   escMode: 'none' | 'su' | 'sudo'
   escUser: string
+  /**
+   * 凭据正文（密码 / 私钥路径）。**只有用户这次真填了才有值** ——
+   * 编辑时留空 = 不动，提交方不要把它写成空串（那会清掉钥匙串里那份）。
+   */
+  secret?: string
 }
 
 /** 机器自己会报的事实：不进表单，只在「连接检查」与「添加后」预览里现身（见文件头 ⑤） */
@@ -267,9 +307,14 @@ export function AddServerForm({
   /* ================================================================== *
    * 机器事实（不进表单，只在检查结果与预览里现身 —— 见文件头 ⑤）
    * ================================================================== */
+  /* 检查通过时机器自己报的那三样。优先级高于入参：这是刚连上读到的，比台账里
+     缓存的旧值新。改地址 / 端口会清掉（见 `resetChecks`）—— 换了机器就不作数了。 */
+  const [probeFacts, setProbeFacts] = useState<ServerHwFacts | null>(null)
+
   /* 机器自己会报的事实：连上才知道 —— 没连上就留"—"，不编一个（原型那两个值是演示） */
   const facts: ServerHwFacts = useMemo(
     () =>
+      probeFacts ??
       hw ??
       (server
         ? {
@@ -278,7 +323,7 @@ export function AddServerForm({
             os: server.os || '—',
           }
         : { vendor: '—', spec: '—', os: '—' }),
-    [hw, server],
+    [probeFacts, hw, server],
   )
 
   /* ================================================================== *
@@ -311,6 +356,15 @@ export function AddServerForm({
   const [pwd, setPwd] = useState('')
   const [showPwd, setShowPwd] = useState(false)
 
+  /**
+   * 这台机器在钥匙串里有没有存过凭据。
+   *
+   * 有 ⇒ 两个框留空是"不改"，检查连接时后端自己去钥匙串取（`credRef`），
+   * **不把明文读回来填进框** —— 表单里出现明文就等于它会出现在截图、录屏、
+   * DevTools 和设备转手里，而用户想要的只是"别再敲一遍"。
+   */
+  const hasSavedCred = editing && Boolean(server?.credRef)
+
   const [escTarget, setEscTarget] = useState<EscTarget>(() => escTargetOf(server))
   const [escCustomUser, setEscCustomUser] = useState(
     server?.escUser && server.escUser !== 'root' ? server.escUser : '',
@@ -320,13 +374,9 @@ export function AddServerForm({
   const [showEscPwd, setShowEscPwd] = useState(false)
 
   /* 还没检查过（圆点是空的）。检查行显示的值由 `checkValues` 现算 —— 那是"将会检查什么" */
-  const [checks, setChecks] = useState<Checks>(() => ({
-    dns: { mark: '', value: '—' },
-    port: { mark: '', value: '—' },
-    auth: { mark: '', value: '—' },
-    esc: { mark: '', value: '—' },
-    os: { mark: '', value: '—' },
-  }))
+  const [checks, setChecks] = useState<Checks>(EMPTY_CHECKS)
+  /** 检查进行中：按钮锁住并换文案 —— 连按两次会起两条 SSH */
+  const [checking, setChecking] = useState(false)
 
   const [errors, setErrors] = useState<{ name?: string; host?: string; user?: string; cred?: string }>({})
   const [actionErr, setActionErr] = useState<string | null>(null)
@@ -337,6 +387,8 @@ export function AddServerForm({
   const tipRef = useRef<HTMLDivElement | null>(null)
   const timers = useRef<number[]>([])
   const nameRef = useRef<HTMLInputElement | null>(null)
+  /** 检查的批次号：改字段 / 重开一轮就 +1，回来的旧结果按号丢弃 */
+  const checkSeq = useRef(0)
 
   useEffect(
     () => () => {
@@ -430,24 +482,127 @@ export function AddServerForm({
     [host, port, user, loginKind, escCheckText, osCheckText],
   )
 
+  /** 查过至少一行 ⇒ 按钮换「重新检查」 */
+  const checkedAny = CHECK_ROWS.some((row) => checks[row.key].mark !== '')
+
+  /**
+   * 作废上一轮检查。改地址 / 端口 / 用户 / 凭据 / 提权都会走这里 ——
+   * 否则会出现"改了 IP，四行还是绿的"。批次号一并 +1，让在途结果回来后自己丢掉。
+   */
   const resetChecks = useCallback(() => {
-    setChecks({
-      dns: { mark: '', value: '—' },
-      port: { mark: '', value: '—' },
-      auth: { mark: '', value: '—' },
-      esc: { mark: '', value: '—' },
-      os: { mark: '', value: '—' },
-    })
+    checkSeq.current += 1
+    setChecking(false)
+    setProbeFacts(null)
+    setChecks(EMPTY_CHECKS())
   }, [])
 
   /* ================================================================== *
    * 动作
    * ================================================================== */
 
-  /* 还没有写连接检查接口 —— 不演一段"检查通过"（那是假回执） */
-  const runCheck = () => {
+  /**
+   * 检查连接 —— 真跑，不演。
+   *
+   * 分两趟是有原因的：地址解析与端口连通是本机动作（毫秒级），认证 / 提权 /
+   * 系统识别要等 SSH 往返。合成一趟，前两行会陪着 SSH 干等三五秒。
+   *
+   * 每一步都按后端回的三档落：`ok` 打勾、`fail` 打叉、`skip` 留空（前一步没过，
+   * 这一步没做）。凭据两格留空时后端去钥匙串取，取不到就照实标红 —— 不把做不到的
+   * 事显示成通过。
+   */
+  const runCheck = async () => {
+    if (checking) return
+    const target = host.trim()
+    if (!target) {
+      showToast('先填主机地址', true)
+      return
+    }
+
     resetChecks()
-    showToast('还没有写连接检查接口', true)
+    const token = checkSeq.current
+    setChecking(true)
+    const startedAt = performance.now()
+
+    /** 只有本轮的写入算数 —— 用户在等的时候改了地址，回来的结果已经对不上新值 */
+    const land = (patch: Partial<Record<CheckKey, CheckEntry>>) => {
+      if (token !== checkSeq.current) return
+      setChecks((prev) => ({ ...prev, ...patch }))
+    }
+
+    const sshPort = (() => {
+      const value = Number.parseInt(port.trim(), 10)
+      return Number.isFinite(value) && value > 0 && value <= 65535 ? value : 22
+    })()
+
+    try {
+      land({ dns: BUSY_CHECK, port: BUSY_CHECK })
+      const reach = await probeReach(target, sshPort)
+      if (token !== checkSeq.current) return
+      land({ dns: toCheck(reach.dns), port: toCheck(reach.port) })
+      if (reach.dns.state !== 'ok' || reach.port.state !== 'ok') {
+        const bad = reach.dns.state !== 'ok' ? reach.dns : reach.port
+        showToast(bad.message, true)
+        return
+      }
+
+      /* 两格都留空、且这台机器也没存过，就没法验 —— 不打叉，说明白为什么不往下查。
+         存过的话不必再填一次：后端按 `credRef` 去钥匙串取，明文不进前端。 */
+      const typed = authMode === 'key' ? keyPath.trim() : pwd.trim()
+      if (!typed && !hasSavedCred) {
+        const hint =
+          authMode === 'key'
+            ? editing
+              ? '这台机器没存过私钥路径 —— 填一次再查'
+              : '先填私钥路径，密钥认证要用它'
+            : editing
+              ? '这台机器没存过密码 —— 填一次再查'
+              : '先填登录密码'
+        const skipped: CheckEntry = { mark: '', value: '—', message: hint }
+        land({ auth: skipped, esc: skipped, os: skipped })
+        showToast(hint, true)
+        return
+      }
+
+      land({ auth: BUSY_CHECK })
+      const login = await probeLogin({
+        host: target,
+        port: sshPort,
+        loginUser: user.trim() || 'root',
+        authCode: authMode,
+        keyPath: authMode === 'key' ? keyPath.trim() || undefined : undefined,
+        password: authMode === 'pwd' ? pwd || undefined : undefined,
+        credRef: !typed && hasSavedCred ? (server?.credRef ?? undefined) : undefined,
+        escMode: escTarget === 'none' ? 'none' : escMethod,
+        escUser: escUser || undefined,
+      })
+      if (token !== checkSeq.current) return
+      land({ auth: toCheck(login.auth), esc: toCheck(login.esc), os: toCheck(login.os) })
+
+      /* 认通了才有规格：预览里那三样跟着换成机器自报的 */
+      if (login.facts) {
+        const { os, cores, memGb } = login.facts
+        setProbeFacts({
+          vendor: '—',
+          spec: cores && memGb ? `${cores}C${memGb}G` : cores ? `${cores}C` : '—',
+          os: os || '—',
+        })
+      }
+
+      const failed = [login.auth, login.esc, login.os].find((step) => step.state === 'fail')
+      if (failed) {
+        showToast(failed.message, true)
+        return
+      }
+      const seconds = ((performance.now() - startedAt) / 1000).toFixed(1)
+      showToast(`连接检查通过 · 用时 ${seconds}s`)
+    } catch (error) {
+      if (token === checkSeq.current) {
+        setChecks(EMPTY_CHECKS())
+        showToast(`检查失败：${errorText(error)}`, true)
+      }
+    } finally {
+      if (token === checkSeq.current) setChecking(false)
+    }
   }
 
   /** 只给建议写法让他照抄，不代改命令 —— 命令是他亲手写的 */
@@ -528,6 +683,8 @@ export function AddServerForm({
       authCode: authMode,
       escMode: escTarget === 'none' ? 'none' : escMethod,
       escUser,
+      /* 只有这次真填了才带上：留空 = 不动钥匙串里那份，别把它写成空串 */
+      secret: (authMode === 'key' ? keyPath.trim() : pwd) || undefined,
     }
 
     if (onSubmit) {
@@ -797,7 +954,7 @@ export function AddServerForm({
                         className="inp mono"
                         type="text"
                         value={keyPath}
-                        placeholder="~/.ssh/id_ed25519"
+                        placeholder={hasSavedCred ? '已保存 · 留空则不改' : '~/.ssh/id_ed25519'}
                         autoComplete="off"
                         aria-invalid={errors.cred ? 'true' : undefined}
                         onChange={(event) => {
@@ -815,8 +972,11 @@ export function AddServerForm({
                         选择文件
                       </button>
                     </div>
-                    {/* 这一行说的是"本机有没有这个文件"，浏览器里不可知 —— 与原型同一份演示值（见文件头 ⑤） */}
-                    <div className="field-note">凭据只存本机，不进数据库、不同步到其它设备</div>
+                    <div className="field-note">
+                      {hasSavedCred
+                        ? '路径已存在本机钥匙串 · 留空表示沿用，填新的则覆盖'
+                        : '凭据只存本机钥匙串，不进数据库、不同步到其它设备'}
+                    </div>
                     {errors.cred ? (
                       <div className="field-err">
                         <AsIcon name="alert" size={12} />
@@ -835,7 +995,7 @@ export function AddServerForm({
                         className="inp mono"
                         type={showPwd ? 'text' : 'password'}
                         value={pwd}
-                        placeholder="登录密码"
+                        placeholder={hasSavedCred ? '已保存 · 留空则不改' : '登录密码'}
                         autoComplete="new-password"
                         aria-invalid={errors.cred ? 'true' : undefined}
                         onChange={(event) => {
@@ -848,7 +1008,11 @@ export function AddServerForm({
                         {showPwd ? '隐藏' : '显示'}
                       </button>
                     </div>
-                    <div className="field-note">密码存在本机钥匙串，不进配置文件</div>
+                    <div className="field-note">
+                      {hasSavedCred
+                        ? '密码已存在本机钥匙串 · 留空表示沿用，填新的则覆盖'
+                        : '密码存在本机钥匙串，不进数据库、不同步到其它设备'}
+                    </div>
                     {errors.cred ? (
                       <div className="field-err">
                         <AsIcon name="alert" size={12} />
@@ -1119,25 +1283,39 @@ export function AddServerForm({
               </h2>
             </div>
             <div className="check-list">
-              {CHECK_ROWS.map((row) => (
-                <div key={row.key} className={cn('check-item', checks[row.key].mark)}>
-                  <span className="check-dot" aria-hidden="true">
-                    <AsIcon name="check" size={11} />
-                  </span>
-                  <span className="check-name">{row.name}</span>
-                  {/* 值说的是"将会检查什么"（由当前输入现算），圆点说的才是"检查过没有" */}
-                  <span className="check-val">{checkValues[row.key]}</span>
-                </div>
-              ))}
+              {CHECK_ROWS.map((row) => {
+                const item = checks[row.key]
+                /* 没查过的行显示"将会检查什么"（由当前输入现算）；查过的行显示结论，
+                   跳过的行留着那个"—"—— 那一步真的没做，不该装作知道答案 */
+                const text =
+                  item.value === '—' && !item.message ? checkValues[row.key] : item.value
+                return (
+                  <div key={row.key} className={cn('check-item', item.mark)}>
+                    <span className="check-dot" aria-hidden="true">
+                      <AsIcon name="check" size={11} />
+                    </span>
+                    <span className="check-name">{row.name}</span>
+                    <span className="check-val" title={item.message || text}>
+                      {text}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
             <div className="check-foot">
               <span className="check-target" title={checkTargetTitle}>
                 <AsIcon name="terminal" size={12} />
                 {checkTarget}
               </span>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={runCheck}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={runCheck}
+                disabled={checking}
+                aria-busy={checking}
+              >
                 <AsIcon name="refresh" size={13} />
-                检查连接
+                {checking ? '检查中' : checkedAny ? '重新检查' : '检查连接'}
               </button>
             </div>
           </section>

@@ -726,6 +726,8 @@ export function ServersLedger() {
             escMode: draft.escMode,
             escUser: draft.escUser,
             credRef: target.credRef,
+            /* 留空 = 不动钥匙串里那份；填了才覆盖 */
+            secret: draft.secret,
             note: draft.note,
             projectIds: target.projects.map((project) => project.id),
             ports: target.ports,
@@ -761,6 +763,7 @@ export function ServersLedger() {
         authCode: draft.authCode,
         escMode: draft.escMode,
         escUser: draft.escUser,
+        secret: draft.secret,
         note: draft.note,
         tags: draft.tags,
         os: '',
@@ -809,6 +812,8 @@ export function ServersLedger() {
                   authCode: real.authCode === 'pwd' ? 'pwd' : 'key',
                   escMode: real.escMode === 'su' || real.escMode === 'sudo' ? real.escMode : 'none',
                   escUser: real.escUser,
+                  /* 有引用 = 这台机器在钥匙串里存过凭据，密码框留空就是"不改" */
+                  credRef: real.credRef,
                   note: real.note,
                   tags: real.tags,
                   cores: real.cores,

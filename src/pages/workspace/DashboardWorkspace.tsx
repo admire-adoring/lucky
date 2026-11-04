@@ -1,14 +1,12 @@
 import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { WorkspaceLayout } from '../../components/workspace/WorkspaceLayout'
-import { AssistantRail } from '../../components/workbench/AssistantRail'
 import { computeStats } from '../../data/derive'
 import { SCOPE_META } from '../../data/meta'
 import { getModule } from '../../data/workbench'
 import { updateAiFacts } from '../../data/ai/facts'
 import { useProjects, useRecentActivity } from '../../hooks/use-projects'
 import { useModuleTab } from '../../hooks/use-module-tab'
-import { useWorkbenchStore } from '../../stores/workbench-store'
 import { MODULE_BASE_PATH } from '../../data/workspace/nav'
 import { DASHBOARD_TABS } from '../../data/workspace/tabs'
 import { STATUS_LABEL } from '../../components/projects/project-meta'
@@ -26,7 +24,14 @@ import { STATUS_LABEL } from '../../components/projects/project-meta'
  *
  *   · 九域由顶栏表达（`ShellTopbar`，与其余八页同一个组件、同一份 `WORKSPACE_NAV`）；
  *   · 侧栏的环装的是工作台自己的三个分区（原型 `primaryConfig.dashboard.items` 就是这三项）；
- *   · 主区是分区面板，助手栏走 `rail`（与项目域同一套三栏）。
+ *   · 主区是分区面板，只有两栏 —— 右栏助手已取消（2026-11-04）。
+ *
+ * 助手栏为什么去掉：全站已有两处真入口（顶栏那颗 AI 按钮 → `/ai` 整页，
+ *    以及登录后挂在路由之外的 `AiDrawer`），而这一栏的输入框只弹一句
+ *    "未接入"的 toast（`AssistantRail` 的 `submit`）—— 同一件事第三次出现，
+ *    且是最弱的那一次。它占掉 340px、在主区 ≤1200px 时还会挤到下方一行。
+ *    去掉之后 dashboard 回到 `.sb-app` 的基础两列，与其余八域同形
+ *    （与项目域 2026-09-25 撤右栏是同一条判据）。
  *
  * 径向大环下线了。理由不是它不好，而是同一屏里九域只能有一个载体：
  *    顶栏一挂上去，那个环与它就变成同一件事的两种表达 —— 这正是项目自己立过的判据
@@ -62,25 +67,6 @@ import { STATUS_LABEL } from '../../components/projects/project-meta'
    `ShellTopbar → tabs.ts → DashboardWorkspace → WorkspaceLayout → ShellTopbar` 的环。
    改分区请改那边，别在这里补一份。 */
 
-/** 助手栏状态行：任务总量从真实项目数据算 */
-function DashboardRail() {
-  const collapsed = useWorkbenchStore((state) => state.railCollapsed)
-  const toggle = useWorkbenchStore((state) => state.toggleRail)
-  const { data: projects = [] } = useProjects()
-  useEffect(() => {
-    updateAiFacts(projects)
-  }, [projects])
-  const taskTotal = projects.reduce((sum, p) => sum + p.tasksTotal, 0)
-  return (
-    <AssistantRail
-      messages={getModule('home').chat}
-      collapsed={collapsed}
-      onToggle={toggle}
-      statusLine={`已接入 ${taskTotal} 条任务 · ${projects.length} 个项目`}
-    />
-  )
-}
-
 export function DashboardWorkspace() {
   const { active, select } = useModuleTab(MODULE_BASE_PATH.dashboard, DASHBOARD_TABS)
 
@@ -90,7 +76,6 @@ export function DashboardWorkspace() {
       tabs={DASHBOARD_TABS}
       active={active}
       onSelectTab={select}
-      rail={<DashboardRail />}
     >
       {active === 'overview' ? <OverviewPanel /> : null}
       {active === 'recent' ? <RecentPanel /> : null}

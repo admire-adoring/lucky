@@ -141,7 +141,7 @@ export function fetchOwnerDocs(ownerKind: string, ownerId: string): Promise<Docu
   )
 }
 
-/** 后端 `DocumentInput`（写形态）。`file_path` 不在其中：落点由后端按宿主 + 标题算。 */
+/** 后端 `DocumentInput`（写形态）。`file_path` 不在其中：落点由 `dir` + 标题算。 */
 export interface DocInput {
   ownerKind: string
   ownerId: string
@@ -151,10 +151,28 @@ export interface DocInput {
   func?: string
   kind: string
   source: string
+  /** 新建时的存放目录（相对文档根，如 `project/pj-xxx/技术方案`）。只在 create 时生效。 */
+  dir?: string
   version?: string
   summary?: string
   content?: string | null
   links?: { kind: string; toKind: string; toId: string }[]
+}
+
+/** 文档根 + 根下的目录（新建文档时挑存放位置）。 */
+export interface DocDirList {
+  /** 文档根的绝对路径 */
+  root: string
+  /** 根下的目录（相对根，最多三层） */
+  dirs: string[]
+}
+
+/**
+ * 文档根与它下面的目录。浏览器预览里这个命令不存在 ⇒ 调用方按"只有默认目录"处理，
+ * 不让新建文档被这一格卡住。
+ */
+export function fetchDocDirs(): Promise<DocDirList> {
+  return call(() => invoke<DocDirList>('doc_dirs'))
 }
 
 /** 新建文档索引。`source='local_md'` 时后端会先落一份（可为空的）正文文件再登记。 */

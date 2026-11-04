@@ -1,0 +1,213 @@
+/* ============================================================
+   破坏性确认弹窗（`components/ui/ConfirmDialog.tsx`）
+   ------------------------------------------------------------
+   这套类名自成一体，不引用各模块那份 `.modal` / `.modal-actions` / `.btn-danger`，
+   也不再受 `[data-module]` 影响 —— 同一个弹窗在概览、项目列表、项目详情里必须一样。
+   ============================================================ */
+
+.cfm-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.4);
+  animation: cfm-fade 0.14s ease-out;
+}
+
+.cfm {
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100% - 8px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--mw-border-subtle, rgba(15, 23, 42, 0.08));
+  border-radius: 16px;
+  background: var(--mw-bg-card, #fff);
+  box-shadow:
+    0 24px 60px rgba(15, 23, 42, 0.2),
+    0 2px 6px rgba(15, 23, 42, 0.06);
+  animation: cfm-pop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cfm-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 20px 0;
+}
+
+.cfm-badge {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--mw-danger-bg, rgba(239, 68, 68, 0.14));
+  color: var(--mw-danger, #b91c1c);
+}
+
+.cfm-badge .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.cfm-heading {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.cfm-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--mw-text-primary, #0f172a);
+}
+
+/* 对象名单独一行、加粗 —— 人核对的第一件事是"删的是不是这个" */
+.cfm-target {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--mw-text-primary, #0f172a);
+  overflow-wrap: anywhere;
+}
+
+.cfm-close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mw-text-muted, #94a3b8);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.cfm-close:hover:not(:disabled) {
+  background: var(--mw-border-subtle, rgba(15, 23, 42, 0.06));
+  color: var(--mw-text-primary, #0f172a);
+}
+
+.cfm-body {
+  padding: 12px 20px 0;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--mw-text-secondary, #64748b);
+}
+
+.cfm-body strong {
+  color: var(--mw-text-primary, #0f172a);
+  font-weight: 600;
+}
+
+.cfm-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 20px;
+}
+
+.cfm-btn {
+  height: 34px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--mw-border-subtle, rgba(15, 23, 42, 0.12));
+  border-radius: 10px;
+  background: transparent;
+  color: var(--mw-text-primary, #0f172a);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.16s ease, filter 0.16s ease;
+}
+
+.cfm-btn:hover:not(:disabled) {
+  background: var(--mw-border-subtle, rgba(15, 23, 42, 0.06));
+}
+
+.cfm-btn:focus-visible {
+  outline: 2px solid var(--mw-text-muted, #94a3b8);
+  outline-offset: 2px;
+}
+
+.cfm-btn.is-danger {
+  border-color: transparent;
+  background: var(--mw-danger, #b91c1c);
+  color: #fff;
+}
+
+.cfm-btn.is-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.cfm-btn.is-danger:focus-visible {
+  outline-color: var(--mw-danger, #b91c1c);
+}
+
+.cfm-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* 暗色下 `--mw-danger` 是浅红（#FCA5A5，那是给文字用的），铺在白字底上会糊成一片。
+   实底按钮单独取一支深红，白字 4.5:1。 */
+html[data-theme='dark'] .cfm-btn.is-danger {
+  background: #dc2626;
+}
+
+html[data-theme='dark'] .cfm-badge {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
+@keyframes cfm-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes cfm-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@media (max-width: 480px) {
+  .cfm-mask {
+    padding: 16px;
+  }
+
+  .cfm-foot {
+    flex-direction: column-reverse;
+  }
+
+  .cfm-btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cfm-mask,
+  .cfm {
+    animation-duration: 0.001ms;
+  }
+}

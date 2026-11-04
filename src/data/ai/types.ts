@@ -11,7 +11,8 @@ import type { TextRun } from '../../types/workbench'
  * `innerHTML = m.text`。移植时不能用 `dangerouslySetInnerHTML` ——
  * 那等于把一段 HTML 当代码执行，而这段文本将来会来自用户自己的输入。
  * 项目里已经为这件事定过一次口径：`types/workbench.ts` 的 `TextRun`（`em` 片段数组），
- * `AssistantRail` 就按它渲染成 `<strong>`。这里沿用同一套，不另发明一份。
+ * 当年工作台助手栏就按它渲染成 `<strong>`（那一栏已删，渲染方现在是 `components/ai/ai-runs.tsx`）。
+ * 这里沿用同一套，不另发明一份。
  *
  * 配套：生成器把原型 CSS 里的 `b` 选择器改道成了 `strong`（见 `build-ai-css.mjs` 的
  *    TAG_REMAP）。两边不改一致的后果是"渲染 `<strong>`、CSS 配 `b`"——

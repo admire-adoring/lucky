@@ -842,23 +842,8 @@
   transform: translateY(-1px);
 }
 
-/* 删除确认的正文：被删对象 + 影响范围。破坏性动作的说明不是废话 —— 它要说清
-   "连带的那些东西也会没"，而不只是"确定要删吗"。 */
-.mw-root[data-module='projects'] .proj-del-target {
-  margin-top: 8px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.mw-root[data-module='projects'] .proj-del-note {
-  margin-top: 6px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--mw-danger-bg);
-  color: var(--mw-danger);
-  font-size: 12.5px;
-  line-height: 1.6;
-}
+/* 删除确认的样式不在这里：它已收进跨模块的 `confirm-dialog.css`（`.cfm-*`），
+   否则同一张弹窗在工作台与项目列表会各长一副样子。 */
 
 /* ---------- 窄屏 ----------
    断点都是原型算出来的，不是"看着差不多"：
@@ -1316,53 +1301,13 @@
   --mw-m-main: var(--mw-s-dashboard);
 }
 
-/* 四栏：顶栏通栏 + 侧栏 + 主区 + 助手栏。
-   与项目域那条是同一套做法（内核那两条都挂在 `.app` 上、匹配不到 `.sb-app`），
-   区别只有两处：这里第三列是助手栏（340px 的浮层），而项目域是 260px 的 aside。
-
-   助手栏的根节点是 `.rail.rail-shell...`，它自己带 `w-[340px] shrink-0`
-      （为"横向 flex 两列"写的）。落到栅格列里必须把宽度交还给列：
-      `width: auto`。不覆盖的话 340px 会与列宽打架 —— 而 `w-[340px]` 是 Tailwind 工具类
-      （0,1,0，在 `@layer utilities` 里），本文件不带 layer，所以这条稳赢。 */
-.mw-root.sb-root[data-module='dashboard'] .sb-app {
-  grid-template-columns: var(--sb-w) 1fr 340px;
-  grid-template-rows: var(--sb-topbar-h) 1fr;
-  grid-template-areas:
-    'topbar topbar topbar'
-    'sidebar main aside';
-}
-
-.mw-root.sb-root[data-module='dashboard'] .rail {
-  grid-area: aside;
-  width: auto;
-}
-
-/* ≤1200px：助手栏落到主区下面一行，而不是被藏掉。
-   这与项目域那条不同 —— 项目域 ≤1200 直接把右栏 `display:none`（那是一个只读的
-      里程碑轨道），而助手栏是可折叠的功能件，藏掉就等于把入口拿掉。
-      助手栏自己带 `max-[1180px]:w-full max-[1180px]:border-t`，本来就是按"落到下面"设计的。 */
-@media (max-width: 1200px) {
-  .mw-root.sb-root[data-module='dashboard'] .sb-app {
-    grid-template-columns: var(--sb-w) 1fr;
-    grid-template-rows: var(--sb-topbar-h) 1fr auto;
-    grid-template-areas:
-      'topbar topbar'
-      'sidebar main'
-      'sidebar aside';
-  }
-}
-
-/* ≤768px：单列（侧栏已是脱离栅格的抽屉） */
-@media (max-width: 768px) {
-  .mw-root.sb-root[data-module='dashboard'] .sb-app {
-    grid-template-columns: 1fr;
-    grid-template-rows: var(--sb-topbar-h) 1fr auto;
-    grid-template-areas:
-      'topbar'
-      'main'
-      'aside';
-  }
-}
+/* 工作台不再有右栏（2026-11-04 整段删掉）
+   这里原来有三栏覆盖（`var(--sb-w) 1fr 340px` + `aside` 区）、`.rail` 的
+   `grid-area`，以及 ≤1200 与 ≤768 两档里把助手栏挪到主区下面那几行。
+   助手栏（`AssistantRail`）删掉之后，第三列没有东西落进去 —— 与项目域
+   2026-09-25 撤右栏是同一个情形：白白吃掉 340px，而几何/类名全都不会报错。
+   ⇒ 整段删除，dashboard 回到 `.sb-app` 的基础两列，与其余八域同形。
+   若将来某处又要右栏，先量一遍主区宽度，再照 `.sb-app` 的基础两列补一条覆盖。 */
 
 /* 已选的胶囊/头像尾巴上那个 ×（负责人 / 标签共用）——
    之前只有"再点一下就取消"这一层暗示，看着像只读展示（用户直接问"负责人怎么删不掉"）。

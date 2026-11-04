@@ -117,7 +117,12 @@ pub fn create(store: &Store, input: &DocumentInput) -> Result<Document> {
     let mut hash: Option<String> = None;
     if input.source == "local_md" {
         let content = input.content.clone().unwrap_or_default();
-        let rel = file::unique_path(root, &input.owner_kind, &input.owner_id, &input.name);
+        /* 落点：给了 `dir` 就落在那个目录里（同宿主下再分子目录），没给就按宿主分目录 */
+        let dir = match input.dir.as_deref() {
+            Some(raw) if !raw.trim().is_empty() => file::normalize_dir(raw)?,
+            _ => format!("{}/{}", input.owner_kind, input.owner_id),
+        };
+        let rel = file::unique_path_in(root, &dir, &input.name);
         file::write(root, &rel, &content)?;
         hash = Some(file::content_hash(&content));
         file_path = Some(rel);
@@ -410,4 +415,66 @@ fn validate(input: &DocumentInput) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::store::Store;
+    use std::fs;
+    use std::path::PathBuf;
+
+    /// 一次性 Store：临时库里跑迁移（`'me'` 由种子写入），文档根也落在同一个临时目录。
+    fn temp_store(tag: &str) -> (Store, PathBuf) {
+        let base = std::env::temp_dir().join(format!("lucky-doc-repo-{tag}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let store = Store::open(base.join("test.db"), base.join("documents")).unwrap();
+        (store, base)
+    }
+
+    fn input(dir: Option<&str>) -> DocumentInput {
+        DocumentInput {
+            owner_kind: "project".into(),
+            owner_id: "pj-1".into(),
+            project_id: None,
+            name: "登录 鉴权".into(),
+            module: String::new(),
+            func: String::new(),
+            kind: "plan".into(),
+            source: "local_md".into(),
+            dir: dir.map(str::to_string),
+            version: String::new(),
+            summary: String::new(),
+            links: Vec::new(),
+            content: Some("# 登录鉴权".into()),
+            sort_order: None,
+        }
+    }
+
+    #[test]
+    fn create_lands_in_given_dir() {
+        let (store, base) = temp_store("dir");
+        let doc = create(&store, &input(Some("project/pj-1/技术方案"))).unwrap();
+        assert_eq!(doc.file_path.as_deref(), Some("project/pj-1/技术方案/登录-鉴权.md"));
+        assert!(base.join("documents/project/pj-1/技术方案/登录-鉴权.md").exists());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn create_without_dir_falls_back_to_host_dir() {
+        let (store, base) = temp_store("default");
+        let doc = create(&store, &input(None)).unwrap();
+        assert_eq!(doc.file_path.as_deref(), Some("project/pj-1/登录-鉴权.md"));
+        assert!(base.join("documents/project/pj-1/登录-鉴权.md").exists());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn create_rejects_dir_outside_root() {
+        let (store, base) = temp_store("escape");
+        assert!(create(&store, &input(Some("../外面"))).is_err());
+        assert!(create(&store, &input(Some("/tmp/外面"))).is_err());
+        let _ = fs::remove_dir_all(&base);
+    }
 }

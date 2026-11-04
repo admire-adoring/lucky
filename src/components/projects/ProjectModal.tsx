@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { WorkspaceModal } from '../workspace/WorkspaceModal'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../icons/Icon'
 import { useProjects } from '../../hooks/use-projects'
 import { tagPool } from '../../lib/filter-projects'
@@ -551,36 +552,39 @@ export function ProjectFormModal({
   )
 }
 
+/**
+ * 删除确认 —— 概览、项目列表、项目详情、项目书架四处共用这一份。
+ *
+ * 文案照后端实际行为写（`project::delete`）：任务 `project_id` 置空退回收件箱，
+ * 标签/成员随外键级联，文档文件按 owner 清理。硬删，没有撤销，
+ * 所以这里不给「撤销」的承诺。
+ */
 export function ProjectDeleteModal({
   project,
+  pending,
   onClose,
   onConfirm,
 }: {
   project: Project
+  pending?: boolean
   onClose: () => void
   onConfirm: () => void
 }) {
   return (
-    <WorkspaceModal
+    <ConfirmDialog
       title="删除项目"
-      onClose={onClose}
-      actions={
+      icon="i-trash"
+      target={project.name}
+      description={
         <>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
-            取消
-          </button>
-          {/* 动词用「删除」而不是「确定」：按钮自己说清它要干什么 */}
-          <button type="button" className="btn btn-danger" onClick={onConfirm}>
-            删除
-          </button>
+          项目下的任务会退回收件箱，标签、成员、文档与凭据一并删除。
+          <strong>此操作不可撤销。</strong>
         </>
       }
-    >
-      <div className="proj-del-target">「{project.name}」</div>
-      <div className="proj-del-note">
-        这个项目下的任务 / Bug / 文档 / 服务器会一并消失。当前还没有后端，删除只是内存里的改动
-        —— 关掉这条提示之前，可以用它上面的「撤销」找回来。
-      </div>
-    </WorkspaceModal>
+      confirmLabel="删除项目"
+      pending={pending}
+      onClose={onClose}
+      onConfirm={onConfirm}
+    />
   )
 }

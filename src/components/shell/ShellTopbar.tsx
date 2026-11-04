@@ -202,6 +202,10 @@ export function ShellTopbar({ actions, onOpenCommand }: ShellTopbarProps) {
    * 面板定位：与触发项居中对齐，再夹进顶栏范围内。
    * 依赖里只有 `megaKey`：面板宽度由"这一模块有几项"决定，项数变了一定伴随 key 变，
    *    所以不需要监听别的。窗口尺寸变化走上面的 resize 关闭，也不会用到旧位置。
+   *
+   * 顺带记下触发项中心在面板里的位置，给尖角和缩放入场用：
+   *    尖角必须指着"是哪颗胶囊开出来的"，固定居中会在 work 这种靠右的模块上指歪。
+   *    缩放入场（`transform-origin`）同理 —— 从触发项那一侧张开，读起来才是"它长出来的"。
    */
   useLayoutEffect(() => {
     if (!megaKey) return
@@ -214,7 +218,13 @@ export function ShellTopbar({ actions, onOpenCommand }: ShellTopbarProps) {
     const a = anchor.getBoundingClientRect()
     const w = mega.offsetWidth
     const left = a.left - tb.left + a.width / 2 - w / 2
-    mega.style.left = `${Math.round(Math.max(8, Math.min(left, tb.width - w - 8)))}px`
+    const clampedLeft = Math.round(Math.max(8, Math.min(left, tb.width - w - 8)))
+    mega.style.left = `${clampedLeft}px`
+    /* 尖角贴着触发项中心，但也要留边：夹到 8px 的话那半个菱形会越出圆角。 */
+    const caret = a.left - tb.left + a.width / 2 - clampedLeft
+    const caretX = Math.round(Math.max(18, Math.min(caret, w - 18)))
+    mega.style.setProperty('--mega-caret', `${caretX}px`)
+    mega.style.setProperty('--mega-origin', `${caretX}px 0`)
   }, [megaKey])
 
   /** 二级项 → 地址。用 `tabPath` 而不是自己拼：第一个分区是裸路径那条约定在它手里 */
@@ -337,8 +347,10 @@ export function ShellTopbar({ actions, onOpenCommand }: ShellTopbarProps) {
           {megaKey ? (
             <>
               <div className="mega-head">
+                {/* 标题只写模块名 + 项数徽标，"二级 7 项"是配置语言，不是用户语言 */}
                 <span className="mh-title">
-                  {navLabel(megaKey)} · 二级 {megaTabs.length} 项
+                  {navLabel(megaKey)}
+                  <span className="mh-count">{megaTabs.length}</span>
                 </span>
                 {/* 「全部 ›」落到模块根 —— 与环上"最后一个都不选"是同一个落点 */}
                 <button

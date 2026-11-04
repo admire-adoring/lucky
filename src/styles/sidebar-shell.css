@@ -61,6 +61,15 @@
   --sb-m-soft: color-mix(in srgb, var(--mw-m-main) 10%, transparent);
   --sb-m-glow: color-mix(in srgb, var(--mw-m-main) 28%, transparent);
 
+  /* 浮层投影（下拉 / 超级菜单）。
+     比 --sb-shadow-float 多一层"远离感"：那块影是给和窗口同层的大面（顶栏、侧栏）用的，
+     它的判据是"贴着底衬"；下拉是从顶栏里伸出来的临时层，必须明显脱离页面，
+     否则读起来像顶栏上又贴了张同色的纸。
+     两段：近段 6px 定轮廓，远段 -16px 偏移做一片很散的雾。 */
+  --sb-shadow-pop:
+    0 22px 50px -18px rgba(15, 23, 42, 0.3),
+    0 8px 18px -10px rgba(15, 23, 42, 0.16);
+
   /* 强调色的文字档 —— 所有"淡染底 + 域色文字"的地方（超级菜单的当前项、
      圆盘的名称条）都走它。
      不能直接用 `--mw-m-main`：那是"装饰档"（实底、描边、图形用它），
@@ -81,6 +90,10 @@
    就说明常量该换成令牌"那一条（同样的清理见 module-workspace.css 的项目抽屉段）。 */
 html[data-theme='dark'] .sb-root {
   --sb-shadow-float: 0 10px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+  /* 暗色下浮层要靠影子和底衬拉开：亮色那组是"压深"，这里是"挖黑"。 */
+  --sb-shadow-pop:
+    0 24px 56px -16px rgba(0, 0, 0, 0.66),
+    0 6px 16px -8px rgba(0, 0, 0, 0.44);
   --sb-m-soft: color-mix(in srgb, var(--mw-m-main) 16%, transparent);
   --sb-m-glow: color-mix(in srgb, var(--mw-m-main) 40%, transparent);
 }
@@ -251,12 +264,15 @@ html[data-theme='dark'] .sb-root {
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  opacity: 0.35;
+  /* 0.35 太实了：它是"一整圈域色"而不是原来那道扫光，
+     在 work 这种高饱和模块（红）下，整条顶栏会被读成加粗的红边框。
+     0.2 是"凑近才发现的域色暗示"，模块身份已经由激活胶囊说了一遍。 */
+  opacity: 0.2;
   transition: opacity 0.4s ease;
   pointer-events: none;
 }
 
-.sb-root .sb-topbar:hover::before{ opacity: 0.7; }
+.sb-root .sb-topbar:hover::before{ opacity: 0.45; }
 
 .sb-root .logo-mark {
   width: 36px; height: 36px;
@@ -280,15 +296,18 @@ html[data-theme='dark'] .sb-root {
 .sb-root .logo-mark:hover{ transform: rotate(-8deg) scale(1.08); }
 
 .sb-root .divider-v {
-  width: 1px; height: 22px;
-  background: var(--mw-border-subtle);
+  width: 1px; height: 20px;
+  background: var(--g-edge-2);
+  opacity: 0.7;
   flex-shrink: 0;
-  margin: 0 2px;
+  margin: 0 4px;
 }
 
 .sb-root .nav-primary {
   display: flex; align-items: center;
-  gap: 1px; flex: 1;
+  /* 1px 让九项之间几乎没有间隙，读起来像一长条（悬停底一块块贴在一起）。
+     2px 是"每一项自己是颗胶囊"的最小值。 */
+  gap: 2px; flex: 1;
   overflow-x: auto;
   scrollbar-width: none;
   height: 40px;
@@ -300,12 +319,13 @@ html[data-theme='dark'] .sb-root {
 .sb-root .nav-p-item {
   position: relative;
   display: flex; align-items: center; gap: 7px;
-  padding: 0 12px; height: 36px;
+  padding: 0 12px; height: 34px;
   border-radius: 999px;
   font-size: 13px; font-weight: 500;
+  letter-spacing: -0.1px;
   color: var(--mw-text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
   white-space: nowrap; user-select: none;
   flex-shrink: 0;
 }
@@ -394,64 +414,117 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 
 .sb-root .mega {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   left: 0;
   z-index: 50;
   width: max-content;
   max-width: calc(100vw - 40px);
-  padding: 12px;
+  padding: 8px;
   background: var(--sb-bg-float);
   border: 1px solid var(--mw-border-card);
-  border-radius: 14px;
-  box-shadow: var(--sb-shadow-float);
+  border-radius: 16px;
+  box-shadow: var(--sb-shadow-pop);
   opacity: 0; visibility: hidden;
-  transform: translateY(-4px);
+  /* 与 account 菜单同一个手势：贴边处微微张开，不是整块平移。 */
+  transform: translateY(-6px) scale(0.98);
+  transform-origin: var(--mega-origin, 50% 0);
   pointer-events: none;
-  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+  transition: opacity 0.16s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s;
 }
 
-/* 4px 缝的"桥"。不是装饰，是必需的：面板虽然在 DOM 里是顶栏的后代，
-   但它在顶栏盒子之外（下方 4px）—— 指针横跨那道缝时既不在顶栏盒子里、
+/* 6px 缝的"桥"。不是装饰，是必需的：面板虽然在 DOM 里是顶栏的后代，
+   但它在顶栏盒子之外（下方 6px）—— 指针横跨那道缝时既不在顶栏盒子里、
    也不在面板盒子里，`mouseleave` 会照常触发，面板当场关掉，"移进去"永远做不到。
-   让面板自己往上多出 6px 的命中区，把缝盖住。
+   让面板自己往上多出 8px 的命中区，把缝盖住。
    （另一道保险是 `ShellTopbar` 里那 180ms 的延迟关。） */
-.sb-root .mega::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; height: 6px; }
+.sb-root .mega::before { content: ''; position: absolute; left: 0; right: 0; top: -8px; height: 8px; }
 
-.sb-root .mega.is-open { opacity: 1; visibility: visible; transform: translateY(0); pointer-events: auto; }
+/* 小尖角，指向触发它的那颗胶囊。
+   `left` 由 JS 写（`--mega-caret`，触发项中心）；旋转 45° 的正方形，
+   只留左上两条边，于是它读作"从顶栏伸出来的一小块"。
+   尺寸 12px、顶到 -6px：下半截压在面板里、上半截正好补上那道 6px 缝，
+   尖角与顶栏之间没有空隙 —— 12px 是"看得出是它开出来的"的最小值，
+   再小就只剩一个圆角上的毛刺。 */
+.sb-root .mega::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: var(--mega-caret, 28px);
+  width: 12px; height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--sb-bg-float);
+  border-left: 1px solid var(--mw-border-card);
+  border-top: 1px solid var(--mw-border-card);
+  border-radius: 3px 0 0 0;
+}
+
+.sb-root .mega.is-open { opacity: 1; visibility: visible; transform: translateY(0) scale(1); pointer-events: auto; }
 
 .sb-root .mega-head {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 18px; margin-bottom: 10px; padding: 0 2px;
+  gap: 18px;
+  padding: 2px 4px 8px 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--mw-border-subtle);
 }
 
 .sb-root .mh-title {
-  font-size: 11.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600;
   color: var(--mw-text-secondary);
 }
 
-.sb-root .mh-all {
-  border: none; background: none; cursor: pointer; padding: 0;
-  font-family: inherit; font-size: 11.5px; font-weight: 600;
-  color: var(--sb-m-ink);
+/* 标题前那颗域色点：面板属于哪个模块，靠它一眼看出来
+   （九块面板长得一样，标题文字又短）。 */
+.sb-root .mh-title::before {
+  content: '';
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--mw-m-main);
+  box-shadow: 0 0 0 3px var(--sb-m-soft);
 }
 
-.sb-root .mh-all:hover { text-decoration: underline; }
+.sb-root .mh-count {
+  min-width: 18px; height: 18px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px;
+  background: var(--sb-m-soft);
+  color: var(--sb-m-ink);
+  font-size: 10.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-root .mh-all {
+  border: none; background: none; cursor: pointer;
+  padding: 3px 6px; border-radius: 7px;
+  font-family: inherit; font-size: 11.5px; font-weight: 600;
+  color: var(--mw-text-secondary);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.sb-root .mh-all:hover {
+  color: var(--sb-m-ink);
+  background: var(--sb-bg-hover);
+  text-decoration: none;
+}
 
 /* 列数由行内 `--cols` 给（项数 ≤4 时两列更紧凑，见 ShellTopbar）。
-   每列固定 116px：`max-content` 的宽度要靠固定列宽才算得出来 ——
-   写成 `1fr` 的话面板在"还没量宽"时宽度是 0，JS 夹取会把它贴到顶栏最左边。 */
+   每列固定 168px：`max-content` 的宽度要靠固定列宽才算得出来 ——
+   写成 `1fr` 的话面板在"还没量宽"时宽度是 0，JS 夹取会把它贴到顶栏最左边。
+   116px 时代是"刚好装下四个汉字 + 图标"，项与项之间没有留白；
+   168 让 2~3 列的排布真的读成一格格，而不是一张紧凑的清单表。 */
 .sb-root .mega-grid {
   display: grid;
-  grid-template-columns: repeat(var(--cols, 3), 116px);
+  grid-template-columns: repeat(var(--cols, 3), 168px);
   gap: 2px;
 }
 
 .sb-root .mega-item {
-  display: flex; align-items: center; gap: 7px;
-  padding: 6px 8px; border-radius: 8px;
+  display: flex; align-items: center; gap: 9px;
+  height: 34px; padding: 0 10px; border-radius: 10px;
   border: none; background: none; cursor: pointer; text-align: left;
-  font-family: inherit; font-size: 12.5px; font-weight: 500;
+  font-family: inherit; font-size: 13px; font-weight: 500;
   color: var(--mw-text-primary); white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .sb-root .mega-item:hover { background: var(--sb-bg-hover); }
@@ -465,10 +538,148 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
 }
 
 .sb-root .mi-icon {
-  width: 15px; height: 15px; flex-shrink: 0;
+  width: 16px; height: 16px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  color: var(--mw-text-secondary);
+  color: var(--mw-text-muted);
 }
+
+.sb-root .mega-item:hover .mi-icon { color: var(--mw-text-secondary); }
+
+/* ========== 账户菜单（顶栏胶囊 + 侧栏账户行共用） ==========
+
+   这里的间距为什么全写成 CSS、不用 Tailwind 的 `p-*` / `px-*`：
+   `module-workspace.css` §6 有一条**不带 layer** 的
+       .mw-root, .mw-root * { margin: 0; padding: 0 }
+   而 Tailwind 的工具类输出在 `@layer utilities` 里 —— CSS 的层叠规则是
+   「无 layer 的声明一律压过有 layer 的」，与特异性无关。
+   于是工作区里任何 `p-4` / `px-2.5` / `mb-1.5` 都是静默失效的（计算值 0，零报错）。
+   弹层上这条最刺眼：内边距归零 = 文字贴着描边、抬头底铺满整块。
+   ⇒ 这块组件的盒模型写死在 CSS 里；文字色仍可用工具类（颜色不在复位范围内）。
+
+   另一个必须写在这里的原因：`glass-*` 四条工具类带 `position: relative`，
+   和 `absolute` 同层同属性、靠产出顺序定胜负（实测 glass-bar 赢）——
+   弹层一旦变回 `relative` 就回到文档流，顶栏被撑高、面板上半截被顶栏压住。
+   所以定位也写在 CSS 里，不给"两条工具类打架"留机会。 */
+
+.sb-root .acct-trigger {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 8px 0 3px;
+  border: 1px solid var(--mw-border-card);
+  border-radius: 999px;
+  background: var(--sb-bg-float);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.sb-root .acct-trigger:hover,
+.sb-root .acct-trigger.is-open { border-color: var(--g-edge-2); }
+
+/* 展开时只换描边、不换底：底色一变，那颗胶囊会从"和搜/moon 同一排"掉出来，
+   读作另一类按钮（而且和旁边深色的 moon 图标挤在一起会显脏）。 */
+.sb-root .acct-trigger.is-open { background: var(--sb-bg-float); }
+
+.sb-root .acct-trigger svg {
+  width: 13px; height: 13px;
+  color: var(--mw-text-muted);
+  transition: transform 0.18s ease;
+}
+
+/* 箭头指向弹层出现的方向：展开时翻 180° */
+.sb-root .acct-trigger.is-open svg { transform: rotate(180deg); }
+
+/* 侧栏那一行：整行可点，没有描边 */
+.sb-root .acct-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 8px;
+  border: none; border-radius: 10px; background: none;
+  cursor: pointer; text-align: left;
+  transition: background 0.15s ease;
+}
+
+.sb-root .acct-row:hover { background: var(--sb-bg-hover); }
+
+.sb-root .acct-row svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--mw-text-muted); }
+
+.sb-root .acct-menu {
+  position: absolute;
+  z-index: 50;
+  width: 268px;
+  padding: 6px;
+  background: var(--sb-bg-float);
+  border: 1px solid var(--mw-border-card);
+  border-radius: 16px;
+  box-shadow: var(--sb-shadow-pop);
+  animation: popIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 顶栏那颗贴窗口顶部 → 向下弹、从上沿右角张开 */
+.sb-root .acct-menu.down { top: calc(100% + 10px); right: 0; transform-origin: 100% 0; }
+
+/* 侧栏那一行贴窗口底部 → 向上弹、从下沿左角张开（保持与那一行同宽的列） */
+.sb-root .acct-menu.up {
+  bottom: calc(100% + 8px); left: 0; right: 0;
+  width: auto; min-width: 0;
+  transform-origin: 0 100%;
+}
+
+.sb-root .acct-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 11px;
+  /* 沉槽档（--g-field）而不是区块档（--g-subtle）：后者在亮色下几乎就是白，
+     抬头块读不出来，整块面板又退回"一列平铺的条目"。 */
+  background: var(--g-field);
+}
+
+.sb-root .acct-id { min-width: 0; flex: 1; line-height: 1.35; }
+
+.sb-root .acct-name,
+.sb-root .acct-mail {
+  display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.sb-root .acct-name { font-size: 13px; font-weight: 600; color: var(--mw-text-primary); }
+
+.sb-root .acct-mail { font-size: 11.5px; color: var(--mw-text-secondary); }
+
+.sb-root .acct-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; height: 36px; margin-top: 2px; padding: 0 10px;
+  border: none; border-radius: 10px; background: none;
+  cursor: pointer; text-align: left;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  color: var(--mw-text-primary);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sb-root .acct-item svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--mw-text-secondary); }
+
+.sb-root .acct-item:hover { background: var(--sb-bg-hover); }
+
+/* 键盘焦点：菜单可以 Tab 进来，没有这圈的话焦点落在哪完全看不见
+   （原先是 Tailwind 的 focus-visible:bg-*，纯色化后底与悬停同色、读不出区别）。
+   用内描边而不是外描边：弹层面板有 6px 内边距，外描边会被面板边缘压住。 */
+.sb-root .acct-item:focus-visible,
+.sb-root .acct-trigger:focus-visible,
+.sb-root .acct-row:focus-visible,
+.sb-root .mega-item:focus-visible,
+.sb-root .mh-all:focus-visible {
+  outline: 2px solid var(--sb-m-ink);
+  outline-offset: -2px;
+}
+
+/* 唯一会改变会话状态的项：整行红字 + 红底悬停，
+   与上面两条"普通操作"拉开，避免误触（判据同侧栏的退出登录）。 */
+.sb-root .acct-item.danger { color: var(--c-error); font-weight: 600; }
+
+.sb-root .acct-item.danger svg { color: var(--c-error); }
+
+.sb-root .acct-item.danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+html[data-theme='dark'] .sb-root .acct-item.danger:hover { background: rgba(239, 68, 68, 0.16); }
+
+.sb-root .acct-sep { height: 1px; margin: 6px 4px; background: var(--mw-border-subtle); }
 
 .sb-root .mega-item.is-current .mi-icon { color: var(--mw-m-main); }
 
@@ -710,10 +921,11 @@ html[data-theme='dark'] .sb-root .nav-p-item:not(.active) .nav-p-badge.warn{ col
    放不进去。换成竖着一列图标之后功能一条不减：能换分区、知道当前在哪
    （内沿指示条）、悬停出名字（气泡）。
 
-   类名带 `sb-` 前缀，与原型里的 `.rail` 不同。`.rail` 已经被工作台的助手栏
-      （`AssistantRail.tsx` → `workbench-hero.css`）占了，而且那几条是顶层选择器、
-      没有收在任何作用域下 —— 重名会让两套规则落在同一个类名上。加前缀是这道
-      改名规矩的延续（`.app → .sb-app`、`.quick-btn → .sb-quick-btn` 同理）。 */
+  类名带 `sb-` 前缀，与原型里的 `.rail` 不同。`.rail` 当年被工作台的助手栏占着
+     （`AssistantRail.tsx` → `workbench-hero.css`；该栏已于 2026-11-04 删除，
+      那几条顶层选择器也一并删了），而重名会让两套规则落在同一个类名上。
+     加前缀是这道改名规矩的延续（`.app → .sb-app`、`.quick-btn → .sb-quick-btn` 同理）；
+     前缀不必回退 —— 名字一旦分开，再合回去只会重新引入同名风险。 */
 .sb-root .sb-rail {
   display: none;
   flex: 1;

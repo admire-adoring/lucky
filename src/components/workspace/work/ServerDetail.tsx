@@ -392,6 +392,8 @@ export function ServerDetail({ host }: { host: string }) {
           escMode: draft.escMode,
           escUser: draft.escUser,
           credRef: raw.credRef,
+          /* 留空 = 不动钥匙串里那份；填了才覆盖 */
+          secret: draft.secret,
           note: draft.note,
           projectIds: raw.projects.map((project) => project.id),
           ports: raw.ports,
@@ -431,6 +433,8 @@ export function ServerDetail({ host }: { host: string }) {
             authCode: raw?.authCode === 'pwd' ? 'pwd' : 'key',
             escMode: raw?.escMode === 'su' || raw?.escMode === 'sudo' ? raw.escMode : 'none',
             escUser: raw?.escUser,
+            /* 有引用 = 这台机器在钥匙串里存过凭据，密码框留空就是"不改" */
+            credRef: raw?.credRef ?? null,
             note: raw?.note,
             tags: raw?.tags,
             cores: raw?.cores ?? server.cores,

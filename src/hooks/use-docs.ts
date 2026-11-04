@@ -5,6 +5,7 @@ import {
   docKeys,
   fetchDeployDocs,
   fetchDocContent,
+  fetchDocDirs,
   fetchDocs,
   fetchOwnerDocs,
   fetchServerDocs,
@@ -64,6 +65,21 @@ export function useServerDocs(host: string | undefined) {
     queryFn: () => fetchServerDocs(host),
     enabled: Boolean(host),
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * 文档根与根下的目录 —— 新建文档时给人挑「存到哪个文件夹」。
+ * 只在打开新建弹窗时才需要，`enabled` 由调用方按弹窗状态传；
+ * 浏览器预览里命令不存在 ⇒ `retry: false`，失败就退回"只有默认目录"。
+ */
+export function useDocDirs(enabled: boolean) {
+  return useQuery({
+    queryKey: [...docKeys.all, 'dirs'] as const,
+    queryFn: () => fetchDocDirs(),
+    enabled,
+    staleTime: 30 * 1000,
+    retry: false,
   })
 }
 

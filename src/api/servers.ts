@@ -109,7 +109,14 @@ export interface ServerInput {
   /** 缺省 'none' */
   escMode?: string
   escUser?: string
+  /** 钥匙串条目引用；由后端按 `secret` 现算，前端不必传 */
   credRef?: string | null
+  /**
+   * 凭据正文：密钥档是私钥路径，密码档是密码。三态 ——
+   * 不给 = 不动（编辑时留空的常态），空串 = 清掉，有值 = 写入。
+   * **不进库**，后端转交本机钥匙串。
+   */
+  secret?: string
   note?: string
   /** 有序：首位是主项目 */
   projectIds?: string[]
@@ -270,4 +277,71 @@ export interface ProbeOutcome {
  */
 export function probeServer(host: string): Promise<ProbeOutcome> {
   return call(() => invoke<ProbeOutcome>('srv_probe', { host }))
+}
+
+/* ---------- 草稿探测（添加服务器表单里的「检查连接」） ----------
+   与上面那条的区别：机器还没入库、没有 host 行可查 ⇒ 参数全部来自表单，
+   既不读库也不写库。三段状态而不是布尔：前一步没过时，这一步是"没做"，
+   不该和"做了但失败"共用一个颜色。 */
+
+export type ProbeStepState = 'ok' | 'fail' | 'skip'
+
+export interface ProbeStep {
+  state: ProbeStepState
+  /** 检查行右侧那格显示的短值（`root · 密钥`、`:22 开放`） */
+  value: string
+  /** 不成的时候说清为什么；成的时候为空 */
+  message: string
+}
+
+export interface ReachOutcome {
+  dns: ProbeStep
+  port: ProbeStep
+}
+
+export interface LoginProbeInput {
+  host: string
+  port: number
+  loginUser: string
+  authCode: 'key' | 'pwd'
+  /** 密钥模式的私钥路径；`pwd` 档忽略 */
+  keyPath?: string
+  /** 密码模式的登录密码 —— 经 SSH_ASKPASS 交给 ssh，不进命令行 */
+  password?: string
+  /**
+   * 编辑态已存凭据的引用（`server/{id}`）。上面两格留空时后端拿它去本机钥匙串取 ——
+   * 密码不需要回到前端，也就不会被回填进输入框。
+   */
+  credRef?: string
+  escMode: 'none' | 'su' | 'sudo'
+  escUser?: string
+}
+
+/** 机器自报的规格，认通了才有值 —— 表单拿它填「添加后」预览 */
+export interface ProbeFacts {
+  /** `uname -sr` */
+  os: string
+  cores: number | null
+  memGb: number | null
+  diskGb: number | null
+}
+
+export interface LoginOutcome {
+  auth: ProbeStep
+  esc: ProbeStep
+  os: ProbeStep
+  facts: ProbeFacts | null
+}
+
+/** 地址解析 + 端口连通。本机动作，不碰凭据 —— 地址填完就能跑。 */
+export function probeReach(host: string, port: number): Promise<ReachOutcome> {
+  return call(() => invoke<ReachOutcome>('srv_probe_reach', { host, port }))
+}
+
+/**
+ * 认证 / 提权 / 系统识别。两档都真跑：密钥走 `-i`，密码走 `SSH_ASKPASS`。
+ * 密码 / 私钥路径两格留空时，后端按 `credRef` 去本机钥匙串取。
+ */
+export function probeLogin(input: LoginProbeInput): Promise<LoginOutcome> {
+  return call(() => invoke<LoginOutcome>('srv_probe_login', { input }))
 }

@@ -15,7 +15,7 @@ import { greetingMessage } from '../data/ai/conversations'
 import { aiScopeLine, updateAiFacts } from '../data/ai/facts'
 import { useProjects } from '../hooks/use-projects'
 import { useDocumentTitle } from '../hooks/use-document-title'
-import { useAuthStore } from '../stores/auth-store'
+import { useMe } from '../hooks/use-me'
 import { useRecentsStore } from '../stores/recents-store'
 import { useUiStore } from '../stores/ui-store'
 import { findGenerating, nowTime, useAiStore } from '../stores/ai-store'
@@ -44,8 +44,10 @@ import { findGenerating, nowTime, useAiStore } from '../stores/ai-store'
  * · 排队：`queue` 在 store 里，消费发生在 `settle` —— 页面不需要知道。
  */
 export function AiAssistantPage() {
-  const userName = useAuthStore((state) => state.user?.name ?? '你')
-  const initials = useAuthStore((state) => state.user?.initials ?? 'LY')
+  /* 称呼与头像跟顶栏同源（库里的 `app_user`）：改名之后两处一起变 */
+  const me = useMe()
+  const userName = me.name || '你'
+  const initials = me.initials || 'LY'
 
   const sessions = useAiStore((state) => state.sessions)
   const activeId = useAiStore((state) => state.activeId)

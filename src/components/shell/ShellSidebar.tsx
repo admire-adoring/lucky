@@ -39,13 +39,11 @@ import { useShellSlots, SlotPanel } from './SlotPanel'
  * 当前项在侧栏内沿有一条 3px 指示条，悬停出名称气泡。
  *
  * 这里的类名带 `sb-` 前缀，不是原型里的 `.rail` / `.rail__item`。
- *    `.rail` 已经被工作台的助手栏占了（`components/workbench/AssistantRail.tsx`
+ *    当年 `.rail` 被工作台的助手栏占了（`components/workbench/AssistantRail.tsx`
  *    → `workbench-hero.css` 的 `.rail` / `.rail-head` / `.rail__fade` /
- *    `.rail-avatar`），而且那几条没有收在任何作用域下（顶层选择器）。
- *    直接叫 `.rail` 会让两套规则落在同一个类名上 —— 这正是仓库里
- *    「只撞一个 `.rail` 就足以否决整条路」那句话的由来（见 `WorkbenchPage.tsx`
- *    里为命令面板单独包一层 `.sb-root` 的注释）。加前缀是这道改名规矩的延续，
- *    与 `.app → .sb-app` / `.quick-btn → .sb-quick-btn` 同一条。
+ *    `.rail-avatar`，都是顶层选择器）。那一栏已于 2026-11-04 删除、样式一并撤掉，
+ *    但前缀不回退：这道改名规矩（`.app → .sb-app` / `.quick-btn → .sb-quick-btn`）
+ *    的价值是"两套壳的类名永不相交"，与当时是否还撞着无关。
  *
  * 提示气泡必须能浮到侧栏之外（它在 `left: calc(100% + 6px)`）。靠三件事：
  *    `.sb-sidebar.collapsed { overflow: visible }`、

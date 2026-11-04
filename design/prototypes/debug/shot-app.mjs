@@ -37,7 +37,10 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const PROJECT = path.resolve(HERE, '../..')
+/* 文件在 `design/prototypes/debug/` 下（原型那一轮从 `design/debug/` 挪过一次）——
+   往上三层才是项目根。写两层会指到 `design/prototypes`，报的却是
+   "找不到 dist/index.html"，看起来像没构建。 */
+const PROJECT = path.resolve(HERE, '../../..')
 const DIST = path.join(PROJECT, 'dist')
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const PORT = Number(process.env.SHOT_PORT || 8791)

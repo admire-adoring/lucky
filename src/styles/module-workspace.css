@@ -20,10 +20,10 @@
 
 /* ---------- §1 壳令牌 · 亮色 ----------
    实测：这些令牌在 8 个模块里逐字一致，所以只保留一份副本。
-   作用域是 <html> 而不是 .mw-root：工作台的卡片要用同一份面（见 §5b），
-      而工作台不在 .mw-root 里 —— 把 .mw-root 套到工作台上会让内核那批通用类名
-      （.rail / .card / .tabs …）开始匹配工作台的组件，其中 .rail 是真撞车：
-      workbench-hero.css 里那个 .rail 是助手栏，与 modules 的里程碑轨道同名不同物。
+  作用域是 <html> 而不是 .mw-root：工作台的卡片要用同一份面（见 §5b）。把 .mw-root
+      套到工作台上会让内核那批通用类名（.rail / .card / .tabs …）开始匹配工作台的组件；
+      当年 .rail 是真撞车（workbench-hero.css 里那个是助手栏），助手栏已于 2026-11-04
+      连同那一整段删除，撞车消失 —— 但 .card / .tabs 这层共用类名还在，前提不变。
       这些只是自定义属性、不产生任何选择器效果，放开作用域不会影响别的页面。
 
    2026-09-25 纯色化：原来这里有 14 支，其中 6 支是半透明面/边界
@@ -3837,12 +3837,53 @@ html[data-theme='dark'] .mw-root[data-module='projects'] .review-select {
 /* 概览格那一档（缩略）。四行版面在小尺寸下要整体收一档，否则"签 + 题 + 发丝线 + 副题
    + 页脚"会把 92px 挤爆；装饰与字号只覆盖四个值，其余由 calc 推。
    `height: auto` 必须写：基类给的是固定 134px，显式高宽同时给了，`aspect-ratio` 就不参与。 */
+.mw-root[data-module] .proj-detail .overview-grid .doc-books {
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+/* 三本按格宽均分（上限仍是 92px），不再写死宽度：卡宽掉到 300 时
+   3×92 + 两个 12px 间距 = 300 已经超出内容区，书脊会折成 2+1 把整格顶高。 */
 .mw-root[data-module] .proj-detail .overview-grid .doc-book {
-  width: 92px; height: auto; aspect-ratio: 5 / 7;
+  width: calc((100% - 16px) / 3);
+  max-width: 92px;
+  height: auto; aspect-ratio: 5 / 7;
   --bk-spine: 7px; --bk-frame: 5px; --bk-frame-l: 9px; --bk-tag: 8px;
   --bk-pad-y: calc(var(--bk-frame) + 6px);
   --bk-pad: calc(var(--bk-frame) + 6px);
   --bk-pad-l: calc(var(--bk-frame-l) + 6px);
+}
+
+/* 概览里的书带悬停动作条（预览 / 编辑）⇒ 外面还有一层 `.doc-book-wrap`，
+   它才是 `.doc-books` 的弹性项。这一层不定宽，上面那条"书宽 = 容器 1/3"的
+   百分比就变成相对 wrap 自己算（循环依赖 ⇒ 浏览器按 auto 解），整本书会被压成
+   一条竖线 —— 文档格此前就是这样。
+   所以：wrap 拿三分的定宽，书在里面占满。 */
+.mw-root[data-module] .proj-detail .overview-grid .doc-book-wrap {
+  flex: 0 0 auto;
+  width: calc((100% - 16px) / 3);
+  max-width: 92px;
+}
+
+.mw-root[data-module] .proj-detail .overview-grid .doc-book-wrap .doc-book {
+  width: 100%;
+  max-width: none;
+}
+
+/* 概览里的服务器书（运维格）。封面色取运维卡自己的 `--rc`，
+   与「部署文档书走 --rc」同一条口径 —— 文档主页那一段把 `.doc-book` 的
+   `--book` 钉成 `var(--kc, --mw-text-muted)`，不给就会是灰封面。 */
+.mw-root[data-module] .proj-detail .overview-grid .doc-book.srv-book {
+  --book: var(--rc);
+}
+
+/* 这本书没有悬停动作条，别让"给动作条让位"那条规则把签与图形淡掉
+   （那条挂在 `.doc-book:hover .db-tag` 上，对光书一样生效）。 */
+.mw-root[data-module] .proj-detail .overview-grid .doc-book.srv-book:hover .db-tag,
+.mw-root[data-module] .proj-detail .overview-grid .doc-book.srv-book:hover .db-icon,
+.mw-root[data-module] .proj-detail .overview-grid .doc-book.srv-book:focus-within .db-tag,
+.mw-root[data-module] .proj-detail .overview-grid .doc-book.srv-book:focus-within .db-icon {
+  opacity: 1;
 }
 
 .mw-root[data-module] .proj-detail {
@@ -4124,6 +4165,9 @@ html[data-theme='dark'] .mw-root[data-module='projects'] .review-select {
 }
 
 .mw-root[data-module] .proj-detail .card-title {
+  /* `.mw-root .card-title`（设置模块那套）带 14/8 的内距与 12 的下边距，
+     落在这里会把 24px 的卡头撑成 56px —— 卡头与正文之间平白多出一条空白。 */
+  padding: 0; margin-bottom: 0;
   font-size: 13.5px; font-weight: 700;
 }
 
@@ -4551,16 +4595,142 @@ html[data-theme='dark'] .mw-root[data-module='projects'] .review-select {
   background: rgba(245,158,11,0.14); color: #D97706;
 }
 
+/* 总览的八格是**读数**，排法按"同一行的卡等高、每行不留空格"定：
+   ① 三列固定（auto-fit 会在 1000px 附近抖成 2 列，卡宽跟着跳）；
+   ② `margin-bottom: 0` 必须显式写 —— `.mw-root .card` 带 14px 下边距，
+      在网格里会和 12px 的 gap 叠加成 26px，纵向间距比横向宽一倍，看着就是没对齐；
+   ③ `align-items: stretch` + 卡内 flex：同一行等高，正文区自己吃掉剩余高度，
+      空态能在中间立住，而不是顶上一行字、下面空一截；
+   ④ 动态占两列 —— 八张卡 3+3+1+2 正好三行，尾行不留空格。 */
 .mw-root[data-module] .proj-detail .overview-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: start;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+  align-items: stretch;
 }
 
 .mw-root[data-module] .proj-detail .overview-grid .card {
-  padding: 12px 12px;
+  padding: 14px;
+  margin-bottom: 0;
+  min-height: 156px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 概览的卡是读数不是入口：悬停不抬，抬了会让人以为能点开 */
+.mw-root[data-module] .proj-detail .overview-grid .card:hover {
+  transform: none;
+}
+
+.mw-root[data-module] .proj-detail .overview-grid .rc-activity {
+  grid-column: span 2;
+}
+
+/* 两列时（视口一窄，auto-fit 就掉到 2 列）动态独占一行、里程碑补满前一行，
+   否则尾行会剩一个空格 —— 八张卡在 2 列下 3+3+1+2 正好四行。 */
+@media (max-width: 1100px) {
+  .mw-root[data-module] .proj-detail .overview-grid .rc-milestone {
+    grid-column: 1 / -1;
+  }
+}
+
+/* 正文区：占满卡内剩余高度，空态垂直居中 */
+.mw-root[data-module] .proj-detail .ov-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mw-root[data-module] .proj-detail .ov-body > .q-empty.ov-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 8px;
 }
 
 .mw-root[data-module] .proj-detail .overview-grid .card-head {
-  margin-bottom: 8px;
+  margin-bottom: 0;
+}
+
+/* 概览里的动态：一条一行，头像走正常流（`ActivityFeed` 那份靠负偏移吊头像，会越出卡片） */
+.mw-root[data-module] .proj-detail .ov-activity {
+  display: flex;
+  flex-direction: column;
+}
+
+.mw-root[data-module] .proj-detail .ov-act-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.mw-root[data-module] .proj-detail .ov-act-row + .ov-act-row {
+  border-top: 1px solid var(--mw-border-subtle);
+}
+
+.mw-root[data-module] .proj-detail .ov-act-avatar {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 10px; font-weight: 700;
+}
+
+.mw-root[data-module] .proj-detail .ov-act-main {
+  flex: 1; min-width: 0;
+}
+
+.mw-root[data-module] .proj-detail .ov-act-text {
+  font-size: 12.5px; line-height: 1.45; color: var(--mw-text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.mw-root[data-module] .proj-detail .ov-act-text b {
+  color: var(--mw-text-primary); font-weight: 650;
+}
+
+.mw-root[data-module] .proj-detail .ov-act-time {
+  font-size: 10.5px; color: var(--mw-text-muted); margin-top: 1px;
+}
+
+/* 里程碑行：节点柱 + 连线。
+   几何全在这段，组件里不再用 `pl-[34px]` / `border-2` 那类工具类 ——
+   全局 `*{margin:0;padding:0;border:0 solid}` 是无层样式，会盖掉 `@layer utilities`，
+   于是内距归零、节点压在标题上（实测 `padding-left` 为 0px）。 */
+.mw-root[data-module] .proj-detail .ms-row {
+  position: relative; padding-left: 34px;
+}
+
+.mw-root[data-module] .proj-detail .ms-row.has-next {
+  padding-bottom: 18px;
+}
+
+.mw-root[data-module] .proj-detail .ms-line {
+  position: absolute; left: 8px; top: 22px; bottom: 0; width: 1.5px;
+  background: var(--mw-border-subtle);
+}
+
+.mw-root[data-module] .proj-detail .ms-node {
+  position: absolute; left: 0; top: 2px; width: 17px; height: 17px; border-radius: 50%;
+  border: 2px solid var(--pd-border-strong); background: var(--mw-bg-card);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.mw-root[data-module] .proj-detail .ms-node.is-done {
+  border-color: var(--c-success); background: var(--c-success);
+}
+
+.mw-root[data-module] .proj-detail .ms-node.is-now {
+  border-color: var(--mw-m-main);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--mw-m-main) 14%, transparent);
+}
+
+.mw-root[data-module] .proj-detail .ms-node-core {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--mw-m-main);
 }
 
 .mw-root[data-module] .proj-detail .overview-grid .card-icon {
@@ -5509,6 +5679,11 @@ html[data-theme='dark'] .mw-root[data-module] .doc-book-acts {
 @media (max-width: 768px) {
   .mw-root[data-module] .proj-detail .overview-grid {
     grid-template-columns: 1fr;
+  }
+  /* 单列时区格不能再跨列（跨列会凭空长出一列） */
+  .mw-root[data-module] .proj-detail .overview-grid .rc-activity,
+  .mw-root[data-module] .proj-detail .overview-grid .rc-milestone {
+    grid-column: auto;
   }
   /* 书墙在手机上再收一档（原型同款） */
   .mw-root[data-module] .proj-detail .view-grid .doc-book {
@@ -10383,6 +10558,12 @@ html[data-theme='dark'] .mw-root[data-module] .kg-page {
 .mw-root[data-module] .fm-chip.is-add { border-style: dashed; color: var(--mw-text-muted); }
 .mw-root[data-module] .fm-chip.is-add:hover { border-color: var(--doc-m-ink); color: var(--doc-m-ink); }
 .mw-root[data-module] .fm-inline { width: 100%; }
+/* 「存放目录」下面那行实际落点：绝对路径很长，允许在任意字符处折行，
+   否则一格撑不开、弹窗横向滚。它只是读数，不参与点选。 */
+.mw-root[data-module] .fm-dir-path {
+  margin: 0; font-size: 11.5px; line-height: 1.6;
+  color: var(--mw-text-muted); word-break: break-all;
+}
 
 /* ---------- work · 服务器台账（`design/work/工作-服务器-index.html`，2026-09-29）----------
    这一段的 `.sv-page` 是服务器这一族的公共根：台账页（`ServersLedger`）与
@@ -11897,13 +12078,18 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
 .mw-root[data-module] .rd-page .rd-layout {
   display: grid; grid-template-columns: 196px minmax(0, 1180px);
             gap: 20px; align-items: start;
-            margin: 0; padding: 28px 26px 40px;
+            margin: 0; padding: 28px 26px 66px;
 }
 .mw-root[data-module] .rd-page .rd-toc {
   padding: 16px;
              
             position: sticky; top: 87px;
-            max-height: calc(100% - 127px); overflow-y: auto;
+            /* 上限 = 这一页的可视高 − 吸顶位 87 − 页底留白 66（页脚那一行）。
+               不能写 `100%`：百分比在网格项里算的是"行高"，短正文时那一行只有
+               一百多像素 ⇒ 上限算成 20 几像素，整张卡被压成一条、里面的提示被裁掉
+               （2026-11-04 空白文档上截图所见）。行高由内容决定，与"这一页多高"无关。 */
+            max-height: calc(100vh - var(--sb-topbar-h) - var(--sb-gap) - 153px);
+            overflow-y: auto;
 }
 .mw-root[data-module] .rd-page .rd-toc-title {
   font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
@@ -11935,23 +12121,28 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
 .mw-root[data-module] .rd-page .rd-main {
   width: 100%; max-width: 768px; margin: 0 auto; padding: 0;
 }
-.mw-root[data-module] .rd-page .rd-head {
-  padding-bottom: 12px; margin-bottom: 18px;
-            border-bottom: 1px solid var(--mw-border-subtle);
+/* 页脚读数：这一篇的坐标 + 字数，压在这一页的左下角。
+   原来坐标在正文开头、后面还跟着一条"副本不会回流"的说明 —— 阅读时那两行挡在正文前面，
+   而它们讲的是"这一篇是什么"，不是正文 ⇒ 2026-11-04 用户令：说明删掉，坐标移左下。
+   fixed 到视口（沿用原来那颗字数读数的定位），所以 `.rd-layout` 的底内距要留出它的高度。 */
+.mw-root[data-module] .rd-page .rd-foot {
+  /* 铺满整宽再渐隐：正文滚到这儿就从底色里淡出去，不会和页脚的字叠在一起。
+     底色读 `--mw-bg-page`，四支面阶（含护眼绿 / 书籍黄）自动跟着走。 */
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+            display: flex; align-items: center; flex-wrap: wrap; gap: 2px 10px;
+            padding: 16px 26px 18px;
+            background: linear-gradient(to top, var(--mw-bg-page) 55%, transparent);
+            pointer-events: none; user-select: none;
 }
 .mw-root[data-module] .rd-page .rd-meta {
   display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--mw-text-muted);
 }
 .mw-root[data-module] .rd-page .rd-meta b {
-  color: var(--mw-text-secondary); font-weight: 600;
+  /* 键与值要分开：不加这一行，读出来是"来源本地 Markdown""作者刘阳"，黏成一句 */
+  margin-right: 5px; color: var(--mw-text-secondary); font-weight: 600;
 }
-.mw-root[data-module] .rd-page .rd-note-line {
-  display: flex; align-items: center; gap: 7px;
-            margin-top: 7px; padding: 6px 10px; border-radius: 9px;
-            background: var(--rd-slot); font-size: 11.5px; color: var(--mw-text-secondary);
-}
-.mw-root[data-module] .rd-page .rd-note-line svg {
-  width: 13px; height: 13px; stroke-width: 2; flex-shrink: 0; color: var(--mw-text-muted);
+.mw-root[data-module] .rd-page .rd-foot-dot {
+  font-size: 11.5px; color: var(--mw-text-muted);
 }
 .mw-root[data-module] .rd-page .rd-body {
   font-size: 14.5px; line-height: 1.9; color: var(--mw-text-secondary);
@@ -12545,11 +12736,10 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
   visibility: visible; opacity: 1;
 }
 .mw-root[data-module] .rd-page .rd-words {
-  position: fixed; left: 26px; bottom: 20px; z-index: 5;
+  /* 定位交给 `.rd-foot`（它与坐标同一行）：这里只管字 */
             font-size: 11.5px; color: var(--mw-text-muted); letter-spacing: 0.02em;
-            pointer-events: none; user-select: none;
 }
-/* 窄屏：这一页左右也收到 16（与那颗字数读数 --rd-words 的 left: 16 对齐）。
+/* 窄屏：这一页左右也收到 16（与页脚 `.rd-foot` 的 left: 16 对齐）。
    编辑面那两条在下面那个同断点的块里（那边才在 `.ed-*` 基类之后）。 */
 @media (max-width: 860px) {
   .mw-root[data-module] .rd-page .rd-crumb { display: none; }
@@ -12557,7 +12747,7 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
   .mw-root[data-module] .rd-page .rd-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 24px 16px 34px; }
   .mw-root[data-module] .rd-page .rd-toc { position: static; max-height: none; overflow: visible; }
   .mw-root[data-module] .rd-page .rd-main { padding: 0; }
-  .mw-root[data-module] .rd-page .rd-words { left: 16px; bottom: 14px; }
+  .mw-root[data-module] .rd-page .rd-foot { padding: 14px 16px 14px; }
 }
 
 /* 背景四选一（原型 v6.1）：换的是这一页的面阶两支，字色一支不动。
@@ -12605,7 +12795,7 @@ html[data-theme='dark'] .mw-root[data-module='work'] .svd-page .pc-card {
   display: grid; grid-template-columns: 196px minmax(0, 1180px);
             gap: 20px; align-items: start;
              
-            margin: 0; padding: 32px 26px 40px;
+            margin: 0; padding: 32px 26px 66px;
 }
 .mw-root[data-module] .rd-page .ed-paper {
   width: 100%; max-width: 768px; margin: 0 auto; justify-self: center;

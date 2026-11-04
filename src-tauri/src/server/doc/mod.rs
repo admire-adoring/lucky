@@ -14,7 +14,7 @@ mod repo;
 
 // 全量导出是这一层的公共面（`Document.links` 的元素类型也在其中）；命令层只消费一部分。
 #[allow(unused_imports)]
-pub use model::{DocContent, DocLinkInput, Document, DocumentInput, DocumentLink};
+pub use model::{DocContent, DocDirs, DocLinkInput, Document, DocumentInput, DocumentLink};
 
 use crate::server::error::Result;
 use crate::server::store::Store;
@@ -38,8 +38,18 @@ pub fn get(store: &Store, id: &str) -> Result<Document> {
 }
 
 /// 新建：`local_md` 会先落一份（空）正文文件，再登记索引。
+/// 落点由 `input.dir`（相对文档根）定，不给就按宿主分目录。
 pub fn create(store: &Store, input: &DocumentInput) -> Result<Document> {
     repo::create(store, input)
+}
+
+/// 文档根 + 根下的目录 —— 新建文档时挑存放位置。
+pub fn dirs(store: &Store) -> DocDirs {
+    let root = store.documents_root();
+    DocDirs {
+        root: root.display().to_string(),
+        dirs: file::list_dirs(root),
+    }
 }
 
 /// 编辑索引；带 `content` 时连正文一起写（一次提交改两半）。不能换宿主。

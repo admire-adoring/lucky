@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '../../../../lib/cn'
-import { bodyOf, seedBodyOf } from '../../../../data/workspace/doc-bodies'
+import { bodyOf } from '../../../../data/workspace/doc-bodies'
 import { copyOf, useDocCopies } from '../../../../data/workspace/doc-copies'
 import { DOC_KIND_LABEL } from '../../../../data/content-pool'
 import { DocEditor, EdIcon } from './DocEditor'
@@ -64,15 +64,14 @@ export function DocSourcePage({
 }) {
   useDocCopies()   /* 订阅：演示副本保存之后这一页（与书墙）当场更新 */
 
-  /* 本地正文（`filePath` 有值的那一类）从 `.md` 文件读；其余回落演示稿 / 骨架。
-     读不到不算错 —— 那篇的正文本来就在来源工具里，本仓只有索引。 */
+  /* 本地正文（`filePath` 有值的那一类）从 `.md` 文件读；其余回落演示稿。
+     都没有就是空正文 —— 不往里造骨架：登记那几行由纸头一行与页脚说，正文留白。 */
   const localDoc = useDocContent(doc.filePath ? doc.id : undefined)
   const saveDoc = useDocActions()
-  /* 没有转写正文的那几篇用登记信息起一份骨架 ⇒ 这一页永远有正文可写 */
   const basBody = useMemo(() => {
     const md = localDoc.data?.content
     if (md != null) return mdOfSource(md)
-    return bodyOf(doc) ?? seedBodyOf(doc)
+    return bodyOf(doc) ?? []
   }, [localDoc.data, doc])
   const copy = copyOf(doc.id)
   /* 副本优先 —— 但只对演示态生效：本地正文的那些以文件为源，不看应用内副本。 */
@@ -82,6 +81,19 @@ export function DocSourcePage({
   const srcText = doc.source || '来源工具'
   /* 类型：文档索引给的是 `DocKind` 键（查表），部署文档给的是自由串（它自己就是文案）。 */
   const kindText = (DOC_KIND_LABEL as Record<string, string>)[doc.kind] ?? doc.kind
+  /* 位置 = 模块 › 功能。索引型文档这两格常是空的（只登记了名字与来源），
+     空着就不出这一项 —— 否则页头留一条"位置 ›"，后面什么也没有。 */
+  const posText = [doc.module, doc.func].filter(Boolean).join(' › ')
+  /* 编辑面纸头那一行要说的几件事。登记信息原来在正文里另起一段（提醒 + 列表 + 小标题），
+     一屏全是"关于这一篇"的字；挪到这一行，正文从第一行就是自己的内容。 */
+  const edFactsAll: ([string, string] | null)[] = [
+    posText ? ['位置', posText] : null,
+    ['类型', kindText],
+    ['来源', srcText],
+    doc.author ? ['作者', doc.author] : null,
+    doc.updatedAt ? ['来源更新', copy ? '刚刚' : doc.updatedAt] : null,
+  ]
+  const edFacts = edFactsAll.filter((f): f is [string, string] => f !== null)
 
   const pageRef = useRef<HTMLDivElement | null>(null)
   const barRef = useRef<HTMLDivElement | null>(null)
@@ -330,14 +342,15 @@ export function DocSourcePage({
               </div>
             </div>
           ) : null}
-          /* 纸头那行坐标：位置 / 类型 / 来源 —— 它读的是文档元信息，不在编辑器手里 */
+          /* 纸头那行坐标：位置 / 类型 / 来源 / 作者 / 来源更新 —— 它读的是文档元信息，不在编辑器手里 */
           metaSlot={(
             <div className="ed-meta">
-              <span><b>位置</b>{doc.module} › {doc.func}</span>
-              <span className="ed-meta-dot">·</span>
-              <span><b>类型</b>{kindText}</span>
-              <span className="ed-meta-dot">·</span>
-              <span><b>来源</b>{srcText}</span>
+              {edFacts.map(([k, v], i) => (
+                <Fragment key={k}>
+                  {i ? <span className="ed-meta-dot">·</span> : null}
+                  <span><b>{k}</b>{v}</span>
+                </Fragment>
+              ))}
               {onEditMeta ? (
                 <button type="button" className="ed-meta-link" onClick={() => onEditMeta(doc)}>编辑信息…</button>
               ) : null}
@@ -365,25 +378,28 @@ export function DocSourcePage({
           </aside>
 
           <article className="rd-main">
-            <div className="rd-head">
-              <div className="rd-meta">
-                <span><b>来源</b>{srcText}</span>
-                {doc.author ? <span><b>作者</b>{doc.author}</span> : null}
-                {doc.updatedAt ? <span><b>来源更新</b>{copy ? '刚刚' : doc.updatedAt}</span> : null}
-                <span><b>位置</b>{doc.module} › {doc.func}</span>
-              </div>
-              <div className="rd-note-line">
-                <span>这是应用内保存的<b>副本</b> —— 正文由 {srcText} 维护，这里的改动不会回流。</span>
-              </div>
-            </div>
             {/* eslint-disable-next-line react/no-danger -- 见文件头：编辑态的「可视」面要求真实 DOM */}
             <div className="rd-body" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: html }} />
           </article>
         </div>
       )}
 
-      {/* 字数（原型语雀那个位置）：它是页级读数，不占纸头那一行 */}
-      <div className="rd-words">{words || '0 字'}</div>
+      {/* 页脚：这一篇的坐标 + 字数。坐标原本在正文开头（还带着一条"副本不会回流"的说明），
+          阅读时它压在正文前面、又不属于正文 ⇒ 一并收到左下角（2026-11-04 用户令）。 */}
+      <div className="rd-foot">
+        {editing ? null : (
+          <>
+            <div className="rd-meta">
+              <span><b>来源</b>{srcText}</span>
+              {doc.author ? <span><b>作者</b>{doc.author}</span> : null}
+              {doc.updatedAt ? <span><b>来源更新</b>{copy ? '刚刚' : doc.updatedAt}</span> : null}
+              {posText ? <span><b>位置</b>{posText}</span> : null}
+            </div>
+            <span className="rd-foot-dot">·</span>
+          </>
+        )}
+        <span className="rd-words">{words || '0 字'}</span>
+      </div>
     </div>
   )
 }

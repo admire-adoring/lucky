@@ -18,7 +18,8 @@ import {
    日志 / 部署两个下钻窗口吃 `toOpsServer`；发布记录与部署文档各有各的换算。
    ============================================================================ */
 
-const ENV_LABEL: Record<string, string> = {
+/** 四档环境的中文名。概览格那本服务器书也读它（不另写一份"prod = 生产"）。 */
+export const ENV_LABEL: Record<string, string> = {
   prod: '生产',
   stage: '预发',
   test: '测试',

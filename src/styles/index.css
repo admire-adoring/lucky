@@ -89,6 +89,8 @@
    ============================================================ */
 @import './module-workspace.css';
 @import './workspace-shell.css';
+/* 跨模块共用的确认弹窗 —— 放在模块层之后，避免被任何 [data-module] 规则盖掉 */
+@import './confirm-dialog.css';
 
 /* ============================================================
    应用外壳层（`design/sidebar/sidebar_index.html`）
@@ -357,6 +359,18 @@ html[data-platform='windows'] {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+/* 浮层入场：从贴边处微微张开。位移只有 4px —— 下拉贴着触发项，
+   走远了会像"从别处飞过来"；缩放 0.98 是给"它从这颗按钮里长出来"的那一下。 */
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 @keyframes spinnerRotate {

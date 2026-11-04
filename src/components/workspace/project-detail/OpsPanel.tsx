@@ -242,6 +242,8 @@ export function OpsPanel({
             escMode: draft.escMode,
             escUser: draft.escUser,
             credRef: target.credRef,
+            /* 留空 = 不动钥匙串里那份；填了才覆盖 */
+            secret: draft.secret,
             note: draft.note,
             projectIds: target.projects.map((project) => project.id),
             ports: target.ports,
@@ -277,6 +279,7 @@ export function OpsPanel({
         authCode: draft.authCode,
         escMode: draft.escMode,
         escUser: draft.escUser,
+        secret: draft.secret,
         note: draft.note,
         tags: draft.tags,
         os: '',
@@ -603,12 +606,14 @@ export function OpsPanel({
      `siblings` 在编辑模式下必须排除「自己」，否则「同网段已有」会把自己列进去。 */
   if (serverForm) {
     const target = serverForm.mode === 'edit' ? serverForm.server : null
+    /* 视图形态没有 credRef（注释里那句）—— 从库里那份补上，表单才能判断"要不要重填凭据" */
+    const rawTarget = target ? (serverData ?? []).find((item) => item.host === target.name) ?? null : null
     return (
       <div className="ops-page rc-ops">
         <AddServerForm
           mode={serverForm.mode}
           projectName={projectName}
-          server={target}
+          server={target ? { ...target, credRef: rawTarget?.credRef ?? null } : null}
           onSubmit={(draft, again) => {
             /* 编辑要用库里那份 raw（视图形态没有 credRef / ports / pathGroups） */
             const real =

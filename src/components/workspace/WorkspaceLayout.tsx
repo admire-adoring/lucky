@@ -31,8 +31,6 @@ interface WorkspaceLayoutProps {
   topbarTitle?: string
   /** Tab 之前的正文（只项目工作区用：项目标题卡） */
   beforeTabs?: ReactNode
-  /** 常驻右栏（只项目工作区用）。必须是 `.sb-app` 的直接子元素（靠栅格区域落位） */
-  rail?: ReactNode
   children: ReactNode
 }
 
@@ -83,7 +81,6 @@ export function WorkspaceLayout({
   topbarActions,
   topbarTitle,
   beforeTabs,
-  rail,
   children,
 }: WorkspaceLayoutProps) {
   const moduleLabel = navLabel(module)
@@ -167,8 +164,6 @@ export function WorkspaceLayout({
             {children}
           </div>
         </main>
-
-        {rail}
       </div>
 
       <CommandPalette

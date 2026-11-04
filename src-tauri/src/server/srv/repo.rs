@@ -9,6 +9,8 @@ use crate::server::srv::model::{
     ServerPort, ServerProjectRef, ServerReleaseCount,
 };
 
+use super::cred;
+
 const COLS: &str = "id, host, ip, ssh_port, os, cores, mem_gb, disk_gb, role_code, env_code, \
                     login_user, auth_code, esc_mode, esc_user, cred_ref, note, sort_order, \
                     removed_at, created_at, updated_at";
@@ -81,77 +83,75 @@ pub fn create(conn: &mut Connection, input: &ServerInput) -> Result<Server> {
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()?;
-    let revive_id = match existing {
+    let (id, reviving) = match existing {
         // 在册的同名行挡路；已移除的把 id 拿回来复活
         Some((_, None)) => return Err(Error::Conflict(format!("机器名已存在：{}", input.host))),
-        Some((id, Some(_))) => Some(id),
-        None => None,
+        Some((id, Some(_))) => (id, true),
+        None => (new_id("srv"), false),
     };
 
+    /* 凭据先于库写：钥匙串失败时不要留下一行"看起来有密码"的记录。
+       id 因此必须在事务之前定下来（复活时用回原来那个）。 */
+    let cred_ref = cred::apply(&id, &input.auth_code, input.secret.as_deref(), input.cred_ref.as_deref())?;
+
     let tx = conn.transaction()?;
-    let id = match revive_id {
-        Some(id) => {
-            tx.execute(
-                "UPDATE srv_server SET
-                   host = ?2, ip = ?3, ssh_port = ?4, os = ?5, cores = ?6, mem_gb = ?7, disk_gb = ?8,
-                   role_code = ?9, env_code = ?10, login_user = ?11, auth_code = ?12, esc_mode = ?13,
-                   esc_user = ?14, cred_ref = ?15, note = ?16,
-                   removed_at = NULL,
-                   updated_at = strftime('%Y-%m-%dT%H:%M:%SZ','now')
-                 WHERE id = ?1",
-                params![
-                    id,
-                    input.host,
-                    input.ip,
-                    input.ssh_port,
-                    input.os,
-                    input.cores,
-                    input.mem_gb,
-                    input.disk_gb,
-                    input.role_code,
-                    input.env_code,
-                    input.login_user,
-                    input.auth_code,
-                    input.esc_mode,
-                    input.esc_user,
-                    input.cred_ref,
-                    input.note,
-                ],
-            )?;
-            id
-        }
-        None => {
-            let id = new_id("srv");
-            tx.execute(
-                "INSERT INTO srv_server
-                   (id, host, ip, ssh_port, os, cores, mem_gb, disk_gb, role_code, env_code,
-                    login_user, auth_code, esc_mode, esc_user, cred_ref, note, sort_order,
-                    removed_at, created_at, updated_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,
-                         NULL, strftime('%Y-%m-%dT%H:%M:%SZ','now'), strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
-                params![
-                    id,
-                    input.host,
-                    input.ip,
-                    input.ssh_port,
-                    input.os,
-                    input.cores,
-                    input.mem_gb,
-                    input.disk_gb,
-                    input.role_code,
-                    input.env_code,
-                    input.login_user,
-                    input.auth_code,
-                    input.esc_mode,
-                    input.esc_user,
-                    input.cred_ref,
-                    input.note,
-                    0i64,
-                ],
-            )?;
-            id
-        }
-    };
+    if reviving {
+        tx.execute(
+            "UPDATE srv_server SET
+               host = ?2, ip = ?3, ssh_port = ?4, os = ?5, cores = ?6, mem_gb = ?7, disk_gb = ?8,
+               role_code = ?9, env_code = ?10, login_user = ?11, auth_code = ?12, esc_mode = ?13,
+               esc_user = ?14, cred_ref = ?15, note = ?16,
+               removed_at = NULL,
+               updated_at = strftime('%Y-%m-%dT%H:%M:%SZ','now')
+             WHERE id = ?1",
+            params![
+                id,
+                input.host,
+                input.ip,
+                input.ssh_port,
+                input.os,
+                input.cores,
+                input.mem_gb,
+                input.disk_gb,
+                input.role_code,
+                input.env_code,
+                input.login_user,
+                input.auth_code,
+                input.esc_mode,
+                input.esc_user,
+                cred_ref,
+                input.note,
+            ],
+        )?;
+    } else {
+        tx.execute(
+            "INSERT INTO srv_server
+               (id, host, ip, ssh_port, os, cores, mem_gb, disk_gb, role_code, env_code,
+                login_user, auth_code, esc_mode, esc_user, cred_ref, note, sort_order,
+                removed_at, created_at, updated_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,
+                     NULL, strftime('%Y-%m-%dT%H:%M:%SZ','now'), strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
+            params![
+                id,
+                input.host,
+                input.ip,
+                input.ssh_port,
+                input.os,
+                input.cores,
+                input.mem_gb,
+                input.disk_gb,
+                input.role_code,
+                input.env_code,
+                input.login_user,
+                input.auth_code,
+                input.esc_mode,
+                input.esc_user,
+                cred_ref,
+                input.note,
+                0i64,
+            ],
+        )?;
+    }
     write_children(&tx, &id, input)?;
     tx.commit()?;
     get(conn, &input.host)
@@ -174,6 +174,9 @@ pub fn update(conn: &mut Connection, host: &str, input: &ServerInput) -> Result<
     if taken > 0 {
         return Err(Error::Conflict(format!("机器名已存在：{}", input.host)));
     }
+
+    /* 与 create 同序：凭据先于库写 */
+    let cred_ref = cred::apply(&id, &input.auth_code, input.secret.as_deref(), input.cred_ref.as_deref())?;
 
     let tx = conn.transaction()?;
     tx.execute(
@@ -198,7 +201,7 @@ pub fn update(conn: &mut Connection, host: &str, input: &ServerInput) -> Result<
             input.auth_code,
             input.esc_mode,
             input.esc_user,
-            input.cred_ref,
+            cred_ref,
             input.note,
         ],
     )?;
@@ -223,10 +226,17 @@ pub fn remove(conn: &Connection, host: &str) -> Result<()> {
 }
 
 /// 彻底删除（连带子表按外键级联）。给"这台机器填错了"用，日常的移除是 `remove`。
+/// 钥匙串里的凭据跟着走 —— 行没了，那份密码再没有入口。
 pub fn delete(conn: &Connection, host: &str) -> Result<()> {
+    let id: Option<String> = conn
+        .query_row("SELECT id FROM srv_server WHERE host = ?1", [host], |row| row.get(0))
+        .optional()?;
     let n = conn.execute("DELETE FROM srv_server WHERE host = ?1", [host])?;
     if n == 0 {
         return Err(Error::NotFound(format!("机器 {host}")));
+    }
+    if let Some(id) = id {
+        cred::clear(&id);
     }
     Ok(())
 }

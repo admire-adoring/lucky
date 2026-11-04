@@ -17,7 +17,7 @@ import { Icon } from '../../icons/Icon'
 import { DocBook } from './DocBook'
 import { useSourceOverlay } from './doc-source/use-source-overlay'
 import { copyAgoText, copyOf, useDocCopies } from '../../../data/workspace/doc-copies'
-import { useDocMutations } from '../../../hooks/use-docs'
+import { useDocDirs, useDocMutations } from '../../../hooks/use-docs'
 import type { DocKind, DocLink, DocumentItem } from '../../../types'
 
 /* ============================================================================
@@ -1103,6 +1103,9 @@ function DocModal({
   projectName,
   defaultModule,
   defaultFunc,
+  dirRoot,
+  dirs,
+  dirRootPath,
   onClose,
   onDelete,
   onConfirmDelete,
@@ -1118,13 +1121,22 @@ function DocModal({
   /** 新建时把当前筛选带进来：在「用户中心 › 登录鉴权」下点的新建，这四项已经填好了 */
   defaultModule?: string
   defaultFunc?: string
+  /**
+   * 新建时的默认落点（`<ownerKind>/<ownerId>`）。没有就不出「存放目录」那一格 ——
+   * 这一页还没接库，存哪儿都无从谈起。
+   */
+  dirRoot?: string
+  /** 文档根下已有的目录（相对根），由后端扫出来 */
+  dirs?: string[]
+  /** 文档根绝对路径：那一格下面要写清"文件真落到哪" */
+  dirRootPath?: string
   onClose: () => void
   /** 编辑态那颗「删除」进阶到第三态（原型 `openDocModal(id, 'delete')` 走的就是它） */
   onDelete?: () => void
   /** 删除态的主按钮：真的删（索引与正文文件一起走） */
   onConfirmDelete?: () => void
   /** 新建 / 编辑态的主按钮：交给宿主落库 */
-  onSubmit?: (patch: { name: string; module: string; func: string; kind: string; source: string }) => void
+  onSubmit?: (patch: { name: string; module: string; func: string; kind: string; source: string; dir?: string }) => void
   notice: (text: string) => void
 }) {
   /* 候选池：模块去重保序 + 每个模块自己的功能（功能只可能属于某一个模块）。
@@ -1175,9 +1187,31 @@ function DocModal({
   )
   const [kind, setKind] = useState<DocKind>(doc?.kind ?? 'plan')
   const [source, setSource] = useState(doc?.source ?? options.sources[0] ?? '')
+  /* 存放目录：默认就是宿主目录（后端也是这么落的）。弹窗里新建的文件夹只活在
+     这一份草稿里 —— 真正的目录由后端写文件时 `create_dir_all` 落地，不必先建一遍。 */
+  const [dir, setDir] = useState(dirRoot ?? '')
+  const [extraDirs, setExtraDirs] = useState<string[]>([])
   /** 哪一维正在"新建"（原型 `fmAdding`）：一次只允许一维在编辑 */
-  const [adding, setAdding] = useState<'module' | 'func' | null>(null)
+  const [adding, setAdding] = useState<'module' | 'func' | 'dir' | null>(null)
   const [draftNew, setDraftNew] = useState('')
+
+  /* 候选目录 = 宿主目录 + 它下面的子目录 + 这次新建的。
+     宿主目录可能还没落盘（第一篇文档），所以它不是"从盘上读来的"，必须自己补进第一位；
+     别的宿主的目录（另一个项目的文件夹）不列 —— 把这一篇存到别人家的目录里，只会让
+     "删项目 ⇒ 收掉它的目录"这件事变得说不清。 */
+  const dirChoices = useMemo(() => {
+    const under = (dirs ?? []).filter((d) => dirRoot && d.startsWith(`${dirRoot}/`))
+    return [...new Set([dirRoot ?? '', ...under, ...extraDirs].filter(Boolean))]
+  }, [dirRoot, dirs, extraDirs])
+  /** 胶囊上只写尾段：宿主目录本身没有可读的尾段（那是项目 id），就别写它 */
+  const dirLabel = (d: string) =>
+    !dirRoot ? d : d === dirRoot ? '默认目录' : d.startsWith(`${dirRoot}/`) ? d.slice(dirRoot.length + 1) : d
+  const dirFullPath = `${dirRootPath ?? 'documents'}${dir ? `/${dir}` : ''}`
+  /* 只有本地正文有"存哪儿"这回事：其余来源的正文留在原工具里，本仓只有索引。
+     `source` 为空 = 这一批文档一篇都没有、来源那排胶囊是空的 —— 这时落库本来也按
+     `local_md` 兜底（见 `DocLibrary` 的 `sourceCodeOf`），所以照样让选目录。 */
+  const needsDir =
+    !editing && Boolean(dirRoot) && (source === '' || source === DOC_SOURCE_META.local_md)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1306,6 +1340,66 @@ function DocModal({
               {picks('kind', '类型', DOC_KINDS as unknown as string[], kind, (v) => setKind(v as DocKind))}
 
               {picks('source', '来源', options.sources, source, setSource)}
+
+              {/* 存放目录：正文是本地文件时才有得选。默认宿主目录，可以挑已有文件夹或现建一个 ——
+                  落点是 `file_path`，建完就固定（改名 / 换模块都不挪文件）。 */}
+              {needsDir ? (
+                <div className="fm-field">
+                  <span className="fm-label">存放目录</span>
+                  <div className="fm-picks">
+                    {dirChoices.map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        className={cn('fm-chip', d === dir && 'active')}
+                        aria-pressed={d === dir}
+                        title={d}
+                        onClick={() => setDir(d)}
+                      >
+                        {dirLabel(d)}
+                      </button>
+                    ))}
+                    {adding === 'dir' ? (
+                      <input
+                        key="new-dir"
+                        className="fm-input fm-inline"
+                        autoFocus
+                        value={draftNew}
+                        placeholder="新文件夹名，回车确认"
+                        onChange={(event) => setDraftNew(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return
+                          /* 一层一个文件夹：名字里的 `/` 折成 `-`，要嵌套就再建一层 */
+                          const v = draftNew.trim().replace(/^\/+|\/+$/g, '').replace(/\//g, '-')
+                          if (!v) return
+                          const next = dir ? `${dir}/${v}` : v
+                          setExtraDirs((prev) => (prev.includes(next) ? prev : [...prev, next]))
+                          setDir(next)
+                          setDraftNew('')
+                          setAdding(null)
+                        }}
+                        onBlur={() => {
+                          setDraftNew('')
+                          setAdding(null)
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="fm-chip is-add"
+                        onClick={() => {
+                          setAdding('dir')
+                          setDraftNew('')
+                        }}
+                      >
+                        ＋ 新建文件夹
+                      </button>
+                    )}
+                  </div>
+                  {/* 说清文件真落到哪 —— 挑目录时不看这一行，选完还是不知道存到哪儿了 */}
+                  <p className="fm-dir-path">{dirFullPath}/</p>
+                </div>
+              ) : null}
             </>
           )}
         </div>
@@ -1332,7 +1426,7 @@ function DocModal({
                 else notice('删除文档：还没有写接口')
                 return
               }
-              if (onSubmit) onSubmit({ name: name.trim(), module, func, kind, source })
+              if (onSubmit) onSubmit({ name: name.trim(), module, func, kind, source, dir: needsDir ? dir : undefined })
               else notice('保存文档：还没有写接口')
             }}
           >
@@ -1389,11 +1483,22 @@ export function DocLibrary({
   /* 文档的写操作：落到 `doc` 表（宿主 project）。三个动作都只在 Tauri 里有效 ——
      浏览器预览里 `api/docs.ts` 会明确报错，不给"保存成功"的假回执。 */
   const docMutations = useDocMutations()
+  /* 「存放目录」那一格的候选：只在打开新建弹窗时问后端（其余时刻这是白跑一趟） */
+  const dirList = useDocDirs(Boolean(owner) && docModal?.mode === 'create')
+  /** 新建时这一篇的默认落点：宿主目录（后端不给 `dir` 时也按它落） */
+  const docDirRoot = owner ? `${owner.kind}/${owner.id}` : undefined
   /** 表单里来源是中文（给人看），落库要 code */
   const sourceCodeOf = (label: string) =>
     Object.entries(DOC_SOURCE_META).find(([, text]) => text === label)?.[0] ?? 'local_md'
 
-  const submitDoc = (patch: { name: string; module: string; func: string; kind: string; source: string }) => {
+  const submitDoc = (patch: {
+    name: string
+    module: string
+    func: string
+    kind: string
+    source: string
+    dir?: string
+  }) => {
     if (!owner) return
     const editing = docModal?.id ? docs.find((d) => d.id === docModal.id) : undefined
     const input = {
@@ -1407,6 +1512,8 @@ export function DocLibrary({
       kind: patch.kind,
       /* 编辑时不换来源：换了要挪正文文件，属于另建一份（后端也会拦） */
       source: editing ? sourceCodeOf(editing.source) : sourceCodeOf(patch.source),
+      /* 落点只在新建时定：建完就是文件的家，改名 / 换模块都不挪它 */
+      ...(docModal?.mode === 'create' && patch.dir ? { dir: patch.dir } : {}),
     }
     if (docModal?.mode === 'create') {
       docMutations.create.mutate(input, {
@@ -1439,7 +1546,14 @@ export function DocLibrary({
    * 弹窗的提交 / 删除统一在这里收口：文档现在只有一个写接口（`doc_*`），
    * 没有 owner 的那些页（还没接库）仍走"还没有写接口"的提示。
    */
-  const handleSubmit = (patch: { name: string; module: string; func: string; kind: string; source: string }) => {
+  const handleSubmit = (patch: {
+    name: string
+    module: string
+    func: string
+    kind: string
+    source: string
+    dir?: string
+  }) => {
     submitDoc(patch)
     setDocModal(null)
   }
@@ -1953,6 +2067,9 @@ export function DocLibrary({
           /* 新建时把当前筛选带进来：在「用户中心 › 登录鉴权」下点的新建，这四项已经填好了 */
           defaultModule={moduleKey}
           defaultFunc={funcKey}
+          dirRoot={docDirRoot}
+          dirs={dirList.data?.dirs}
+          dirRootPath={dirList.data?.root}
           onClose={() => setDocModal(null)}
           onDelete={() => setDocModal({ mode: 'delete', id: docModal.id })}
           onConfirmDelete={owner ? handleDelete : undefined}
